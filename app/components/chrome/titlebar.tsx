@@ -9,10 +9,8 @@ import { openPalette } from "@/components/chrome/palette";
 import { useMap } from "@/components/map/map-context";
 import { openProjects } from "@/components/projects/projects";
 import { keys } from "@/components/ui/button";
-import { openAudit } from "@/components/map/audit";
 import { openHistory } from "@/components/review/additions";
 import { openDiff, useDiff } from "@/components/review/diff";
-import { openTimeline } from "@/components/review/timeline";
 import { StatusDot } from "@/components/agent/status-dot";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { TabClose } from "@/components/chrome/tabs";
@@ -235,7 +233,6 @@ function Where({ mac }: { mac: boolean }) {
 
 /** The tools that act on the open map. */
 function MapTools() {
-  const { name } = useMap();
   const diff = useDiff();
   return (
     <>
@@ -251,18 +248,6 @@ function MapTools() {
           <circle cx="6" cy="18" r="3" />
           <path d="M18 9a9 9 0 0 1-9 9" />
         </g>
-      </Control>
-      <Control label="How the code got here — its commits over the map's sections" onClick={openTimeline}>
-        {/* A line through time with three commits on it. */}
-        <path d="M1.5 8h13" />
-        <circle cx="4" cy="8" r="1.6" />
-        <circle cx="8.5" cy="8" r="2.2" />
-        <circle cx="12.5" cy="8" r="1.2" />
-      </Control>
-      <Control label="How sure is this map — what was checked, and what to double-check" onClick={() => openAudit(name)}>
-        {/* A page with a check: the run's record, read back. */}
-        <path d="M4 1.5h5.5L12 4v10.5H4z" />
-        <path d="m6 9 1.5 1.5L10 8" />
       </Control>
       <Control label="Docs — read the project's Markdown" onClick={() => openPalette("docs")}>
         <DocIcon />

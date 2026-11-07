@@ -12,6 +12,7 @@ import { FileRow, Rail, Row } from "@/components/review/commits";
 import { Comparing, Details, EndTag, FilePane, OnTheMap, Refs } from "@/components/review/commit-detail";
 import type { View } from "@/components/review/diff-view";
 import { ago } from "@/components/review/ago";
+import { openTimeline } from "@/components/review/timeline";
 
 /**
  * The history and what each commit did, laid out the way a code editor's
@@ -158,6 +159,17 @@ export function DiffPanel() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShown(false);
+              openTimeline();
+            }}
+            title="How the code got here — every commit on the map's sections, over time"
+            className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
+          >
+            Timeline
+          </button>
           <button
             type="button"
             onClick={() => setShown(false)}
