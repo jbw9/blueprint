@@ -171,7 +171,7 @@ export function NewTab({ onMap }: { onMap: () => void }) {
 
 /**
  * The landing page's demo repositories, when it frames this map
- * (landing/components/v2/landing-demo.tsx): it posts them in, and the strip
+ * (landing/components/landing-demo.tsx): it posts them in, and the strip
  * shows one tab per repository, as if each were open, instead of the map's
  * own. Picking one posts back, and the landing points the frame at it.
  */

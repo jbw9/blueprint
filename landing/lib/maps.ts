@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Diagram } from "@/components/v2/landing-agent";
+
+/** A box of the map's top-level picture, and an arrow between two, as the map file has them. */
+export interface Diagram {
+  boxes: { id: string; label: string; sub?: string; col: number; row: number }[];
+  arrows: { from: string; to: string; label: string }[];
+}
 
 export interface DemoNode {
   id: string;

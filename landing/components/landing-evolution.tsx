@@ -2,9 +2,9 @@
 /* eslint-disable @next/next/no-img-element -- the site is a static export, which next/image cannot optimize; these are small dithered PNGs already. */
 
 import { useEffect, useRef } from "react";
-import s from "./v2.module.css";
+import s from "./landing.module.css";
 
-const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/v2/${name}.png`;
+const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/${name}.png`;
 
 // Where each stop sits on the line, in the drawing's own units (1000 wide, H tall).
 const H = 1250;

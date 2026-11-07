@@ -672,7 +672,6 @@
 }
 .thing[data-type="choice"] {
   padding: 5px 9px;
-  border: 1px solid var(--color-mint-line);
   border-radius: 2px;
   background: var(--color-mint-success);
   color: var(--color-deep-green);

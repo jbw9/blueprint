@@ -6,7 +6,7 @@
 set -e
 site=$(cd "$1" && pwd)
 base=
-keep="kafka kafka-control-plane understand-slop"
+keep="kafka"
 demos="fastapi:fastapi/full-stack-fastapi-template flask:pallets/flask ky:sindresorhus/ky bluprint:jbw9/bluprint umami:umami-software/umami"
 
 for d in $demos; do

@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
-import { LandingAgent } from "@/components/v2/landing-agent";
-import { LandingCover } from "@/components/v2/landing-cover";
-import { LandingEvolution } from "@/components/v2/landing-evolution";
-import { LandingDemo, StarCount, type DemoMap } from "@/components/v2/landing-demo";
-import { LandingHow } from "@/components/v2/landing-how";
-import { LandingInstall } from "@/components/v2/landing-install";
-import { LandingNav } from "@/components/v2/landing-nav";
-import { LandingStart } from "@/components/v2/landing-start";
-import { LandingVisit } from "@/components/v2/landing-visit";
-import { LandingVoices, type Voice } from "@/components/v2/landing-voices";
-import s from "@/components/v2/v2.module.css";
+import { LandingAgent } from "@/components/landing-agent";
+import { LandingCover } from "@/components/landing-cover";
+import { LandingEvolution } from "@/components/landing-evolution";
+import { LandingDemo, StarCount, type DemoMap } from "@/components/landing-demo";
+import { LandingHow } from "@/components/landing-how";
+import { LandingInstall } from "@/components/landing-install";
+import { LandingNav } from "@/components/landing-nav";
+import { LandingStart } from "@/components/landing-start";
+import { LandingVisit } from "@/components/landing-visit";
+import { LandingVoices, type Voice } from "@/components/landing-voices";
+import s from "@/components/landing.module.css";
 import { loadMap } from "@/lib/maps";
 
 export const metadata: Metadata = {
@@ -96,7 +96,7 @@ export default function Landing() {
             <header id="app" className={s.appHead}>
               {/* Uncle Sam from the 1917 poster, cut out in the cover's blue like its hand, pointing out at the reader from behind the line. */}
               {/* eslint-disable-next-line @next/next/no-img-element -- the site is a static export, which next/image cannot optimize. */}
-              <img className={s.you} src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/v2/uncle-sam-cutout.png`} alt="" />
+              <img className={s.you} src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/uncle-sam-cutout.png`} alt="" />
               <h2>And now there&rsquo;s you.</h2>
             </header>
             <section aria-label="Live demo" className={s.demo}>
@@ -167,7 +167,7 @@ export default function Landing() {
       </div>
       <p className={s.credits}>
         Pictures, all public domain, from Wikimedia Commons: Ada Lovelace by Alfred Edward Chalon; Alan Turing, 1951;
-        ENIAC, U.S. Army; Grace Hopper, U.S. Navy; Margaret Hamilton with the Apollo flight software, Draper Laboratory;
+        ENIAC, U.S. Army; Margaret Hamilton with the Apollo flight software, Draper Laboratory;
         Apollo core rope memory; Robert Hooke&rsquo;s microscope, from <i>Micrographia</i>, 1665; James Montgomery Flagg&rsquo;s <i>I Want You</i>, 1917; Michelangelo&rsquo;s{" "}
         <i>The Creation of Adam</i>.
       </p>

@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import s from "./landing.module.css";
 import { Drawn, type Drawing } from "./landing-features";
-import { onTheme, readTheme } from "./landing-theme";
 
 export interface DemoMap {
   id: string;
@@ -84,22 +83,39 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
   const guide = useRef<Tour>(null);
   const shownMap = useRef(open);
 
-  // The page's theme is picked in the nav. The observer runs before a view transition's snapshot, so the frame turns with the page.
-  useEffect(
-    () =>
-      onTheme(() => {
-        try {
-          frame.current!.contentDocument!.documentElement.dataset.theme = readTheme();
-        } catch {}
-      }),
-    [],
-  );
+  // The page is always the white sheet, so the app in it is always Classic, the sheet's own cobalt, whatever the reader picked in the app.
+  // The frame shows the demos as its own tabs, one per repository (app/components/tabs.tsx).
+  const light = () => {
+    try {
+      frame.current!.contentDocument!.documentElement.dataset.theme = "classic";
+    } catch {}
+    tell();
+  };
+  const tell = () =>
+    frame.current?.contentWindow?.postMessage(
+      { type: "slop:repos", repos: maps.map(({ id, label }) => ({ id, label })), open },
+      location.origin,
+    );
+
+  // The frame asks for its tabs once it listens, and a tab picked there points it at that repository.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.source !== frame.current?.contentWindow) return;
+      if (e.data?.type === "slop:ready") tell();
+      if (e.data?.type === "slop:open") setOpen(e.data.id);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  });
 
   // The first frame is server-rendered and can finish loading before React
   // hydrates, so its load event is missed. Read the document instead.
   useEffect(() => {
     const doc = frame.current?.contentDocument;
-    if (doc?.readyState === "complete" && doc.URL !== "about:blank") setLoaded(open);
+    if (doc?.readyState === "complete" && doc.URL !== "about:blank") {
+      light();
+      setLoaded(open);
+    }
   }, [open]);
 
   // Another repository, whether picked by click or by arrow key, or another of the app's tools, ends the tour.
@@ -184,37 +200,17 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
         style={{ "--i": 4 } as React.CSSProperties}
       >
         <div className={s.canvas} data-drawn={!exploring}>
-          <div className={s.bar}>
-            <div aria-hidden className={s.lights}>
-              <span />
-              <span />
-              <span />
-            </div>
-            {exploring ? (
-              // The app's own tabs, one per project: which map the frame shows.
-              <div role="tablist" aria-label="Repository" className={s.repos} onKeyDown={(e) => walk(e, maps.map((m) => m.id), open, setOpen)}>
-                {maps.map((m) => (
-                  <button
-                    key={m.id}
-                    role="tab"
-                    data-id={m.id}
-                    aria-selected={m.id === open}
-                    tabIndex={m.id === open ? 0 : -1}
-                    onClick={() => setOpen(m.id)}
-                  >
-                    {m.label}
-                  </button>
-                ))}
+          {/* The app brings its own strip along the top; only a drawing needs a bar to name its map. */}
+          {exploring ? null : (
+            <div className={s.bar}>
+              <div aria-hidden className={s.lights}>
+                <span />
+                <span />
+                <span />
               </div>
-            ) : (
               <span className={s.project}>{shown.project}</span>
-            )}
-            {exploring ? (
-              <span className={s.meta}>
-                {current.files.toLocaleString("en-US")} files · {current.commit}
-              </span>
-            ) : null}
-          </div>
+            </div>
+          )}
           <div ref={stage} className={s.stage} data-ready={loaded === open}>
             {exploring && loaded !== open ? <p className={s.loading}>loading {current.id}…</p> : null}
             {/* Kept while another tab is open, so coming back finds the map where it was left. */}
@@ -223,7 +219,10 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
               src={src(open)}
               title={`${current.label}, explored`}
               hidden={!exploring}
-              onLoad={() => setLoaded(open)}
+              onLoad={() => {
+                light();
+                setLoaded(open);
+              }}
             />
             <div className={s.tour} data-tour hidden>
               <div className={s.ring} data-ring aria-hidden hidden />
@@ -580,7 +579,7 @@ function tour(frame: HTMLIFrameElement, stage: HTMLElement, replay: HTMLButtonEl
     mode = "done";
     show(ring, false);
     ringAt.forget();
-    text.textContent = "That's the whole loop. Keep exploring, or pick another repository above.";
+    text.textContent = "That's the whole loop. Keep exploring, or open another repository from the tabs above.";
     count.textContent = "";
     end.textContent = "Done";
     tipAt.glide(performance.now());
