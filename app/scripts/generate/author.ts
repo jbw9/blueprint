@@ -180,7 +180,7 @@ export function system(): Block[] {
     { type: "text", text: rules() },
     {
       type: "text",
-      text: `# The types (lib/data.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored map, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
+      text: `# The types (lib/map/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored map, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
       cache_control: { type: "ephemeral" },
     },
   ];

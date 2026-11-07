@@ -239,7 +239,7 @@ export function check(
   // The overview's boxes open the roots, as a node's open its children.
   built.set(OVERVIEW_ID, new Set(L0.map((n) => n.id)));
 
-  // `explain`: an Explainer's pictures (lib/data.ts), which draw an idea
+  // `explain`: an Explainer's pictures (lib/map/schema.ts), which draw an idea
   // rather than the code — so their boxes open nothing and their arrows cite
   // no line, and every other rule still holds.
   const walkBlocks = (owner: string, blocks: any[] = [], d: number, explain = false): number => {

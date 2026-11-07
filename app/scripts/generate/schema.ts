@@ -1,7 +1,7 @@
 /**
  * The shape a generated node must have, checked field by field so the author
  * gets a precise list back instead of a renderer crash. The types themselves
- * stay in lib/data.ts — `typeReference` hands the model that file's own text,
+ * stay in lib/map/schema.ts — `typeReference` hands the model that file's own text,
  * comments included, because those comments ARE the standard each field is
  * held to.
  */
@@ -12,9 +12,9 @@ import { autofix, check } from "./check";
 import { fillFromGraph } from "./fill";
 import { activeGraph } from "./graph";
 
-/** lib/data.ts from `State` to its end. */
+/** lib/map/schema.ts from `State` to its end. */
 export function typeReference(): string {
-  const src = readFileSync("lib/data.ts", "utf8");
+  const src = readFileSync("lib/map/schema.ts", "utf8");
   return src.slice(src.indexOf("export type State"));
 }
 
