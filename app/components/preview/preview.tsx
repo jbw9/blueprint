@@ -398,6 +398,7 @@ export function Preview({
             quiet.current = setTimeout(() => setClaude(false), 2500);
           });
         },
+        url: () => here.current,
       }),
     [id],
   );

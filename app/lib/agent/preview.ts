@@ -24,6 +24,8 @@ export type Call = { tab?: number | null } & (
 
 export interface PreviewHandle {
   run(call: Call): Promise<unknown>;
+  /** The page it shows, "" before one loads. */
+  url(): string;
 }
 
 const handles = new Map<number, PreviewHandle>();

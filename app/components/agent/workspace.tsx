@@ -337,16 +337,24 @@ export function Workspace() {
       }
       if (cmd.op === "terminal") return reply(true, terminal(root, tab, cmd.args));
       const previews = () => tabsNow.current.filter((x) => x.kind === "preview" && x.cwd === root);
-      const n = cmd.tab ?? undefined;
-      if (n !== undefined && !previews()[n - 1]) {
-        const open = previews().length;
-        throw new Error(`There is no Preview ${n}: this project has ${open || "no"} Preview tab${open === 1 ? "" : "s"} open. Navigate with new_tab to open another.`);
-      }
       // Each agent drives Previews of its own, so two sessions in a project
       // never move each other's page: its last one, else one nobody has.
       const own = () => (claims.current[tab] ?? []).filter((k) => previews().some((x) => x.key === k));
       const taken = (k: number) =>
         Object.entries(claims.current).some(([p, ks]) => +p !== tab && ks.includes(k) && tabsNow.current.some((x) => x.pty === +p));
+      // Every Preview and the page in it: without this an agent sees only the
+      // one it landed on, and takes the app for closed when it shows another page.
+      const roster = (at?: number) =>
+        previews()
+          .map((x, i) => `${i + 1} ${previewOf(x.key)?.url() || "blank"}${x.key === at ? " (this call)" : taken(x.key) ? " (another agent's)" : ""}`)
+          .join(", ");
+      const n = cmd.tab ?? undefined;
+      if (n !== undefined && !previews()[n - 1]) {
+        const open = previews().length;
+        throw new Error(
+          `There is no Preview ${n}: this project has ${open || "no"} Preview tab${open === 1 ? "" : "s"} open${open ? ` (${roster()})` : ""}. Navigate with new_tab to open another.`,
+        );
+      }
       const free = [previewTab(root), ...previews()].find((x) => x && !taken(x.key));
       let key = n !== undefined ? previews()[n - 1].key : (own().at(-1) ?? free?.key);
       // A new tab beside a Preview already open, or the agent's own when all are
@@ -366,7 +374,7 @@ export function Workspace() {
       };
       const which = () => {
         const all = previews();
-        return all.length > 1 ? ` (in Preview ${all.findIndex((x) => x.key === key) + 1})` : "";
+        return all.length > 1 ? ` (in Preview ${all.findIndex((x) => x.key === key) + 1}; Previews: ${roster(key)})` : "";
       };
       let handle = previewOf(key);
       if (!handle) {
