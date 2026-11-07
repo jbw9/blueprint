@@ -88,13 +88,20 @@ pub fn pty_spawn(
         .file_stem()
         .map_or_else(|| program.clone(), |s| s.to_string_lossy().into_owned());
     let mut cmd = CommandBuilder::new(&program);
+    // A Mac app opened from Finder gets a bare PATH; Terminal.app's shells are
+    // login shells, and only those read /etc/zprofile (path_helper, which adds
+    // /usr/local/bin) and ~/.zprofile (Homebrew's shellenv).
+    let login = cfg!(target_os = "macos");
+    if login {
+        cmd.arg("-l");
+    }
     // With Claude found, the launcher works in this tab; asked to, Claude runs
     // first and the user's ordinary interactive shell takes over when it exits.
     if let Some(launch) = &launch {
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
         if start_claude {
             if cfg!(unix) {
-                cmd.args(["-c", r#""$BLUPRINT_LAUNCHER"; exec "$SHELL""#]);
+                cmd.args(["-c", if login { r#""$BLUPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUPRINT_LAUNCHER"; exec "$SHELL""# }]);
                 cmd.env("SHELL", &program);
                 if let Some(id) = &resume {
                     claude::resuming(&context, id).map_err(|e| e.to_string())?;

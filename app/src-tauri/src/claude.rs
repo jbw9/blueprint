@@ -350,6 +350,17 @@ BLUPRINT_ZDOTDIR=$ZDOTDIR
 ZDOTDIR=$_bluprint_dot
 unset _bluprint_dot
 "#;
+/// Read by a login zsh (every tab on macOS) between .zshenv and .zshrc. The
+/// re-prepend matters for `zsh -l -c`, which reads no .zshrc.
+#[cfg(unix)]
+const ZPROFILE: &str = r#"# Bluprint's zsh startup (src-tauri/src/claude.rs).
+_bluprint_dot=$ZDOTDIR
+ZDOTDIR=$BLUPRINT_ZDOTDIR
+[ -f "$ZDOTDIR/.zprofile" ] && source "$ZDOTDIR/.zprofile"
+ZDOTDIR=$_bluprint_dot
+unset _bluprint_dot
+[ -n "$BLUPRINT_BIN" ] && PATH="$BLUPRINT_BIN:$PATH"
+"#;
 #[cfg(unix)]
 const ZSHRC: &str = r#"# Bluprint's zsh startup (src-tauri/src/claude.rs).
 ZDOTDIR=$BLUPRINT_ZDOTDIR
@@ -739,6 +750,7 @@ fn launcher() -> std::io::Result<PathBuf> {
     {
         install(&dir.join("claude"), CLAUDE_SHIM)?;
         install(&zdotdir().join(".zshenv"), ZSHENV)?;
+        install(&zdotdir().join(".zprofile"), ZPROFILE)?;
         install(&zdotdir().join(".zshrc"), ZSHRC)?;
     }
     #[cfg(windows)]
