@@ -8,7 +8,7 @@ import { openReview } from "@/components/diff";
 import { openFiles, useFiles } from "@/components/files";
 import { openPalette } from "@/components/palette";
 import { openProjects } from "@/components/projects";
-import { UNFOLLOWED, toggleWorkspace, followTurn } from "@/components/workspace";
+import { UNFOLLOWED, claudeMidTurnIn, toggleWorkspace, followTurn } from "@/components/workspace";
 import { coverage } from "@/lib/coverage";
 import type { Node } from "@/lib/data";
 import { STATIC_MAP } from "@/lib/source";
@@ -152,7 +152,7 @@ function Sep() {
 }
 
 /** How long the changed files must stay as they are before the map follows them by itself. */
-const SETTLE = 120_000;
+const SETTLE = 3_000;
 
 interface Update {
   status: "running" | "done" | "failed";
@@ -193,9 +193,10 @@ export function useRedoing(): string[] {
  *
  * Edits made outside a Bluprint tab (another editor, a pull) never ask for an
  * update, so between updates this says how far the code has moved from what
- * the map describes, and updates it once those files have stopped changing
- * for SETTLE: long enough that an agent mid-turn (whose turn updates the map
- * when it ends) is not raced. The same change is never retried after it
+ * the map describes (lib/live.ts, followed with the map each second), and
+ * updates it once those files have stopped changing for SETTLE. Not while
+ * Claude is mid-turn in the checkout: its turn updates the map when it ends,
+ * with its account of what it did. The same change is never retried after it
  * failed, since each try is a paid run.
  */
 function MapUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
@@ -232,38 +233,26 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
     return () => (clearInterval(timer), setRedoing([]));
   }, [id, local]);
 
-  const [behind, setBehind] = useState<string[]>([]);
+  const { live } = useMap();
+  const behind = local ? (live?.files ?? []) : [];
+  const sig = local ? (live?.sig ?? "") : "";
   // The change last updated for, so a failed one is not paid for again.
   const [tried, setTried] = useState("");
-  const quiet = useRef({ sig: "", since: 0, tried: "", running: false });
-  const running = u?.status === "running";
-  useEffect(() => {
-    quiet.current.running = running;
-  }, [running]);
   const follow = (sig: string) => {
-    quiet.current.tried = sig;
     setTried(sig);
     if (root) void followTurn(root, { transcript: null, corrections: [] });
   };
+  // Each save starts the wait again; one that runs out with the code still
+  // ahead updates. An update already running takes it after (lib/vault.ts, `again`).
   useEffect(() => {
-    if (!local) return;
-    const tick = () =>
-      fetch(`/api/files?map=${encodeURIComponent(id)}&behind=1`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((r: { behind: string[] } | null) => {
-          if (!r) return;
-          setBehind(r.behind);
-          const q = quiet.current;
-          const sig = r.behind.join("\n");
-          if (sig !== q.sig) Object.assign(q, { sig, since: Date.now() });
-          else if (sig && !q.running && q.tried !== sig && Date.now() - q.since >= SETTLE) follow(sig);
-        })
-        .catch(() => {});
-    void tick();
-    const timer = setInterval(tick, 15000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow reads only refs and root, which `id` pins
-  }, [id, local, u?.finishedAt]);
+    if (!sig || !root || sig === tried) return;
+    const t = setTimeout(() => {
+      if (claudeMidTurnIn(root)) return;
+      setTried(sig);
+      void followTurn(root, { transcript: null, corrections: [] });
+    }, SETTLE);
+    return () => clearTimeout(t);
+  }, [sig, root, tried]);
 
   useEffect(() => {
     if (!fresh) return;
@@ -296,13 +285,13 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
   if (!u || (u.status === "done" && (!fresh || !u.sections?.length)))
     return behind.length && root ? (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
-        <span className="truncate" title={behind.join("\n")}>
-          Map is behind: {behind.length} {behind.length === 1 ? "file" : "files"} changed
-          {tried === behind.join("\n") ? "" : " · updates when edits settle"}
+        <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
+          Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
+          {tried === sig ? "" : " · map follows when edits settle"}
         </span>
         <button
           type="button"
-          onClick={() => follow(behind.join("\n"))}
+          onClick={() => follow(sig)}
           className="shrink-0 cursor-pointer text-accent underline"
         >
           Update now
@@ -321,7 +310,7 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
       {u.status === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" /> : null}
       <span className="truncate">
         {u.status === "running"
-          ? "Updating the map to what the agent changed…"
+          ? "Updating the map to match the code…"
           : u.status === "failed"
             ? "✗ Map update failed"
             : `✓ Map updated: ${u.sections!.join(", ")}`}

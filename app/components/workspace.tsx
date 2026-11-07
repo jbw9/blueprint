@@ -664,6 +664,8 @@ export function Workspace() {
         }>("pty_state", { id: pty })
           .then(({ claude: live, busy, status: said, turn, ended, acts, plan, approved, steps = [], session }) => {
             if (turn && cwd) void followTurn(cwd, turn);
+            if (live && cwd && (said === "working" || said === "waiting")) midTurn.set(pty, cwd);
+            else midTurn.delete(pty);
             if (plan) planning.current(key, cwd, plan);
             if (approved) {
               const shut = closedPlans.current[key];
@@ -708,7 +710,7 @@ export function Workspace() {
       );
     tick();
     const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
+    return () => (clearInterval(timer), ids.forEach(([, pty]) => midTurn.delete(pty)));
   }, [started]);
 
   // A review waits for Claude to be idle before it is typed (lib/context.ts sendBatch).
@@ -1650,6 +1652,14 @@ function PhoneIcon() {
       <path d="M7 12h2" />
     </svg>
   );
+}
+
+/** The checkout each Claude tab is mid-turn in, by pty: that turn's end updates the map with its transcript. */
+const midTurn = new Map<number, string>();
+
+/** Whether Claude is mid-turn in `root`, so an update started now would race the one its turn will ask for. */
+export function claudeMidTurnIn(root: string) {
+  return [...midTurn.values()].some((cwd) => cwd === root || cwd.startsWith(`${root}/`) || cwd.startsWith(`${root}\\`));
 }
 
 /** Asks for the map to follow a turn that edited `root`; a checkout no project maps is said so in the title bar. */

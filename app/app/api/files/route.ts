@@ -2,8 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadMap, rootOf } from "@/lib/maps";
-import type { Node } from "@/lib/data";
-import { git, readText, refs, type Base } from "@/scripts/generate/gitdiff";
+import { followLive } from "@/lib/live";
 import { sourcePath } from "@/scripts/generate/inventory";
 import { projectDir } from "@/lib/vault";
 import type { MapIndex } from "@/lib/coverage";
@@ -54,22 +53,8 @@ export async function GET(request: Request) {
   // A map made before index.json says nothing about which files it saw, so none is new to it.
   const added = index ? present.filter((p) => !files[p] && sourcePath(p)) : [];
   if (q.get("behind")) {
-    const b = join(projectDir(open.name), "base.json");
-    const base: Base = existsSync(b) ? JSON.parse(readFileSync(b, "utf8")) : {};
-    const cited = new Set<string>();
-    const walk = (nodes: Node[]) => nodes.forEach((n) => (refs(n).forEach((r) => cited.add(r.file)), walk(n.children ?? [])));
-    walk(open.file.AUTHORED);
-    const untracked = git(root, "ls-files", "--others", "--exclude-standard").split("\n");
-    const touched = new Set([...git(root, "diff", "--name-only", "--relative", open.file.RUN.commit).split("\n"), ...untracked, ...Object.keys(base)]);
-    touched.delete("");
-    // Exactly what an update would take (update.ts `found`), so one always
-    // clears it: code or a cited file, and a deletion only of a cited one. A
-    // file an update already followed differs from the commit but not from base.json.
-    const behind = [...touched].filter((p) => {
-      const text = readText(join(root, p));
-      const takes = text === null ? cited.has(p) : sourcePath(p) || cited.has(p);
-      return takes && (p in base ? base[p] !== text : true);
-    });
+    // Exactly what an update would take (lib/live.ts, as update.ts `found`), so one always clears it.
+    const behind = followLive(open.name, root)?.live.files.map((f) => f.path) ?? [];
     return Response.json({ behind });
   }
   return Response.json({ index, added, local });

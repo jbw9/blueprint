@@ -429,6 +429,9 @@ export async function update(args: string[]) {
   // reference moves to where its code is now.
   const { picked, homeless } = targets(map, cut, new Map([...byPath].filter(([p]) => !isNew(p))), [...wrong.keys()], (p) => Boolean(isCode.get(p)));
   for (const p of walk(map.AUTHORED)) refs(p.node, (f, line) => (byPath.has(f) ? moved(byPath.get(f)!, line) : line));
+  // The code as this update found it: once the map is next written it cites
+  // that, so the open page shifts the map's lines from it (lib/live.ts).
+  if (!has("--dry-run")) writeFileSync(`${out}/moved.json`, JSON.stringify(Object.fromEntries(found.map((c) => [c.path, c.after]))) + "\n");
   console.log(`${picked.length} sections to redo: ${picked.map((p) => p.node.id).join(", ")}`);
   // A section redone takes the notes on it and on anything inside it.
   const notesFor = (t: Placed) => [...wrong].filter(([p]) => p.path.includes(t.node)).flatMap(([p, n]) => n.map((x) => (p === t ? x : `${p.node.title}: ${x}`)));
@@ -517,6 +520,7 @@ export async function update(args: string[]) {
   // The map now describes these files as they are: the next update starts here.
   for (const c of found) base[c.path] = c.after;
   writeFileSync(`${out}/base.json`, JSON.stringify(base) + "\n");
+  rmSync(`${out}/moved.json`, { force: true });
 
   const usd = Math.round(Object.values(bill).reduce((a, b) => a + b.usd, 0) * 100) / 100;
   const sections = [

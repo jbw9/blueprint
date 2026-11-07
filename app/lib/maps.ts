@@ -9,7 +9,8 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Node, Run } from "@/lib/data";
-import type { MapFile } from "@/lib/map";
+import { LIVE_SEP, type MapFile } from "@/lib/map";
+import { followLive, liveOf, shiftRefs } from "@/lib/live";
 import { apply, overlayFile, readOverlay } from "@/lib/overlay";
 import { listProjects, mapFileOf, markOpened, progressOf, projectDir, type Progress, type Project } from "@/lib/vault";
 
@@ -94,6 +95,11 @@ function readMap(p: Project, progress: Progress | undefined): MapFile {
     ? JSON.parse(readFileSync(file, "utf8"))
     : { RUN: { command: `bluprint map ${p.name}`, repo: p.name, commit: "", files: 0, elapsed: "" }, AUTHORED: [] };
   map.RUN.root = p.root;
+  // The code may be ahead of the map: its lines are read where they are now.
+  if (file) {
+    shiftRefs(p.id, map);
+    map.LIVE = liveOf(p.id);
+  }
   if (progress) withDrafts(map, p.id, progress);
   // What the reader added, composed in here so every consumer sees it.
   return apply(map, readOverlay(p.id)).file;
@@ -126,6 +132,7 @@ const mtime = (f: string) => (existsSync(f) ? statSync(f).mtimeMs : 0);
  * composed from. The generator and the updater rename a whole new file into
  * place, so a new time is a new map, and the open page follows it
  * (app/api/map/route.ts). Undefined for anything that is not a project with a map.
+ * Past LIVE_SEP, how far the code has moved since (lib/live.ts).
  */
 export function mapVersion(id: string): string | undefined {
   const p = listProjects().find((q) => q.id === id);
@@ -133,9 +140,11 @@ export function mapVersion(id: string): string | undefined {
   const file = mapFileOf(id);
   const made = `${file ? mtime(file) : 0}:${mtime(overlayFile(id))}`;
   // While a run makes the map, its progress and drafts are part of what the page shows.
-  return p.map.status === "generating" || !file
-    ? `${made}:${p.map.status}:${mtime(runFile(id))}:${mtime(join(projectDir(id), "drafts.json"))}`
-    : made;
+  const disk =
+    p.map.status === "generating" || !file ? `${made}:${p.map.status}:${mtime(runFile(id))}:${mtime(join(projectDir(id), "drafts.json"))}` : made;
+  // Asked only for the open map, so this is what keeps its checkout watched.
+  const live = file ? followLive(id, p.root)?.live : undefined;
+  return live ? `${disk}${LIVE_SEP}${live.seq}` : disk;
 }
 
 /**

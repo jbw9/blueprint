@@ -14,7 +14,7 @@ import { Zoom } from "@/components/zoom";
 import { Crumbs, goTo, useLocation, useMayBeStale } from "@/components/chrome";
 import { Button, CodeIcon } from "@/components/button";
 import { Menu } from "@/components/menu";
-import { useMap } from "@/components/map-context";
+import { useChangedCode, useMap } from "@/components/map-context";
 import { useFlash } from "@/components/flash";
 import { useRedoing } from "@/components/statusbar";
 import { DocView, closeDoc, useOpenDoc } from "@/components/docs";
@@ -25,7 +25,7 @@ import { handTo, mention, openClaude, section, sectionKey, usePicked, type Targe
 import { startNote } from "@/lib/notes";
 import { FixAndKeep, onAnswer } from "@/components/keep";
 import { DragChip, SectionTabs, dropAt, dropInTab, openInTab, setPartDrag, tabTitle, type Drop } from "@/components/tabs";
-import { BlockDiffView, RemovedSections, SectionTint, useBlockDiffs } from "@/components/diff";
+import { BlockDiffView, RemovedSections, SectionTint, openReview, useBlockDiffs } from "@/components/diff";
 import { DiffBar, HereChanges } from "@/components/diagram-diff";
 import type { Exchange } from "@/lib/keep";
 import { codeAt, describeElement, describeProblems, problemSpans, type BuiltMap } from "@/lib/map";
@@ -117,6 +117,13 @@ export function Canvas() {
    * were.
    */
   const { path, crumbs } = useLocation();
+  // An update held back while this level was open is taken in on the way to another (components/map-context.tsx).
+  const { onScreen, apply } = map;
+  const at = JSON.stringify(path);
+  useEffect(() => {
+    onScreen(JSON.parse(at));
+    apply();
+  }, [at, onScreen, apply]);
   // A doc opened over the level (components/docs.tsx) takes its place until closed.
   const doc = useOpenDoc();
   // So does the history (components/timeline.tsx).
@@ -1054,6 +1061,7 @@ function List({
   /** The order the picture above assigned its section hues, by node id. */
   hue?: string[];
 }) {
+  const changed = useChangedCode();
   return (
     <ul className="max-w-[560px]">
       {nodes.map((n) => {
@@ -1083,6 +1091,7 @@ function List({
               <span className="truncate text-[14px] font-medium tracking-[-0.01em] text-ink">
                 {n.title}
               </span>
+              <ChangeDot files={changed.get(n.id)} />
               {n.issues?.length ? (
                 <span className="shrink-0 font-mono text-[10.5px] text-clay-ink">
                   ⚠ {n.issues.length}
@@ -1214,6 +1223,8 @@ function Header({
   // This level, or the section it sits in, is being redone by an update.
   const redoing = useRedoing();
   const rewriting = path.some((id) => redoing.includes(id));
+  // An update rewrote this level and holds it back until asked (components/map-context.tsx).
+  const { pending, apply } = useMap();
   return (
     <header data-path={JSON.stringify(path)} className="mb-8 border-b border-border-gray pb-7">
       {/* One toolbar row: the way back on the left, what you can do to this
@@ -1239,6 +1250,18 @@ function Header({
           </Fragment>
         ))}
         <span className="flex-1" />
+        {pending ? (
+          <span role="status" className="arrive flex items-center gap-2 text-[12.5px] text-muted-slate">
+            <span aria-hidden className="size-[6px] shrink-0 rounded-full bg-accent" />
+            Updated to match the code
+            <Button variant="ghost" onClick={() => (apply(), openReview("turn:latest"))}>
+              Show changes
+            </Button>
+            <Button variant="ghost" onClick={apply}>
+              Refresh
+            </Button>
+          </span>
+        ) : null}
         {onCode ? (
           <Button onClick={onCode} icon={<CodeIcon />}>
             View the code
@@ -1257,7 +1280,7 @@ function Header({
       {rewriting ? (
         <div role="status" className="shimmer mb-5 flex max-w-[720px] items-center gap-2 border border-amber-line bg-amber-surface/60 px-3 py-2 text-[13px] text-amber-ink">
           <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" />
-          Rewriting this section from your conversation. It usually takes a minute or two and updates here by itself.
+          Rewriting this section to match its code. It usually takes a minute or two and updates here by itself.
         </div>
       ) : null}
       <div className="max-w-[720px]">
@@ -1350,10 +1373,22 @@ function inside(node: Node): string {
 }
 
 /**
+ * A quiet mark on a part whose code changed and that no update has rewritten
+ * yet (lib/live.ts), naming the files on hover. Still: the map is not redrawn
+ * while the code is being written.
+ */
+export function ChangeDot({ files }: { files?: string[] }) {
+  if (!files?.length) return null;
+  const said = `Code changed: ${files.join(", ")}. The map follows once your edits settle.`;
+  return <span role="img" aria-label={said} title={said} className="size-[7px] shrink-0 rounded-full bg-amber-ink" />;
+}
+
+/**
  * One part of the level: what it is, in a line, and what you will find if you
  * open it. Never its contents — those are the next step down.
  */
 function Row({ node, at, onOpen }: { node: Node; at: string[]; onOpen: (p: string[]) => void }) {
+  const changed = useChangedCode();
   const go = openable(node) ? () => onOpen([...at, node.id]) : undefined;
   // No path on a card at all (D42): a card says what the part IS, and the
   // level it opens says where that lives.
@@ -1378,6 +1413,7 @@ function Row({ node, at, onOpen }: { node: Node; at: string[]; onOpen: (p: strin
           <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {node.title}
           </span>
+          <ChangeDot files={changed.get(node.id)} />
           <StateChip state={node.state} alarm={node.alarm} />
           {node.issues?.length ? (
             <span className="shrink-0 border border-clay-line bg-clay-surface px-2 py-[3px] font-mono text-[10px] leading-none text-clay-ink">

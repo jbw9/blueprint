@@ -10,6 +10,7 @@
 
 import type { Anatomy, CodeRef, Node, Run, Term, Walkthrough } from "@/lib/data";
 import { rowId } from "@/lib/data";
+import type { Live } from "@/lib/live";
 import { share } from "@/lib/share";
 
 /**
@@ -30,7 +31,12 @@ export interface MapFile {
   RUN: Run;
   OVERVIEW?: Overview;
   AUTHORED: Node[];
+  /** How far the code has moved past this map while it is open (lib/live.ts); the map's lines are already shifted to it. */
+  LIVE?: Live;
 }
+
+/** In a map's version, what follows this is the code moving, not the map (lib/maps.ts, mapVersion). */
+export const LIVE_SEP = "|live:";
 
 /** The top level's id: the empty path, which is the repository itself. */
 export const TOP_ID = "";

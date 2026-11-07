@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Eyebrow, OriginMark, Prose } from "@/components/state";
 import type { Anatomy, CodeRef, Issue } from "@/lib/data";
 import type { Slice as RepoSlice } from "@/lib/repo";
-import { useMap } from "@/components/map-context";
+import { useChangedCode, useMap } from "@/components/map-context";
 import { useMayBeStale } from "@/components/chrome";
 import { readSource } from "@/lib/source";
 import { openDoc } from "@/components/docs";
@@ -153,6 +153,7 @@ function Diagram({
   // as changed too: on a review, the boxes on every level are the way down
   // to the change, not only the one that holds it.
   const diff = useDiff()?.diff;
+  const changedCode = useChangedCode();
   const sections = diff?.sections;
   const verdictOf = (id: string | undefined) => {
     const s = id ? sections?.find((x) => x.id === id) : undefined;
@@ -319,6 +320,12 @@ function Diagram({
                 >
                   {b.label}
                 </text>
+                {/* Code under this part changed and the map has not followed yet (lib/live.ts): a dot on the corner, the box itself untouched. */}
+                {!diff && b.opens && changedCode.get(b.opens) ? (
+                  <circle cx={x + w - 9} cy={y + 9} r={3.5} fill="var(--color-amber-ink)">
+                    <title>{`Code changed: ${changedCode.get(b.opens)!.join(", ")}. The map follows once your edits settle.`}</title>
+                  </circle>
+                ) : null}
                 {v ? (
                   <text x={x + w - 8} y={y + 15} textAnchor="end" fontSize="12" fontWeight="700" fill={TINT[v].ink}>
                     {TINT[v].mark}
