@@ -118,6 +118,10 @@ const RESTORE: &str = r#"h="$SLOP_CONTEXT.hidden"; [ -e "$h.file" ] || exit 0; p
 /// design skills drive), or Chrome itself. Exit 2 hands the reason to Claude.
 const NO_BROWSER: &str = r#"grep -qE 'browse/dist/browse|\$B [a-z]|Google Chrome|chrome --headless' || exit 0; echo 'Browsing happens in the Preview here (the slop-preview tools), never a headless Chromium or Chrome. Do this step with navigate, computer and get_page_text instead.' >&2; exit 2"#;
 
+/// Plan mode still prompts for these despite the allow rules in `prepare`; a
+/// hook's allow skips that prompt and still loses to the deny rules.
+const PLAN_READS: &str = r#"grep -qE '"permission_mode": *"plan"' || exit 0; echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'"#;
+
 /// What Claude is doing, for the dot on its tab: each hook below writes one
 /// word, `working`, `waiting` (a question or a permission only the user can
 /// answer) or `done`.
@@ -804,7 +808,8 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
                 { "matcher": "ExitPlanMode", "hooks": [hook(PLAN), hook(HIDE)] },
                 // Not on ExitPlanMode itself, whose HIDE runs beside it.
                 { "matcher": "^(?!ExitPlanMode$)", "hooks": [hook(RESTORE)] },
-                { "matcher": "Bash", "hooks": [hook(NO_BROWSER)] }
+                { "matcher": "Bash", "hooks": [hook(NO_BROWSER)] },
+                { "matcher": "^(mcp__slop-preview__.*|WebSearch|WebFetch|Skill)$", "hooks": [hook(PLAN_READS)] }
             ],
             "PostToolUse": [
                 { "matcher": EDITING_TOOLS, "hooks": [hook(EDITED)] },
@@ -946,6 +951,28 @@ mod tests {
     fn run(cmd: &str, queue: &Path) -> String {
         let out = Command::new("sh").args(["-c", cmd]).env("SLOP_CONTEXT", queue).output().unwrap();
         String::from_utf8(out.stdout).unwrap()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn plan_mode_reads_are_allowed_only_in_plan_mode() {
+        use std::io::Write as _;
+        let hand = |input: &str| {
+            let mut child = Command::new("sh")
+                .args(["-c", PLAN_READS])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+            let out = child.wait_with_output().unwrap();
+            assert!(out.status.success());
+            String::from_utf8(out.stdout).unwrap()
+        };
+        let plan = hand(r#"{"permission_mode": "plan", "tool_name": "mcp__slop-preview__computer"}"#);
+        let said: serde_json::Value = serde_json::from_str(&plan).unwrap();
+        assert_eq!(said["hookSpecificOutput"]["permissionDecision"], "allow");
+        assert_eq!(hand(r#"{"permission_mode":"default","tool_name":"WebSearch"}"#), "");
     }
 
     #[cfg(unix)]

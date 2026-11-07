@@ -258,7 +258,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Skills and web research"
-            hint="Claude loads skills and searches or reads the web without asking each time, so plan mode can research freely. Plan mode still never edits files."
+            hint="Claude loads skills and searches or reads the web without asking each time. Plan mode always does, and still never edits files."
           >
             <div role="radiogroup" aria-label="Skills and web research" className="inline-flex border border-border-gray p-0.5">
               {[
