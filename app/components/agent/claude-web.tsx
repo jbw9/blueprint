@@ -6,7 +6,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
 import { AgentIcon } from "@/components/agent/agents";
-import { TOGGLE } from "@/components/agent/workspace";
+import { TOGGLE } from "@/lib/agent/workspace-toggle";
 import { cn } from "@/lib/client/utils";
 import { useMap } from "@/components/map/map-context";
 import { findSection } from "@/lib/agent/act";

@@ -273,7 +273,12 @@ export function prompt(pty: number, text: string) {
   setTimeout(() => void invoke("pty_write", { id: pty, data: "\r" }), 150);
 }
 
-const paste = (pty: number, text: string) => void invoke("pty_write", { id: pty, data: `\x1b[200~${text}\x1b[201~` });
+/**
+ * Puts text in a program's prompt as a paste, without pressing Enter: agents'
+ * TUIs ask for bracketed paste, so it lands as one block they can tell from
+ * typing.
+ */
+export const paste = (pty: number, text: string) => void invoke("pty_write", { id: pty, data: `\x1b[200~${text}\x1b[201~` });
 
 /** Resolves once Claude in the tab is not waiting on the user (a question, a permission), which typing would answer. */
 async function whenFree(pty: number) {

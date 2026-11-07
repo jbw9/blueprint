@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DIALOG, INPUT, Overlay, QUIET } from "@/components/ui/dialog";
 import { goTo } from "@/components/chrome/crumbs";
 import { useMap } from "@/components/map/map-context";
-import { followTurn } from "@/components/agent/workspace";
+import { followTurn } from "@/lib/agent/turns";
 import { citations, required, symbolsOf, type Citation, type IndexFile, type MapIndex } from "@/lib/map/coverage";
 import { cn } from "@/lib/client/utils";
 

@@ -13,7 +13,7 @@ import { openHistory } from "@/components/review/additions";
 import { openDiff } from "@/components/review/diff";
 import { openTimeline } from "@/components/review/timeline";
 import { openFiles, useCitations, useFiles, useTrail } from "@/components/map/files";
-import { toggleWorkspace } from "@/components/agent/workspace";
+import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { DocIcon, openDoc, useDocList } from "@/components/map/docs";
 import { openSettings, readSettings, saveSettings } from "@/lib/client/settings";
 import type { Theme } from "@/lib/client/theme";

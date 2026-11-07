@@ -2,12 +2,26 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Menu } from "@/components/ui/menu";
-import { mention, openClaude, usePicks, type Target } from "@/lib/agent/context";
-import { PRESETS, hostOf, registerPreview, type Call } from "@/lib/agent/preview";
-import { cn, sleep } from "@/lib/client/utils";
+import { bare, isWeb, originOf, pathOf } from "@/components/preview/address";
+import { Devices } from "@/components/preview/devices";
+import { Handle } from "@/components/preview/handle";
+import { focused, onScreen, touch, touched } from "@/components/preview/keys";
+import { collect, listenToPage } from "@/components/preview/messages";
+import { navigation } from "@/components/preview/navigation";
+import type { Line, Parts, Said, Signing } from "@/components/preview/parts";
+import { PickMenu } from "@/components/preview/pick-menu";
+import { Placeholder } from "@/components/preview/placeholder";
+import { ShowSwitches } from "@/components/preview/show-switches";
+import { SignInBar } from "@/components/preview/sign-in-bar";
+import { Tool } from "@/components/preview/tool";
+import { agent as ask, tools } from "@/components/preview/tools";
+import { PAD, clamp, keepSize, storedSize, type Size } from "@/components/preview/viewport";
+import { keepOver } from "@/components/preview/webview";
+import { mention, usePicks, type Target } from "@/lib/agent/context";
+import { PRESETS, registerPreview, type Call } from "@/lib/agent/preview";
+import { cn } from "@/lib/client/utils";
 
 /**
  * A project's running web app, in a workspace tab (components/agent/workspace.tsx).
@@ -31,156 +45,6 @@ import { cn, sleep } from "@/lib/client/utils";
  * the size changes, it is shown in the middle in pixels, as Ghostty shows a
  * terminal's.
  */
-
-type Size = { w: number; h: number };
-
-/** Space around a sized viewport, where its handles sit. */
-const PAD = 20;
-const MIN = 200;
-const MAX = 3840;
-const SIZE_KEY = "slop.preview.size:";
-
-const clamp = (n: number) => Math.max(MIN, Math.min(MAX, Math.round(n)));
-
-function storedSize(root: string): Size | null {
-  try {
-    const v = JSON.parse(localStorage.getItem(SIZE_KEY + root) ?? "null") as Size | null;
-    if (v && v.w >= MIN && v.h >= MIN) return v;
-  } catch {
-    /* storage blocked: fill the tab */
-  }
-  return null;
-}
-
-function keepSize(root: string, size: Size | null) {
-  try {
-    if (size) localStorage.setItem(SIZE_KEY + root, JSON.stringify(size));
-    else localStorage.removeItem(SIZE_KEY + root);
-  } catch {
-    /* applies until reload */
-  }
-}
-
-/** Everything after the host: `/about?x` of `http://localhost:5173/about?x`. */
-const pathOf = (url: string) => url.replace(/^(?:https?:\/\/)?[^/?#]+/, "") || "/";
-const originOf = (url: string) => (url.match(/^(?:https?:\/\/)?[^/?#]+/)?.[0] ?? url).replace(/^(?!https?:)/, "http://");
-const bare = (url: string) => url.replace(/^https?:\/\//, "");
-
-/** An address off this machine: the web, not a dev server. */
-const isWeb = (url: string) => /^https?:\/\//.test(url) && !hostOf(url);
-
-/** What was typed, as a page from the web: an address, or else a search. */
-const toWeb = (v: string) =>
-  /^https?:\/\//.test(v)
-    ? v
-    : /^[\w-]+(\.[\w-]+)+(:\d+)?([/?#]|$)/.test(v)
-      ? `https://${v}`
-      : `https://www.google.com/search?q=${encodeURIComponent(v)}`;
-
-/** A page's site, as sign-ins are kept by (src-tauri/src/signins.rs): `www.instagram.com` is `instagram.com`. */
-const siteOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-  } catch {
-    return null;
-  }
-};
-const covers = (site: string, url: string) => {
-  const host = siteOf(url);
-  return !!host && (host === site || host.endsWith(`.${site}`));
-};
-
-/** Sites a sign-in is offered for all projects first; any other, for this project only. */
-const SHARED = /(^|\.)(instagram|facebook|x|twitter|youtube|google|tiktok|linkedin|reddit|threads|github|vimeo|pinterest)\.(com|net)$|^youtu\.be$/;
-
-/** Claude waiting on the user to sign in, and where they chose to keep it. */
-type Signing = { site: string; project: boolean };
-
-// Real input is AppKit's (src-tauri/src/browser.rs).
-const REAL = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
-
-/**
- * The Previews on screen, by tab, for a browser's keys: Cmd+R, Cmd+[, Cmd+]
- * and Cmd+L from the menu bar on a Mac (src-tauri/src/lib.rs), Ctrl+R and
- * Ctrl+L elsewhere. A key pressed in a page stays in its webview or frame,
- * so the Preview last clicked or focused is remembered here.
- */
-const onScreen = new Map<number, { el: HTMLElement; key: (k: string) => void }>();
-let touched: number | null = null;
-
-/** The Preview the keyboard is in; none while it is in a terminal or the map. */
-const focused = () => (touched !== null && onScreen.has(touched) ? touched : null);
-
-if (typeof window !== "undefined") {
-  // Whatever of the app's page was last clicked or focused; a page's own
-  // webview or frame says so itself (agent.js).
-  const into = (e: Event) => {
-    touched = [...onScreen].find(([, p]) => p.el.contains(e.target as Node))?.[0] ?? null;
-  };
-  window.addEventListener("pointerdown", into, true);
-  window.addEventListener("focusin", into, true);
-  // Off a Mac there is no menu bar to take the keys first, and the browser's
-  // own Ctrl+R would reload the whole app, losing every tab.
-  if (!REAL)
-    window.addEventListener(
-      "keydown",
-      (e) => {
-        if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || (e.code !== "KeyR" && e.code !== "KeyL")) return;
-        // A terminal's Ctrl+R is its shell's history search, and Ctrl+L its clear: its own to take.
-        if ((e.target as Element | null)?.closest?.(".xterm")) return;
-        const at = focused();
-        if (at === null) {
-          if (e.code === "KeyR") e.preventDefault();
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        onScreen.get(at)?.key(e.code === "KeyR" ? "reload" : "address");
-      },
-      true,
-    );
-}
-
-type Act = { kind: "move" | "down" | "up" | "drag" | "key" | "text"; x?: number; y?: number; button?: number; clicks?: number; text?: string };
-
-/** Where the agent found a click's target (agent.js `locate`). */
-type Located = { x: number; y: number; what: string; native: { kind: "select" | "file" | "color"; ref: string; options?: string } | null };
-
-
-/** The toolbar's device toggles: the whole tab, then presets (lib/agent/preview.ts). */
-const DEVICES = [
-  { id: "fill", label: "Fill the tab", icon: <path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3" /> },
-  { id: "mobile", label: "Phone", icon: <><rect x="4.5" y="1.5" width="7" height="13" rx="1.5" /><path d="M7.2 12.2h1.6" /></> },
-  { id: "tablet", label: "Tablet", icon: <><rect x="2.5" y="1.5" width="11" height="13" rx="1.5" /><path d="M7.2 12.2h1.6" /></> },
-  { id: "desktop", label: "Desktop", icon: <><rect x="1.5" y="2.5" width="13" height="8.5" rx="1" /><path d="M5.5 13.5h5M8 11v2.5" /></> },
-];
-
-/** A message from the agent in the page (src-tauri/src/agent.js). */
-type Said =
-  | { type: "location"; url: string; title?: string }
-  | { type: "console"; level: string; text: string }
-  | { type: "open"; url: string }
-  | { type: "reply"; id: number; ok: boolean; value: unknown }
-  | { type: "loaded" }
-  /** The user picked one or more things to hand to Claude, the last at (x, y) in the page. */
-  | { type: "pick"; x: number; y: number; targets: Target[] }
-  | { type: "unpick" }
-  /** The page's select mode went on or off (agent.js). */
-  | { type: "selecting"; on: boolean }
-  /** The page took the keyboard, or was given a browser's key off a Mac. */
-  | { type: "focus" }
-  | { type: "key"; key: string };
-
-/** What a page from the web has said since it was last asked (agent.js). */
-const DRAIN = "window.__slop ? window.__slop.drain() : []";
-
-interface Line {
-  level: string;
-  text: string;
-}
-
-let nextCall = 1;
-let nextView = 1;
 
 export function Preview({
   id,
@@ -296,53 +160,16 @@ export function Preview({
     return bare(url.startsWith(mine) ? originOf(server.current) + url.slice(mine.length) : url);
   };
 
-  /**
-   * Opens a page: one from the web in its webview, opened the first time;
-   * the dev server's in the frame, without a step in the window's history.
-   */
-  const go = (url: string) => {
-    if (isWeb(url)) {
-      onWeb.current = true;
-      return void (async () => {
-        // A webview has one store for its life: a page kept in the other is opened in a new one.
-        const s = signingNow.current;
-        const own = s && covers(s.site, url) ? s.project : await invoke<boolean>("signin_project", { root, url }).catch(() => false);
-        const label = browser.current;
-        if (label && ownStore.current === own) {
-          setWeb(label);
-          return invoke("browser_go", { label, url });
-        }
-        if (label) void invoke("browser_close", { label });
-        const r = sheet.current?.getBoundingClientRect();
-        const { scale: zoom } = view.current;
-        // Named before it opens: its first load can be heard before the open returns.
-        const opened = `browser-${id}-${nextView++}`;
-        browser.current = opened;
-        ownStore.current = own;
-        try {
-          await invoke("browser_open", {
-            label: opened,
-            url,
-            x: r?.x ?? 0,
-            y: r?.y ?? 0,
-            width: r?.width || 1,
-            height: r?.height || 1,
-            zoom,
-            project: own ? root : null,
-          });
-        } catch (e) {
-          if (browser.current === opened) browser.current = null;
-          throw e;
-        }
-        if (onWeb.current) setWeb(opened);
-      })().catch(fail);
-    }
-    onWeb.current = false;
-    setWeb(null);
-    const w = frame.current?.contentWindow;
-    if (w) w.location.replace(url);
-    else setSrc(url);
-  };
+  // What the Preview's code kept outside it works with (parts.ts): gathered
+  // when that code is called, not in render.
+  const parts = (): Parts => ({
+    id, root, frame, stage, sheet, sizeBadge, proxy, browser, ownStore, signingNow, signedIn, onWeb, here, server, log, dialogs,
+    pending, everLoaded, missed, trail, view, hear, replace, setPointed, setSrc, setShown, setBadge, setWeb, setSigning,
+    display, go, fail, loaded, nextLoad, navigate, agent, resize,
+  });
+
+  /** Opens a page, from the web or the dev server (navigation.ts). */
+  const go = (url: string) => navigation(parts()).go(url);
 
   const fail = (e: unknown) => {
     setError(String(e));
@@ -475,122 +302,25 @@ export function Preview({
       } else if (m.type === "selecting") {
         setSelecting(m.on);
       } else if (m.type === "focus") {
-        touched = id;
+        touch(id);
       } else if (m.type === "key") {
         keyed.current(m.key);
       }
     };
   });
-  useEffect(() => {
-    const on = (e: MessageEvent) => {
-      if (!frame.current || e.source !== frame.current.contentWindow || !e.data?.__slop) return;
-      // Behind a page from the web, the frame's page is not the one in front:
-      // where it is, what it logs and that it loaded are not this tab's.
-      if (onWeb.current && e.data.type !== "reply") return;
-      hear.current(e.data);
-    };
-    window.addEventListener("message", on);
-    // Every page of the webview, heard from its first: a load can finish
-    // before the webview is shown, or before its open has returned.
-    const off = isTauri()
-      ? listen<{ label: string; url: string; done: boolean }>("slop:browser", (e) => {
-          if (e.payload.label !== browser.current || !onWeb.current) return;
-          replace.current();
-          if (!e.payload.done) return setShown(bare(e.payload.url));
-          // Where it ended up, before the page's own word on it is next collected.
-          hear.current({ type: "location", url: e.payload.url });
-          hear.current({ type: "loaded" });
-        })
-      : undefined;
-    return () => {
-      window.removeEventListener("message", on);
-      void off?.then((f) => f());
-    };
-  }, []);
+  useEffect(() => listenToPage({ frame, onWeb, browser, hear, replace, setShown }), []);
 
-  // A page from the web keeps what it says until it is collected.
   useEffect(() => {
     if (!web) return;
-    let busy = false;
-    const timer = setInterval(() => {
-      if (busy) return;
-      busy = true;
-      invoke<Said[] | null>("browser_eval", { label: web, js: DRAIN })
-        .then((all) => all?.forEach((m) => hear.current(m)))
-        .catch(() => {})
-        .finally(() => (busy = false));
-    }, 120);
-    return () => clearInterval(timer);
+    return collect(hear, web);
   }, [web]);
 
-  // The webview of a page from the web, kept over the viewport: moved with
-  // it, and hidden while it is out of sight or anything of the app's (a menu,
-  // a dialog) is over it, as it would otherwise cover that.
   useEffect(() => {
     if (!web) return;
-    let last = "";
-    let frameId = 0;
-    const place = () => {
-      const el = sheet.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      // The viewport's own resize edges lie over the page's sides when it
-      // fills the tab: they are the preview's, not something over it.
-      const own = stage.current ?? el;
-      const inside = (x: number, y: number) => {
-        const top = document.elementFromPoint(x, y);
-        return !!top && own.contains(top);
-      };
-      const shown =
-        r.width > 0 &&
-        inside(r.x + r.width / 2, r.y + r.height / 2) &&
-        inside(r.x + 4, r.y + 4) &&
-        inside(r.right - 4, r.y + 4) &&
-        inside(r.x + 4, r.bottom - 4) &&
-        inside(r.right - 4, r.bottom - 4);
-      const at = { x: r.x, y: r.y, width: r.width, height: r.height, zoom: view.current.scale, shown };
-      const key = JSON.stringify(at);
-      if (key === last) return;
-      last = key;
-      void invoke("browser_place", { label: web, ...at }).catch(() => {});
-    };
-    const loop = () => {
-      frameId = requestAnimationFrame(loop);
-      place();
-    };
-    // WebKit sets the zoom back to 1 for each new page: given again.
-    replace.current = () => {
-      last = "";
-      place();
-    };
-    loop();
-    return () => {
-      cancelAnimationFrame(frameId);
-      void invoke("browser_place", { label: web, x: 0, y: 0, width: 1, height: 1, zoom: 1, shown: false }).catch(() => {});
-    };
+    return keepOver({ sheet, stage, view, replace }, web);
   }, [web]);
 
-  const agent = (name: string, args: Record<string, unknown>) =>
-    new Promise<unknown>((resolve, reject) => {
-      const w = frame.current?.contentWindow;
-      const p = proxy.current;
-      const label = onWeb.current ? browser.current : null;
-      if (!label && (!w || !p)) return reject(new Error("The preview has no page open yet."));
-      const id = nextCall++;
-      pending.current.set(id, { resolve, reject });
-      if (label)
-        void invoke<boolean>("browser_eval", { label, js: `window.__slop ? (window.__slop.run(${id}, ${JSON.stringify(name)}, ${JSON.stringify(args)}), true) : false` })
-          .then((ok) => {
-            if (!ok && pending.current.delete(id)) reject(new Error("This page cannot be read or used yet: it may still be loading."));
-          })
-          .catch((e) => pending.current.delete(id) && reject(new Error(String(e))));
-      else w!.postMessage({ __slopCmd: true, id, name, args }, `http://localhost:${p!.port}`);
-      const wait = args.action === "wait" ? 15000 : 10000;
-      setTimeout(() => {
-        if (pending.current.delete(id))
-          reject(new Error("The page did not answer. It may still be loading: take a screenshot, or try again."));
-      }, wait);
-    });
+  const agent = (name: string, args: Record<string, unknown>) => ask({ frame, proxy, onWeb, browser, pending }, name, args);
 
   // What is added from the page and not yet sent stays outlined there, under its name in the prompt.
   const picks = usePicks();
@@ -600,49 +330,10 @@ export function Preview({
   );
   useEffect(() => void agent("marks", { marks }).catch(() => {}), [marks, page]);
 
-  /** Opens a page and waits for it: the answer is where it ended up, not where it was asked to go. */
-  const arrive = async (open: () => void) => {
-    missed.current = null;
-    const done = nextLoad();
-    open();
-    await done;
-    if (missed.current) throw new Error(missed.current);
-    return `Now at ${display(here.current)}.`;
-  };
+  /** A path, an address on this machine or the web, a search, or back, forward, reload (navigation.ts). */
+  const navigate = (raw: string) => navigation(parts()).navigate(raw);
 
-  /** A path, an address on this machine or the web, a search, or back, forward, reload. */
-  const navigate = async (raw: string): Promise<string> => {
-    const v = raw.trim();
-    if (v === "back" || v === "forward" || v === "reload") {
-      const t = trail.current;
-      const at = v === "back" ? t.at - 1 : v === "forward" ? t.at + 1 : t.at;
-      const url = v === "reload" ? here.current : t.list[at];
-      if (!url) return `There is no page to go ${v} to.`;
-      if (v !== "reload") {
-        t.at = at;
-        t.stepping = true;
-      }
-      return arrive(() => go(url));
-    }
-    const host = hostOf(v);
-    if (!host && !v.startsWith("/")) return arrive(() => go(toWeb(v)));
-    if (host && host !== hostOf(server.current ?? "")) {
-      // Another server: this tab follows it (the effect above), in front of any page from the web.
-      return arrive(() => {
-        onWeb.current = false;
-        setWeb(null);
-        setPointed(/^https?:/.test(v) ? v : `http://${v}`);
-      });
-    }
-    // A tab just opened is still opening its proxy.
-    for (let i = 0; i < 50 && server.current && !proxy.current; i++) await sleep(100);
-    const p = proxy.current;
-    if (!p) throw new Error("The preview has no page open yet.");
-    const path = host ? pathOf(v) : v.startsWith("/") ? v : `/${v}`;
-    return arrive(() => go(`http://localhost:${p.port}${path}`));
-  };
-
-  // A browser's keys, given to this tab while it is the one in use (above).
+  // A browser's keys, given to this tab while it is the one in use (keys.ts).
   useEffect(() => {
     keyed.current = (k) => {
       if (k === "address") address.current?.focus();
@@ -655,7 +346,7 @@ export function Preview({
     const me = { el, key: (k: string) => keyed.current(k) };
     onScreen.set(id, me);
     // Just brought to the front, with nothing else of the app's in use.
-    if (touched === null) touched = id;
+    if (touched === null) touch(id);
     const off = isTauri() ? listen<string>("slop:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
     return () => {
       if (onScreen.get(id) === me) onScreen.delete(id);
@@ -663,242 +354,16 @@ export function Preview({
     };
   }, [id, visible]);
 
-  /**
-   * Whether real input can reach the page: always for a page from the web,
-   * which has its own webview; for the frame, only while it is on screen and
-   * nothing is over it, since the input lands at that point of the window.
-   */
-  const reachable = () => {
-    if (!REAL) return false;
-    if (onWeb.current) return !!browser.current;
-    const el = frame.current;
-    const r = el?.getBoundingClientRect();
-    if (!el || !r || r.width < 2) return false;
-    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-    return top === el;
-  };
-
-  /**
-   * Mouse and key events at CSS pixels of the page, as points in its webview.
-   * Whether the window was active, as a hover needs it to be.
-   */
-  const real = async (acts: Act[]) => {
-    const label = onWeb.current ? browser.current : null;
-    const { scale: k } = view.current;
-    const r = frame.current?.getBoundingClientRect();
-    const ox = label ? 0 : (r?.x ?? 0);
-    const oy = label ? 0 : (r?.y ?? 0);
-    // Only when the keyboard is elsewhere in the app: focusing the frame's
-    // window takes it from a frame inside the page that a click just gave it to.
-    if (!label && document.activeElement !== frame.current) frame.current?.contentWindow?.focus();
-    return invoke<boolean>("native_input", {
-      view: label,
-      acts: acts.map((a) => (a.x === undefined ? a : { ...a, x: ox + a.x * k, y: oy + (a.y ?? 0) * k })),
-    });
-  };
-
-  /** One of Claude's `computer` actions done with real input, or null to leave it to the agent. */
-  const act = async (a: Record<string, unknown>): Promise<string | null> => {
-    const action = a.action as string;
-    const clicks = { left_click: 1, right_click: 1, double_click: 2, triple_click: 3 } as Record<string, number>;
-    if (clicks[action]) {
-      const { x, y, what, native } = (await agent("locate", a)) as Located;
-      // Its menu, file picker or color panel would open on the user's screen,
-      // out of Claude's sight and reach, and stay there.
-      if (native?.kind === "select")
-        return `${what} is a dropdown, whose menu is the system's: it was not opened. Choose an option with form_input on ${native.ref}. Options: ${native.options}.`;
-      if (native?.kind === "file")
-        return `${what} opens the system's file picker, which you cannot use, so it was not opened. Files cannot be chosen from these tools.`;
-      if (native?.kind === "color")
-        return `${what} opens the system's color panel, which you cannot use, so it was not opened. Set a color with form_input on ${native.ref}, as #rrggbb.`;
-      const button = action === "right_click" ? 2 : 0;
-      const acts: Act[] = [{ kind: "move", x, y }];
-      for (let n = 1; n <= clicks[action]; n++) acts.push({ kind: "down", x, y, button, clicks: n }, { kind: "up", x, y, button, clicks: n });
-      await real(acts);
-      void agent("press", { x, y }).catch(() => {});
-      await sleep(250);
-      const done = `Clicked ${what} at (${Math.round(x)}, ${Math.round(y)}).`;
-      if (button === 2 && !(await agent("menu", {}).catch(() => true)))
-        return `${done} The page has no menu of its own there; the browser's was kept closed.`;
-      return done;
-    }
-    if (action === "hover") {
-      const { x, y, what } = (await agent("locate", a)) as Located;
-      // WebKit hit-tests a move only in the active window: with the app in
-      // the back, the agent's events at least reach the page's own listeners.
-      if (!(await real([{ kind: "move", x, y }])))
-        return `${await agent("computer", a)} The app is behind other windows, so this reached the page's mouse listeners but not its :hover styles.`;
-      await sleep(150);
-      return `Hovering ${what}.`;
-    }
-    if (action === "left_click_drag") {
-      const [x0, y0] = (a.start_coordinate as number[]) ?? [];
-      const [x1, y1] = (a.coordinate as number[]) ?? [];
-      if ([x0, y0, x1, y1].some((n) => typeof n !== "number")) throw new Error("A drag needs start_coordinate and coordinate.");
-      // AppKit's drag session follows the real mouse, never these events: the agent drags instead.
-      if (await agent("draggable", { x: x0, y: y0 })) return null;
-      await agent("glide", { x: x0, y: y0 });
-      await real([{ kind: "move", x: x0, y: y0 }, { kind: "down", x: x0, y: y0 }]);
-      void agent("glide", { x: x1, y: y1 }).catch(() => {});
-      const steps: Act[] = [];
-      for (let i = 1; i <= 12; i++) steps.push({ kind: "drag", x: x0 + ((x1 - x0) * i) / 12, y: y0 + ((y1 - y0) * i) / 12 });
-      for (const step of steps) {
-        await real([step]);
-        await sleep(25);
-      }
-      await real([{ kind: "up", x: x1, y: y1 }]);
-      await sleep(200);
-      return `Dragged from (${x0}, ${y0}) to (${x1}, ${y1}).`;
-    }
-    if (action === "type") {
-      const into = (await agent("focused", {})) as string | null;
-      if (!into) throw new Error("Nothing has focus to type into: click a field first.");
-      await real([{ kind: "text", text: String(a.text ?? "") }]);
-      await sleep(150);
-      return `Typed into ${into}.`;
-    }
-    if (action === "key") {
-      const text = String(a.text ?? "").trim();
-      // Puts back the field the page dropped while hidden; a password field still takes Enter.
-      await agent("focused", {}).catch(() => {});
-      // One at a time: the page takes keys in turn, but an edit (cmd+v) at once.
-      for (const k of text.split(/\s+/)) {
-        await real([{ kind: "key", text: k }]);
-        await sleep(60);
-      }
-      await sleep(140);
-      return `Pressed ${text}.`;
-    }
-    return null;
-  };
-
-  /** Where a sign-in is kept, changed while the user is signing in: the page reopens in that store. */
-  const keepIn = (project: boolean) => {
-    const s = signingNow.current;
-    if (!s || s.project === project) return;
-    signingNow.current = { ...s, project };
-    setSigning(signingNow.current);
-    go(isWeb(here.current) && covers(s.site, here.current) ? here.current : `https://${s.site}`);
-  };
-
-  /** Claude's `sign_in`: the page opened, and the user asked to sign in on it themselves. */
-  const signIn = async (raw: string): Promise<string> => {
-    const url = toWeb(raw.trim());
-    const site = siteOf(url);
-    if (!site) throw new Error(`Not an address: ${raw}`);
-    if (signedIn.current) throw new Error(`The user is already being asked to sign in to ${signingNow.current?.site}.`);
-    signingNow.current = { site, project: !SHARED.test(site) };
-    setSigning(signingNow.current);
-    const done = new Promise<boolean>((r) => (signedIn.current = r));
-    go(url);
-    const ok = await done;
-    const kept = signingNow.current;
-    signedIn.current = null;
-    signingNow.current = null;
-    setSigning(null);
-    if (!ok) return `The user did not sign in to ${site}.`;
-    await invoke("signin_keep", { root, site, project: kept.project });
-    return `The user signed in to ${site}, kept for ${kept.project ? "this project only" : "all projects"}. The preview is at ${display(here.current)}.`;
-  };
+  /** Where a sign-in is kept, changed while the user is signing in (tools.ts). */
+  const keepIn = (project: boolean) => tools(parts()).keepIn(project);
 
   const resize = (next: Size | null) => {
     setSize(next);
     keepSize(root, next);
   };
 
-  // Claude's calls (src-tauri/src/mcp.rs), by way of the workspace.
-  const run = async (call: Call): Promise<unknown> => {
-    if (!everLoaded.current && call.op !== "navigate" && call.op !== "sign_in") await nextLoad();
-    switch (call.op) {
-      case "frame": {
-        // Drawn first: the tab may have just come to the front.
-        await Promise.race([
-          new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
-          new Promise((r) => setTimeout(r, 200)),
-        ]);
-        // Claude's pointer is not part of the page, nor is the size over it:
-        // gone at once, not faded out after the picture is taken.
-        sizeBadge.current?.style.setProperty("display", "none");
-        setBadge(false);
-        await agent("veil", {}).catch(() => {});
-        const label = onWeb.current ? browser.current : null;
-        const r = (label ? sheet.current : frame.current)?.getBoundingClientRect();
-        if (!r || (!label && !proxy.current)) throw new Error("The preview has no page open yet.");
-        // Whole pixels inside the frame, so no edge of what surrounds it is caught.
-        const x = Math.ceil(r.x);
-        const y = Math.ceil(r.y);
-        return {
-          x,
-          y,
-          width: Math.floor(r.right) - x,
-          height: Math.floor(r.bottom) - y,
-          viewportWidth: view.current.vw,
-          viewportHeight: view.current.vh,
-          dpr: window.devicePixelRatio || 1,
-          url: display(here.current),
-          view: label,
-        };
-      }
-      case "agent": {
-        if (signingNow.current)
-          throw new Error(`The user is signing in to ${signingNow.current.site} in the preview. Wait for sign_in to return before using the page.`);
-        dialogs.current = [];
-        // Real input takes the keyboard: where the user was typing elsewhere in the
-        // app, a Claude prompt, it is handed back, so their keys never land in the page.
-        const theirs = document.hasFocus() ? document.activeElement : null;
-        const handBack = theirs instanceof HTMLElement && theirs !== document.body && !stage.current?.contains(theirs);
-        let said: string | null;
-        try {
-          said = call.name === "computer" && reachable() ? await act(call.args) : null;
-        } finally {
-          if (handBack && theirs.isConnected) {
-            if (onWeb.current) await getCurrentWebview().setFocus().catch(() => {});
-            theirs.focus({ preventScroll: true });
-          }
-        }
-        if (said === null) said = (await agent(call.name, call.args)) as string;
-        // A page from the web is heard by polling: heard once more, so a dialog the action set off is in its answer.
-        if (onWeb.current && browser.current)
-          (await invoke<Said[] | null>("browser_eval", { label: browser.current, js: DRAIN }).catch(() => null))?.forEach((m) => hear.current(m));
-        if (dialogs.current.length) said += ` The page showed a dialog, answered OK: ${dialogs.current.join("; ")}.`;
-        // The page knows itself by the proxy's address; Claude knows the dev server's.
-        const p = proxy.current;
-        return typeof said === "string" && p && server.current
-          ? said.replaceAll(`http://localhost:${p.port}`, originOf(server.current))
-          : said;
-      }
-      case "navigate":
-        return navigate(call.url);
-      case "sign_in":
-        return signIn(call.url);
-      case "resize": {
-        const { width, height, preset } = call.args;
-        if (preset === "fill") {
-          resize(null);
-          return "The viewport fills the tab again.";
-        }
-        const p = PRESETS.find((x) => x.id === preset);
-        const w = clamp(p?.w ?? width ?? view.current.vw);
-        const h = clamp(p?.h ?? height ?? view.current.vh);
-        resize({ w, h });
-        return `The viewport is now ${w}×${h}.`;
-      }
-      case "console": {
-        const { pattern, only_errors, clear, limit } = call.args;
-        let test: RegExp | null = null;
-        try {
-          test = pattern ? new RegExp(pattern, "i") : null;
-        } catch {
-          throw new Error(`Not a pattern: ${pattern}`);
-        }
-        const lines = log.current
-          .filter((l) => (!only_errors || l.level === "error") && (!test || test.test(l.text)))
-          .slice(-(limit ?? 100));
-        if (clear) log.current = [];
-        return lines.length ? lines.map((l) => `[${l.level}] ${l.text}`).join("\n") : "Nothing logged.";
-      }
-    }
-  };
+  // Claude's calls (tools.ts), by way of the workspace.
+  const run = (call: Call) => tools(parts()).run(call);
   const handle = useRef({ run });
   useEffect(() => {
     handle.current.run = run;
@@ -984,48 +449,7 @@ export function Preview({
       style={docked ? { paddingRight: "var(--workspace-inset, 0px)" } : undefined}
     >
       <div data-chrome="bar" className="flex h-9 shrink-0 items-center gap-0.5 border-b border-border-gray bg-surface px-1.5">
-        {onServer ? (
-          <div role="radiogroup" aria-label="Show" className="mr-1 flex shrink-0 items-center bg-surface-container p-0.5">
-            {[
-              { label: "Page", on: !serverShown },
-              { label: "Server", on: !!serverShown },
-            ].map((o) => (
-              <button
-                key={o.label}
-                type="button"
-                role="radio"
-                aria-checked={o.on}
-                onClick={() => onServer(o.label === "Server")}
-                className={cn(
-                  "h-5 cursor-pointer px-2 text-[11.5px]",
-                  o.on ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-border-gray)]" : "text-muted-slate hover:text-ink",
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {sites ? (
-          <div role="radiogroup" aria-label="Web app" className="mr-1 flex min-w-0 shrink items-center overflow-hidden bg-surface-container p-0.5">
-            {sites.map((dir) => (
-              <button
-                key={dir}
-                type="button"
-                role="radio"
-                aria-checked={dir === site}
-                title={`Preview ${dir}`}
-                onClick={() => onSite?.(dir)}
-                className={cn(
-                  "h-5 max-w-28 shrink cursor-pointer truncate px-2 text-[11.5px]",
-                  dir === site ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-border-gray)]" : "text-muted-slate hover:text-ink",
-                )}
-              >
-                {dir}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <ShowSwitches serverShown={serverShown} onServer={onServer} sites={sites} site={site} onSite={onSite} />
         <Tool label="Back" onClick={() => void navigate("back").catch(() => {})} disabled={!ready}>
           <path d="M10 3.5 5.5 8l4.5 4.5" />
         </Tool>
@@ -1064,30 +488,7 @@ export function Preview({
             className="h-6 w-full border border-border-gray bg-card px-2 font-mono text-[11.5px] text-ink outline-none placeholder:text-faint focus:border-accent/60"
           />
         </form>
-        {/* The sizes a page is most often checked at, a click apart, as in Chrome's device toolbar. */}
-        <div role="group" aria-label="Device" className="mr-1 flex shrink-0 items-center bg-surface-container p-0.5">
-          {DEVICES.map((d) => {
-            const p = PRESETS.find((x) => x.id === d.id);
-            const on = p ? !!size && ((size.w === p.w && size.h === p.h) || (size.w === p.h && size.h === p.w)) : fill;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                aria-pressed={on}
-                title={p ? `${d.label} · ${p.w} × ${p.h}` : d.label}
-                onClick={() => resize(p ? { w: p.w, h: p.h } : null)}
-                className={cn(
-                  "flex h-5 w-6 cursor-pointer items-center justify-center",
-                  on ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-border-gray)]" : "text-muted-slate hover:text-ink",
-                )}
-              >
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  {d.icon}
-                </svg>
-              </button>
-            );
-          })}
-        </div>
+        <Devices size={size} fill={fill} resize={resize} />
         <button
           type="button"
           onClick={(e) => {
@@ -1124,53 +525,7 @@ export function Preview({
           <path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v4h-9v-9h4" />
         </Tool>
       </div>
-      {signing ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border-gray bg-[#d97757]/8 px-3 py-2 text-[12px]">
-          <span className="min-w-0 flex-1 text-ink">
-            Claude needs you to sign in to <b className="font-medium">{signing.site}</b>. Sign in on the page yourself: Claude never sees your
-            password, and waits until you are done.
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5 text-muted-slate">
-            Keep for
-            <span role="radiogroup" aria-label="Keep this sign-in for" className="flex items-center bg-surface-container p-0.5">
-              {[
-                { label: "All projects", project: false },
-                { label: "Only this project", project: true },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={signing.project === o.project}
-                  onClick={() => keepIn(o.project)}
-                  className={cn(
-                    "h-5 cursor-pointer px-2 text-[11.5px]",
-                    signing.project === o.project ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-border-gray)]" : "text-muted-slate hover:text-ink",
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => signedIn.current?.(false)}
-              className="cursor-pointer px-2.5 py-0.5 text-[12px] text-muted-slate hover:text-ink"
-            >
-              Not now
-            </button>
-            <button
-              type="button"
-              onClick={() => signedIn.current?.(true)}
-              className="cursor-pointer bg-accent px-2.5 py-0.5 text-[12px] text-on-accent hover:opacity-90"
-            >
-              I&apos;m signed in
-            </button>
-          </span>
-        </div>
-      ) : null}
+      {signing ? <SignInBar signing={signing} onKeep={keepIn} onDone={(done) => signedIn.current?.(done)} /> : null}
       {picking ? (
         <PickMenu
           {...picking}
@@ -1234,54 +589,7 @@ export function Preview({
             />
           </>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-8 text-center">
-            {error ? (
-              <p className="font-mono text-[11.5px] text-clay-ink">{error}</p>
-            ) : waiting && asking ? (
-              <>
-                <p className="text-[13px] text-ink">The dev server is asking</p>
-                <p className="max-w-full whitespace-pre-wrap font-mono text-[11.5px] text-muted-slate">{asking}</p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onAnswer?.(true)}
-                    className="cursor-pointer bg-accent px-3 py-1 text-[12px] text-on-accent hover:opacity-90"
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAnswer?.(false)}
-                    className="cursor-pointer px-3 py-1 text-[12px] text-muted-slate ring-1 ring-current hover:text-ink"
-                  >
-                    No
-                  </button>
-                </div>
-              </>
-            ) : waiting ? (
-              <>
-                <p className="text-[13px] text-ink">Starting the dev server…</p>
-                <p className="max-w-full truncate font-mono text-[11.5px] text-faint">{waiting}</p>
-                <p className="text-[12px] text-muted-slate">The page opens here as soon as it prints its address.</p>
-                {onServer ? (
-                  <button type="button" onClick={() => onServer(true)} className="mt-1 cursor-pointer text-[12px] text-accent hover:underline">
-                    Show its terminal
-                  </button>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <p className="text-[13px] text-ink">Nothing to preview yet</p>
-                {onStart ? (
-                  <button type="button" onClick={onStart} className="mb-1 cursor-pointer bg-accent px-3 py-1 text-[12px] text-on-accent hover:opacity-90">
-                    Start the dev server
-                  </button>
-                ) : null}
-                <p className="text-[12px] text-muted-slate">Type an address above, like localhost:3000, or anything to search the web.</p>
-                <p className="text-[12px] text-muted-slate">Claude browses here too: ask it to look something up, and the page opens in this tab.</p>
-              </>
-            )}
-          </div>
+          <Placeholder error={error} waiting={waiting} asking={asking} onAnswer={onAnswer} onServer={onServer} onStart={onStart} />
         )}
         <div
           ref={sizeBadge}
@@ -1296,77 +604,6 @@ export function Preview({
           {dims}
         </div>
       </div>
-    </div>
-  );
-}
-
-/** What the picked elements of a page or a phone offer, as the map's PickMenu (components/map/canvas.tsx) does. */
-export function PickMenu({ x, y, targets, onClose }: { x: number; y: number; targets: Target[]; onClose: () => void }) {
-  const add = () => targets.forEach(mention);
-  return (
-    <Menu
-      x={x}
-      y={y}
-      title={targets.length > 1 ? `${targets.length} elements` : targets[0].title}
-      onClose={onClose}
-      items={[
-        { label: targets.length > 1 ? `Add all ${targets.length} to Claude` : "Add to Claude", onClick: add },
-        {
-          label: "Add and open Claude",
-          onClick: () => {
-            add();
-            openClaude();
-          },
-        },
-      ]}
-    />
-  );
-}
-
-function Tool({ label, onClick, disabled, on, children }: { label: string; onClick: () => void; disabled?: boolean; on?: boolean; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      aria-pressed={on}
-      title={label}
-      className={cn(
-        "flex size-7 shrink-0 cursor-pointer items-center justify-center hover:bg-surface-container hover:text-ink disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent",
-        on ? "bg-[#d97757]/12 text-[#b4553a]" : "text-muted-slate",
-      )}
-    >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        {children}
-      </svg>
-    </button>
-  );
-}
-
-/** An edge of the viewport to drag, with a grip that shows on hover. */
-function Handle({
-  label,
-  cursor,
-  style,
-  bar,
-  onPointerDown,
-}: {
-  label: string;
-  cursor: string;
-  style: React.CSSProperties;
-  bar?: string;
-  onPointerDown: (e: React.PointerEvent) => void;
-}) {
-  return (
-    <div
-      role="separator"
-      aria-label={label}
-      onPointerDown={onPointerDown}
-      style={style}
-      className={cn("group absolute z-10 flex items-center justify-center", cursor)}
-    >
-      {bar ? <span className={cn("rounded-full bg-border-strong opacity-0 transition-opacity group-hover:opacity-100", bar)} /> : null}
     </div>
   );
 }

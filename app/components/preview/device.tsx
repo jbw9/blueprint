@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PickMenu } from "@/components/preview/preview";
+import { PickMenu } from "@/components/preview/pick-menu";
 import type { Target } from "@/lib/agent/context";
 import { cn, sleep } from "@/lib/client/utils";
 

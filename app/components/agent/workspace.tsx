@@ -1,11 +1,10 @@
 "use client";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue } from "motion/react";
-import { AgentIcon, CLAUDE, TerminalIcon, agentById, useAgents, type Agent } from "@/components/agent/agents";
+import { AgentIcon, CLAUDE, TerminalIcon, agentById, useAgents } from "@/components/agent/agents";
 import { keys } from "@/components/ui/button";
 import { useMap } from "@/components/map/map-context";
 import { Menu } from "@/components/ui/menu";
@@ -13,18 +12,25 @@ import { Shell } from "@/components/agent/shell";
 import { Preview } from "@/components/preview/preview";
 import { PlanView, type Plan } from "@/components/agent/plan";
 import { FileTab } from "@/components/agent/file-tab";
+import { Held } from "@/components/agent/held";
+import { Offer } from "@/components/agent/phone-offer";
+import { StatusDot, DOT } from "@/components/agent/status-dot";
+import { Strip, inFront } from "@/components/agent/strip";
+import { GlobeIcon, PhoneIcon, iconOf } from "@/components/agent/tab-icons";
+import { useTabStatus } from "@/components/agent/tab-status";
+import { useTurnFollowing } from "@/components/agent/turn-following";
+import { OFFER_KEY, PARKED_KEY, SITE_KEY, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
+import type { Project, Tab } from "@/components/agent/workspace-tab";
+import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
-import { announceAnswer, announceDraft } from "@/components/review/keep";
-import { announceAct, type Act } from "@/lib/agent/act";
-import { onHand, onOpenClaude, prompt, retarget, section, tabEnded, tabStarted, tabStatus } from "@/lib/agent/context";
+import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
+import { TOGGLE } from "@/lib/agent/workspace-toggle";
 import { useLocation } from "@/components/chrome/crumbs";
 import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
 import { closeTab, selectTab, useTabs } from "@/lib/client/tabs";
 import { findAddress, findQuestion, findTaken, hostOf, previewOf, type Call } from "@/lib/agent/preview";
-import { openSettings, readSettings } from "@/lib/client/settings";
-import { updateMap, type Turn } from "@/lib/agent/update-map";
-import type { Exchange } from "@/lib/agent/keep";
-import { onClosed, reportStatus, type Status } from "@/lib/client/open-projects";
+import { readSettings } from "@/lib/client/settings";
+import { onClosed } from "@/lib/client/open-projects";
 import { cn, sleep } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
 import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
@@ -68,97 +74,6 @@ import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
  * either place: it is moved, never started again.
  */
 
-export const TOGGLE = "slop:workspace";
-export const toggleWorkspace = () => window.dispatchEvent(new Event(TOGGLE));
-
-const WIDTH_KEY = "slop.workspace.width";
-const MIN_WIDTH = 380;
-
-interface Tab {
-  key: number;
-  /** A terminal, the project running (its web app, or a phone), a plan, a file a terminal named, or nothing yet. */
-  kind: "shell" | "preview" | "plan" | "file" | "blank" | Platform;
-  /** The agent it opened into, or null for a plain shell. */
-  start: string | null;
-  /** The agent last started in it, from the menu or the strip: what a busy shell is running. */
-  ran: string | null;
-  /** The shell's own name, `zsh` for `/usr/bin/zsh`. */
-  title: string;
-  /** The checkout it was opened in: which project's tab it is. */
-  cwd: string;
-  /** The pty behind it, once started. */
-  pty?: number;
-  /** Claude is running in it, through the app's launcher. */
-  live: boolean;
-  /** Some other program is in front of the shell. */
-  busy: boolean;
-  /** Whether Claude Code was found for it; unknown while it starts. */
-  found?: boolean;
-  /** A command the app typed into it when it opened: the dev server, a setup, a build. */
-  run?: string;
-  /** What it is called instead of its shell's name, when the app opened it for something. */
-  label?: string;
-  /** It runs the dev server: its output is watched for the server's address,
-   * and it is drawn in the project's Preview tab rather than in a tab of its own. */
-  dev?: boolean;
-  /** The dev server's: the folder of the web app it serves. */
-  site?: string;
-  /** Moved out of the window, into the main view in front of the map. */
-  main?: boolean;
-  /** What the agent in front is doing, for the dot on the tab. */
-  status?: Status;
-  /** A plan's tab: the plan, and the tab of the Claude that wrote it. */
-  plan?: Plan;
-  of?: number;
-  /** A file's tab: its absolute path, and the line it was opened at. */
-  file?: string;
-  line?: number;
-  /** The conversation Claude is having in it, to reopen it into after a restart. */
-  session?: string;
-  /** Reopened after a restart: the conversation its Claude picks up again. */
-  resume?: string;
-}
-
-/** How a project is run, from its files (src-tauri/src/devices.rs). */
-interface Project {
-  /** Its web apps, the one to open first leading: the folder each is in, and how it starts. */
-  web: { dir: string; run: string }[];
-  android: boolean;
-  ios: boolean;
-}
-
-const OFFER_KEY = "slop.offer:";
-/** The web app a project's Preview was last switched to, by its folder. */
-const SITE_KEY = "slop.site:";
-
-function storedSite(root: string): string | null {
-  try {
-    return localStorage.getItem(SITE_KEY + root);
-  } catch {
-    return null;
-  }
-}
-/** The conversations Claude was having in the tabs, per project, so the app reopens them. */
-const SESSIONS_KEY = "slop.workspace.sessions";
-/** The conversations of a closed project's Claudes, by its root, resumed when it is opened again. */
-const PARKED_KEY = "slop.workspace.parked:";
-
-function storedSessions(): { cwd: string; session: string }[] {
-  try {
-    return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function offered(root: string) {
-  try {
-    return localStorage.getItem(OFFER_KEY + root) !== null;
-  } catch {
-    return false;
-  }
-}
-
 
 /** Polls for something to exist, giving up after `ms`. */
 async function until<T>(get: () => T | undefined, ms: number): Promise<T> {
@@ -168,17 +83,6 @@ async function until<T>(get: () => T | undefined, ms: number): Promise<T> {
     await sleep(100);
   }
   throw new Error("The preview did not open in time.");
-}
-
-function storedWidth() {
-  try {
-    const w = Number(localStorage.getItem(WIDTH_KEY));
-    if (w >= MIN_WIDTH) return w;
-  } catch {
-    /* storage blocked: the default is fine */
-  }
-  // Wide enough for a full Claude Code status line, about 105 columns.
-  return 900;
 }
 
 /** Tab keys, unique for the app's life. */
@@ -254,25 +158,7 @@ export function Workspace() {
     [here, show],
   );
 
-  // Before the restore below, so the empty first render never overwrites
-  // what is about to be reopened.
-  const restored = useRef(false);
-  useEffect(() => {
-    if (!restored.current) return;
-    const open = tabs.flatMap((t) => (t.kind === "shell" && t.session ? [{ cwd: t.cwd, session: t.session }] : []));
-    try {
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(open));
-    } catch {
-      /* not kept: the tabs still work */
-    }
-  }, [tabs]);
-  useEffect(() => {
-    if (restored.current || !isTauri()) return;
-    restored.current = true;
-    // Once, from storage the server render cannot read: initial state would not hydrate.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    for (const { cwd, session } of storedSessions()) add(CLAUDE.id, { cwd, session, resume: session });
-  }, [add]);
+  useSavedSessions(tabs, add);
 
   // Each project's dev server address, once it has printed one; and how each
   // project is run, read when it is first opened.
@@ -632,115 +518,9 @@ export function Workspace() {
     planning.current = showPlan;
   });
 
-  // What is in front in each tab: Claude (the launcher keeps a marker), some
-  // other program, or the shell at its prompt. Polled, since programs start
-  // and quit inside the shell, unseen.
-  // A turn of Claude's that edited the checkout, or found the map wrong,
-  // updates that project's map. Separately, EVERY finished turn is offered to
-  // the map as an answer worth keeping (components/review/keep.tsx) — a turn that only
-  // explained something edits nothing, so `turn` never fires for the very case
-  // a reader most wants to keep.
-  const started = JSON.stringify(tabs.filter((t) => t.pty !== undefined).map((t) => [t.key, t.pty, t.cwd]));
-  useEffect(() => {
-    const ids: [number, number, string][] = JSON.parse(started);
-    if (!ids.length) return;
-    const tick = () =>
-      ids.forEach(([key, pty, cwd]) =>
-        invoke<{
-          claude: boolean;
-          busy: boolean;
-          status: Status | null;
-          turn: Turn | null;
-          ended: string | null;
-          acts: Act[];
-          plan: { text: string; file: string | null } | null;
-          approved: boolean;
-          steps: NonNullable<Plan["steps"]>;
-          session: string | null;
-        }>("pty_state", { id: pty })
-          .then(({ claude: live, busy, status: said, turn, ended, acts, plan, approved, steps = [], session }) => {
-            if (turn && cwd) void followTurn(cwd, turn);
-            if (live && cwd && (said === "working" || said === "waiting")) midTurn.set(pty, cwd);
-            else midTurn.delete(pty);
-            if (plan) planning.current(key, cwd, plan);
-            if (approved) {
-              const shut = closedPlans.current[key];
-              if (shut) closedPlans.current[key] = { ...shut, state: "approved", approvedAt: Date.now() };
-              setTabs((all) => all.map((x) => (x.of === key && x.plan ? { ...x, plan: { ...x.plan, state: "approved", approvedAt: Date.now() } } : x)));
-            }
-            // Claude marking a step means the plan was accepted, however it was
-            // answered: "Yes, clear context" never reports it (claude.rs, CLEARED).
-            const marks = JSON.stringify(steps);
-            setTabs((all) =>
-              all.some((x) => x.of === key && x.plan && JSON.stringify(x.plan.steps ?? []) !== marks)
-                ? all.map((x) =>
-                    x.of === key && x.plan
-                      ? { ...x, plan: { ...x.plan, steps, ...(steps.length && x.plan.state !== "approved" ? { state: "approved" as const, approvedAt: Date.now() } : {}) } }
-                      : x,
-                  )
-                : all,
-            );
-            if (ended) void offerAnswer(ended);
-            // Mid-turn, deliberately: Claude shows a section while it is still
-            // explaining it (lib/agent/act.ts).
-            acts?.forEach(announceAct);
-            // Same array when nothing moved: a new one every tick would reset
-            // the paste effect's timer below before it could ever fire.
-            const statusOf = (x: Tab): Status | undefined =>
-              live
-                ? (said ?? undefined)
-                : inFront({ ...x, live, busy })
-                  ? rang.current[key]
-                    ? "waiting"
-                    : Date.now() - (printed.current[key] ?? 0) < 3000
-                      ? "working"
-                      : "done"
-                  : undefined;
-            setTabs((all) =>
-              all.some((x) => x.key === key && (x.live !== live || x.busy !== busy || x.status !== statusOf(x) || x.session !== (session ?? undefined)))
-                ? all.map((x) => (x.key === key ? { ...x, live, busy, status: statusOf(x), session: session ?? undefined } : x))
-                : all,
-            );
-          })
-          .catch(() => {}),
-      );
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => (clearInterval(timer), ids.forEach(([, pty]) => midTurn.delete(pty)));
-  }, [started]);
+  useTurnFollowing({ tabs, setTabs, planning, closedPlans, printed, rang });
 
-  // A review waits for Claude to be idle before it is typed (lib/agent/context.ts sendBatch).
-  useEffect(() => {
-    for (const t of tabs) if (t.pty !== undefined) tabStatus(t.pty, t.live ? t.status : undefined);
-    reportStatus(tabs);
-  }, [tabs]);
-
-  // The Dock icon's badge (src-tauri/src/lib.rs attention_count).
-  const attention = tabs.filter((t) => t.live && (t.status === "done" || t.status === "waiting")).length;
-  useEffect(() => {
-    if (desktop) void invoke("attention_count", { n: attention }).catch(() => {});
-  }, [desktop, attention]);
-
-  // A chime when an agent finishes or needs the user, heard wherever they are
-  // looking: the dot alone is easy to miss with the workspace closed.
-  const was = useRef<Record<number, Status | undefined>>({});
-  useEffect(() => {
-    // WebKit lets a page sound only once the user has pressed something in it.
-    const unlock = () => void (audio ??= new AudioContext()).resume();
-    window.addEventListener("pointerdown", unlock, { once: true, capture: true });
-    window.addEventListener("keydown", unlock, { once: true, capture: true });
-    return () => {
-      window.removeEventListener("pointerdown", unlock, { capture: true });
-      window.removeEventListener("keydown", unlock, { capture: true });
-    };
-  }, []);
-  useEffect(() => {
-    for (const t of tabs) {
-      const before = was.current[t.key];
-      if (t.status !== before && ((t.status === "done" && before === "working") || t.status === "waiting")) chime(t.status);
-      was.current[t.key] = t.status;
-    }
-  }, [tabs]);
+  useTabStatus(tabs, desktop);
 
   // A new tab's agent is up once something is in front of its shell; give it
   // a moment to draw its prompt, then paste what was handed to it.
@@ -1027,36 +807,7 @@ export function Workspace() {
     };
   }, [open, mine, panel, docked, current, upFront, main, add, close, bring, show, desktop, mapState, mapActive, here, map.name]);
 
-  const drag = (e: React.PointerEvent) => {
-    e.preventDefault();
-    // A preview's frame would take the pointer's moves for its own page.
-    document.body.dataset.dragging = "";
-    const from = e.clientX;
-    // What is on screen, which a narrow window may have clamped.
-    const start = (e.currentTarget.parentElement as HTMLElement).offsetWidth;
-    let last = start;
-    const move = (m: PointerEvent) => {
-      last = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 2 * GAP, start + from - m.clientX));
-      // Straight to the page while dragging: a render of every tab per move made the edge trail the pointer.
-      if (aside.current) aside.current.style.width = `min(${last}px, calc(100vw - ${2 * GAP}px))`;
-      document.documentElement.style.setProperty("--workspace-inset", `calc(min(${last}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)`);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-      delete document.body.dataset.dragging;
-      setWidth(last);
-      try {
-        localStorage.setItem(WIDTH_KEY, String(last));
-      } catch {
-        /* not kept; it still applies until reload */
-      }
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-  };
+  const drag = (e: React.PointerEvent) => dragWidth(e, aside, setWidth);
 
   const shown = open && panel.length > 0;
   // Any change of shown, not only show(): closing the last tab slides the window away too.
@@ -1136,22 +887,6 @@ export function Workspace() {
         : front
           ? `${front.command.replace(/^slop-/, "")} ${i + 1}`
           : (t.label ?? `${t.title} ${i + 1}`);
-  };
-  const iconOf = (t: Tab) => {
-    const front = inFront(t);
-    return t.kind === "preview" ? (
-      <GlobeIcon />
-    ) : t.kind === "plan" ? (
-      <PlanIcon />
-    ) : t.kind === "file" ? (
-      <FileIcon />
-    ) : t.kind === "blank" ? null : t.kind !== "shell" ? (
-      <PhoneIcon />
-    ) : front ? (
-      <AgentIcon id={front.id} />
-    ) : (
-      <TerminalIcon />
-    );
   };
 
   /** A tab in either strip, drawn as an editor draws one. */
@@ -1585,249 +1320,5 @@ export function Workspace() {
           );
         })}
     </>
-  );
-}
-
-/**
- * A tab's body, drawn into one element for the tab's life and moved, never
- * drawn again, between the window and the main view: a terminal drawn again
- * would be a new shell.
- */
-function Held({ slot, children }: { slot: HTMLElement | null; children: React.ReactNode }) {
-  const [box] = useState(() => {
-    if (typeof document === "undefined") return null;
-    // No box of its own: the body is laid out in the slot, and a hidden tab's
-    // holder never lies over the one in view.
-    const el = document.createElement("div");
-    el.style.display = "contents";
-    return el;
-  });
-  useLayoutEffect(() => {
-    if (box && slot && box.parentElement !== slot) slot.appendChild(box);
-  }, [box, slot]);
-  useEffect(() => () => box?.remove(), [box]);
-  return box ? createPortal(children, box) : null;
-}
-
-/**
- * A project with a phone app is asked, once, whether to run it here. Picking
- * one opens its tab, which says what it needs before anything is installed.
- */
-function Offer({ phones, onPick, onDismiss }: { phones: Platform[]; onPick: (p: Platform) => void; onDismiss: () => void }) {
-  const what = phones.length > 1 ? "iOS and Android apps" : phones[0] === "ios" ? "an iOS app" : "an Android app";
-  return (
-    <motion.div
-      role="dialog"
-      aria-label="Run the phone app here"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      style={{ bottom: STATUSBAR + GAP }}
-      className="fixed left-3 z-40 flex max-w-[340px] flex-col gap-2.5 border border-border-gray bg-card p-3.5 shadow-lift"
-    >
-      <p className="text-[13px] leading-snug text-ink">
-        This project has {what}. Run {phones.length > 1 ? "them" : "it"} here, in the app?
-      </p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {phones.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onPick(p)}
-            className="flex cursor-pointer items-center gap-1.5 border border-border-strong px-2.5 py-1 text-[12px] text-ink hover:bg-surface-container"
-          >
-            <PhoneIcon />
-            {p === "ios" ? "iOS Simulator" : "Android emulator"}
-          </button>
-        ))}
-        <button type="button" onClick={onDismiss} className="ml-auto cursor-pointer px-1 text-[12px] text-faint hover:text-ink">
-          Not now
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-/** A page: the Preview tab. Drawn like the terminal glyph. */
-function GlobeIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden className="size-3 shrink-0">
-      <circle cx="8" cy="8" r="6" />
-      <path d="M2 8h12M8 2c1.7 1.8 2.5 3.8 2.5 6S9.7 12.2 8 14C6.3 12.2 5.5 10.2 5.5 8S6.3 3.8 8 2Z" />
-    </svg>
-  );
-}
-
-/** A page with a check: a plan's tab. */
-function PlanIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-3 shrink-0">
-      <path d="M4 1.5h5.5L12 4v10.5H4z" />
-      <path d="m6.2 9.2 1.4 1.4 2.4-2.8" />
-    </svg>
-  );
-}
-
-/** A page with a folded corner: a file's tab. */
-function FileIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-3 shrink-0">
-      <path d="M4 1.5h5.5L12 4v10.5H4z" />
-      <path d="M9.5 1.5V4H12" />
-    </svg>
-  );
-}
-
-/** A phone: the iOS and Android tabs. */
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden className="size-3 shrink-0">
-      <rect x="4" y="1.5" width="8" height="13" rx="2" />
-      <path d="M7 12h2" />
-    </svg>
-  );
-}
-
-/** The checkout each Claude tab is mid-turn in, by pty: that turn's end updates the map with its transcript. */
-const midTurn = new Map<number, string>();
-
-/** Whether Claude is mid-turn in `root`, so an update started now would race the one its turn will ask for. */
-export function claudeMidTurnIn(root: string) {
-  return [...midTurn.values()].some((cwd) => cwd === root || cwd.startsWith(`${root}/`) || cwd.startsWith(`${root}\\`));
-}
-
-/** Asks for the map to follow a turn that edited `root`; a checkout no project maps is said so in the title bar. */
-export async function followTurn(root: string, turn: Turn) {
-  const res = await updateMap(root, turn);
-  // Not one of the user's projects: the title bar says so, and offers to import it.
-  if (res?.skipped) window.dispatchEvent(new CustomEvent(UNFOLLOWED, { detail: root }));
-}
-
-/**
- * Reads back what Claude just asked and answered, and offers it to the map.
- *
- * A draft the reader asked for (components/review/keep.tsx) comes back as an ordinary
- * answer, so it is announced on its own channel first: the dialog is waiting
- * for one and the level is not.
- */
-async function offerAnswer(transcript: string) {
-  const r = await fetch(`/api/answer?transcript=${encodeURIComponent(transcript)}`)
-    .then((x) => x.json())
-    .catch(() => null);
-  const e = r?.exchange as Exchange | null | undefined;
-  if (!e?.said) return;
-  if (!announceDraft(e.said)) announceAnswer(e);
-}
-
-/** An agent edited a checkout whose map cannot follow it; the detail is the checkout. */
-export const UNFOLLOWED = "slop:map-unfollowed";
-
-/**
- * Puts text in a program's prompt as a paste, without pressing Enter: agents'
- * TUIs ask for bracketed paste, so it lands as one block they can tell from
- * typing.
- */
-function paste(pty: number, text: string) {
-  void invoke("pty_write", { id: pty, data: `\x1b[200~${text}\x1b[201~` });
-}
-
-/**
- * The agent in front in a tab, if any: Claude when its launcher says so,
- * else the agent last started there while the shell is busy with something.
- */
-const DOT: Record<Status, { colour: string; label: string }> = {
-  working: { colour: "bg-[#f0c674]", label: "Working" },
-  waiting: { colour: "bg-[#cf3e3e]", label: "Needs you" },
-  done: { colour: "bg-[#4caf50]", label: "Done" },
-};
-
-/** Yellow while the agent works, red when it waits on the user, green when it is done. */
-export function StatusDot({ status }: { status: Status }) {
-  const { colour, label } = DOT[status];
-  return (
-    <span role="img" aria-label={label} title={label} className="relative flex size-2">
-      {status !== "done" && <span className={cn("absolute inset-0 animate-ping rounded-full opacity-60", colour)} />}
-      <span className={cn("relative size-2 rounded-full", colour)} />
-    </span>
-  );
-}
-
-let audio: AudioContext | null = null;
-/** Two soft notes, rising when done and falling when the agent needs the user. */
-function chime(status: Status) {
-  try {
-    audio ??= new AudioContext();
-    const notes = status === "done" ? [660, 880] : [700, 520];
-    notes.forEach((hz, i) => {
-      const at = audio!.currentTime + i * 0.14;
-      const osc = audio!.createOscillator();
-      const gain = audio!.createGain();
-      osc.frequency.value = hz;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
-      osc.connect(gain).connect(audio!.destination);
-      osc.start(at);
-      osc.stop(at + 0.32);
-    });
-  } catch {
-    /* no audio: the dot still says it */
-  }
-}
-
-function inFront(t: Tab): Agent | undefined {
-  if (t.live) return CLAUDE;
-  if (t.busy && t.ran !== CLAUDE.id) return agentById(t.ran ?? undefined);
-  return undefined;
-}
-
-/**
- * The line under the terminal, with the shell at its prompt: the agents to
- * start here. What is handed to Claude is named in its prompt instead
- * (lib/agent/context.ts `mention`).
- */
-function Strip({
-  tab,
-  pty,
-  agents,
-  onRun,
-}: {
-  tab: Tab;
-  pty: number;
-  agents: Agent[];
-  onRun: (id: string) => void;
-}) {
-  if (tab.live || tab.busy) return null;
-  const run = (a: Agent) => {
-    onRun(a.id);
-    void invoke("pty_write", { id: pty, data: `${a.command}\r` });
-  };
-  return (
-    <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-torder-gray px-3 py-1.5 font-mono text-[11px] [scrollbar-width:none]">
-      {agents.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => run(a)}
-          title={
-            a.id === CLAUDE.id
-              ? "Runs slop-claude in this shell: your Claude Code, able to take map context"
-              : `Runs ${a.command} in this shell`
-          }
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 border border-border-strong px-2 py-px text-ink hover:bg-surface-container"
-        >
-          <AgentIcon id={a.id} />
-          {a.id === CLAUDE.id ? "Claude" : a.label}
-        </button>
-      ))}
-      {tab.found === false ? (
-        <span className="shrink-0 text-faint">
-          Claude Code was not found.{" "}
-          <button type="button" onClick={openSettings} className="cursor-pointer text-accent underline">
-            Open Settings
-          </button>
-        </span>
-      ) : null}
-    </div>
   );
 }

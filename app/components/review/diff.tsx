@@ -209,7 +209,7 @@ function Pill({ verdict, children }: { verdict: Exclude<Verdict, "untouched">; c
 }
 
 /**
- * A file's hunks as the code pane draws code (components/map/anatomy.tsx
+ * A file's hunks as the code pane draws code (components/map/source-view.tsx
  * `SourceView`): real line numbers, old and new, and the code coloured by
  * lib/client/highlight.ts. Each line is coloured on its own, so a block comment
  * spanning a hunk boundary reads as code; that is the price of drawing only
