@@ -1,6 +1,7 @@
 import { loadMap, rootOf } from "@/lib/maps";
 import { reviewRange } from "@/lib/review";
 import { mapReview, reviewMap } from "@/lib/vault";
+import { notJson } from "@/lib/server/route";
 
 /**
  * The map after a branch or pull request (lib/vault.ts `mapReview`):
@@ -29,6 +30,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = (await request.json().catch(() => ({}))) as { map?: string; review?: string; claude?: string };
   const r = resolved(body.map ?? null, body.review ?? null);
   if ("error" in r) return Response.json({ status: "failed", error: r.error });

@@ -115,7 +115,7 @@ export function TimelineView() {
   const tell = async () => {
     setAsked(true);
     const claude = await claudePath().catch(() => undefined);
-    await fetch(`/api/timeline?map=${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify({ claude }) }).catch(() => setAsked(false));
+    await fetch(`/api/timeline?map=${encodeURIComponent(name)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ claude }) }).catch(() => setAsked(false));
   };
 
   const header = (

@@ -1,6 +1,7 @@
 import { cachedTimeline, storyOf } from "@/lib/history";
 import { loadMap, rootOf } from "@/lib/maps";
 import { projectDir, tellStory, telling } from "@/lib/vault";
+import { notJson } from "@/lib/server/route";
 
 /**
  * The history of the map the reader has open (lib/history.ts).
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const refused = notJson(request);
+  if (refused) return refused;
   const open = opened(request);
   if (!open) return Response.json({ error: "No such map." }, { status: 404 });
   const { claude } = (await request.json().catch(() => ({}))) as { claude?: unknown };

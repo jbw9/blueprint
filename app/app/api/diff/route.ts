@@ -6,6 +6,7 @@ import { apply, readOverlay } from "@/lib/overlay";
 import { projectDir, reviewMap } from "@/lib/vault";
 import { summariesOf, summarize } from "@/lib/history";
 import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/review";
+import { bad, notJson } from "@/lib/server/route";
 
 /**
  * What a commit did to the map the reader has open.
@@ -27,8 +28,6 @@ import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/re
  * rev-parse` to be resolved, which is the only thing done with them — an
  * unknown revision is a 400, not an argument passed on to another command.
  */
-
-const bad = (message: string, status = 400) => Response.json({ error: message }, { status });
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
@@ -154,6 +153,8 @@ export async function GET(request: Request) {
  * click; kept by sha, so each commit is told once.
  */
 export async function POST(request: Request) {
+  const refused = notJson(request);
+  if (refused) return refused;
   let open;
   try {
     open = loadMap(new URL(request.url).searchParams.get("map") ?? undefined);

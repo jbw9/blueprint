@@ -1,4 +1,5 @@
 import { readTelemetry, setTelemetry } from "@/lib/telemetry";
+import { notJson } from "@/lib/server/route";
 
 /** Whether finished runs are reported to the admin dashboard: `GET` → `{on}`, `POST {on}` sets it. */
 export async function GET() {
@@ -6,8 +7,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // JSON only: a cross-site form can send text/plain with no preflight.
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "bad request" }, { status: 400 });
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = (await request.json().catch(() => null)) as { on?: unknown } | null;
   if (typeof body?.on !== "boolean") return Response.json({ error: "bad request" }, { status: 400 });
   await setTelemetry(body.on);

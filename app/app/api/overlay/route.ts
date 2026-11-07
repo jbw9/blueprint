@@ -3,6 +3,7 @@ import type { Anatomy, Node, Origin } from "@/lib/data";
 import type { MapFile } from "@/lib/map";
 import { apply, newId, readHistory, readOverlay, revertTo, writeOverlay, type Entry, type Overlay } from "@/lib/overlay";
 import { getProject, mapFileOf } from "@/lib/vault";
+import { bad, notJson } from "@/lib/server/route";
 
 /**
  * What the reader added to one of their own maps (lib/overlay.ts): read it
@@ -13,8 +14,6 @@ import { getProject, mapFileOf } from "@/lib/vault";
  * shared by every reader of this checkout, so it is read-only by design and
  * every action here refuses one rather than writing into the repository.
  */
-
-const bad = (message: string, status = 400) => Response.json({ error: message }, { status });
 
 /** Short free text, capped as `turnOf` caps a correction: a body is reader-supplied. */
 const line = (v: unknown, max = 200) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined);
@@ -117,9 +116,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // JSON only: another site's page can send a plain-text POST here without
-  // asking, but a JSON one needs a CORS preflight this route never grants.
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return bad("bad request", 415);
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   const project = projectOf(body.map);
   if (!project) return bad("No such project.");

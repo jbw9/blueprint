@@ -1,6 +1,7 @@
 import { readSlice, writeSlice, Refused } from "@/lib/repo";
 import { demoSource, loadMap, rootOf } from "@/lib/maps";
 import { sliceOf } from "@/lib/source";
+import { notJson } from "@/lib/server/route";
 
 /** The checkout behind the map the reader has open (`?map=`); null with no project yet. */
 const rootFor = (map: string | null | undefined) => {
@@ -55,7 +56,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   // JSON only: a cross-site form can send text/plain with no preflight.
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return bad("bad request");
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = await request.json().catch(() => null);
   const { file, start, end, code, expected, map } = body ?? {};
   if (

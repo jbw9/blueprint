@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { loadMap, rootOf } from "@/lib/maps";
 import { restoreFiles } from "@/lib/repo";
 import { projectDir } from "@/lib/vault";
+import { notJson } from "@/lib/server/route";
 
 /**
  * Undoes one agent turn's edits: `POST {map, turn}`, `turn` an id from the
@@ -13,8 +14,8 @@ import { projectDir } from "@/lib/vault";
  * a caller names a turn, never a path.
  */
 export async function POST(request: Request) {
-  // JSON only: a cross-site form can send text/plain with no preflight.
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "bad request" }, { status: 400 });
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = (await request.json().catch(() => null)) as { map?: string; turn?: string } | null;
   let open: ReturnType<typeof loadMap> = null;
   try {

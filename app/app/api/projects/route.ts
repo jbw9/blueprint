@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { auditOf } from "@/lib/maps";
+import { bad, notJson } from "@/lib/server/route";
 import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, mapFileOf, progressOf, projectDir, removeProject, setPaused, updateMap, VAULT, type Turn } from "@/lib/vault";
 
 /**
@@ -11,8 +12,6 @@ import { cancel, cloneProject, createProject, focus, generate, headOf, ImportErr
  * writes inside it except the generator, which only reads, starting a
  * project, which makes it as an empty git checkout, and cloning one into it.
  */
-
-const bad = (message: string, status = 400) => Response.json({ error: message }, { status });
 
 /**
  * A turn as the workspace reports it, kept to what the updater may use: a
@@ -76,7 +75,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // JSON only: another site's page can send a plain-text POST here without
   // asking, but a JSON one needs a CORS preflight this route never grants.
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return bad("bad request", 415);
+  const refused = notJson(request);
+  if (refused) return refused;
   const body = (await request.json().catch(() => null)) ?? {};
   const { action, id, root, name, url, claude, turn, explain, full, paused } = body as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
