@@ -55,8 +55,7 @@ jobs:
           path: site
 
       - name: Build site
-        working-directory: app
-        run: sh scripts/build-pages.sh ../site
+        run: sh scripts/build-site.sh site
 
       - name: Publish
         working-directory: site

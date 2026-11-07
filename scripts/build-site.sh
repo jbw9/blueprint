@@ -1,10 +1,12 @@
 #!/bin/sh
-# usage (from app/): sh scripts/build-pages.sh <site>
-#   builds the landing page and the demo maps made from this repo into <site>, a checkout of the
-#   gh-pages branch, replacing what was there. The builds in $keep are not made from this repo,
-#   so they stay as deployed.
+# usage: sh scripts/build-site.sh <site>
+#   builds blpr.dev into <site>, a checkout of the gh-pages branch, replacing what was there: the
+#   landing page, the demo maps made from this repo, and the admin dashboard. The builds in $keep
+#   are not exported by this script, so they stay as deployed.
 set -e
 site=$(cd "$1" && pwd)
+# The demo exports run in the app's package (app/scripts/export-static.mts); every path below is from there.
+cd "$(dirname "$0")/../app"
 base=
 keep="kafka"
 demos="fastapi:fastapi/full-stack-fastapi-template flask:pallets/flask ky:sindresorhus/ky bluprint:jbw9/bluprint umami:umami-software/umami"

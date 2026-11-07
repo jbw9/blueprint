@@ -25,5 +25,9 @@ npm run app:install
 
 ## Layout
 
-- `app/` - the app (Next.js)
-- `landing/` - the landing page (`npm run dev`, port 3001)
+- `app/` - the app: the Next.js UI and its local API (`app/`, `components/`, `lib/`), the desktop shell (`src-tauri/`), and the map generator (`scripts/generate/`)
+- `landing/` - the landing page at blpr.dev (`npm run dev`, port 3001)
+- `admin/` - the admin dashboard at blpr.dev/admin: one static page and its Supabase schema
+- `scripts/build-site.sh` - builds blpr.dev (landing, demo maps, admin) for the deploy workflow
+- `install.sh` - the one-line install
+- `docs/` - design notes and the decision log
