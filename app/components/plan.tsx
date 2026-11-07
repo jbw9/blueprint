@@ -230,17 +230,29 @@ export function PlanView({
               </div>
               {change ? (
                 <form
-                  className="flex items-center gap-2"
+                  className="flex items-end gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
                     void answer(change);
                   }}
                 >
-                  <input
+                  <textarea
+                    rows={1}
                     value={words}
-                    onChange={(e) => setWords(e.target.value)}
+                    onChange={(e) => {
+                      setWords(e.target.value);
+                      // Grows with what is typed, as Claude Code's prompt does, up to a scroll.
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${e.target.scrollHeight + 2}px`;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        e.currentTarget.form?.requestSubmit();
+                      }
+                    }}
                     placeholder={`${change.label}…`}
-                    className="h-8 min-w-0 flex-1 border border-border-gray bg-card px-3 text-[13px] text-ink placeholder:text-faint focus:border-border-strong focus:outline-none"
+                    className="max-h-40 min-h-8 min-w-0 flex-1 resize-none border border-border-gray bg-card px-3 py-[7px] text-[13px] leading-[16px] text-ink placeholder:text-faint focus:border-border-strong focus:outline-none"
                   />
                   <Button type="submit" disabled={!words.trim()}>
                     Send
