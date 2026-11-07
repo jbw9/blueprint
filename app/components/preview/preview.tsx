@@ -90,6 +90,13 @@ export function Preview({
   // Another server this tab was pointed at, from its address bar or by
   // Claude: this tab's alone, so the project's other Previews stay put.
   const [pointed, setPointed] = useState<string | undefined>();
+  // The dev server restarted, or another site of the project was switched to:
+  // that is where the user wants this tab, whatever it was pointed at.
+  const [servedWas, setServedWas] = useState(served);
+  if (servedWas !== served) {
+    setServedWas(served);
+    setPointed(undefined);
+  }
   const target = pointed ?? served;
   const frame = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -256,9 +263,20 @@ export function Preview({
   const keyed = useRef<(k: string) => void>(() => {});
   // What the agent in the page says: where it is, what it logged, its answers.
   const hear = useRef<(m: Said) => void>(() => {});
+  // Seconds the server this tab was pointed at has not answered.
+  const down = useRef(0);
   useEffect(() => {
     hear.current = (m) => {
-      if (m.type === "location") {
+      if (m.type !== "down") down.current = 0;
+      if (m.type === "down") {
+        // A server Claude started for a moment and stopped would hold the tab
+        // on its waiting page for good: after a few seconds it goes back to
+        // the dev server, which may well be answering.
+        if (pointed && served && pointed !== served && ++down.current >= 5) {
+          down.current = 0;
+          setPointed(undefined);
+        }
+      } else if (m.type === "location") {
         here.current = m.url;
         setShown(display(m.url));
         const t = trail.current;

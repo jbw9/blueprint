@@ -405,11 +405,13 @@ fn with_agent(page: &[u8]) -> Vec<u8> {
 }
 
 /// What the frame shows while the dev server is not answering: it tries again
-/// every second, so a server that restarts comes back by itself.
+/// every second, so a server that restarts comes back by itself. It tells the
+/// tab each time, which goes back to the dev server if it was pointed at
+/// another that has stopped.
 fn waiting(origin: &str) -> String {
     format!(
         // A server that stopped never answers, so the page says where to see why.
-        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
+        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><script>parent.postMessage({{__bluprint:true,type:"down"}},"*")</script><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
     )
 }
 

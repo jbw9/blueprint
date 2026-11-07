@@ -17,6 +17,8 @@ export type Said =
   | { type: "open"; url: string }
   | { type: "reply"; id: number; ok: boolean; value: unknown }
   | { type: "loaded" }
+  /** The proxy's waiting page: the server behind it did not answer (src-tauri/src/preview.rs). */
+  | { type: "down" }
   /** The user picked one or more things to hand to Claude, the last at (x, y) in the page. */
   | { type: "pick"; x: number; y: number; targets: Target[] }
   | { type: "unpick" }
