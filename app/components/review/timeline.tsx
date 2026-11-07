@@ -27,6 +27,10 @@ const ELSEWHERE = "";
 
 export function openTimeline() {
   const q = new URLSearchParams(window.location.search);
+  // A doc or file open over the level outranks the timeline (components/map/canvas.tsx), so it gives way.
+  q.delete("doc");
+  q.delete("file");
+  q.delete("line");
   q.set("timeline", "");
   window.history.pushState(null, "", `?${q}`);
 }
