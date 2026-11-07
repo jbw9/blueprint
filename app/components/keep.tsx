@@ -1,8 +1,7 @@
 "use client";
 
 import { Button } from "@/components/button";
-import { isTauri } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentIcon, CLAUDE } from "@/components/agents";
 import { ExplainedBlock, isExplained } from "@/components/blocks";
 import { DIALOG, Field, INPUT, Overlay, PRIMARY, QUIET } from "@/components/dialog";
@@ -12,6 +11,7 @@ import { ask, section } from "@/lib/context";
 import { draftPrompt, parseBlock, revisePrompt, type Exchange } from "@/lib/keep";
 import { cn } from "@/lib/utils";
 import type { Anatomy, Origin } from "@/lib/data";
+import { useDesktop } from "@/lib/client/platform";
 
 /**
  * Keeping an answer: it adds something the map never knew, marked as the
@@ -20,8 +20,6 @@ import type { Anatomy, Origin } from "@/lib/data";
  * Desktop only. It needs a Claude tab, and the tabs are the desktop app's.
  */
 
-const noSubscribe = () => () => {};
-const useDesktop = () => useSyncExternalStore(noSubscribe, isTauri, () => false);
 
 /* ── the turn just finished ───────────────────────────────────── */
 
@@ -65,7 +63,7 @@ type Stage =
  * keep it. The draft goes through the tab the reader is already talking to, so
  * nothing here holds a key or calls an API.
  */
-export function KeepAnswer({
+function KeepAnswer({
   exchange,
   path,
   onClose,

@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { isTauri } from "@tauri-apps/api/core";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { AnatomyView, TableGlyph, type RowCtx } from "@/components/anatomy";
@@ -35,6 +34,8 @@ import type { Anatomy, Edge, Node } from "@/lib/data";
 import { citations, neighbours, nodesAt, symbolsOf, type Link } from "@/lib/coverage";
 import { useFiles } from "@/components/files";
 import { BLURB_LINES, type Shape } from "@/lib/view";
+import { useDesktop } from "@/lib/client/platform";
+import { projectAction } from "@/lib/client/api";
 
 /**
  * The whole screen: ONE level at a time.
@@ -207,7 +208,7 @@ export function Canvas() {
   // the open level's header (`data-path`, a whole section), else a row, box,
   // block or line of code (`data-row`, `data-pick`). In the desktop app, and on
   // a published map, whose Claude is its panel; a plain browser keeps its own menu.
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   const { ground } = useSettings();
   const [menu, setMenu] = useState<{ x: number; y: number; target: Target; words: string; opens: string[] | null } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -387,7 +388,6 @@ function Arrive({ pane, kept, at, back }: { pane: React.RefObject<HTMLElement | 
 
 const GROUND: Record<Ground, string> = { dots: "dotfield", squares: "gridfield", plain: "" };
 
-const noSubscribe = () => () => {};
 
 /**
  * The last answer Claude gave, so any level can offer to keep it. Held here
@@ -508,7 +508,7 @@ function PickMenu({
 function HandProblems({ node, path }: { node: Node; path: string[] }) {
   const map = useMap();
   const { main } = useAgents();
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   const key = `${sectionKey(path)}#problems`;
   const status = usePicked(key);
   const [pasted, setPasted] = useState(false);
@@ -698,7 +698,7 @@ function Level({
   const queued = section && map.progress?.stage === "deepen" ? map.progress.roots.find((r) => r.id === section) : undefined;
   const deepening = queued?.status === "queued" || queued?.status === "drafting" ? queued.status : undefined;
   useEffect(() => {
-    if (deepening === "queued" && section) void fetch("/api/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "focus", id: map.name, section }) }).catch(() => {});
+    if (deepening === "queued" && section) void projectAction({ action: "focus", id: map.name, section }).catch(() => {});
   }, [deepening, section, map.name]);
   // A project opened without a map, and no run making one (lib/maps.ts, unmapped).
   const unmapped = top && !STATIC_MAP && !map.progress && !node.children?.length && !blocks.length;
@@ -1377,7 +1377,7 @@ function inside(node: Node): string {
  * yet (lib/live.ts), naming the files on hover. Still: the map is not redrawn
  * while the code is being written.
  */
-export function ChangeDot({ files }: { files?: string[] }) {
+function ChangeDot({ files }: { files?: string[] }) {
   if (!files?.length) return null;
   const said = `Code changed: ${files.join(", ")}. The map follows once your edits settle.`;
   return <span role="img" aria-label={said} title={said} className="size-[7px] shrink-0 rounded-full bg-amber-ink" />;

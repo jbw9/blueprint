@@ -39,7 +39,7 @@ export interface MapFile {
 export const LIVE_SEP = "|live:";
 
 /** The top level's id: the empty path, which is the repository itself. */
-export const TOP_ID = "";
+const TOP_ID = "";
 
 /* ── rows that go deeper ──────────────────────────────────────
    A row carrying `under` becomes a REAL child node, spliced in beside whatever

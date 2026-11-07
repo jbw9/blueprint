@@ -93,7 +93,7 @@ export function useSettings(): Settings {
  * Sets `<html data-theme>`, which app/globals.css reads. The same choice is
  * made before first paint by THEME_SCRIPT (lib/theme.ts), so the page never flashes another theme.
  */
-export function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (root.dataset.theme === theme) return;
   // Every hover's transition-colors would fade into the new theme on its own,

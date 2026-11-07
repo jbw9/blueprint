@@ -82,7 +82,7 @@ export function setPartDrag(next: PartDrag | null) {
   for (const f of watchers) f();
 }
 
-export const usePartDrag = () => useSyncExternalStore(watch, () => dragged, () => null);
+const usePartDrag = () => useSyncExternalStore(watch, () => dragged, () => null);
 
 /** Where a part dragged over `strip` would land there, if it is over it. */
 export function useDropOn(strip: string) {

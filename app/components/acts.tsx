@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { goTo } from "@/components/chrome";
-import { useDiff } from "@/components/diff";
-import { openDiffPanel } from "@/components/diff-panel";
+import { useDiff, openDiff } from "@/components/diff";
 import { useMap } from "@/components/map-context";
 import { openTimeline } from "@/components/timeline";
 import { findSection, onAct } from "@/lib/act";
@@ -47,7 +46,7 @@ export function Acts() {
         // undefined. Resolving a phrase like "last commit by someone" is
         // lib/diff.ts's job, not this one's.
         diff?.setRange(a.from || undefined, a.to ?? undefined);
-        openDiffPanel();
+        openDiff();
       }),
     [map, diff],
   );

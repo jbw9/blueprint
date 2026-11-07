@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useSyncExternalStore } from "react";
 import { claudeTab, insertPrompt } from "@/lib/context";
 import { openSettings, readSettings, saveSettings } from "@/lib/settings";
+import { signal } from "@/lib/client/signal";
 
 /**
  * Hold Control+Option, speak, let go. Bound for Claude's prompt, it is Claude
@@ -27,14 +28,10 @@ export interface Dictation {
 const LIMIT_MS = 120_000;
 
 let state: Dictation = { phase: "idle" };
-const listeners = new Set<() => void>();
+const { subscribe, emit } = signal();
 const set = (next: Dictation) => {
   state = next;
-  listeners.forEach((f) => f());
-};
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  return () => listeners.delete(f);
+  emit();
 };
 export const useDictation = () => useSyncExternalStore(subscribe, () => state, () => state);
 

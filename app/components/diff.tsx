@@ -67,7 +67,7 @@ const Ctx = createContext<DiffState | null>(null);
 export const useDiff = () => useContext(Ctx);
 
 /** The verdict on one section, by the path the canvas navigates by. */
-export function useVerdict(path: string[]): Verdict {
+function useVerdict(path: string[]): Verdict {
   const d = useDiff();
   const key = path.join("/");
   return useMemo(() => d?.diff?.sections.find((s) => s.path.join("/") === key)?.verdict ?? "untouched", [d, key]);
@@ -126,7 +126,7 @@ export function DiffMode({ map, children }: { map: string; children: React.React
   );
 }
 
-export function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; onOff: () => void; children: React.ReactNode }) {
+function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; onOff: () => void; children: React.ReactNode }) {
   const [range, setR] = useState<{ from?: string; to?: string; review?: string }>({});
   const [commits, setCommits] = useState<Commit[]>([]);
   const [listed, setListed] = useState(false);
@@ -196,7 +196,7 @@ export function DiffProvider({ map, on, onOff, children }: { map: string; on: bo
 }
 
 /** A verdict as a word in its own colours. */
-export function Pill({ verdict, children }: { verdict: Exclude<Verdict, "untouched">; children: React.ReactNode }) {
+function Pill({ verdict, children }: { verdict: Exclude<Verdict, "untouched">; children: React.ReactNode }) {
   const t = TINT[verdict];
   return (
     <span

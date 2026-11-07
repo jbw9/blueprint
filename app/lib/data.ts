@@ -1,6 +1,6 @@
 /**
- * Fixture for the prototype. No repository is analysed — this is the shape a
- * real `bluprint map` run would emit for a mid-size SaaS codebase.
+ * The map's schema: the shape of the map.json a generator run writes
+ * (scripts/generate) and every part of the app reads.
  *
  * The map is organised by CONCEPT, not by file. Someone new to a codebase asks
  * "how does billing work" and "what's in the database", not "what's in

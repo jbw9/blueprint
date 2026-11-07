@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Eyebrow } from "@/components/state";
 import { Button } from "@/components/button";
-import { claudePath, post } from "@/components/projects";
 import { useMap } from "@/components/map-context";
 import type { Progress } from "@/lib/vault";
+import { claudePath } from "@/lib/client/claude";
+import { projectAction } from "@/lib/client/api";
 
 /*
  * A map being made, shown as it is made (D69): the files being read, then a
@@ -343,7 +344,7 @@ export function Unmapped({ id }: { id: string }) {
     setStarting(true);
     setError(null);
     try {
-      await post({ action: "regenerate", id, claude: await claudePath() });
+      await projectAction({ action: "regenerate", id, claude: await claudePath() });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStarting(false);

@@ -1,15 +1,16 @@
 "use client";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DIALOG, INPUT, Overlay, PRIMARY, QUIET } from "@/components/dialog";
 import { useMaybeMap } from "@/components/map-context";
 import { Menu, type MenuItem } from "@/components/menu";
 import { cloneUrl, repoName } from "@/lib/clone";
-import { readSettings } from "@/lib/settings";
 import type { Explain, Progress, Project } from "@/lib/vault";
 import { cn } from "@/lib/utils";
+import { projectAction } from "@/lib/client/api";
+import { claudePath } from "@/lib/client/claude";
 
 /**
  * The project list: the reader's own projects, imported from this machine and
@@ -55,27 +56,6 @@ type Listed = Project & { hasMap: boolean; stale: boolean; progress?: Progress }
 interface List {
   vault: string;
   projects: Listed[];
-}
-
-export async function post(body: Record<string, unknown>) {
-  const res = await fetch("/api/projects", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const out = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(out.error ?? "Something went wrong.");
-  return out;
-}
-
-/** The reader's Claude Code, as the terminal finds it; none outside the desktop app. */
-export async function claudePath(): Promise<string | undefined> {
-  if (!isTauri()) return undefined;
-  const found = await invoke<{ path: string } | null>("claude_detect", {
-    configured: readSettings().claudePath || null,
-  });
-  if (!found) throw new Error("Claude Code was not found. Set where it is in Settings.");
-  return found.path;
 }
 
 export function ProjectsDialog() {
@@ -132,7 +112,7 @@ export function ProjectsDialog() {
     setBusy(true);
     setError(null);
     try {
-      const out = await post(body);
+      const out = await projectAction(body);
       await refresh();
       return out ?? {};
     } catch (e) {
@@ -301,7 +281,7 @@ const UNDERSTAND: { label: string; explain: Explain }[] = [
   { label: "Wrote it", explain: "none" },
 ];
 
-export const EXPLAINS: Record<Explain, { label: string; note: string }> = {
+const EXPLAINS: Record<Explain, { label: string; note: string }> = {
   none: { label: "No explanations", note: "The map alone: parts, pictures and the code behind each step." },
   minimal: { label: "Minimal explanations", note: "One line per level on what this project calls it, a few of its own words defined, a short walkthrough." },
   brief: { label: "Brief explanations", note: "A sentence or two per level on what it is for, a short glossary and walkthrough." },

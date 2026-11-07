@@ -1,12 +1,12 @@
 "use client";
 
-import { isTauri } from "@tauri-apps/api/core";
-import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMap } from "@/components/map-context";
 import type { Node, Origin } from "@/lib/data";
 import type { MapEntry } from "@/lib/maps";
 import { cn } from "@/lib/utils";
+import { useDesktop } from "@/lib/client/platform";
 
 /**
  * Where you are, and the way back — one line across the top of the page.
@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
  * and WRAPS rather than eliding when the path gets deep, so no stop is ever
  * hidden — the reason the rail existed.
  */
-const noSubscribe = () => () => {};
 
 /** One stop on the way down: a level below the repo, outermost first. */
 export interface Crumb {
@@ -102,7 +101,7 @@ export function goTo(next: string[]) {
 }
 
 /** Which map is open, and every other one of the reader's projects to switch to. */
-export function MapSwitcher({ map, maps, className }: { map: string; maps: MapEntry[]; className?: string }) {
+function MapSwitcher({ map, maps, className }: { map: string; maps: MapEntry[]; className?: string }) {
   const router = useRouter();
   return (
     <select
@@ -136,7 +135,7 @@ export function Crumbs({
   /** Jump to depth `n` — 0 is the repo. */
   onJump: (depth: number) => void;
 }) {
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   const stops = [{ id: "", title: repo }, ...crumbs];
   const switcher = !desktop && maps.length >= 2;
   // At the top, a trail of one is the repo's name standing alone.

@@ -79,7 +79,7 @@ const TONE = {
 } as const;
 
 /** How many section hues exist. No diagram opens more parts than this. */
-export const SECTION_HUES = 7;
+const SECTION_HUES = 7;
 
 /**
  * The colour of the Nth part a level declares. Exported so the list below the

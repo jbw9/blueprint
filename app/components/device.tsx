@@ -5,7 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PickMenu } from "@/components/preview";
 import type { Target } from "@/lib/context";
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
 
 /**
  * A phone in a workspace tab: the Android emulator or the iOS Simulator,
@@ -43,7 +43,6 @@ interface Status {
 
 type Phase = "idle" | "starting" | "running";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function Device({
   platform,

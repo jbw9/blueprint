@@ -2,7 +2,7 @@
  * The things a card can show instead of another paragraph.
  *
  * "There are no logos, diagrams, or anything that makes it appealing. Right now
- * it's very text-heavy." The shapes in `Shape` are the answer, and the rule
+ * it's very text-heavy." The shapes in `Shape` (lib/view.ts) are the answer, and the rule
  * that governs them is D19's: an invented picture is the same failure as an
  * invented arrow. Every glyph here names a real dependency in the mapped repo's
  * package.json.
@@ -20,12 +20,8 @@
  * this size.
  */
 
-/* ────────────────────────────────────────────────────────────────────
-   TASK 1 — BRAND MARKS
-   ──────────────────────────────────────────────────────────────────── */
-
 /**
- * The glyph table, keyed by the id the fixture uses.
+ * The glyph table, keyed by the id a map's chips use.
  *
  * Each entry draws inside a 16×16 box and uses `currentColor` only, so a chip
  * can tint the pair — glyph and name — as one thing. Anything not in here

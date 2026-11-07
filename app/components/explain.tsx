@@ -16,6 +16,7 @@ import { hunksOf, type HunkLines } from "@/lib/hunks";
 import { readSource } from "@/lib/source";
 import type { Slice } from "@/lib/repo";
 import type { Anatomy, Explainer as ExplainerData, Walkthrough } from "@/lib/data";
+import { signal } from "@/lib/client/signal";
 
 /* ── the toggle ──────────────────────────────────────────────── */
 
@@ -25,7 +26,7 @@ import type { Anatomy, Explainer as ExplainerData, Walkthrough } from "@/lib/dat
  * not yet know to look for it.
  */
 const KEY = "bluprint.explain";
-const listeners = new Set<() => void>();
+const { subscribe, emit } = signal();
 
 function readExplain(): boolean {
   try {
@@ -36,21 +37,14 @@ function readExplain(): boolean {
 }
 
 export function useExplain(): [boolean, (on: boolean) => void] {
-  const on = useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    readExplain,
-    () => true,
-  );
+  const on = useSyncExternalStore(subscribe, readExplain, () => true);
   const set = (v: boolean) => {
     try {
       localStorage.setItem(KEY, v ? "on" : "off");
     } catch {
       /* private window: the choice lasts this page */
     }
-    listeners.forEach((l) => l());
+    emit();
   };
   return [on, set];
 }

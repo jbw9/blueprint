@@ -70,7 +70,7 @@ export function changesUnder(diff: MapDiff, id: string): Changed | null {
 }
 
 /** GitHub's five squares: how much of the change was added, how much removed. */
-export function StatBlocks({ added, removed }: { added: number; removed: number }) {
+function StatBlocks({ added, removed }: { added: number; removed: number }) {
   const total = added + removed;
   const green = total ? Math.round((added / total) * 5) : 0;
   return (

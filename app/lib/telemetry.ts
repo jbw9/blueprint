@@ -11,8 +11,8 @@ import { join } from "node:path";
  */
 
 // The movies site's Supabase project, shared; the key is the public one, which can only call functions.
-export const SUPABASE_URL = "https://jbvkjvdthuzofvmhwctv.supabase.co";
-export const SUPABASE_KEY = "sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl";
+const SUPABASE_URL = "https://jbvkjvdthuzofvmhwctv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl";
 
 interface Telemetry {
   installId: string;

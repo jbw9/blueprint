@@ -104,7 +104,7 @@ interface Index {
   projects: Project[];
 }
 
-export function readVault(): Index {
+function readVault(): Index {
   try {
     const v = JSON.parse(readFileSync(INDEX, "utf8")) as Index;
     if (v.version === 1 && Array.isArray(v.projects)) return v;
@@ -218,7 +218,7 @@ export function listProjects(): Project[] {
   return v.projects;
 }
 
-export const slug = (s: string) =>
+const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "project";
 
 /** Every id already taken, so an import never shadows an example or another project. */

@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import { readSettings } from "@/lib/settings";
+import { findClaude } from "@/lib/client/claude";
 
 /**
  * A turn of Claude's the map follows (src-tauri/src/claude.rs): its session's
@@ -20,7 +19,7 @@ export interface Turn {
  * one of the user's projects.
  */
 export async function updateMap(root: string, turn?: Turn): Promise<{ skipped?: boolean } | null> {
-  const found = await invoke<{ path: string } | null>("claude_detect", { configured: readSettings().claudePath || null }).catch(() => null);
+  const found = await findClaude();
   return fetch("/api/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },

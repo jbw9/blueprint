@@ -1,10 +1,9 @@
 "use client";
 
-import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openSettings } from "@/lib/settings";
 import { openPalette } from "@/components/palette";
 import { useMap } from "@/components/map-context";
@@ -21,6 +20,7 @@ import { DocIcon } from "@/components/docs";
 import { LOGOS } from "@/components/agents";
 import { STATIC_MAP } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { useDesktop } from "@/lib/client/platform";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
@@ -39,7 +39,6 @@ import { cn } from "@/lib/utils";
  * draws no buttons of its own on the right.
  */
 
-const noSubscribe = () => () => {};
 
 /**
  * `bare` is the window with no map open (components/welcome.tsx): the frame,
@@ -47,7 +46,7 @@ const noSubscribe = () => () => {};
  * page itself offers Open Folder there, as VS Code's welcome does.
  */
 export function Titlebar({ bare }: { bare?: boolean }) {
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   const [maximized, setMaximized] = useState(false);
   // Only read once `desktop` is true, which is never on the server.
   const mac = desktop && /Mac/.test(navigator.userAgent);

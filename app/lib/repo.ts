@@ -127,7 +127,7 @@ async function contain(repoRoot: RepoRoot, file: string): Promise<string | null>
 export class Refused extends Error {}
 
 /** What a doc may show from the repository: images, by extension, and their types. */
-export const IMAGE_TYPES: Record<string, string> = {
+const IMAGE_TYPES: Record<string, string> = {
   svg: "image/svg+xml",
   png: "image/png",
   jpg: "image/jpeg",

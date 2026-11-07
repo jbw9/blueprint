@@ -26,7 +26,7 @@ import { owners, type Cut } from "@/scripts/generate/cut";
 import { git, refs } from "@/scripts/generate/gitdiff";
 
 /** The cap on commits read. Past it the oldest are left off, and `capped` says so. */
-export const MOST = 2000;
+const MOST = 2000;
 
 /** The id of the row for files no root owns. */
 export const ELSEWHERE = "";

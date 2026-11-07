@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Menu } from "@/components/menu";
 import { mention, openClaude, usePicks, type Target } from "@/lib/context";
 import { PRESETS, hostOf, registerPreview, type Call } from "@/lib/preview";
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
 
 /**
  * A project's running web app, in a workspace tab (components/workspace.tsx).
@@ -146,7 +146,6 @@ type Act = { kind: "move" | "down" | "up" | "drag" | "key" | "text"; x?: number;
 /** Where the agent found a click's target (agent.js `locate`). */
 type Located = { x: number; y: number; what: string; native: { kind: "select" | "file" | "color"; ref: string; options?: string } | null };
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** The toolbar's device toggles: the whole tab, then presets (lib/preview.ts). */
 const DEVICES = [

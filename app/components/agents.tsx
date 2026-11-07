@@ -2,8 +2,9 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { readSettings, useSettings } from "@/lib/settings";
+import { useSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { findClaude } from "@/lib/client/claude";
 
 /**
  * The coding agents a workspace tab can start, and how each is drawn.
@@ -25,7 +26,7 @@ export interface Agent {
 export const CLAUDE: Agent = { id: "claude", label: "Claude Code", command: "slop-claude" };
 
 /** Every other agent, shown when installed. */
-export const AGENTS: Agent[] = [
+const AGENTS: Agent[] = [
   { id: "codex", label: "Codex", command: "codex" },
   { id: "opencode", label: "OpenCode", command: "opencode" },
   { id: "pi", label: "Pi", command: "pi" },
@@ -99,13 +100,11 @@ export function useInstalled(): Agent[] {
 }
 
 /** Whether Claude Code was found, where Settings says or wherever it is installed; unknown while looking. */
-export function useClaudeFound(): boolean | undefined {
+function useClaudeFound(): boolean | undefined {
   const [found, setFound] = useState<boolean>();
   useEffect(() => {
     let live = true;
-    invoke<{ path: string } | null>("claude_detect", { configured: readSettings().claudePath || null })
-      .then((f) => live && setFound(!!f))
-      .catch(() => live && setFound(false));
+    void findClaude().then((f) => live && setFound(!!f));
     return () => {
       live = false;
     };

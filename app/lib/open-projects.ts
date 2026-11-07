@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { signal } from "@/lib/client/signal";
 
 /**
  * The projects open as tabs in the title bar (components/titlebar.tsx), kept
@@ -32,7 +33,7 @@ const read = (): string[] => {
 const EMPTY: State = { open: [], last: null, status: {} };
 let state: State = EMPTY;
 let loaded = false;
-const listeners = new Set<() => void>();
+const { subscribe, emit } = signal();
 const set = (next: State) => {
   if (next.open !== state.open)
     try {
@@ -41,11 +42,7 @@ const set = (next: State) => {
       /* not kept: the tabs still work this session */
     }
   state = next;
-  listeners.forEach((f) => f());
-};
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  return () => listeners.delete(f);
+  emit();
 };
 const get = () => {
   if (!loaded && typeof window !== "undefined") {

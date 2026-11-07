@@ -13,6 +13,8 @@ import { outline } from "@/lib/map";
 import { readSettings } from "@/lib/settings";
 import { themeOf, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/client/platform";
+import { findClaude } from "@/lib/client/claude";
 
 /**
  * One tab's program: the user's shell, or their Claude Code, on a real pty in
@@ -107,8 +109,6 @@ const palette = () => PALETTES[themeOf(document.documentElement.dataset.theme)];
  * sequences, which shells and Claude Code read themselves.
  */
 type Action = { send: string } | { copy: true } | { paste: true } | { zoom: number | null };
-
-const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** `claude`: Claude Code is in front, so Ctrl+Enter is its "send now". */
 function actionFor(e: KeyboardEvent, selected: boolean, claude: boolean): Action | null {
@@ -284,9 +284,7 @@ export function Shell({
       // Every tab can run Claude, so it is looked for every time; without it
       // the tab is still a shell.
       const { claudePath, model, voice, research } = readSettings();
-      const found = await invoke<{ path: string } | null>("claude_detect", {
-        configured: claudePath || null,
-      }).catch(() => null);
+      const found = await findClaude(claudePath);
       if (gone) return;
       handlers.current.onClaude?.(!!found);
       const launch = found ? { path: found.path, model: model || null, voice, research } : null;

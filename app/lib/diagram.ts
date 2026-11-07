@@ -29,7 +29,7 @@ export type PlacedArrow = {
   label?: { text: string; x: number; y: number; anchor: "start" | "middle" | "end" };
 };
 
-export function labelRect(l: NonNullable<PlacedArrow["label"]>): Rect {
+function labelRect(l: NonNullable<PlacedArrow["label"]>): Rect {
   const w = l.text.length * LABEL_CHAR;
   const x = l.anchor === "start" ? l.x : l.anchor === "middle" ? l.x - w / 2 : l.x - w;
   return { x, y: l.y - 11, w, h: LABEL_H };

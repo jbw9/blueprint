@@ -401,7 +401,7 @@ function blockDiff(path: string[], at: number, a: Anatomy, b: Anatomy): BlockDif
  * it says what changed on the map itself. A block's `at` is its index in
  * `b`'s section, the map the canvas draws; a block only `a` had keeps `a`'s.
  */
-export function treeDiff(a: MapFile, b: MapFile): { sections: SectionDiff[]; blocks: BlockDiff[] } {
+function treeDiff(a: MapFile, b: MapFile): { sections: SectionDiff[]; blocks: BlockDiff[] } {
   const was = walk(a.AUTHORED);
   const now = new Map(walk(b.AUTHORED).map((p) => [p.node.id, p]));
   const sections: SectionDiff[] = [];

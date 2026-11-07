@@ -3,11 +3,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { DIALOG, Field, INPUT, Overlay } from "@/components/dialog";
-import { keys, useMac } from "@/components/button";
+import { keys } from "@/components/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agents";
 import { PanelHead } from "@/components/panel";
 import { cn } from "@/lib/utils";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/settings";
+import { useMac } from "@/lib/client/platform";
 
 /**
  * Settings, as a dialog over the map. There is little to set: the theme,

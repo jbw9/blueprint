@@ -5,7 +5,7 @@
  */
 
 export const SETTINGS_KEY = "slop.settings";
-export const THEMES = ["classic", "light", "dark"] as const;
+const THEMES = ["classic", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
 /** A saved theme, or Classic for none and for one this version no longer has. */

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 import { describe, type BuiltMap } from "@/lib/map";
+import { signal } from "@/lib/client/signal";
 
 /**
  * What the user has handed to Claude from the map: whole sections, or any one
@@ -51,14 +52,10 @@ export const onWebPrompt = (f: (text: string) => void) => {
 };
 
 let state: State = { target: null, picks: {} };
-const listeners = new Set<() => void>();
+const { subscribe, emit } = signal();
 const set = (next: State) => {
   state = next;
-  listeners.forEach((f) => f());
-};
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  return () => listeners.delete(f);
+  emit();
 };
 
 export const sectionKey = (path: string[]) => path.join("/");

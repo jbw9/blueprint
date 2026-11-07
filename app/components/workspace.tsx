@@ -2,11 +2,11 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useMotionValue } from "motion/react";
 import { AgentIcon, CLAUDE, TerminalIcon, agentById, useAgents, type Agent } from "@/components/agents";
-import { keys, useMac } from "@/components/button";
+import { keys } from "@/components/button";
 import { useMap } from "@/components/map-context";
 import { Menu } from "@/components/menu";
 import { Shell } from "@/components/shell";
@@ -25,7 +25,9 @@ import { openSettings, readSettings } from "@/lib/settings";
 import { updateMap, type Turn } from "@/lib/update-map";
 import type { Exchange } from "@/lib/keep";
 import { onClosed, reportStatus, type Status } from "@/lib/open-projects";
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
+import { useDesktop, useMac } from "@/lib/client/platform";
+import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
 
 /**
  * The workspace: one window, floating over the map's right edge, with a row
@@ -71,12 +73,6 @@ export const toggleWorkspace = () => window.dispatchEvent(new Event(TOGGLE));
 
 const WIDTH_KEY = "slop.workspace.width";
 const MIN_WIDTH = 380;
-/** The gap kept around the window. */
-const GAP = 12;
-/** The custom title bar's height, in the desktop app. */
-const TITLEBAR = 36;
-/** The status bar's height (components/statusbar.tsx), which it floats above. */
-const STATUSBAR = 24;
 
 interface Tab {
   key: number;
@@ -163,7 +159,6 @@ function offered(root: string) {
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Polls for something to exist, giving up after `ms`. */
 async function until<T>(get: () => T | undefined, ms: number): Promise<T> {
@@ -189,7 +184,6 @@ function storedWidth() {
 /** Tab keys, unique for the app's life. */
 let nextKey = 1;
 
-const noSubscribe = () => () => {};
 
 export function Workspace() {
   const map = useMap();
@@ -203,7 +197,7 @@ export function Workspace() {
   // A part dragged off the map onto this strip (components/canvas.tsx).
   const drop = useDropOn("main");
   const titleOf = (p: string[], file?: string) => tabTitle(map.nodeAt, p, file);
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   const onMac = useMac();
   // Hidden once it has slid away, so it takes no clicks and no focus.
   const [settled, setSettled] = useState(true);

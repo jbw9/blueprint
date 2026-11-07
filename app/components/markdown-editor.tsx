@@ -3,10 +3,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { cn } from "@/lib/utils";
+import { PLUGINS, REHYPE } from "@/lib/client/markdown";
 
 /**
  * A Markdown file read as a page and written where it is read, as Obsidian's
@@ -44,8 +42,6 @@ function blocks(lines: string[], base: number): Range[] {
   return out;
 }
 
-const REHYPE = [rehypeRaw, [rehypeSanitize, defaultSchema]] as NonNullable<React.ComponentProps<typeof Markdown>["rehypePlugins"]>;
-const PLUGINS = [remarkGfm];
 
 /** An image beside the file, read off disk; a web one as it is. */
 function LocalImg({ dir, src, alt, ...rest }: React.ImgHTMLAttributes<HTMLImageElement> & { dir: string }) {

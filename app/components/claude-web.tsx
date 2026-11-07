@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useMap } from "@/components/map-context";
 import { findSection } from "@/lib/act";
 import { WEB_TAB, onOpenClaude, onWebPrompt, section, tabEnded, tabStarted, takePicks, unpick, usePicks } from "@/lib/context";
+import { GAP, STATUSBAR } from "@/lib/client/layout";
 
 /**
  * A published map's stand-in for the workspace: no shell to run on a static
@@ -24,8 +25,6 @@ import { WEB_TAB, onOpenClaude, onWebPrompt, section, tabEnded, tabStarted, take
  */
 const URL_ = process.env.NEXT_PUBLIC_CLAUDE_URL;
 
-const GAP = 12;
-const STATUSBAR = 24;
 const WIDTH = 560;
 
 /** Markdown as a terminal draws it: the panel's own monospace, colour for emphasis and code. */

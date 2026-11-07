@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { hurry, sendBatch, type Target } from "@/lib/context";
+import { signal } from "@/lib/client/signal";
 
 /**
  * A review of what is on screen: notes pinned to things on the map, in a diff
@@ -43,7 +44,7 @@ interface State {
 }
 
 let state: State = { map: null, notes: [], editing: null };
-const listeners = new Set<() => void>();
+const { subscribe, emit } = signal();
 const set = (next: State) => {
   state = next;
   if (next.map) {
@@ -51,11 +52,7 @@ const set = (next: State) => {
       localStorage.setItem(KEY + next.map, JSON.stringify(next.notes.filter((n) => n.status !== "sent")));
     } catch {}
   }
-  listeners.forEach((f) => f());
-};
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  return () => listeners.delete(f);
+  emit();
 };
 const KEY = "bluprint.review.";
 
@@ -95,7 +92,7 @@ export function clearSent() {
 }
 
 /** What Claude reads for one note: the thing as the map describes it, then the note. */
-export function describeNote(n: Note): string {
+function describeNote(n: Note): string {
   if (n.kind === "suggest")
     return [
       `[Suggested edit — ${n.anchor.title}]`,

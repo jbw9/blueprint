@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { isTauri } from "@tauri-apps/api/core";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMap } from "@/components/map-context";
 import { addNote, clearSent, dropNote, editNote, reviewFor, sendNow, sendReview, stopEditing, useEditing, useNotes, type Editing, type Note } from "@/lib/notes";
-import { keys, useMac } from "@/components/button";
+import { keys } from "@/components/button";
 import { PRIMARY, QUIET } from "@/components/dialog";
 import { cn } from "@/lib/utils";
+import { useDesktop, useMac } from "@/lib/client/platform";
+import { GAP, STATUSBAR } from "@/lib/client/layout";
 
 /**
  * The review: notes left on the map, in a diff or in the code (lib/notes.ts),
@@ -16,15 +17,12 @@ import { cn } from "@/lib/utils";
  * view. In the desktop app only, where Claude runs.
  */
 
-const GAP = 12;
-const STATUSBAR = 24;
-const noSubscribe = () => () => {};
 /** A field to write a note in. */
 const FIELD = "w-full border border-border-gray bg-card px-2 py-1.5 text-[12.5px] text-ink outline-none placeholder:text-faint focus:border-accent";
 
 export function ReviewTray() {
   const { name } = useMap();
-  const desktop = useSyncExternalStore(noSubscribe, isTauri, () => false);
+  const desktop = useDesktop();
   useEffect(() => reviewFor(name), [name]);
   const notes = useNotes();
   const editing = useEditing();

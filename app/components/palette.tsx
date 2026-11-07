@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { goTo, useLocation } from "@/components/chrome";
 import { openFile } from "@/components/code";
 import { useMap } from "@/components/map-context";
-import { Kbd, keys, useMac } from "@/components/button";
+import { Kbd, keys } from "@/components/button";
 import { StateChip } from "@/components/state";
 import { newProject, openFolder, openProjects } from "@/components/projects";
 import { openAudit } from "@/components/audit";
@@ -20,6 +20,7 @@ import type { Theme } from "@/lib/theme";
 import { startDictation } from "@/lib/dictate";
 import type { Node } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useMac } from "@/lib/client/platform";
 
 /**
  * The palette: one box that goes anywhere. Type part of a level's name and

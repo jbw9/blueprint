@@ -16,7 +16,8 @@ import { Eyebrow } from "@/components/state";
 import type { Anatomy, DiagramArrow, DiagramBox } from "@/lib/data";
 import type { PartDiff, Verdict } from "@/lib/diff";
 import { fileLines, parsePlan, pieces, planChoices, type Choice, type FileLine } from "@/lib/plan";
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
+import type { Status } from "@/lib/open-projects";
 
 /**
  * A plan Claude wrote in plan mode, as a short design doc in a tab of its own
@@ -55,9 +56,7 @@ export interface StepMark {
   note: string | null;
 }
 
-type Status = "working" | "waiting" | "done";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** The question's answers while Claude Code is asking it; polled, since it is drawn by another program. */
 function useChoices(read: () => string[], on: boolean) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentIcon } from "@/components/agents";
-import { Kbd, keys, useMac } from "@/components/button";
+import { Kbd, keys } from "@/components/button";
 import { useMap } from "@/components/map-context";
 import { openReview } from "@/components/diff";
 import { openFiles, useFiles } from "@/components/files";
@@ -13,6 +13,7 @@ import { coverage } from "@/lib/coverage";
 import type { Node } from "@/lib/data";
 import { STATIC_MAP } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { useMac } from "@/lib/client/platform";
 
 /**
  * The line along the bottom of the window: what is true of the whole map,

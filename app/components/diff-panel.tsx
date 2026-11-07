@@ -2,10 +2,9 @@
 
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
 import { DIALOG, Overlay } from "@/components/dialog";
-import { OPEN_DIFF, TINT, WORD, openDiff, useDiff } from "@/components/diff";
+import { OPEN_DIFF, TINT, WORD, useDiff } from "@/components/diff";
 import { goTo } from "@/components/chrome";
 import { useMap } from "@/components/map-context";
-import { claudePath } from "@/components/projects";
 import { hunksOf, type HunkLines } from "@/lib/hunks";
 import { startNote, useNotes } from "@/lib/notes";
 import { undoTurn } from "@/lib/undo";
@@ -15,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { Commit, FileChange, MapDiff, SectionDiff, Verdict } from "@/lib/diff";
 import type { Summary } from "@/lib/history";
 import type { Branch, Pull, Review } from "@/lib/review";
+import { claudePath } from "@/lib/client/claude";
 
 /**
  * The history and what each commit did, laid out the way a code editor's
@@ -35,13 +35,6 @@ import type { Branch, Pull, Review } from "@/lib/review";
  * Mounted once beside the other dialogs and opened by the same event that
  * turns diff mode on, so there is one way in. Leaving is `off`, in the header.
  */
-
-/**
- * Asks for the panel. The same event that turns diff mode on, so one call both
- * enters the mode and opens its list — which is what a caller that has just
- * set a range (components/acts.tsx) wants.
- */
-export const openDiffPanel = openDiff;
 
 type Item = { k: "commit"; c: Commit } | { k: "file"; path: string };
 type View = "split" | "inline";

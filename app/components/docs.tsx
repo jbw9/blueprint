@@ -4,9 +4,6 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { useSearchParams } from "next/navigation";
 import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
 import { raw } from "hast-util-raw";
 import { defaultSchema, sanitize } from "hast-util-sanitize";
 import { toJsxRuntime } from "hast-util-to-jsx-runtime";
@@ -17,6 +14,7 @@ import { Button } from "@/components/button";
 import { STATIC_MAP, readSource } from "@/lib/source";
 import type { Doc } from "@/lib/docs";
 import { cn } from "@/lib/utils";
+import { PLUGINS, REHYPE } from "@/lib/client/markdown";
 
 /**
  * The docs reader: a project's Markdown (README, design notes, decision logs)
@@ -138,7 +136,7 @@ const imageSet = (at: { map: string; file: string }, set: string | undefined) =>
     .join(", ");
 
 /** Docs that are a page of HTML rather than Markdown. */
-export const isHtml = (file: string) => /\.html?$/i.test(file);
+const isHtml = (file: string) => /\.html?$/i.test(file);
 /** Docs the reader opens: Markdown, and HTML pages. */
 const isDoc = (path: string) => /\.(mdx?|html?)$/i.test(path);
 
@@ -247,11 +245,6 @@ const COMPONENTS: Components = {
 /* ── the reader ──────────────────────────────────────────────── */
 
 type Text = { text: string } | { failed: true } | null;
-const PLUGINS = [remarkGfm];
-// HTML written into the Markdown (a centred logo, a badge row) is drawn, not
-// printed, and cleaned the way GitHub cleans it: no script, no styles, no
-// event handlers, only the tags and attributes a README may use.
-const REHYPE = [rehypeRaw, [rehypeSanitize, defaultSchema]] as NonNullable<React.ComponentProps<typeof Markdown>["rehypePlugins"]>;
 
 /** A doc that is an HTML page: parsed, cleaned the same way, and drawn with the same parts. */
 function HtmlDoc({ html }: { html: string }) {

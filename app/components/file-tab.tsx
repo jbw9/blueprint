@@ -4,9 +4,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { CodeEditor } from "@/components/editor";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { keys, useMac } from "@/components/button";
+import { keys } from "@/components/button";
 import { langOf } from "@/lib/highlight";
 import { cn } from "@/lib/utils";
+import { useMac } from "@/lib/client/platform";
 
 /**
  * A file a terminal named (components/shell.tsx), open in the main view as an

@@ -7,9 +7,9 @@ import { goTo } from "@/components/chrome";
 import { sectionTone } from "@/components/blocks";
 import { TINT, openDiff, useDiff } from "@/components/diff";
 import { useMap } from "@/components/map-context";
-import { claudePath } from "@/components/projects";
 import { Eyebrow } from "@/components/state";
 import type { Chapter, Story, Timeline as Data, TimelineCommit } from "@/lib/history";
+import { claudePath } from "@/lib/client/claude";
 
 /** lib/history.ts's ELSEWHERE, the row for files no root owns; that file reads git, so it is never imported here. */
 const ELSEWHERE = "";
