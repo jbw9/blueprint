@@ -300,7 +300,8 @@ fn avds(sdk: &Path) -> Vec<String> {
         .filter(|l| !l.is_empty() && !l.starts_with("INFO") && !l.contains(' '))
         .map(String::from)
         .collect();
-    // The one the setup made comes first.
+    // The one the setup made comes first. It keeps the name it was given before
+    // the rename to Bluprint: a new one would make every machine build a second phone.
     all.sort_by_key(|a| a != "slop_phone");
     all
 }
@@ -698,7 +699,7 @@ fn frame(platform: &str) -> Result<Vec<u8>, String> {
         }
         out.stdout
     } else {
-        let file = std::env::temp_dir().join(format!("slop-sim-{}.png", std::process::id()));
+        let file = std::env::temp_dir().join(format!("bluprint-sim-{}.png", std::process::id()));
         ok(crate::proc::command("xcrun").args(["simctl", "io", &id, "screenshot", "--type=png"]).arg(&file)).ok_or("The simulator did not send its screen.")?;
         std::fs::read(&file).map_err(|e| e.to_string())?
     };
@@ -1026,7 +1027,7 @@ pub fn device_run(platform: String, root: String) -> Result<String, String> {
                 .min_by_key(|(f, _)| *f != "-workspace")
                 .ok_or("This project has no Xcode project.")?;
             let scheme = file.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            let build = std::env::temp_dir().join("slop-ios-build");
+            let build = std::env::temp_dir().join("bluprint-ios-build");
             format!(
                 "xcodebuild {flag} {file} -scheme {scheme} -destination id={id} -derivedDataPath {build} build && app=$(find {products} -maxdepth 2 -name '*.app' | head -n 1) && xcrun simctl install {id} \"$app\" && xcrun simctl launch {id} \"$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' \"$app/Info.plist\")\"",
                 file = q(&file),
@@ -1068,7 +1069,7 @@ fn shrink(png: &[u8], w: u32, h: u32) -> (Vec<u8>, u32) {
     static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let tmp = std::env::temp_dir();
-    let (from, to) = (tmp.join(format!("slop-shot-{}-{n}.png", std::process::id())), tmp.join(format!("slop-shot-{}-{n}-small.png", std::process::id())));
+    let (from, to) = (tmp.join(format!("bluprint-shot-{}-{n}.png", std::process::id())), tmp.join(format!("bluprint-shot-{}-{n}-small.png", std::process::id())));
     let small = std::fs::write(&from, png).ok().and_then(|_| {
         ok(crate::proc::command("sips").args(["--resampleWidth", &(w / d).to_string()]).arg(&from).arg("--out").arg(&to))?;
         std::fs::read(&to).ok()
@@ -1138,7 +1139,7 @@ pub fn tool(args: &serde_json::Value, app: &tauri::AppHandle) -> Result<Vec<serd
     // Claude's pointer goes there first, in the phone's tab (components/preview/device.tsx), as it does on a page.
     if matches!(action, "tap" | "swipe") {
         use tauri::Emitter;
-        let _ = app.emit_to("main", "slop:device-touch", json!({ "platform": platform, "x": i.x, "y": i.y, "x2": i.x2, "y2": i.y2, "swipe": action == "swipe" }));
+        let _ = app.emit_to("main", "bluprint:device-touch", json!({ "platform": platform, "x": i.x, "y": i.y, "x2": i.x2, "y2": i.y2, "swipe": action == "swipe" }));
         std::thread::sleep(Duration::from_millis(450));
     }
     input(&platform, &i)?;

@@ -9,7 +9,7 @@ import { findClaude } from "@/lib/client/claude";
 /**
  * The coding agents a workspace tab can start, and how each is drawn.
  *
- * Claude goes through the app's launcher, `slop-claude`, so it can take map
+ * Claude goes through the app's launcher, `bluprint-claude`, so it can take map
  * context (src-tauri/src/claude.rs); the others start as the user's own CLI,
  * typed into the shell. Logos come from Simple Icons (CC0) where it has one;
  * an agent without one gets the terminal glyph. Adding an agent is one entry.
@@ -23,7 +23,7 @@ export interface Agent {
   command: string;
 }
 
-export const CLAUDE: Agent = { id: "claude", label: "Claude Code", command: "slop-claude" };
+export const CLAUDE: Agent = { id: "claude", label: "Claude Code", command: "bluprint-claude" };
 
 /** Every other agent, shown when installed. */
 const AGENTS: Agent[] = [

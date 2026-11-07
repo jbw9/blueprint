@@ -24,7 +24,7 @@ import { cn } from "@/lib/client/utils";
  * the panel.
  */
 
-const OPEN = "slop:files";
+const OPEN = "bluprint:files";
 
 export type FilesFilter = "all" | "gaps" | "excluded" | "added";
 export const openFiles = (filter: FilesFilter = "all") => window.dispatchEvent(new CustomEvent<FilesFilter>(OPEN, { detail: filter }));

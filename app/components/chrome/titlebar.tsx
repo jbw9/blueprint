@@ -175,7 +175,7 @@ function Where({ mac }: { mac: boolean }) {
       pick(n);
     };
     if (!mac) window.addEventListener("keydown", onKey, true);
-    const fromMenu = mac ? listen<string>("slop:project", (e) => pick(e.payload)) : undefined;
+    const fromMenu = mac ? listen<string>("bluprint:project", (e) => pick(e.payload)) : undefined;
     return () => {
       window.removeEventListener("keydown", onKey, true);
       void fromMenu?.then((f) => f());

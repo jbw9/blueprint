@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { GAP } from "@/lib/client/layout";
 
-const WIDTH_KEY = "slop.workspace.width";
+const WIDTH_KEY = "bluprint.workspace.width";
 const MIN_WIDTH = 380;
 
 export function storedWidth() {

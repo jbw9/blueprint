@@ -27,7 +27,7 @@ export type Said =
   | { type: "key"; key: string };
 
 /** What a page from the web has said since it was last asked (agent.js). */
-export const DRAIN = "window.__slop ? window.__slop.drain() : []";
+export const DRAIN = "window.__bluprint ? window.__bluprint.drain() : []";
 
 type Set<T> = Dispatch<SetStateAction<T>>;
 

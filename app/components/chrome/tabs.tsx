@@ -129,9 +129,9 @@ export function DragChip() {
 }
 
 /** A Preview tab asked for from the main view's `+`; the workspace (components/agent/workspace.tsx) opens it. */
-export const OPEN_PREVIEW = "slop:new-preview";
+export const OPEN_PREVIEW = "bluprint:new-preview";
 /** An empty tab asked for from the main view's `+`; the workspace opens it too. */
-export const OPEN_BLANK = "slop:new-blank";
+export const OPEN_BLANK = "bluprint:new-blank";
 
 /** The main view's `+`: another tab of the map, a Preview, or an empty tab. */
 export function NewTab({ onMap }: { onMap: () => void }) {
@@ -180,12 +180,12 @@ let demos: Demos | null = null;
 const demoWatchers = new Set<() => void>();
 if (typeof window !== "undefined" && window.parent !== window) {
   window.addEventListener("message", (e) => {
-    if (e.origin !== location.origin || e.data?.type !== "slop:repos") return;
+    if (e.origin !== location.origin || e.data?.type !== "bluprint:repos") return;
     demos = { repos: e.data.repos, open: e.data.open };
     for (const f of demoWatchers) f();
   });
   // The landing's own post on load can come before this listens, so ask too.
-  window.parent.postMessage({ type: "slop:ready" }, location.origin);
+  window.parent.postMessage({ type: "bluprint:ready" }, location.origin);
 }
 const watchDemos = (f: () => void) => {
   demoWatchers.add(f);
@@ -272,7 +272,7 @@ export function SectionTabs({ path }: { path: string[] }) {
             home={false}
             active={r.id === framed.open}
             target={false}
-            onSelect={() => window.parent.postMessage({ type: "slop:open", id: r.id }, location.origin)}
+            onSelect={() => window.parent.postMessage({ type: "bluprint:open", id: r.id }, location.origin)}
           />
         ))}
       </div>

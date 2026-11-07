@@ -10,7 +10,7 @@ import { Ident, Prose, StateChip } from "@/components/ui/state";
 import type { Node } from "@/lib/map/schema";
 import { cn } from "@/lib/client/utils";
 
-const OPEN = "slop:audit";
+const OPEN = "bluprint:audit";
 /** Show how sure the map on screen is (`id` is its name). */
 export const openAudit = (id: string) => window.dispatchEvent(new CustomEvent<string>(OPEN, { detail: id }));
 

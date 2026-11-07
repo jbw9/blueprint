@@ -194,7 +194,7 @@ const trail = ({ nodeAt }: BuiltMap, path: string[]) =>
 
 /**
  * Every section's name, indented as the tree nests — what Claude reads to
- * learn what the map calls things (`slop-map-list`, src-tauri/src/claude.rs).
+ * learn what the map calls things (`bluprint-map-list`, src-tauri/src/claude.rs).
  *
  * Titles and one-line subs only, no detail and no code: this is for choosing a
  * section to show, and a reader asking how sign-ups work is served by Claude

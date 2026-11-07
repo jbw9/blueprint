@@ -20,7 +20,7 @@ interface State {
   status: Record<string, Status>;
 }
 
-const KEY = "slop.projects.open";
+const KEY = "bluprint.projects.open";
 const read = (): string[] => {
   try {
     const ids = JSON.parse(localStorage.getItem(KEY) ?? "[]");

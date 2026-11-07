@@ -22,7 +22,7 @@ import { claudePath } from "@/lib/client/claude";
  * is made.
  */
 
-const OPEN = "slop:projects";
+const OPEN = "bluprint:projects";
 type Mode = "open" | "new";
 interface Asked {
   mode?: Mode;

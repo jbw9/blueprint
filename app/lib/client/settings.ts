@@ -31,8 +31,8 @@ export interface Settings {
 }
 
 const KEY = SETTINGS_KEY;
-const CHANGED = "slop:settings-changed";
-const OPEN = "slop:settings";
+const CHANGED = "bluprint:settings-changed";
+const OPEN = "bluprint:settings";
 const DEFAULTS: Settings = { claudePath: "", model: "", theme: "classic", agent: "claude", ground: "plain", devServer: true, voice: true, research: true, quietMedia: null, onboarded: false };
 
 /** Anything can ask for the settings dialog: the chrome's gear dispatches this. */

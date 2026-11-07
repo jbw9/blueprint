@@ -14,7 +14,7 @@ export default function config(phase: string): NextConfig {
   // The design tokens and the theme script are the app's own (../app), read in place.
   const shared: NextConfig = { turbopack: { root: join(__dirname, "..") } };
   if (phase === PHASE_DEVELOPMENT_SERVER) {
-    const app = process.env.SLOP_APP_URL ?? "http://localhost:3000";
+    const app = process.env.BLUPRINT_APP_URL ?? "http://localhost:3000";
     return {
       ...shared,
       async rewrites() {
@@ -22,7 +22,7 @@ export default function config(phase: string): NextConfig {
           beforeFiles: [
             { source: "/", has: [{ type: "query", key: "map" }], destination: `${app}/` },
             // The app's own assets (its assetPrefix, ../app/next.config.ts): same names as this page's under /_next.
-            { source: "/slop-app/:path*", destination: `${app}/slop-app/:path*` },
+            { source: "/bluprint-app/:path*", destination: `${app}/bluprint-app/:path*` },
           ],
           afterFiles: [],
           fallback: [{ source: "/:path*", destination: `${app}/:path*` }],

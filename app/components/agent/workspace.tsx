@@ -425,9 +425,9 @@ export function Workspace() {
   });
   useEffect(() => {
     if (!desktop) return;
-    const off = listen<{ id: number; tab: number; cmd: Call }>("slop:preview", (e) => void answering.current(e.payload));
+    const off = listen<{ id: number; tab: number; cmd: Call }>("bluprint:preview", (e) => void answering.current(e.payload));
     // Claude touching a phone brings its tab forward, as acting on a page brings the Preview.
-    const touched = listen<{ platform: Platform }>("slop:device-touch", (e) => {
+    const touched = listen<{ platform: Platform }>("bluprint:device-touch", (e) => {
       const { here } = latest.current;
       if (tabsNow.current.some((t) => t.kind === e.payload.platform && t.cwd === here)) touching.current(e.payload.platform);
     });
@@ -763,7 +763,7 @@ export function Workspace() {
     // what has it, so the strip it is in steps, the map's own included; with
     // focus in a Preview's page, that Preview's strip steps.
     const fromStep = desktop
-      ? listen<number>("slop:tab-step", (e) => {
+      ? listen<number>("bluprint:tab-step", (e) => {
           if (document.hasFocus()) {
             const key = { code: "Tab", key: "Tab", ctrlKey: true, shiftKey: e.payload < 0, bubbles: true, cancelable: true };
             (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
@@ -772,14 +772,14 @@ export function Workspace() {
       : undefined;
     // Ctrl+Enter from the menu bar, to the terminal with focus (components/agent/shell.tsx).
     const fromSend = desktop
-      ? listen("slop:send-now", () => {
+      ? listen("bluprint:send-now", () => {
           const key = { code: "Enter", key: "Enter", ctrlKey: true, bubbles: true, cancelable: true };
           (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
         })
       : undefined;
     // Cmd+W from the menu bar, the same way.
     const fromClose = desktop
-      ? listen("slop:tab-close", () => {
+      ? listen("bluprint:tab-close", () => {
           if (document.hasFocus()) {
             const key = { code: "KeyW", key: "w", metaKey: true, bubbles: true, cancelable: true };
             (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
@@ -792,7 +792,7 @@ export function Workspace() {
     window.addEventListener("keydown", onKey, true);
     window.addEventListener(TOGGLE, toggle);
     // The menu bar's Cmd+`/Ctrl+`, for when focus is in a Preview's page (src-tauri/src/lib.rs).
-    const fromMenu = desktop ? listen("slop:toggle-workspace", toggle) : undefined;
+    const fromMenu = desktop ? listen("bluprint:toggle-workspace", toggle) : undefined;
     const off = onOpenClaude(toClaude);
     const offHand = onHand(toAgent);
     return () => {
@@ -885,7 +885,7 @@ export function Workspace() {
         : t.kind !== "shell"
         ? PLATFORM[t.kind].label
         : front
-          ? `${front.command.replace(/^slop-/, "")} ${i + 1}`
+          ? `${front.command.replace(/^bluprint-/, "")} ${i + 1}`
           : (t.label ?? `${t.title} ${i + 1}`);
   };
 

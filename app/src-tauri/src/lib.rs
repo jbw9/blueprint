@@ -196,15 +196,15 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
     app.on_menu_event(|app, e| {
         let id = e.id().as_ref();
         if id == "terminal" || id == "terminal-ctrl" {
-            let _ = app.emit_to("main", "slop:toggle-workspace", ());
+            let _ = app.emit_to("main", "bluprint:toggle-workspace", ());
         } else if id == "send-now" {
-            let _ = app.emit_to("main", "slop:send-now", ());
+            let _ = app.emit_to("main", "bluprint:send-now", ());
         } else if id == "tab-close" {
-            let _ = app.emit_to("main", "slop:tab-close", ());
+            let _ = app.emit_to("main", "bluprint:tab-close", ());
         } else if let Some(dir) = id.strip_prefix("tab-") {
-            let _ = app.emit_to("main", "slop:tab-step", if dir.starts_with("next") { 1 } else { -1 });
+            let _ = app.emit_to("main", "bluprint:tab-step", if dir.starts_with("next") { 1 } else { -1 });
         } else if let Some(n) = id.strip_prefix("project-") {
-            let _ = app.emit_to("main", "slop:project", n.to_string());
+            let _ = app.emit_to("main", "bluprint:project", n.to_string());
         } else if let Some(key) = id.strip_prefix("preview-") {
             // The address bar is the app's page: the keyboard is taken back from a page's webview.
             if key == "address" {
@@ -212,7 +212,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
                     let _ = main.set_focus();
                 }
             }
-            let _ = app.emit_to("main", "slop:preview-key", key.to_string());
+            let _ = app.emit_to("main", "bluprint:preview-key", key.to_string());
         }
     });
     Ok(())
@@ -221,7 +221,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
 /// WebKitGTK answers a touchpad pinch by magnifying the whole page — the title
 /// bar and status bar with it, out of view — and tells the page nothing. So
 /// the pinch is taken here, before WebKit's own handler runs, and handed to
-/// the level's zoom (components/chrome/zoom.tsx) as a `slop:pinch` event: only the
+/// the level's zoom (components/chrome/zoom.tsx) as a `bluprint:pinch` event: only the
 /// map magnifies, as a pinch does on a Mac. `scale` is relative to the start
 /// of the pinch, which is exactly 1.
 #[cfg(target_os = "linux")]
@@ -236,7 +236,7 @@ fn pinch_to_page(window: &tauri::WebviewWindow) {
             };
             let (x, y) = pinch.position();
             let _ = target.eval(format!(
-                "window.dispatchEvent(new CustomEvent('slop:pinch',{{detail:{{scale:{},x:{x},y:{y}}}}}))",
+                "window.dispatchEvent(new CustomEvent('bluprint:pinch',{{detail:{{scale:{},x:{x},y:{y}}}}}))",
                 pinch.scale()
             ));
             Propagation::Stop

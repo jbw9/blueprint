@@ -88,7 +88,7 @@ export function useBlockDiffs(path: string[]): Map<number, BlockDiff> {
  * canvas; `on` turns the mode on and the provider does the fetching, so no
  * level has to know the API exists.
  */
-export const OPEN_DIFF = "slop:diff";
+export const OPEN_DIFF = "bluprint:diff";
 
 /**
  * Anything can ask for diff mode: the title bar's button dispatches this, and
@@ -96,7 +96,7 @@ export const OPEN_DIFF = "slop:diff";
  */
 export const openDiff = () => window.dispatchEvent(new Event(OPEN_DIFF));
 
-const OPEN_REVIEW = "slop:review";
+const OPEN_REVIEW = "bluprint:review";
 /** Diff mode on one review (`pr:<n>`, `<base>...<branch>`, `turn:<id>` or `turn:latest`), from outside the provider, as the status bar is. */
 export const openReview = (spec: string) => {
   window.dispatchEvent(new CustomEvent<string>(OPEN_REVIEW, { detail: spec }));

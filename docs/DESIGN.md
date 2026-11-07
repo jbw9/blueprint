@@ -153,7 +153,7 @@ code. Back is the browser's back, the swipe, Esc, the "←" link, or a crumb.
 **Ask Claude about what you're looking at.** Right-click anything on a level
 (a card, row, box, block, line of code, or empty space for the whole section)
 → "Add to Claude context" or "Add and open Claude" → the item waits in the tab
-for your next prompt → ask. Claude can run `slop-map-show section "<title>"`,
+for your next prompt → ask. Claude can run `bluprint-map-show section "<title>"`,
 which moves your view while the answer is still arriving (D59).
 
 **Keep or correct what the map says.** After Claude answers, a level offers to

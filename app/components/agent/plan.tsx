@@ -46,7 +46,7 @@ export interface Plan {
   asked?: string;
   /** What the user asked for that this revision answers. */
   after?: string;
-  /** Its steps as Claude marks them while it builds the plan (src-tauri/src/claude.rs, slop-plan-step). */
+  /** Its steps as Claude marks them while it builds the plan (src-tauri/src/claude.rs, bluprint-plan-step). */
   steps?: StepMark[];
 }
 

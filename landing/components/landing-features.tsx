@@ -143,7 +143,7 @@ function ClaudeScene() {
             <div className={`${f.msg} ${f.in}`} style={at(5.15)}>
               <span className={f.ok}>⏺</span>
               <span>
-                <b>Bash</b>(slop-map-show section &quot;Saving A Session&quot;)
+                <b>Bash</b>(bluprint-map-show section &quot;Saving A Session&quot;)
                 <br />
                 <span className={f.res}>⎿&nbsp;&nbsp;Showing Saving A Session</span>
               </span>

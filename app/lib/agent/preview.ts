@@ -1,6 +1,6 @@
 /**
  * The previews open in the workspace, and how a call from Claude reaches one
- * (src-tauri/src/mcp.rs): it arrives as a `slop:preview` event naming the tab
+ * (src-tauri/src/mcp.rs): it arrives as a `bluprint:preview` event naming the tab
  * Claude runs in, the workspace finds that tab's project and the Preview that
  * agent drives (components/agent/workspace.tsx), and that preview runs it
  * (components/preview/preview.tsx).

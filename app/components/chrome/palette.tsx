@@ -34,7 +34,7 @@ import { useMac } from "@/lib/client/platform";
  * walking down to it — without spending a column on it (D35, D62).
  */
 
-const OPEN = "slop:palette";
+const OPEN = "bluprint:palette";
 export type PaletteMode = "all" | "code" | "actions" | "maps" | "unsure" | "problems" | "docs";
 export const openPalette = (mode: PaletteMode = "all") =>
   window.dispatchEvent(new CustomEvent<PaletteMode>(OPEN, { detail: mode }));

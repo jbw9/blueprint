@@ -9,7 +9,7 @@ import type { Node } from "@/lib/map/schema";
  * looking at sign-ups while the answer arrives, and the one thing that knows
  * which section that is — having just read it — is Claude.
  *
- * The channel is `slop-map-show`, a script on the tab's PATH that appends a
+ * The channel is `bluprint-map-show`, a script on the tab's PATH that appends a
  * line beside the tab's queue (src-tauri/src/claude.rs), drained on every
  * `pty_state` poll rather than at the end of the turn: navigation that lands
  * after the explanation has finished is navigation the reader has already done
@@ -67,7 +67,7 @@ function only<T extends { node: Node }>(all: T[], want: string[]): T | undefined
  * The section Claude named, by id, by its trail of titles, or by its own
  * title. Deliberately the same ladder as `named()` in
  * scripts/generate/update.ts, which resolves the section names Claude writes
- * into `slop-map-fix`: the two take names from the same model in the same
+ * into `bluprint-map-fix`: the two take names from the same model in the same
  * vocabulary, so a name that works in one must work in the other.
  *
  * A title matched further down the tree beats one matched at the top only by
@@ -105,7 +105,7 @@ export function findSection(map: BuiltMap, name: string): string[] | null {
  * against. The same event-bus hop as `announceAnswer` (components/review/keep.tsx),
  * for the same reason.
  */
-const ACTED = "slop:acted";
+const ACTED = "bluprint:acted";
 
 export const announceAct = (a: Act) => window.dispatchEvent(new CustomEvent<Act>(ACTED, { detail: a }));
 

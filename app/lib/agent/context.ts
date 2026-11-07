@@ -44,7 +44,7 @@ interface State {
  */
 const WEB = !!process.env.NEXT_PUBLIC_STATIC_MAP;
 export const WEB_TAB = 0;
-const PROMPT = "slop:web-prompt";
+const PROMPT = "bluprint:web-prompt";
 export const onWebPrompt = (f: (text: string) => void) => {
   const on = (e: Event) => f((e as CustomEvent<string>).detail);
   window.addEventListener(PROMPT, on);
@@ -79,7 +79,7 @@ let naming: string[] = [];
 /* ── tabs coming and going (components/agent/workspace.tsx) ─────────── */
 
 /** Anything can ask for Claude: shows a tab running it, or opens one. */
-const OPEN = "slop:claude";
+const OPEN = "bluprint:claude";
 export const openClaude = () => window.dispatchEvent(new Event(OPEN));
 export const onOpenClaude = (f: () => void) => {
   window.addEventListener(OPEN, f);
@@ -87,7 +87,7 @@ export const onOpenClaude = (f: () => void) => {
 };
 
 /** The keys to Claude's terminal (components/agent/shell.tsx), when it is in view, so a pick is followed by typing the prompt. */
-const FOCUS = "slop:focus-claude";
+const FOCUS = "bluprint:focus-claude";
 export const onFocusClaude = (f: (pty: number) => void) => {
   const on = (e: Event) => f((e as CustomEvent<number>).detail);
   window.addEventListener(FOCUS, on);
@@ -338,7 +338,7 @@ export function takePicks(pty: number): string[] {
 
 /* ── handing to any agent ─────────────────────────────────────── */
 
-const HAND = "slop:hand";
+const HAND = "bluprint:hand";
 
 /**
  * Hand something to a coding agent by id (components/agent/agents.tsx). Claude

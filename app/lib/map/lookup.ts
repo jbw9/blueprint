@@ -3,7 +3,7 @@
  * searching it, opening one section, and asking which section explains a
  * file or line. Plain text, because the reader of it is a model choosing what
  * to read next, and every answer names sections by the id path that
- * `slop-map-show section` and plans take, so what Claude finds it can show.
+ * `bluprint-map-show section` and plans take, so what Claude finds it can show.
  */
 import { findSection } from "@/lib/agent/act";
 import { citations, neighbours, nodesAt, symbolsOf, type Link, type MapIndex } from "@/lib/map/coverage";

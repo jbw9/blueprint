@@ -8,7 +8,7 @@ import { DRAIN, type Parts, type Said } from "@/components/preview/parts";
 /** Hands what the frame's page and the webview's pages say to `hear`, until the returned call. */
 export function listenToPage({ frame, onWeb, browser, hear, replace, setShown }: Pick<Parts, "frame" | "onWeb" | "browser" | "hear" | "replace" | "setShown">) {
   const on = (e: MessageEvent) => {
-    if (!frame.current || e.source !== frame.current.contentWindow || !e.data?.__slop) return;
+    if (!frame.current || e.source !== frame.current.contentWindow || !e.data?.__bluprint) return;
     // Behind a page from the web, the frame's page is not the one in front:
     // where it is, what it logs and that it loaded are not this tab's.
     if (onWeb.current && e.data.type !== "reply") return;
@@ -18,7 +18,7 @@ export function listenToPage({ frame, onWeb, browser, hear, replace, setShown }:
   // Every page of the webview, heard from its first: a load can finish
   // before the webview is shown, or before its open has returned.
   const off = isTauri()
-    ? listen<{ label: string; url: string; done: boolean }>("slop:browser", (e) => {
+    ? listen<{ label: string; url: string; done: boolean }>("bluprint:browser", (e) => {
         if (e.payload.label !== browser.current || !onWeb.current) return;
         replace.current();
         if (!e.payload.done) return setShown(bare(e.payload.url));

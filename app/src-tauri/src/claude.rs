@@ -4,7 +4,7 @@
 //! the shell behind. What this module adds is finding that binary, and the
 //! launcher that lets the map hand it context.
 //!
-//! The launcher is a small script, `slop-claude`, on each tab's PATH. It runs
+//! The launcher is a small script, `bluprint-claude`, on each tab's PATH. It runs
 //! the user's `claude` with `--settings` carrying a `UserPromptSubmit` hook,
 //! and while it runs it keeps a `.live` marker beside the tab's queue: that is
 //! how the UI knows Claude is in front in a tab, and able to take context.
@@ -12,7 +12,7 @@
 //! servers, theme and status line all still apply.
 //!
 //! The hand-off is a file. Each tab has its own queue under the temp dir,
-//! named in `$SLOP_CONTEXT`. Picking on the map appends a block to it —
+//! named in `$BLUPRINT_CONTEXT`. Picking on the map appends a block to it —
 //! `[Map section: …]` for a whole section, `[Map element: …]` for one thing on
 //! a level — and the hook drains it on the next prompt: whatever a prompt hook
 //! prints is added to that prompt's context. The file being gone is how the
@@ -28,21 +28,21 @@ use std::path::{Path, PathBuf};
 /// since the last prompt, so one page read for a while is not sent each turn.
 /// Then it drains the queue: the `mv` is atomic, so a pick appended while
 /// Claude reads lands in a fresh file for the next prompt rather than being lost.
-const HOOK: &str = r#"f="$SLOP_CONTEXT"; w="$f.where"; if [ -s "$w" ]; then head -n 1 "$w"; cmp -s "$w" "$w.sent" || { tail -n +2 "$w"; cp "$w" "$w.sent"; }; fi; [ -s "$f" ] || exit 0; mv "$f" "$f.sent" && cat "$f.sent""#;
+const HOOK: &str = r#"f="$BLUPRINT_CONTEXT"; w="$f.where"; if [ -s "$w" ]; then head -n 1 "$w"; cmp -s "$w" "$w.sent" || { tail -n +2 "$w"; cp "$w" "$w.sent"; }; fi; [ -s "$f" ] || exit 0; mv "$f" "$f.sent" && cat "$f.sent""#;
 
 /// The scripts beside the launcher, on the PATH of Claude's Bash tool. The
 /// tab's PATH has them, but Claude Code builds its Bash tool's environment
 /// from a shell of its own, which on Windows drops them; what a session-start
 /// hook writes to `$CLAUDE_ENV_FILE` is what every command there starts with.
-const ON_PATH: &str = r#"[ -n "$CLAUDE_ENV_FILE" ] && [ -n "$SLOP_BIN" ] || exit 0; d="$SLOP_BIN"; command -v cygpath >/dev/null 2>&1 && d=$(cygpath -u "$d"); printf 'export PATH="%s:$PATH"\n' "$d" >> "$CLAUDE_ENV_FILE""#;
+const ON_PATH: &str = r#"[ -n "$CLAUDE_ENV_FILE" ] && [ -n "$BLUPRINT_BIN" ] || exit 0; d="$BLUPRINT_BIN"; command -v cygpath >/dev/null 2>&1 && d=$(cygpath -u "$d"); printf 'export PATH="%s:$PATH"\n' "$d" >> "$CLAUDE_ENV_FILE""#;
 
 /// The conversation Claude is having in this tab, from the hook's input, so
 /// the app can resume it in the tab it reopens after a restart. A `/clear`
 /// starts a new one, and this follows it.
-const SESSION: &str = r#"id=$(sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1); [ -n "$id" ] && printf '%s\n' "$id" > "$SLOP_CONTEXT.session"; exit 0"#;
+const SESSION: &str = r#"id=$(sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1); [ -n "$id" ] && printf '%s\n' "$id" > "$BLUPRINT_CONTEXT.session"; exit 0"#;
 
 /// After a tool that can change files: this turn may have edited code.
-const EDITED: &str = r#": > "$SLOP_CONTEXT.dirty""#;
+const EDITED: &str = r#": > "$BLUPRINT_CONTEXT.dirty""#;
 /// The tools EDITED follows. Bash among them, since a shell command can edit too.
 const EDITING_TOOLS: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
 
@@ -51,27 +51,27 @@ const EDITING_TOOLS: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
 /// into place, so a plan is never read half written. A new plan ends the last
 /// one's checklist, before the app can draw the new one with its ticks, and
 /// its file waits (`.pending`) to become the checklist's once accepted.
-const PLAN: &str = r#"f="$SLOP_CONTEXT"; rm -f "$f.steps" "$f.accepted"; cat > "$f.plan.part" && sed -n 's/.*"planFilePath": *"\([^"]*\)".*/\1/p' "$f.plan.part" | head -n 1 > "$f.pending" && mv "$f.plan.part" "$f.plan""#;
+const PLAN: &str = r#"f="$BLUPRINT_CONTEXT"; rm -f "$f.steps" "$f.accepted"; cat > "$f.plan.part" && sed -n 's/.*"planFilePath": *"\([^"]*\)".*/\1/p' "$f.plan.part" | head -n 1 > "$f.pending" && mv "$f.plan.part" "$f.plan""#;
 /// ExitPlanMode only runs once the user has accepted the plan, in the terminal
 /// or from the plan's own tab.
-const APPROVED: &str = r#": > "$SLOP_CONTEXT.approved""#;
+const APPROVED: &str = r#": > "$BLUPRINT_CONTEXT.approved""#;
 
 /// On a long build Claude loses its place, and the to-do tool it would keep a
 /// list in is off for the newer models (Claude Code turns it on only for older
 /// ones). So the plan's own Steps are the list: Claude marks them with
-/// `slop-plan-step` (STEP), the plan's tab shows them ticked off (`steps_of`),
+/// `bluprint-plan-step` (STEP), the plan's tab shows them ticked off (`steps_of`),
 /// and the hooks below hold Claude to them. A macro, to be `concat!`ed into
 /// each hook that says it; no quotes in it, since it goes out inside JSON.
 macro_rules! checklist {
     () => {
-        "Its Steps are your checklist, ticked off in the plan tab the user watches: run `slop-plan-step <n> doing` as you start a step and `slop-plan-step <n> done` as soon as it is finished, in order. A step that turns out wrong or unneeded is `slop-plan-step <n> skipped <why>`, and you tell the user why. Work the plan missed goes in the step it belongs to. Do not end the build with a step unmarked, and finish with the checks under Check."
+        "Its Steps are your checklist, ticked off in the plan tab the user watches: run `bluprint-plan-step <n> doing` as you start a step and `bluprint-plan-step <n> done` as soon as it is finished, in order. A step that turns out wrong or unneeded is `bluprint-plan-step <n> skipped <why>`, and you tell the user why. Work the plan missed goes in the step it belongs to. Do not end the build with a step unmarked, and finish with the checks under Check."
     };
 }
 /// Said to Claude as the accepted plan comes back to it.
 const TODOS: &str = concat!(
-    r#"f="$SLOP_CONTEXT"; [ -s "$f.pending" ] && mv "$f.pending" "$f.accepted"; printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"The plan is accepted. "#,
+    r#"f="$BLUPRINT_CONTEXT"; [ -s "$f.pending" ] && mv "$f.pending" "$f.accepted"; printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"The plan is accepted. "#,
     checklist!(),
-    r#" Run `slop-plan-step 1 doing` before you change any file."}}'"#
+    r#" Run `bluprint-plan-step 1 doing` before you change any file."}}'"#
 );
 /// A plan accepted with "Yes, clear context" never finishes its ExitPlanMode:
 /// Claude Code denies the call, clears the conversation and starts a new one
@@ -80,25 +80,25 @@ const TODOS: &str = concat!(
 /// which way to read it, and nothing holds it to the steps (UNFINISHED,
 /// REMIND) until it marks one.
 const CLEARED: &str = concat!(
-    r#"f="$SLOP_CONTEXT"; [ -s "$f.pending" ] || exit 0; p=$(cat "$f.pending"); mv "$f.pending" "$f.accepted"; [ -f "$p" ] || exit 0; printf '%s\n\n' 'If the first message asks you to implement the plan below, the user accepted it. "#,
+    r#"f="$BLUPRINT_CONTEXT"; [ -s "$f.pending" ] || exit 0; p=$(cat "$f.pending"); mv "$f.pending" "$f.accepted"; [ -f "$p" ] || exit 0; printf '%s\n\n' 'If the first message asks you to implement the plan below, the user accepted it. "#,
     checklist!(),
-    r#" Run `slop-plan-step 1 doing` before you change any file. The plan:'; cat "$p"; exit 0"#
+    r#" Run `bluprint-plan-step 1 doing` before you change any file. The plan:'; cat "$p"; exit 0"#
 );
 /// Compacting summarizes the plan away mid-build; it is said again, whole,
 /// with what is marked so far.
 const REMIND: &str = concat!(
-    r#"f="$SLOP_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null); [ -s "$f.steps" ] && [ -f "$p" ] || exit 0; printf '%s\n\n' 'The conversation was compacted while you were building the plan below, which the user accepted: pick up from the first step not marked done. "#,
+    r#"f="$BLUPRINT_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null); [ -s "$f.steps" ] && [ -f "$p" ] || exit 0; printf '%s\n\n' 'The conversation was compacted while you were building the plan below, which the user accepted: pick up from the first step not marked done. "#,
     checklist!(),
     r#" The plan:'; cat "$p"; printf '\n\nMarked so far (step, state, note):\n'; cat "$f.steps"; exit 0"#
 );
 /// A new Claude in the tab is not building the last one's plan.
-const FRESH: &str = r#"rm -f "$SLOP_CONTEXT.accepted" "$SLOP_CONTEXT.pending""#;
+const FRESH: &str = r#"rm -f "$BLUPRINT_CONTEXT.accepted" "$BLUPRINT_CONTEXT.pending""#;
 /// At the end of a turn, steps of the accepted plan still unmarked keep Claude
 /// going: exit 2 hands it the reason instead of stopping. Once per turn, since
 /// Claude Code says when a stop is already one this sent back, so a Claude
 /// waiting on the user can still stop. Writes the tab's `done` itself, so a
 /// turn sent back never shows as finished. All marked, the plan is let go.
-const UNFINISHED: &str = r#"f="$SLOP_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null); if [ -s "$f.steps" ] && [ -f "$p" ] && ! grep -q '"stop_hook_active": *true'; then left=$(awk -v m="$f.steps" 'BEGIN { while ((getline l < m) > 0) { split(l, a, "\t"); s[a[1]] = a[2] } } /^##[ \t]/ { on = tolower($0) ~ /step/; next } on && /^[0-9]+[.)][ \t]/ { n = $0 + 0; if (s[n] != "done" && s[n] != "skipped") o = o (o == "" ? "" : ", ") n } END { print o }' "$p"); if [ -n "$left" ]; then printf 'Steps of the plan the user accepted not marked done yet: %s. Finish them now, in order, marking each with slop-plan-step. One already finished: mark it done. One no longer wanted, or that cannot be done: `slop-plan-step <n> skipped <why>`, and tell the user. If you are waiting on the user, say what you need and stop.\n' "$left" >&2; exit 2; fi; rm -f "$f.accepted"; fi; printf done > "$f.status""#;
+const UNFINISHED: &str = r#"f="$BLUPRINT_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null); if [ -s "$f.steps" ] && [ -f "$p" ] && ! grep -q '"stop_hook_active": *true'; then left=$(awk -v m="$f.steps" 'BEGIN { while ((getline l < m) > 0) { split(l, a, "\t"); s[a[1]] = a[2] } } /^##[ \t]/ { on = tolower($0) ~ /step/; next } on && /^[0-9]+[.)][ \t]/ { n = $0 + 0; if (s[n] != "done" && s[n] != "skipped") o = o (o == "" ? "" : ", ") n } END { print o }' "$p"); if [ -n "$left" ]; then printf 'Steps of the plan the user accepted not marked done yet: %s. Finish them now, in order, marking each with bluprint-plan-step. One already finished: mark it done. One no longer wanted, or that cannot be done: `bluprint-plan-step <n> skipped <why>`, and tell the user. If you are waiting on the user, say what you need and stop.\n' "$left" >&2; exit 2; fi; rm -f "$f.accepted"; fi; printf done > "$f.status""#;
 
 /// Claude Code's own dialog shows the plan as its file reads once the hooks
 /// have run, and the plan's tab is where it is read: its diagrams are JSON in
@@ -107,16 +107,16 @@ const UNFINISHED: &str = r#"f="$SLOP_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null
 /// plan's tab (components/agent/shell.tsx); it stays in the scrollback, so a closed
 /// plan can be found again. The whole plan waits beside the queue (`.hidden`)
 /// for RESTORE.
-const HIDE: &str = r#"h="$SLOP_CONTEXT.hidden"; p=$(sed -n 's/.*"planFilePath": *"\([^"]*\)".*/\1/p' | head -n 1); [ -f "$p" ] || exit 0; awk '/^# / && !t { print; print ""; t = 1 } END { print "`▸ Open plan`" }' "$p" > "$h.shown" && ! cmp -s "$p" "$h.shown" && cp "$p" "$h" && printf '%s' "$p" > "$h.file" && cp "$h.shown" "$p"; exit 0"#;
+const HIDE: &str = r#"h="$BLUPRINT_CONTEXT.hidden"; p=$(sed -n 's/.*"planFilePath": *"\([^"]*\)".*/\1/p' | head -n 1); [ -f "$p" ] || exit 0; awk '/^# / && !t { print; print ""; t = 1 } END { print "`▸ Open plan`" }' "$p" > "$h.shown" && ! cmp -s "$p" "$h.shown" && cp "$p" "$h" && printf '%s' "$p" > "$h.file" && cp "$h.shown" "$p"; exit 0"#;
 /// The whole plan back in its file, at the first hook after the dialog is
 /// answered, accepted or not, so a revision starts from it. Unless the file
 /// changed meanwhile (the user edited it with ctrl+g): then it is theirs.
-const RESTORE: &str = r#"h="$SLOP_CONTEXT.hidden"; [ -e "$h.file" ] || exit 0; p=$(cat "$h.file"); cmp -s "$p" "$h.shown" && cp "$h" "$p"; rm -f "$h" "$h.file" "$h.shown"; exit 0"#;
+const RESTORE: &str = r#"h="$BLUPRINT_CONTEXT.hidden"; [ -e "$h.file" ] || exit 0; p=$(cat "$h.file"); cmp -s "$p" "$h.shown" && cp "$h" "$p"; rm -f "$h" "$h.file" "$h.shown"; exit 0"#;
 
 /// Refuses a Bash call that would start a browser of its own: gstack's shared
 /// Chromium (`$B`, browse/dist/browse, which its /browse, /qa, /scrape and
 /// design skills drive), or Chrome itself. Exit 2 hands the reason to Claude.
-const NO_BROWSER: &str = r#"grep -qE 'browse/dist/browse|\$B [a-z]|Google Chrome|chrome --headless' || exit 0; echo 'Browsing happens in the Preview here (the slop-preview tools), never a headless Chromium or Chrome. Do this step with navigate, computer and get_page_text instead.' >&2; exit 2"#;
+const NO_BROWSER: &str = r#"grep -qE 'browse/dist/browse|\$B [a-z]|Google Chrome|chrome --headless' || exit 0; echo 'Browsing happens in the Preview here (the bluprint-preview tools), never a headless Chromium or Chrome. Do this step with navigate, computer and get_page_text instead.' >&2; exit 2"#;
 
 /// Plan mode still prompts for these despite the allow rules in `prepare`; a
 /// hook's allow skips that prompt and still loses to the deny rules.
@@ -126,7 +126,7 @@ const PLAN_READS: &str = r#"grep -qE '"permission_mode": *"plan"' || exit 0; ech
 /// word, `working`, `waiting` (a question or a permission only the user can
 /// answer) or `done`.
 fn status(word: &str) -> serde_json::Value {
-    serde_json::json!({ "type": "command", "command": format!(r#"printf {word} > "$SLOP_CONTEXT.status""#) })
+    serde_json::json!({ "type": "command", "command": format!(r#"printf {word} > "$BLUPRINT_CONTEXT.status""#) })
 }
 
 /// At the end of every turn, two markers, for two different readers.
@@ -138,18 +138,18 @@ fn status(word: &str) -> serde_json::Value {
 /// who just asked how something works.
 ///
 /// `.turn` is written only when the turn may have edited code or found the map
-/// wrong (slop-map-fix), and is what makes the map follow the agent. Keeping
+/// wrong (bluprint-map-fix), and is what makes the map follow the agent. Keeping
 /// the two separate means offering to keep an answer never triggers an update,
 /// and an edit never implies the reader wanted a note.
-const TURN: &str = r#"f="$SLOP_CONTEXT"; s=$(cat); printf '%s' "$s" > "$f.ended.part" && mv "$f.ended.part" "$f.ended"; [ -e "$f.dirty" ] || [ -s "$f.fix" ] || exit 0; rm -f "$f.dirty"; printf '%s' "$s" > "$f.turn.part" && mv "$f.turn.part" "$f.turn"; exit 0"#;
+const TURN: &str = r#"f="$BLUPRINT_CONTEXT"; s=$(cat); printf '%s' "$s" > "$f.ended.part" && mv "$f.ended.part" "$f.ended"; [ -e "$f.dirty" ] || [ -s "$f.fix" ] || exit 0; rm -f "$f.dirty"; printf '%s' "$s" > "$f.turn.part" && mv "$f.turn.part" "$f.turn"; exit 0"#;
 
 /// What Claude runs when it finds the map wrong: one line per section, kept
 /// beside the tab's queue until the turn ends. Allowed without asking.
 const FIX: &str = r#"#!/bin/sh
 # Tells Bluprint its map is wrong about a section (src-tauri/src/claude.rs).
-[ -n "$SLOP_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to correct." >&2; exit 1; }
-[ $# -ge 2 ] || { echo 'usage: slop-map-fix "<section title>" "<what the map gets wrong, and what is true>"' >&2; exit 2; }
-printf '%s\t%s\n' "$(printf '%s' "$1" | tr '\t\n' '  ')" "$(printf '%s' "$2" | tr '\t\n' '  ')" >> "$SLOP_CONTEXT.fix"
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to correct." >&2; exit 1; }
+[ $# -ge 2 ] || { echo 'usage: bluprint-map-fix "<section title>" "<what the map gets wrong, and what is true>"' >&2; exit 2; }
+printf '%s\t%s\n' "$(printf '%s' "$1" | tr '\t\n' '  ')" "$(printf '%s' "$2" | tr '\t\n' '  ')" >> "$BLUPRINT_CONTEXT.fix"
 echo "Noted. The map's \"$1\" will be corrected after this turn."
 "#;
 
@@ -159,25 +159,25 @@ echo "Noted. The map's \"$1\" will be corrected after this turn."
 /// Allowed without asking.
 const SHOW: &str = r#"#!/bin/sh
 # Drives Bluprint's map: shows a section, a diff, or the history (src-tauri/src/claude.rs).
-[ -n "$SLOP_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to show." >&2; exit 1; }
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to show." >&2; exit 1; }
 clean() { printf '%s' "$1" | tr '\t\n' '  '; }
 case "$1" in
 section)
-  [ -n "$2" ] || { echo 'usage: slop-map-show section "<section title or id>"' >&2; exit 2; }
-  printf 'section\t%s\t\n' "$(clean "$2")" >> "$SLOP_CONTEXT.act"
+  [ -n "$2" ] || { echo 'usage: bluprint-map-show section "<section title or id>"' >&2; exit 2; }
+  printf 'section\t%s\t\n' "$(clean "$2")" >> "$BLUPRINT_CONTEXT.act"
   echo "Showing \"$2\" on the map."
   ;;
 diff)
-  [ $# -ge 2 ] || { echo 'usage: slop-map-show diff "<from>" ["<to>"]' >&2; exit 2; }
-  printf 'diff\t%s\t%s\n' "$(clean "$2")" "$(clean "$3")" >> "$SLOP_CONTEXT.act"
+  [ $# -ge 2 ] || { echo 'usage: bluprint-map-show diff "<from>" ["<to>"]' >&2; exit 2; }
+  printf 'diff\t%s\t%s\n' "$(clean "$2")" "$(clean "$3")" >> "$BLUPRINT_CONTEXT.act"
   echo "Showing the diff${2:+ from \"$2\"}${3:+ to \"$3\"} on the map."
   ;;
 timeline)
-  printf 'timeline\t\t\n' >> "$SLOP_CONTEXT.act"
+  printf 'timeline\t\t\n' >> "$BLUPRINT_CONTEXT.act"
   echo "Showing the history of the code over the map."
   ;;
 *)
-  echo 'usage: slop-map-show section "<section title or id>" | slop-map-show diff "<from>" ["<to>"] | slop-map-show timeline' >&2
+  echo 'usage: bluprint-map-show section "<section title or id>" | bluprint-map-show diff "<from>" ["<to>"] | bluprint-map-show timeline' >&2
   exit 2
   ;;
 esac
@@ -188,10 +188,10 @@ esac
 /// config. Allowed without asking.
 const TERMINAL: &str = r#"#!/bin/sh
 # Prints what a Bluprint terminal printed, the dev server's by default (src-tauri/src/mcp.rs).
-[ -n "$SLOP_MCP_URL" ] || { echo "Not in a Bluprint tab; no terminals to read." >&2; exit 1; }
+[ -n "$BLUPRINT_MCP_URL" ] || { echo "Not in a Bluprint tab; no terminals to read." >&2; exit 1; }
 case "$2" in ''|*[!0-9]*) lines=200 ;; *) lines=$2 ;; esac
 name=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\t\n' '  ')
-curl -sS --fail-with-body "$SLOP_MCP_URL/text" -H 'Content-Type: application/json' \
+curl -sS --fail-with-body "$BLUPRINT_MCP_URL/text" -H 'Content-Type: application/json' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_terminal\",\"arguments\":{\"name\":\"$name\",\"lines\":$lines}}}"
 "#;
 
@@ -199,15 +199,15 @@ curl -sS --fail-with-body "$SLOP_MCP_URL/text" -H 'Content-Type: application/jso
 ///
 /// The user asks "how do sign ups work?" with nothing attached, so the only
 /// section names in context are whatever they happened to pick earlier —
-/// usually none. Without this, `slop-map-show section` would be a guess at a
+/// usually none. Without this, `bluprint-map-show section` would be a guess at a
 /// title that may not exist, which is how a reader ends up somewhere they did
 /// not ask to be. The outline is written beside the tab's queue when the tab
 /// starts (pty.rs), from the map the page already has.
 const LIST: &str = r#"#!/bin/sh
 # Lists Bluprint's map, section by section (src-tauri/src/claude.rs).
-[ -n "$SLOP_CONTEXT" ] || { echo "Not in a Bluprint tab; no map to list." >&2; exit 1; }
-[ -s "$SLOP_CONTEXT.map" ] || { echo "This repository has no map yet." >&2; exit 1; }
-cat "$SLOP_CONTEXT.map"
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no map to list." >&2; exit 1; }
+[ -s "$BLUPRINT_CONTEXT.map" ] || { echo "This repository has no map yet." >&2; exit 1; }
+cat "$BLUPRINT_CONTEXT.map"
 "#;
 
 /// What Claude runs to mark a step of the plan it is building (`checklist!`):
@@ -215,13 +215,13 @@ cat "$SLOP_CONTEXT.map"
 /// without asking.
 const STEP: &str = r#"#!/bin/sh
 # Marks a step of the accepted plan, for its tab in Bluprint (src-tauri/src/claude.rs).
-[ -n "$SLOP_CONTEXT" ] || { echo "Not in a Bluprint tab; no plan to mark." >&2; exit 1; }
-usage='usage: slop-plan-step <step number> doing|done|skipped ["why"]'
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no plan to mark." >&2; exit 1; }
+usage='usage: bluprint-plan-step <step number> doing|done|skipped ["why"]'
 case "$1" in ''|*[!0-9]*) echo "$usage" >&2; exit 2 ;; esac
 case "$2" in doing|done|skipped) ;; *) echo "$usage" >&2; exit 2 ;; esac
 n=$1 state=$2
 shift 2
-printf '%s\t%s\t%s\n' "$n" "$state" "$(printf '%s' "$*" | tr '\t\n' '  ')" >> "$SLOP_CONTEXT.steps"
+printf '%s\t%s\t%s\n' "$n" "$state" "$(printf '%s' "$*" | tr '\t\n' '  ')" >> "$BLUPRINT_CONTEXT.steps"
 echo "Step $n: $state."
 "#;
 
@@ -237,37 +237,37 @@ prompt. When they ask what they are reading, or say \"this\" or \"here\" with no
 attached, they mean that section: summarize or answer from it and the code it lists. It is \
 told to you, not shown to them, so never mention having been told where they are. Do not edit files unless asked. The map can be wrong: when \
 you find that it is (a listed problem that is not real, a description or a line reference \
-that does not match the code), run `slop-map-fix \"<section title>\" \"<what it gets wrong, \
+that does not match the code), run `bluprint-map-fix \"<section title>\" \"<what it gets wrong, \
 and what is true>\"` once per section, and the map is corrected after your turn. Code you \
 change updates the map by itself, deletions included; there is no need to report edits. \
 You also drive what the user is looking at. When they ask how something works and nothing \
-is attached, run `slop-map-list` to see what the map actually calls its sections, then, if \
-one of them is what they are asking about, run `slop-map-show section \"<section title>\"` \
+is attached, run `bluprint-map-list` to see what the map actually calls its sections, then, if \
+one of them is what they are asking about, run `bluprint-map-show section \"<section title>\"` \
 before you explain, naming it exactly as the outline spells it, so \
 they are looking at the thing you are explaining as you explain it; the app takes it \
 immediately, not at the end of your turn. When they ask to see what changed, run \
-`slop-map-show diff \"<from>\" \"<to>\"` — `<to>` may be left off, meaning the working tree, \
+`bluprint-map-show diff \"<from>\" \"<to>\"` — `<to>` may be left off, meaning the working tree, \
 and an empty `<from>` means the commit the map was built from. Pass the refs through as the \
 user said them, `HEAD~1`, a sha, a branch, or a phrase like \"last commit by hindra2\": the \
 app resolves them against the repository, so do not run git to work one out first. When they \
-ask how the code got here or how it changed over time, run `slop-map-show timeline`: it draws \
+ask how the code got here or how it changed over time, run `bluprint-map-show timeline`: it draws \
 every commit on the map's sections, and they can click through it while you tell the history. \
 The `map_search`, `map_section` and `map_where` tools read the map itself. Before you change a \
 file, ask `map_where` which sections explain it, so the change fits the part of the product it \
 lives in and the user can follow what you are building on the map. \
 Keeping the map right is background upkeep, not part of the answer: never tell the user \
 whether you edited files, whether the map is accurate, or that there is nothing to correct, \
-and mention a correction only in passing when you ran slop-map-fix. What you show is \
+and mention a correction only in passing when you ran bluprint-map-fix. What you show is \
 likewise not worth narrating — the user can see it, so never announce that you are taking \
 them somewhere, though naming the section you are explaining is fine where the prose wants \
 it. The app also runs the project: its web app in a Preview tab, and its phone app on an iOS \
-Simulator or Android emulator when the user has started one. The slop-preview tools use them \
+Simulator or Android emulator when the user has started one. The bluprint-preview tools use them \
 as a person would (screenshot, click, type, read the page, navigate, resize); use them to check \
 that a change you made works, or when the user asks about what the app shows; `read_terminal` \
 reads the dev server's logs (and the project's other terminals) when something fails. They are also \
 your browser: to search the web or read a page as the user would see it, navigate the preview \
 there, never another browser: not Chrome, not a headless Chromium. When a skill says to \
-drive its own browser (gstack's `$B`), do those steps with the slop-preview tools instead. WebSearch and WebFetch are fine for reading docs as text; they \
+drive its own browser (gstack's `$B`), do those steps with the bluprint-preview tools instead. WebSearch and WebFetch are fine for reading docs as text; they \
 stay out of the preview. \
 A plan you finish in plan mode opens beside you as a short design doc, drawn from its Markdown, \
 and is accepted from there. Developers skip a wall of text, so write a plan they take in at a \
@@ -316,14 +316,14 @@ pub struct Launch {
 /// quit, a crash, Ctrl+C — and the script's status is Claude's.
 const LAUNCHER: &str = r#"#!/bin/sh
 # Claude Code with Bluprint's map-context hook (src-tauri/src/claude.rs).
-trap 'rm -f "$SLOP_CONTEXT.live" "$SLOP_CONTEXT.session"' EXIT INT TERM HUP
-: > "$SLOP_CONTEXT.live"
+trap 'rm -f "$BLUPRINT_CONTEXT.live" "$BLUPRINT_CONTEXT.session"' EXIT INT TERM HUP
+: > "$BLUPRINT_CONTEXT.live"
 # A reopened tab's conversation, taken once: a `claude` typed later starts afresh.
-r=$(cat "$SLOP_CONTEXT.resume" 2>/dev/null); rm -f "$SLOP_CONTEXT.resume"
+r=$(cat "$BLUPRINT_CONTEXT.resume" 2>/dev/null); rm -f "$BLUPRINT_CONTEXT.resume"
 # Claude Code keeps a conversation only once it has a message: one never
 # written to cannot be resumed, so that tab starts afresh rather than failing.
 [ -n "$r" ] && [ -z "$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" -maxdepth 2 -name "$r.jsonl" 2>/dev/null | head -n 1)" ] && r=
-"$SLOP_CLAUDE_BIN" --settings "$SLOP_CLAUDE_SETTINGS" --append-system-prompt "$SLOP_CLAUDE_SYSTEM" ${SLOP_CLAUDE_MODEL:+--model "$SLOP_CLAUDE_MODEL"} ${SLOP_CLAUDE_MCP:+--mcp-config "$SLOP_CLAUDE_MCP"} ${r:+--resume "$r"} "$@"
+"$BLUPRINT_CLAUDE_BIN" --settings "$BLUPRINT_CLAUDE_SETTINGS" --append-system-prompt "$BLUPRINT_CLAUDE_SYSTEM" ${BLUPRINT_CLAUDE_MODEL:+--model "$BLUPRINT_CLAUDE_MODEL"} ${BLUPRINT_CLAUDE_MCP:+--mcp-config "$BLUPRINT_CLAUDE_MCP"} ${r:+--resume "$r"} "$@"
 "#;
 
 /// `claude` typed in a tab: the launcher, so it is in front and takes context
@@ -331,8 +331,8 @@ r=$(cat "$SLOP_CONTEXT.resume" 2>/dev/null); rm -f "$SLOP_CONTEXT.resume"
 /// launcher's exit would take the tab's live marker from the Claude still running.
 #[cfg(unix)]
 const CLAUDE_SHIM: &str = r#"#!/bin/sh
-[ -n "$CLAUDECODE" ] && exec "$SLOP_CLAUDE_BIN" "$@"
-exec "$SLOP_LAUNCHER" "$@"
+[ -n "$CLAUDECODE" ] && exec "$BLUPRINT_CLAUDE_BIN" "$@"
+exec "$BLUPRINT_LAUNCHER" "$@"
 "#;
 
 /// zsh in a tab starts from here (`ZDOTDIR`), so the shim stays first on PATH
@@ -342,20 +342,20 @@ exec "$SLOP_LAUNCHER" "$@"
 /// Each file loads the user's own from where zsh would have read it.
 #[cfg(unix)]
 const ZSHENV: &str = r#"# Bluprint's zsh startup (src-tauri/src/claude.rs).
-_slop_dot=$ZDOTDIR
-ZDOTDIR=${SLOP_ZDOTDIR:-$HOME}
+_bluprint_dot=$ZDOTDIR
+ZDOTDIR=${BLUPRINT_ZDOTDIR:-$HOME}
 [ -f "$ZDOTDIR/.zshenv" ] && source "$ZDOTDIR/.zshenv"
 # Their .zshenv may move ZDOTDIR: that is where their .zshrc is.
-SLOP_ZDOTDIR=$ZDOTDIR
-ZDOTDIR=$_slop_dot
-unset _slop_dot
+BLUPRINT_ZDOTDIR=$ZDOTDIR
+ZDOTDIR=$_bluprint_dot
+unset _bluprint_dot
 "#;
 #[cfg(unix)]
 const ZSHRC: &str = r#"# Bluprint's zsh startup (src-tauri/src/claude.rs).
-ZDOTDIR=$SLOP_ZDOTDIR
+ZDOTDIR=$BLUPRINT_ZDOTDIR
 [ "$ZDOTDIR" = "$HOME" ] && unset ZDOTDIR
 [ -f "${ZDOTDIR:-$HOME}/.zshrc" ] && source "${ZDOTDIR:-$HOME}/.zshrc"
-[ -n "$SLOP_BIN" ] && PATH="$SLOP_BIN:$PATH"
+[ -n "$BLUPRINT_BIN" ] && PATH="$BLUPRINT_BIN:$PATH"
 "#;
 
 #[derive(serde::Serialize)]
@@ -728,12 +728,12 @@ pub fn status_of(queue: &Path) -> Option<String> {
 /// an upgrade of the app replaces old ones.
 fn launcher() -> std::io::Result<PathBuf> {
     let dir = std::env::temp_dir().join("bluprint").join("bin");
-    install(&dir.join("slop-map-fix"), FIX)?;
-    install(&dir.join("slop-map-show"), SHOW)?;
-    install(&dir.join("slop-map-list"), LIST)?;
-    install(&dir.join("slop-plan-step"), STEP)?;
-    install(&dir.join("slop-terminal"), TERMINAL)?;
-    let path = dir.join("slop-claude");
+    install(&dir.join("bluprint-map-fix"), FIX)?;
+    install(&dir.join("bluprint-map-show"), SHOW)?;
+    install(&dir.join("bluprint-map-list"), LIST)?;
+    install(&dir.join("bluprint-plan-step"), STEP)?;
+    install(&dir.join("bluprint-terminal"), TERMINAL)?;
+    let path = dir.join("bluprint-claude");
     install(&path, LAUNCHER)?;
     #[cfg(unix)]
     {
@@ -743,7 +743,7 @@ fn launcher() -> std::io::Result<PathBuf> {
     }
     #[cfg(windows)]
     let path = {
-        let cmd = dir.join("slop-claude.cmd");
+        let cmd = dir.join("bluprint-claude.cmd");
         install(&cmd, LAUNCHER_CMD)?;
         cmd
     };
@@ -755,15 +755,15 @@ fn zdotdir() -> PathBuf {
     std::env::temp_dir().join("bluprint").join("zsh")
 }
 
-/// What cmd and PowerShell find as `slop-claude` on Windows: the launcher,
+/// What cmd and PowerShell find as `bluprint-claude` on Windows: the launcher,
 /// run by Git for Windows' bash (`git_bash`).
 #[cfg(windows)]
 const LAUNCHER_CMD: &str = "@echo off\r\n\
-if not defined SLOP_BASH (\r\n\
+if not defined BLUPRINT_BASH (\r\n\
   echo Claude Code in Bluprint needs Git for Windows: https://git-scm.com/download/win 1>&2\r\n\
   exit /b 1\r\n\
 )\r\n\
-\"%SLOP_BASH%\" \"%~dp0slop-claude\" %*\r\n";
+\"%BLUPRINT_BASH%\" \"%~dp0bluprint-claude\" %*\r\n";
 
 fn install(path: &Path, script: &str) -> std::io::Result<()> {
     if std::fs::read_to_string(path).ok().as_deref() != Some(script) {
@@ -784,7 +784,7 @@ fn install(path: &Path, script: &str) -> std::io::Result<()> {
 /// without relying on PATH.
 pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline: Option<&str>, tab: u32) -> std::io::Result<PathBuf> {
     let path = launcher()?;
-    // The page has the map; this only keeps it where slop-map-list can read it.
+    // The page has the map; this only keeps it where bluprint-map-list can read it.
     // Written per tab and cleared with the tab, so it never outlives the map it
     // was taken from.
     if let Some(text) = outline.map(str::trim).filter(|t| !t.is_empty()) {
@@ -809,7 +809,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
                 // Not on ExitPlanMode itself, whose HIDE runs beside it.
                 { "matcher": "^(?!ExitPlanMode$)", "hooks": [hook(RESTORE)] },
                 { "matcher": "Bash", "hooks": [hook(NO_BROWSER)] },
-                { "matcher": "^(mcp__slop-preview__.*|WebSearch|WebFetch|Skill)$", "hooks": [hook(PLAN_READS)] }
+                { "matcher": "^(mcp__bluprint-preview__.*|WebSearch|WebFetch|Skill)$", "hooks": [hook(PLAN_READS)] }
             ],
             "PostToolUse": [
                 { "matcher": EDITING_TOOLS, "hooks": [hook(EDITED)] },
@@ -821,7 +821,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
             "SessionEnd": [{ "hooks": [hook(RESTORE)] }]
         },
         "permissions": {
-            "allow": ["Bash(slop-map-fix:*)", "Bash(slop-map-show:*)", "Bash(slop-map-list:*)", "Bash(slop-plan-step:*)", "Bash(slop-terminal:*)", "mcp__slop-preview"],
+            "allow": ["Bash(bluprint-map-fix:*)", "Bash(bluprint-map-show:*)", "Bash(bluprint-map-list:*)", "Bash(bluprint-plan-step:*)", "Bash(bluprint-terminal:*)", "mcp__bluprint-preview"],
             // The preview is the browser here: Chrome would open beside the app, out of the user's sight.
             // So is gstack's headless Chromium: these skills do nothing but drive it, or hand it Chrome's sign-ins.
             "deny": [
@@ -841,26 +841,26 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
             allow.extend(["Skill", "WebSearch", "WebFetch"].map(serde_json::Value::from));
         }
     }
-    cmd.env("SLOP_CONTEXT", queue);
-    cmd.env("SLOP_LAUNCHER", &path);
-    cmd.env("SLOP_CLAUDE_BIN", &launch.path);
-    cmd.env("SLOP_CLAUDE_SETTINGS", settings.to_string());
-    cmd.env("SLOP_CLAUDE_SYSTEM", SYSTEM);
+    cmd.env("BLUPRINT_CONTEXT", queue);
+    cmd.env("BLUPRINT_LAUNCHER", &path);
+    cmd.env("BLUPRINT_CLAUDE_BIN", &launch.path);
+    cmd.env("BLUPRINT_CLAUDE_SETTINGS", settings.to_string());
+    cmd.env("BLUPRINT_CLAUDE_SYSTEM", SYSTEM);
     if let Some(mcp) = crate::mcp::config(tab) {
-        cmd.env("SLOP_CLAUDE_MCP", mcp);
+        cmd.env("BLUPRINT_CLAUDE_MCP", mcp);
     }
     if let Some(url) = crate::mcp::url(tab) {
-        cmd.env("SLOP_MCP_URL", url);
+        cmd.env("BLUPRINT_MCP_URL", url);
     }
     if let Some(m) = launch.model.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
-        cmd.env("SLOP_CLAUDE_MODEL", m);
+        cmd.env("BLUPRINT_CLAUDE_MODEL", m);
     }
     #[cfg(windows)]
     if let Some(bash) = git_bash() {
-        cmd.env("SLOP_BASH", bash);
+        cmd.env("BLUPRINT_BASH", bash);
     }
     if let Some(dir) = path.parent() {
-        cmd.env("SLOP_BIN", dir);
+        cmd.env("BLUPRINT_BIN", dir);
         let rest = std::env::var_os("PATH").unwrap_or_default();
         let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
             .map_err(std::io::Error::other)?;
@@ -872,7 +872,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
         // A Bluprint started from one of Bluprint's own terminals inherits our
         // ZDOTDIR: taken as theirs, our .zshenv would source itself forever.
         if let Some(theirs) = std::env::var_os("ZDOTDIR").filter(|z| Path::new(z) != zdotdir()) {
-            cmd.env("SLOP_ZDOTDIR", theirs);
+            cmd.env("BLUPRINT_ZDOTDIR", theirs);
         }
         cmd.env("ZDOTDIR", zdotdir());
     }
@@ -949,7 +949,7 @@ mod tests {
     /// Runs the hook the way Claude Code does, against `queue`.
     #[cfg(unix)]
     fn run(cmd: &str, queue: &Path) -> String {
-        let out = Command::new("sh").args(["-c", cmd]).env("SLOP_CONTEXT", queue).output().unwrap();
+        let out = Command::new("sh").args(["-c", cmd]).env("BLUPRINT_CONTEXT", queue).output().unwrap();
         String::from_utf8(out.stdout).unwrap()
     }
 
@@ -969,7 +969,7 @@ mod tests {
             assert!(out.status.success());
             String::from_utf8(out.stdout).unwrap()
         };
-        let plan = hand(r#"{"permission_mode": "plan", "tool_name": "mcp__slop-preview__computer"}"#);
+        let plan = hand(r#"{"permission_mode": "plan", "tool_name": "mcp__bluprint-preview__computer"}"#);
         let said: serde_json::Value = serde_json::from_str(&plan).unwrap();
         assert_eq!(said["hookSpecificOutput"]["permissionDecision"], "allow");
         assert_eq!(hand(r#"{"permission_mode":"default","tool_name":"WebSearch"}"#), "");
@@ -1018,7 +1018,7 @@ mod tests {
         use std::io::Write as _;
         let mut child = Command::new("sh")
             .args(["-c", TURN])
-            .env("SLOP_CONTEXT", queue)
+            .env("BLUPRINT_CONTEXT", queue)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()
@@ -1065,10 +1065,10 @@ mod tests {
     fn a_correction_alone_makes_a_turn() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let fix = launcher().unwrap().with_file_name("slop-map-fix");
+        let fix = launcher().unwrap().with_file_name("bluprint-map-fix");
         let out = Command::new(&fix)
             .args(["Viewing the Gantt", "The gate is deliberate:\tthe chart is public."])
-            .env("SLOP_CONTEXT", &q)
+            .env("BLUPRINT_CONTEXT", &q)
             .output()
             .unwrap();
         assert!(String::from_utf8_lossy(&out.stdout).contains("corrected"));
@@ -1086,9 +1086,9 @@ mod tests {
     fn showing_takes_effect_without_waiting_for_the_turn_to_end() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let show = launcher().unwrap().with_file_name("slop-map-show");
+        let show = launcher().unwrap().with_file_name("bluprint-map-show");
         let run = |args: &[&str]| {
-            Command::new(&show).args(args).env("SLOP_CONTEXT", &q).output().unwrap()
+            Command::new(&show).args(args).env("BLUPRINT_CONTEXT", &q).output().unwrap()
         };
         assert!(take_acts(&q).is_empty());
 
@@ -1117,8 +1117,8 @@ mod tests {
     fn the_map_is_listable_only_once_a_tab_has_one() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let list = launcher().unwrap().with_file_name("slop-map-list");
-        let run = || Command::new(&list).env("SLOP_CONTEXT", &q).output().unwrap();
+        let list = launcher().unwrap().with_file_name("bluprint-map-list");
+        let run = || Command::new(&list).env("BLUPRINT_CONTEXT", &q).output().unwrap();
 
         // No map yet: it says so rather than printing nothing, so Claude does
         // not read an empty outline as an empty map.
@@ -1141,14 +1141,14 @@ mod tests {
     fn a_bad_act_is_refused_or_skipped() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let show = launcher().unwrap().with_file_name("slop-map-show");
+        let show = launcher().unwrap().with_file_name("bluprint-map-show");
         for args in [vec!["section"], vec!["diff"], vec!["zoom", "in"], vec![]] {
-            let out = Command::new(&show).args(&args).env("SLOP_CONTEXT", &q).output().unwrap();
+            let out = Command::new(&show).args(&args).env("BLUPRINT_CONTEXT", &q).output().unwrap();
             assert_eq!(out.status.code(), Some(2), "{args:?}");
             assert!(String::from_utf8_lossy(&out.stderr).contains("usage:"));
         }
         // Outside a tab there is nowhere to write to.
-        assert!(!Command::new(&show).args(["section", "A"]).env("SLOP_CONTEXT", "").status().unwrap().success());
+        assert!(!Command::new(&show).args(["section", "A"]).env("BLUPRINT_CONTEXT", "").status().unwrap().success());
         assert!(!q.with_extension("md.act").exists());
 
         // A line the app cannot read is dropped, and its neighbours still arrive.
@@ -1171,7 +1171,7 @@ mod tests {
         let hide = || {
             let mut child = Command::new("sh")
                 .args(["-c", HIDE])
-                .env("SLOP_CONTEXT", &q)
+                .env("BLUPRINT_CONTEXT", &q)
                 .stdin(std::process::Stdio::piped())
                 .spawn()
                 .unwrap();
@@ -1216,7 +1216,7 @@ mod tests {
         // ExitPlanMode's PreToolUse hook, handed what Claude Code hands it.
         let mut child = Command::new("sh")
             .args(["-c", PLAN])
-            .env("SLOP_CONTEXT", &q)
+            .env("BLUPRINT_CONTEXT", &q)
             .stdin(std::process::Stdio::piped())
             .spawn()
             .unwrap();
@@ -1239,7 +1239,7 @@ mod tests {
 
         // What Claude hears on acceptance must be JSON Claude Code can read.
         let said: serde_json::Value = serde_json::from_str(&run(TODOS, &q)).unwrap();
-        assert!(said["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("slop-plan-step 1 doing"));
+        assert!(said["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("bluprint-plan-step 1 doing"));
     }
 
     /// A hook as Claude Code runs it, handed `input`: what it printed, what it said to Claude, and its exit code.
@@ -1248,7 +1248,7 @@ mod tests {
         use std::io::Write as _;
         let mut child = Command::new("sh")
             .args(["-c", cmd])
-            .env("SLOP_CONTEXT", queue)
+            .env("BLUPRINT_CONTEXT", queue)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -1269,7 +1269,7 @@ mod tests {
         let drafted = serde_json::json!({ "tool_name": "ExitPlanMode", "tool_input": { "plan": "…", "planFilePath": file } }).to_string();
         let stop = r#"{"hook_event_name":"Stop","stop_hook_active":false}"#;
         let mark = |args: &[&str]| {
-            let s = Command::new("sh").arg("-c").arg(STEP).arg("slop-plan-step").args(args).env("SLOP_CONTEXT", &q).output().unwrap();
+            let s = Command::new("sh").arg("-c").arg(STEP).arg("bluprint-plan-step").args(args).env("BLUPRINT_CONTEXT", &q).output().unwrap();
             s.status.code()
         };
         let status = || std::fs::read_to_string(q.with_extension("md.status")).unwrap_or_default();
@@ -1339,10 +1339,10 @@ mod tests {
     #[cfg(unix)]
     fn launch(queue: &Path, bin: &str) -> std::process::ExitStatus {
         Command::new(launcher().unwrap())
-            .env("SLOP_CONTEXT", queue)
-            .env("SLOP_CLAUDE_BIN", bin)
-            .env("SLOP_CLAUDE_SETTINGS", "{}")
-            .env("SLOP_CLAUDE_SYSTEM", "")
+            .env("BLUPRINT_CONTEXT", queue)
+            .env("BLUPRINT_CLAUDE_BIN", bin)
+            .env("BLUPRINT_CLAUDE_SETTINGS", "{}")
+            .env("BLUPRINT_CLAUDE_SYSTEM", "")
             .env("CLAUDE_CONFIG_DIR", queue.parent().unwrap())
             .status()
             .unwrap()
@@ -1377,7 +1377,7 @@ mod tests {
         let start = |input: &str| {
             let mut child = Command::new("sh")
                 .args(["-c", SESSION])
-                .env("SLOP_CONTEXT", &q)
+                .env("BLUPRINT_CONTEXT", &q)
                 .stdin(std::process::Stdio::piped())
                 .spawn()
                 .unwrap();

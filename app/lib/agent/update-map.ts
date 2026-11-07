@@ -3,7 +3,7 @@ import { findClaude } from "@/lib/client/claude";
 /**
  * A turn of Claude's the map follows (src-tauri/src/claude.rs): its session's
  * transcript, for what it did and why, and the sections it reported wrong
- * with slop-map-fix.
+ * with bluprint-map-fix.
  */
 export interface Turn {
   transcript?: string | null;

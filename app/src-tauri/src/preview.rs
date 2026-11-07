@@ -390,7 +390,7 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
 /// hydrates a server-rendered head in order, and would read a script left
 /// there as the page's own first one, and call the page mismatched.
 fn with_agent(page: &[u8]) -> Vec<u8> {
-    let script = format!("<script data-slop-agent>document.currentScript.remove();\n{AGENT}</script>");
+    let script = format!("<script data-bluprint-agent>document.currentScript.remove();\n{AGENT}</script>");
     let lower = String::from_utf8_lossy(page).to_ascii_lowercase();
     let after_tag = |tag: &str| lower.find(tag).and_then(|at| lower[at..].find('>').map(|end| at + end + 1));
     let at = after_tag("<head").or_else(|| after_tag("<html")).or_else(|| after_tag("<!doctype")).unwrap_or(0);
@@ -430,7 +430,7 @@ mod tests {
     fn the_agent_goes_first_in_the_head() {
         let page = with_agent(b"<!DOCTYPE html><html lang=en><HEAD><title>x</title></head></html>");
         let page = String::from_utf8(page).unwrap();
-        assert!(page.starts_with("<!DOCTYPE html><html lang=en><HEAD><script data-slop-agent>"));
+        assert!(page.starts_with("<!DOCTYPE html><html lang=en><HEAD><script data-bluprint-agent>"));
         assert!(page.ends_with("<title>x</title></head></html>"));
         // A fragment with no head still gets it.
         assert!(String::from_utf8(with_agent(b"<p>hi")).unwrap().starts_with("<script"));
@@ -471,7 +471,7 @@ mod tests {
             b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nX-Frame-Options: DENY\r\nTransfer-Encoding: chunked\r\n\r\n6\r\n<head>\r\n7\r\n</head>\r\n0\r\n\r\n",
         );
         let out = through(port, "GET / HTTP/1.1\r\nHost: localhost:{me}\r\nOrigin: http://localhost:{me}\r\nAccept-Encoding: gzip\r\n\r\n");
-        assert!(out.contains("<head><script data-slop-agent>"));
+        assert!(out.contains("<head><script data-bluprint-agent>"));
         assert!(out.ends_with("</head>"));
         assert!(!out.to_ascii_lowercase().contains("x-frame-options"));
         assert!(!out.to_ascii_lowercase().contains("chunked"));
@@ -488,7 +488,7 @@ mod tests {
         let out = through(port, "GET /a.js HTTP/1.1\r\nHost: x\r\n\r\n");
         assert!(out.starts_with("HTTP/1.1 302 Found"));
         assert!(out.ends_with("\r\n\r\nok"));
-        assert!(!out.contains("slop-agent"));
+        assert!(!out.contains("bluprint-agent"));
     }
 
     #[test]

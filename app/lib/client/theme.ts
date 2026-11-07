@@ -4,12 +4,18 @@
  * server component.
  */
 
-export const SETTINGS_KEY = "slop.settings";
+export const SETTINGS_KEY = "bluprint.settings";
 const THEMES = ["classic", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
 /** A saved theme, or Classic for none and for one this version no longer has. */
 export const themeOf = (t: unknown): Theme => (THEMES.includes(t as Theme) ? (t as Theme) : "classic");
 
+/**
+ * Keys saved before the app was renamed from slop ("slop.settings", "slop:tabs:…")
+ * move to their Bluprint names once, before anything reads them.
+ */
+const RENAME = `try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&/^slop[.:]/.test(k)){var n="bluprint"+k.slice(4);if(localStorage.getItem(n)===null)localStorage.setItem(n,localStorage.getItem(k));localStorage.removeItem(k)}}}catch(e){}`;
+
 /** applyTheme (lib/client/settings.ts) as an inline script, so the page never flashes another theme. */
-export const THEME_SCRIPT = `try{var t=JSON.parse(localStorage.getItem(${JSON.stringify(SETTINGS_KEY)})||"{}").theme;document.documentElement.dataset.theme=${JSON.stringify(THEMES)}.indexOf(t)<0?"classic":t}catch(e){document.documentElement.dataset.theme="classic"}`;
+export const THEME_SCRIPT = `${RENAME}try{var t=JSON.parse(localStorage.getItem(${JSON.stringify(SETTINGS_KEY)})||"{}").theme;document.documentElement.dataset.theme=${JSON.stringify(THEMES)}.indexOf(t)<0?"classic":t}catch(e){document.documentElement.dataset.theme="classic"}`;

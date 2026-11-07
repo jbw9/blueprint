@@ -132,7 +132,7 @@ export function Device({
   const ring = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let fade: ReturnType<typeof setTimeout> | undefined;
-    const off = listen<{ platform: string; x: number; y: number; x2: number; y2: number; swipe: boolean }>("slop:device-touch", (e) =>
+    const off = listen<{ platform: string; x: number; y: number; x2: number; y2: number; swipe: boolean }>("bluprint:device-touch", (e) =>
       // A frame on, once the tab has come forward (components/agent/workspace.tsx) and the screen has a size.
       void setTimeout(() => glide(e.payload), 50),
     );

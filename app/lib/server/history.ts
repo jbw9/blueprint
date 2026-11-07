@@ -241,7 +241,7 @@ export function summarize(root: string, dir: string, sha: string, claude?: strin
     const { bill, MODELS } = await import("@/scripts/generate/bedrock");
     const before = bill.summary?.usd ?? 0;
     const r = await ccAsk<{ summary: string }>({
-      model: MODELS[(process.env.SLOP_SUMMARY ?? "sonnet") as keyof typeof MODELS] ?? MODELS.sonnet,
+      model: MODELS[(process.env.BLUPRINT_SUMMARY ?? "sonnet") as keyof typeof MODELS] ?? MODELS.sonnet,
       system: "You read one git commit and say plainly what it did.",
       messages: [{ role: "user", content: prompt }],
       tool: SUMMARY_TOOL,

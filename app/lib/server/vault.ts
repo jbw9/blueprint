@@ -19,7 +19,7 @@
  *
  * The directory is the one Tauri names for this app (`app_data_dir`: the OS
  * data directory plus the bundle identifier), so the desktop app and this
- * server agree on it without being told. SLOP_VAULT overrides it.
+ * server agree on it without being told. BLUPRINT_VAULT overrides it.
  */
 
 import { execFileSync, spawn } from "node:child_process";
@@ -40,7 +40,7 @@ function dataDir(): string {
   return process.env.XDG_DATA_HOME || join(home, ".local", "share");
 }
 
-export const VAULT = process.env.SLOP_VAULT ?? join(dataDir(), IDENTIFIER);
+export const VAULT = process.env.BLUPRINT_VAULT ?? join(dataDir(), IDENTIFIER);
 const INDEX = join(VAULT, "projects.json");
 export const projectDir = (id: string) => join(VAULT, "projects", id);
 

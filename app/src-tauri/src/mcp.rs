@@ -5,7 +5,7 @@
 //! the console. And on a phone simulator, through `device` (devices.rs). And
 //! the project's terminals, the dev server's logs first (`read_terminal`).
 //!
-//! Agents other than Claude get no MCP config, so `slop-terminal` (claude.rs)
+//! Agents other than Claude get no MCP config, so `bluprint-terminal` (claude.rs)
 //! reaches `read_terminal` through `/text` on the same URL: one tools/call,
 //! answered as its plain text.
 //!
@@ -13,7 +13,7 @@
 //! message per POST, answered as plain JSON. The URL carries a secret, and the
 //! tab the request came from, so each Claude drives its own project's
 //! preview. The page does the work (components/preview/preview.tsx, and the agent
-//! inside the frame, agent.js): a call is handed to it as a `slop:preview`
+//! inside the frame, agent.js): a call is handed to it as a `bluprint:preview`
 //! event and waits for `preview_reply`. A screenshot is WebKit's own picture
 //! of the frame's part of the window.
 
@@ -75,7 +75,7 @@ pub fn url(tab: u32) -> Option<String> {
 
 /// The `--mcp-config` for Claude in tab `tab`, once the server is up.
 pub fn config(tab: u32) -> Option<String> {
-    Some(json!({ "mcpServers": { "slop-preview": { "type": "http", "url": url(tab)? } } }).to_string())
+    Some(json!({ "mcpServers": { "bluprint-preview": { "type": "http", "url": url(tab)? } } }).to_string())
 }
 
 fn handle(conn: TcpStream, app: &AppHandle) -> std::io::Result<()> {
@@ -221,7 +221,7 @@ fn ask_for(app: &AppHandle, tab: u32, cmd: Value, secs: u64) -> Reply {
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel();
     pending().lock().unwrap().insert(id, tx);
-    let sent = app.emit_to("main", "slop:preview", json!({ "id": id, "tab": tab, "cmd": cmd }));
+    let sent = app.emit_to("main", "bluprint:preview", json!({ "id": id, "tab": tab, "cmd": cmd }));
     let out = match sent {
         Ok(()) => rx
             .recv_timeout(Duration::from_secs(secs))

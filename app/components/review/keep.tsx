@@ -24,7 +24,7 @@ import { useDesktop } from "@/lib/client/platform";
 /* ── the turn just finished ───────────────────────────────────── */
 
 /** The last answer Claude gave in any tab, offered once (src-tauri/src/pty.rs). */
-const ANSWERED = "slop:answered";
+const ANSWERED = "bluprint:answered";
 
 export const announceAnswer = (e: Exchange) =>
   window.dispatchEvent(new CustomEvent<Exchange>(ANSWERED, { detail: e }));
@@ -39,7 +39,7 @@ export function onAnswer(f: (e: Exchange) => void) {
  * The reply Claude gave to a drafting prompt, from the same place. True when a
  * waiting dialog took it — it cancels the event — so it is not also an answer.
  */
-const DRAFTED = "slop:drafted";
+const DRAFTED = "bluprint:drafted";
 export const announceDraft = (said: string) =>
   !window.dispatchEvent(new CustomEvent<string>(DRAFTED, { detail: said, cancelable: true }));
 const onDraft = (f: (said: string) => boolean) => {

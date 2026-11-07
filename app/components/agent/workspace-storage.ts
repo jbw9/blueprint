@@ -7,9 +7,9 @@ import type { Tab } from "@/components/agent/workspace-tab";
 
 /** What the workspace (components/agent/workspace.tsx) keeps in localStorage between launches. */
 
-export const OFFER_KEY = "slop.offer:";
+export const OFFER_KEY = "bluprint.offer:";
 /** The web app a project's Preview was last switched to, by its folder. */
-export const SITE_KEY = "slop.site:";
+export const SITE_KEY = "bluprint.site:";
 
 export function storedSite(root: string): string | null {
   try {
@@ -19,9 +19,9 @@ export function storedSite(root: string): string | null {
   }
 }
 /** The conversations Claude was having in the tabs, per project, so the app reopens them. */
-export const SESSIONS_KEY = "slop.workspace.sessions";
+export const SESSIONS_KEY = "bluprint.workspace.sessions";
 /** The conversations of a closed project's Claudes, by its root, resumed when it is opened again. */
-export const PARKED_KEY = "slop.workspace.parked:";
+export const PARKED_KEY = "bluprint.workspace.parked:";
 
 export function storedSessions(): { cwd: string; session: string }[] {
   try {

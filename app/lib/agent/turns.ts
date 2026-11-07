@@ -16,4 +16,4 @@ export async function followTurn(root: string, turn: Turn) {
 }
 
 /** An agent edited a checkout whose map cannot follow it; the detail is the checkout. */
-export const UNFOLLOWED = "slop:map-unfollowed";
+export const UNFOLLOWED = "bluprint:map-unfollowed";

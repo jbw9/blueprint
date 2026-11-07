@@ -207,7 +207,7 @@ const CODE_DIRS = ["Desktop/Code", "projects", "Projects", "code", "Code", "src"
  */
 export function rootOf(run: Run): string {
   if (run.root) return run.root;
-  if (process.env.SLOP_REPO_ROOT) return process.env.SLOP_REPO_ROOT;
+  if (process.env.BLUPRINT_REPO_ROOT) return process.env.BLUPRINT_REPO_ROOT;
   const tried = CODE_DIRS.map((d) => resolve(homedir(), d, run.repo));
   return tried.find((d) => existsSync(d) && statSync(d).isDirectory()) ?? tried[0];
 }

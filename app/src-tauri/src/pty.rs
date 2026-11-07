@@ -94,15 +94,15 @@ pub fn pty_spawn(
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
         if start_claude {
             if cfg!(unix) {
-                cmd.args(["-c", r#""$SLOP_LAUNCHER"; exec "$SHELL""#]);
+                cmd.args(["-c", r#""$BLUPRINT_LAUNCHER"; exec "$SHELL""#]);
                 cmd.env("SHELL", &program);
                 if let Some(id) = &resume {
                     claude::resuming(&context, id).map_err(|e| e.to_string())?;
                 }
             } else if name.eq_ignore_ascii_case("cmd") {
-                cmd.args(["/k", "slop-claude"]);
+                cmd.args(["/k", "bluprint-claude"]);
             } else {
-                cmd.args(["-NoExit", "-Command", "slop-claude"]);
+                cmd.args(["-NoExit", "-Command", "bluprint-claude"]);
             }
         }
     }

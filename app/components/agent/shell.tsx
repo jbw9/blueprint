@@ -167,9 +167,9 @@ const quote = (path: string) =>
     : path.replace(/[^\w\-.,/:@+%=\u0080-\uffff]/g, "\\$&");
 
 /** One font size for every tab, kept per machine like the window's width. */
-const FONT_KEY = "slop.terminal.fontSize";
+const FONT_KEY = "bluprint.terminal.fontSize";
 const FONT = { min: 9, base: 13, max: 24 };
-const ZOOMED = "slop:terminal-zoom";
+const ZOOMED = "bluprint:terminal-zoom";
 
 function storedFont() {
   try {
@@ -262,7 +262,7 @@ export function Shell({
   useEffect(() => {
     handlers.current = { claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
   });
-  // The map's sections, for `slop-map-list`. Through a ref for the same
+  // The map's sections, for `bluprint-map-list`. Through a ref for the same
   // reason: a map that updates must not restart the shell.
   const map = useMap();
   const sections = useRef(map);

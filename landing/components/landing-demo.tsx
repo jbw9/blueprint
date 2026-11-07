@@ -93,7 +93,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
   };
   const tell = () =>
     frame.current?.contentWindow?.postMessage(
-      { type: "slop:repos", repos: maps.map(({ id, label }) => ({ id, label })), open },
+      { type: "bluprint:repos", repos: maps.map(({ id, label }) => ({ id, label })), open },
       location.origin,
     );
 
@@ -101,8 +101,8 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== location.origin || e.source !== frame.current?.contentWindow) return;
-      if (e.data?.type === "slop:ready") tell();
-      if (e.data?.type === "slop:open") setOpen(e.data.id);
+      if (e.data?.type === "bluprint:ready") tell();
+      if (e.data?.type === "bluprint:open") setOpen(e.data.id);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

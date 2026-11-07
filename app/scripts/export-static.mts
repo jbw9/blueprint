@@ -45,7 +45,7 @@ try {
       NEXT_PUBLIC_STATIC_MAP: name,
       NEXT_PUBLIC_BASE_PATH: opt("--base-path") ?? "",
       NEXT_PUBLIC_SOURCE_URL: opt("--source-url") ?? "",
-      SLOP_EXPORT_DIR: `out/${name}`,
+      BLUPRINT_EXPORT_DIR: `out/${name}`,
     },
   });
   if (build.error) throw build.error;

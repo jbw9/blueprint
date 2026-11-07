@@ -18,8 +18,8 @@ export interface Tabs {
   active: number;
 }
 
-const CHANGED = "slop:tabs-changed";
-const keyOf = (map: string) => `slop:tabs:${map}`;
+const CHANGED = "bluprint:tabs-changed";
+const keyOf = (map: string) => `bluprint:tabs:${map}`;
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 function raw(map: string) {

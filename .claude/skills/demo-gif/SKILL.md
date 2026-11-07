@@ -63,7 +63,7 @@ Do not ask the user each time. Decide, and say what you decided.
    const r = await recorder(page, "frames");
    await page.goto("http://localhost:3217", { waitUntil: "networkidle" });
    await page.evaluate(() => {
-     for (const k of Object.keys(localStorage)) if (k.startsWith("slop:tabs:")) localStorage.removeItem(k);
+     for (const k of Object.keys(localStorage)) if (k.startsWith("bluprint:tabs:")) localStorage.removeItem(k);
    });
    await page.reload({ waitUntil: "networkidle" });
    await r.hold(20);
@@ -77,7 +77,7 @@ Do not ask the user each time. Decide, and say what you decided.
    ```
 
    The scenario must:
-   - start from a clean, known state. Bluprint keeps reader state in `localStorage` under `slop:` keys (`slop:tabs:<map>`, `slop:settings`). Clear the keys the change touches, then reload.
+   - start from a clean, known state. Bluprint keeps reader state in `localStorage` under `bluprint:` keys (`bluprint:tabs:<map>`, `bluprint:settings`). Clear the keys the change touches, then reload.
    - show the start state for about 0.7 s, then the change, then the end state for about 1 s
    - move the pointer with `glide`, so the viewer can follow it
    - stay between 5 and 15 s

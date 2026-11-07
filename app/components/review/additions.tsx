@@ -15,7 +15,7 @@ import type { Entry, Orphan, Version } from "@/lib/server/overlay";
  * itself recorded, so no step here loses anything.
  */
 
-const OPEN = "slop:history";
+const OPEN = "bluprint:history";
 export const openHistory = () => window.dispatchEvent(new Event(OPEN));
 
 interface State {

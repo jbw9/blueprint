@@ -347,7 +347,7 @@ export function Preview({
     onScreen.set(id, me);
     // Just brought to the front, with nothing else of the app's in use.
     if (touched === null) touch(id);
-    const off = isTauri() ? listen<string>("slop:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
+    const off = isTauri() ? listen<string>("bluprint:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
     return () => {
       if (onScreen.get(id) === me) onScreen.delete(id);
       void off?.then((f) => f());
