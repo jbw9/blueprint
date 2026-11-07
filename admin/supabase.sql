@@ -7,7 +7,7 @@
 -- reads through bp_admin_overview / bp_admin_run, which check one fixed password against a bcrypt hash.
 --
 -- Setting (or changing) the password:
---   insert into public.bp_admin (id, pw_hash) values (1, extensions.crypt('#Bananacake69', extensions.gen_salt('bf', 10)))
+--   insert into public.bp_admin (id, pw_hash) values (1, extensions.crypt('<the password>', extensions.gen_salt('bf', 10)))
 --   on conflict (id) do update set pw_hash = excluded.pw_hash;
 
 create schema if not exists extensions;

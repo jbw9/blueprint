@@ -200,8 +200,8 @@ button.repo:hover { text-decoration-color: var(--ink); }
   var runFilter = "all";
   var details = {};
 
-  function stored() { try { return localStorage.getItem(PW) || ""; } catch (e) { return ""; } }
-  function keep(v) { try { v ? localStorage.setItem(PW, v) : localStorage.removeItem(PW); } catch (e) {} }
+  function stored() { try { localStorage.removeItem(PW); return sessionStorage.getItem(PW) || ""; } catch (e) { return ""; } }
+  function keep(v) { try { v ? sessionStorage.setItem(PW, v) : sessionStorage.removeItem(PW); } catch (e) {} }
 
   function rpc(fn, body) {
     return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
