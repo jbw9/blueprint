@@ -1,11 +1,11 @@
-import { NotAnImage, remoteImage } from "@/lib/assets";
-import { loadMap, rootOf } from "@/lib/maps";
-import { Refused, readImage } from "@/lib/repo";
+import { NotAnImage, remoteImage } from "@/lib/server/assets";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { Refused, readImage } from "@/lib/server/repo";
 
 /**
- * The images a doc shows (components/docs.tsx): `?map=&file=` one from the
+ * The images a doc shows (components/map/docs.tsx): `?map=&file=` one from the
  * open map's checkout, through the same containment as the code; `?url=` one
- * from the web, through the offline cache (lib/assets.ts).
+ * from the web, through the offline cache (lib/server/assets.ts).
  *
  * An SVG is served as an image and nothing else: the policy below stops one
  * opened on its own from running script, and `nosniff` stops anything being

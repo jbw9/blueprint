@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { readSettings } from "@/lib/settings";
+import { readSettings } from "@/lib/client/settings";
 
 /** Claude Code as the desktop app finds it (src-tauri/src/claude.rs): where Settings says, or on the PATH. Null when it is nowhere. */
 export const findClaude = (configured = readSettings().claudePath) =>

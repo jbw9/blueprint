@@ -1,10 +1,10 @@
-import { loadMap, rootOf } from "@/lib/maps";
-import { reviewRange } from "@/lib/review";
-import { mapReview, reviewMap } from "@/lib/vault";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { reviewRange } from "@/lib/server/review";
+import { mapReview, reviewMap } from "@/lib/server/vault";
 import { notJson } from "@/lib/server/route";
 
 /**
- * The map after a branch or pull request (lib/vault.ts `mapReview`):
+ * The map after a branch or pull request (lib/server/vault.ts `mapReview`):
  * `GET ?map=&commit=` says whether it exists or is being made (only read, so
  * a commit is enough), `POST` with `{map, review, claude}` starts making it.
  * As app/api/diff/route.ts, what is checked out is only ever the commit the

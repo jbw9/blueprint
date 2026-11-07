@@ -1,0 +1,298 @@
+/**
+ * Binding the map to a real repository: read a cited slice and check that the
+ * map's quote still holds, write an edited slice back, and undo an agent turn.
+ * A quote drifts silently the moment the real file changes, which is exactly
+ * the failure this project exists to study.
+ */
+
+/**
+ * Where the mapped repository lives: absolute, one per map, resolved by
+ * `rootOf` in `lib/server/maps.ts` from the map the reader has open. The route hands
+ * it in; nothing caller-supplied ever chooses it.
+ */
+export type RepoRoot = string;
+
+export interface SliceRequest {
+  /** Repo-relative path. Must stay inside the repo root once resolved. */
+  file: string;
+  /** 1-indexed first line. */
+  start: number;
+  /** 1-indexed last line, inclusive. */
+  end: number;
+}
+
+export interface Slice extends SliceRequest {
+  /** Verbatim lines, newline-joined. Indentation preserved exactly. */
+  code: string;
+  /** Total lines in the file, so the UI can say "733 of 1,204". */
+  total: number;
+  /**
+   * True when the file on disk still matches what the fixture quoted.
+   * A false here is a FINDING, not an error: it means the map has drifted from
+   * the code, and the UI must say so rather than quietly showing fresh text
+   * under a stale explanation.
+   */
+  matchesFixture: boolean;
+}
+
+/**
+ * Read a slice of a real file.
+ *
+ * Path safety: resolve the path and confirm it is still under the repo root.
+ * `../` traversal, absolute paths and symlinks pointing outside are refused —
+ * this endpoint reads arbitrary caller-supplied paths, so the containment check
+ * is the whole security model.
+ */
+export type ReadSlice = (req: SliceRequest, fixture: string | undefined, root: RepoRoot) => Promise<Slice>;
+
+/**
+ * Write an edited slice back.
+ *
+ * Deliberately narrow, because this is the one operation in the product that
+ * can destroy work:
+ *
+ * - Inside the repo root only, same containment check as the read.
+ * - One contiguous slice of one file per call.
+ * - `expected` must match what is currently on disk, or the write is refused.
+ *   This is optimistic concurrency: it stops a save built on a stale read from
+ *   overwriting a change made in the editor since.
+ * - The caller is shown a diff and confirms before this is ever invoked.
+ *
+ * The UI never writes on blur, on a timer, or on navigation. Only on an
+ * explicit save.
+ */
+export interface WriteRequest extends SliceRequest {
+  /** The replacement text for [start, end]. */
+  code: string;
+  /** What the caller believes is currently at [start, end]. Verified first. */
+  expected: string;
+}
+
+export interface WriteResult {
+  ok: boolean;
+  /** Unified diff of what changed, for display after the fact. */
+  diff: string;
+  /** Set when refused: "outside repo", "stale", "not a file". */
+  refused?: string;
+}
+
+export type WriteSlice = (req: WriteRequest, root: RepoRoot) => Promise<WriteResult>;
+
+// ---------------------------------------------------------------------------
+// Implementation. The types above are the frozen contract; everything below
+// satisfies it and adds nothing to it.
+// ---------------------------------------------------------------------------
+
+import { readFile, writeFile, realpath, stat, unlink } from "node:fs/promises";
+import { basename, dirname, join, resolve, sep } from "node:path";
+
+/**
+ * The entire security model, in one function.
+ *
+ * `file` arrives from the network, so it is assumed hostile. Three things are
+ * checked, in this order, because each one defeats a different attack:
+ *
+ * 1. `resolve(the repo root, file)` collapses `../` textually — this is what stops
+ *    `../../../etc/passwd` and, because `resolve` discards the base when given
+ *    an absolute second argument, it also folds absolute paths back through the
+ *    same prefix test rather than silently honouring them.
+ * 2. The prefix test uses `root + sep`, not bare `startsWith(root)`. Without the
+ *    separator `/Users/.../repo-secrets` passes as if it were inside
+ *    `/Users/.../repo`.
+ * 3. `realpath` resolves symlinks and the prefix test runs AGAIN on the result.
+ *    Step 1 is pure string arithmetic and cannot see a link inside the repo
+ *    pointing out of it; only asking the filesystem can.
+ *
+ * Returns the real absolute path, or null when the path escapes.
+ */
+async function contain(repoRoot: RepoRoot, file: string): Promise<string | null> {
+  const root = await realpath(repoRoot);
+  const inside = (p: string) => p === root || p.startsWith(root + sep);
+
+  const target = resolve(root, file);
+  if (!inside(target)) return null;
+
+  // realpath throws ENOENT on a path that does not exist, which is a refusal
+  // here rather than an error: there is nothing to read and nothing to write.
+  let real: string;
+  try {
+    real = await realpath(target);
+  } catch {
+    return null;
+  }
+  return inside(real) ? real : null;
+}
+
+/** Thrown to the route handler, which turns it into a 400 with this message. */
+export class Refused extends Error {}
+
+/** What a doc may show from the repository: images, by extension, and their types. */
+const IMAGE_TYPES: Record<string, string> = {
+  svg: "image/svg+xml",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  ico: "image/x-icon",
+};
+
+/** An image a doc in the repository shows (components/map/docs.tsx), behind the same containment as the code. */
+export async function readImage(root: RepoRoot, file: string): Promise<{ body: Buffer; type: string }> {
+  const type = IMAGE_TYPES[file.split(".").pop()?.toLowerCase() ?? ""];
+  if (!type) throw new Refused("not an image");
+  const real = await contain(root, file);
+  if (!real) throw new Refused("outside repo");
+  const s = await stat(real);
+  if (!s.isFile() || s.size > 20 << 20) throw new Refused("not a file");
+  return { body: await readFile(real), type };
+}
+
+/**
+ * `fixture` is what the MAP claims sits at these lines, which the repository
+ * itself has no opinion about; undefined when the caller made no claim.
+ */
+export const readSlice: ReadSlice = async (req, fixture, root) => {
+  const real = await contain(root, req.file);
+  if (!real) throw new Refused("outside repo");
+  if (!(await stat(real)).isFile()) throw new Refused("not a file");
+
+  const lines = (await readFile(real, "utf8")).split(/\r?\n/);
+  const start = Math.max(1, req.start);
+  const end = Math.min(lines.length, Math.max(start, req.end));
+  const code = lines.slice(start - 1, end).join("\n");
+
+  return {
+    file: req.file,
+    start,
+    end,
+    code,
+    total: lines.length,
+    // No fixture to compare against is not a mismatch — a caller that asked
+    // only for the file's text has made no claim that could have drifted.
+    matchesFixture: fixture === undefined || quoteHolds(fixture, code),
+  };
+};
+
+/**
+ * Does the fixture's quote still hold against what is on disk?
+ *
+ * Exact equality is the normal answer. The one accepted relaxation is a quote
+ * whose LAST line stops part-way through the real line — the fixture quotes
+ * prose out of JSX that way, taking a sentence and leaving the rest of the
+ * line. Every other line must match byte for byte, including indentation.
+ *
+ * Everything else is drift, and drift is a finding: the explanation attached to
+ * this quote was written about text that is no longer there.
+ */
+function quoteHolds(fixture: string, disk: string): boolean {
+  if (fixture === disk) return true;
+  const f = fixture.replace(/\n$/, "").split("\n");
+  const d = disk.replace(/\n$/, "").split("\n");
+  if (f.length !== d.length) return false;
+  const last = f.length - 1;
+  return (
+    f.slice(0, last).every((line, i) => line === d[i]) &&
+    d[last].startsWith(f[last])
+  );
+}
+
+export const writeSlice: WriteSlice = async (req, root) => {
+  const real = await contain(root, req.file);
+  if (!real) return { ok: false, diff: "", refused: "outside repo" };
+  if (!(await stat(real)).isFile()) {
+    return { ok: false, diff: "", refused: "not a file" };
+  }
+
+  const text = await readFile(real, "utf8");
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  if (req.start < 1 || req.end > lines.length || req.end < req.start) {
+    return { ok: false, diff: "", refused: "stale" };
+  }
+
+  // Optimistic concurrency. The caller read [start, end] at some point and is
+  // now writing back a change to it; if disk no longer holds what they read,
+  // their edit was composed against text that has since been replaced and
+  // applying it would silently destroy whoever made that replacement.
+  const onDisk = lines.slice(req.start - 1, req.end).join("\n");
+  if (onDisk !== req.expected) {
+    return { ok: false, diff: "", refused: "stale" };
+  }
+
+  const replacement = req.code.replace(/\r?\n$/, "").split(/\r?\n/);
+  const next = [
+    ...lines.slice(0, req.start - 1),
+    ...replacement,
+    ...lines.slice(req.end),
+  ];
+  await writeFile(real, next.join(eol), "utf8");
+
+  return { ok: true, diff: unified(req.file, req.start, onDisk, req.code) };
+};
+
+/**
+ * A unified diff of just the replaced slice.
+ *
+ * Whole-line add/remove, no LCS: the slice is small, contiguous and already
+ * known to be the only thing that changed, so the alignment a real diff
+ * algorithm buys is alignment nobody would read. A dependency for this would
+ * be a dependency for cosmetics.
+ */
+function unified(file: string, start: number, before: string, after: string) {
+  const b = before.replace(/\n$/, "").split("\n");
+  const a = after.replace(/\n$/, "").split("\n");
+  return [
+    `--- a/${file}`,
+    `+++ b/${file}`,
+    `@@ -${start},${b.length} +${start},${a.length} @@`,
+    ...b.map((l) => `-${l}`),
+    ...a.map((l) => `+${l}`),
+  ].join("\n");
+}
+
+/**
+ * Puts files back as they were before an agent turn (app/api/undo), from the
+ * snapshot the map updater kept (scripts/generate/update.ts).
+ *
+ * All or nothing, and only over the turn's own work: a file whose contents
+ * are no longer what the turn left (`after`) has been changed since, by hand
+ * or by a later turn, and undoing would destroy that; any such file refuses
+ * the whole undo and is named. A file the turn created is deleted, one it
+ * deleted is written back.
+ *
+ * Paths come from a snapshot on disk, not the network, but go through
+ * `contain` all the same: a file that does not exist is checked by its
+ * folder, and refused if that folder is gone too.
+ */
+export async function restoreFiles(
+  root: RepoRoot,
+  files: { path: string; before: string | null; after: string | null }[],
+): Promise<{ ok: true; restored: string[] } | { ok: false; conflicts: string[]; refused: string[] }> {
+  const placed: { abs: string; before: string | null }[] = [];
+  const conflicts: string[] = [];
+  const refused: string[] = [];
+  for (const f of files) {
+    if (f.before === f.after) continue;
+    let at = await contain(root, f.path);
+    const now = at ? await readFile(at, "utf8").catch(() => null) : null;
+    if (!at) {
+      // Missing: checked by its folder, which must still exist inside the checkout.
+      const dir = await contain(root, dirname(f.path));
+      if (!dir || f.path.endsWith(sep) || basename(f.path) === "..") {
+        refused.push(f.path);
+        continue;
+      }
+      at = join(dir, basename(f.path));
+    }
+    if (now !== f.after) conflicts.push(f.path);
+    else placed.push({ abs: at, before: f.before });
+  }
+  if (conflicts.length || refused.length) return { ok: false, conflicts, refused };
+  for (const p of placed) {
+    if (p.before === null) await unlink(p.abs).catch(() => {});
+    else await writeFile(p.abs, p.before, "utf8");
+  }
+  return { ok: true, restored: files.filter((f) => f.before !== f.after).map((f) => f.path) };
+}

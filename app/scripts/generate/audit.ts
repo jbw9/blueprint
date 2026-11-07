@@ -5,9 +5,9 @@
  * found. Written beside map.json and report.json; the
  * report keeps the numbers, this keeps the reasoning they came from.
  */
-import type { Node } from "@/lib/data";
+import type { Node } from "@/lib/map/schema";
 import type { Authored } from "./author";
-import type { Overview } from "@/lib/map";
+import type { Overview } from "@/lib/map/build";
 import type { Cut } from "./cut";
 import type { Inventory } from "./inventory";
 import type { Overviewed } from "./overview";

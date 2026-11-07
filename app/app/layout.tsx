@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
-import { THEME_SCRIPT } from "@/lib/theme";
+import { THEME_SCRIPT } from "@/lib/client/theme";
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({

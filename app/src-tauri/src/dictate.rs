@@ -1,7 +1,7 @@
 //! On-device dictation, with Handy's own engine: the microphone through
 //! handy-recorder, the words through transcribe-cpp running Parakeet locally.
 //! Nothing leaves the machine; the one network use is fetching the model once.
-//! The page decides where the words go (lib/dictate.ts).
+//! The page decides where the words go (lib/agent/dictate.ts).
 
 use std::path::PathBuf;
 use std::process::{Child, Command};

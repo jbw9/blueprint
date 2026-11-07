@@ -6,10 +6,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- walks map JSON, typed or not */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildMap, type MapFile } from "@/lib/map";
-import { MARK_IDS } from "@/components/shapes";
-import type { Anatomy } from "@/lib/data";
-import { layoutDiagram, overlaps, segmentsOf } from "@/lib/diagram";
+import { buildMap, type MapFile } from "@/lib/map/build";
+import { MARK_IDS } from "@/components/map/shapes";
+import type { Anatomy } from "@/lib/map/schema";
+import { layoutDiagram, overlaps, segmentsOf } from "@/lib/map/diagram";
 import { activeGraph, type Def, type Graph } from "./graph";
 
 export interface CheckResult {

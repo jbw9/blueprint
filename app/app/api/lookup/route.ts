@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { MapIndex } from "@/lib/coverage";
-import { mapSearch, mapSection, mapWhere } from "@/lib/lookup";
-import { buildMap } from "@/lib/map";
-import { loadMap } from "@/lib/maps";
-import { listProjects, projectDir } from "@/lib/vault";
+import type { MapIndex } from "@/lib/map/coverage";
+import { mapSearch, mapSection, mapWhere } from "@/lib/map/lookup";
+import { buildMap } from "@/lib/map/build";
+import { loadMap } from "@/lib/server/maps";
+import { listProjects, projectDir } from "@/lib/server/vault";
 
 /**
  * Claude's map tools (src-tauri/src/mcp.rs, answered through the page):

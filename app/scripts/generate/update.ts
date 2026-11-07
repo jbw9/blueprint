@@ -36,9 +36,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import type { Node } from "@/lib/data";
-import { lastExchange } from "@/lib/keep";
-import type { MapFile } from "@/lib/map";
+import type { Node } from "@/lib/map/schema";
+import { lastExchange } from "@/lib/agent/keep";
+import type { MapFile } from "@/lib/map/build";
 import { parseArgs } from "./args";
 import { authorRoot, authorTool, converse, submitLine } from "./author";
 import { catalogOf } from "./catalog";

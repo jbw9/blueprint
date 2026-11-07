@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadMap, rootOf } from "@/lib/maps";
-import { restoreFiles } from "@/lib/repo";
-import { projectDir } from "@/lib/vault";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { restoreFiles } from "@/lib/server/repo";
+import { projectDir } from "@/lib/server/vault";
 import { notJson } from "@/lib/server/route";
 
 /**
@@ -10,7 +10,7 @@ import { notJson } from "@/lib/server/route";
  * map's changes.json or `latest`. Every file goes back to what it was before
  * the turn, from the snapshot the updater kept (scripts/generate/update.ts),
  * unless any has changed since the turn, which refuses the whole undo
- * (lib/repo.ts restoreFiles). The checkout is the map's, as app/api/diff does;
+ * (lib/server/repo.ts restoreFiles). The checkout is the map's, as app/api/diff does;
  * a caller names a turn, never a path.
  */
 export async function POST(request: Request) {

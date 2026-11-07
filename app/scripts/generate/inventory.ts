@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { MARK_IDS } from "@/components/shapes";
+import { MARK_IDS } from "@/components/map/shapes";
 import { importGraph } from "./imports";
 
 export interface RepoFile {

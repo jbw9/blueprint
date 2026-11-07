@@ -33,13 +33,13 @@ Two readers, one screen:
 
 | Thing | What it is | Where it lives |
 |---|---|---|
-| **Map** | One repository's explanation, written by the generator | the project's folder in the vault (`lib/vault.ts`); the app ships no example maps |
-| **Level** | One node of the map, open. The repository itself is the top level (D60) | `Level` in `components/canvas.tsx` |
+| **Map** | One repository's explanation, written by the generator | the project's folder in the vault (`lib/server/vault.ts`); the app ships no example maps |
+| **Level** | One node of the map, open. The repository itself is the top level (D60) | `Level` in `components/map/canvas.tsx` |
 | **Part** | A child of the open level. Named and peeked at, never opened in place (D31) | `Steps` / `Grid` / `List` in `canvas.tsx` |
-| **Block** | One piece of explanation on a level: diagram, table, sequence, screen, example (D34) | `components/blocks.tsx`, `components/anatomy.tsx` |
-| **State** | How sure the map is: `derived`, `partial`, `inferred` (D3) | `components/state.tsx` |
+| **Block** | One piece of explanation on a level: diagram, table, sequence, screen, example (D34) | `components/map/blocks.tsx`, `components/map/anatomy.tsx` |
+| **State** | How sure the map is: `derived`, `partial`, `inferred` (D3) | `components/ui/state.tsx` |
 | **Origin** | Where a thing came from when not the code: the reader. A second axis, never a fourth state (D53) | `OriginMark` in `state.tsx` |
-| **Overlay** | What the reader added or corrected, kept beside the map, never in it (D54) | `lib/overlay.ts` |
+| **Overlay** | What the reader added or corrected, kept beside the map, never in it (D54) | `lib/server/overlay.ts` |
 
 The rule that ties them together: **one level at a time** (D28). The open node
 is the page; its parts are the way down; the trail is the way back. Level six
@@ -67,18 +67,18 @@ looks like level one.
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Title bar — `components/titlebar.tsx`
+### Title bar — `components/chrome/titlebar.tsx`
 
 The window's own bar; the native one is off. It carries **where you are**: the
 open projects, a tab each, and the trail of levels (`Crumbs`,
-`components/chrome.tsx`), which wraps instead of truncating (D35). On the right
+`components/chrome/crumbs.tsx`), which wraps instead of truncating (D35). On the right
 are one button per dialog, then the window buttons (D46: a Mac keeps its own
 traffic lights). Between them is a status line: a map update running, done or
 failed, or "This map doesn't follow edits" with an import link. Outside the
 desktop app no title bar is drawn, and the canvas draws the crumbs itself.
 
 A project gets a tab when it is opened, and the tabs are kept between
-launches (`lib/open-projects.ts`). Each tab carries the workspace's own status
+launches (`lib/client/open-projects.ts`). Each tab carries the workspace's own status
 dot for the loudest Claude among that project's tabs: red needs you, then
 yellow working, then green done. Switching never ends a terminal; the
 workspace shows the tabs of the project switched to. Closing a project's tab
@@ -87,7 +87,7 @@ Cmd+1–9 (Ctrl+1–9 off a Mac) picks a tab and Ctrl+Tab the last project; on a
 Mac they are menu-bar keys (`src-tauri/src/lib.rs`), so they work from inside
 a Preview's page too.
 
-### Canvas — `components/canvas.tsx`
+### Canvas — `components/map/canvas.tsx`
 
 The rest of the window, scrolling. It shows exactly one `Level`, top to bottom:
 
@@ -104,22 +104,22 @@ The rest of the window, scrolling. It shows exactly one `Level`, top to bottom:
 5. **Watch out.** The level's issues, with a button that hands them to the agent.
 6. **Code.** Folded, and only on a level with no parts below it (D61).
 
-### Workspace — `components/workspace.tsx`
+### Workspace — `components/agent/workspace.tsx`
 
 A window floating over the map's right edge, holding tabs. Each tab is a real
-terminal in the map's checkout (`components/shell.tsx`), started as Claude
-Code, another installed agent (`components/agents.tsx`), or a plain shell. It
+terminal in the map's checkout (`components/agent/shell.tsx`), started as Claude
+Code, another installed agent (`components/agent/agents.tsx`), or a plain shell. It
 floats, so opening it never takes space from the map, and it stops above the
 status bar. Hiding it never ends a program. Desktop only.
 
-### Status bar — `components/statusbar.tsx`
+### Status bar — `components/chrome/statusbar.tsx`
 
 One 24px line under the map and the workspace: the commit, file count, how
 many levels there are, how many are not certain, how many problems the map
 found, a running or finished map update, and the two keys that reach
 everything (Ctrl+K, Ctrl+`). Whatever level is open, this does not change.
 
-### Palette — `components/palette.tsx`
+### Palette — `components/chrome/palette.tsx`
 
 Ctrl+K (or Ctrl+P, or the box in the title bar) opens one input over the
 window. Typing matches every level in the map by name, with its trail beside
@@ -129,7 +129,7 @@ maps. This is how you jump around the map without a sidebar (D35, D62).
 
 ### Dialogs
 
-All dialogs sit over the map on a shared `Overlay` (`components/dialog.tsx`):
+All dialogs sit over the map on a shared `Overlay` (`components/ui/dialog.tsx`):
 Escape or a click outside closes them, and Escape stops at the dialog instead
 of also leaving the level.
 
@@ -180,11 +180,11 @@ before the run ends (D57).
 | **No overview yet** (mid-run) | The top level lists its roots as parts, the same as any node without a picture (D60) |
 | **Half-made map** | Finished sections can be explored. Only the project list shows that the run is still going (D57, known gap) |
 | **Unknown map or level** | A `?map=` that isn't found falls back to your most recently opened project; a path whose id was renamed falls back to the repo level (D29) |
-| **No projects yet** | The window shows Welcome (`components/welcome.tsx`): a title bar with Projects and Settings, and one button to start or import a project |
+| **No projects yet** | The window shows Welcome (`components/chrome/welcome.tsx`): a title bar with Projects and Settings, and one button to start or import a project |
 | **Map from another copy** | Title bar: "This map doesn't follow edits", with an import link |
 | **Updating** | Title bar: "◷ Updating the map…" → "✓ Map updated: <sections>" for 6 s, or "✗ Map update failed" with the error on hover |
 | **Not certain** | `partial`: solid amber edge; `inferred`: dashed. Each carries its `unsure` reason. `derived` carries no mark (D3) |
-| **Claude names a missing section** | Claude says so briefly and the view doesn't move (`components/acts.tsx`) |
+| **Claude names a missing section** | Claude says so briefly and the view doesn't move (`components/agent/acts.tsx`) |
 | **Browser, not desktop** | No title bar, workspace, right-click menu, or keep/fix. Crumbs are drawn on the canvas |
 
 ---
@@ -200,7 +200,7 @@ linked or reloaded. Clicking empty space does nothing.
 | Esc | Clears a trace first, then goes up one level |
 | `0` | Back to the top level |
 | Click a row with a key | Traces its chain six hops out; everything else greys |
-| Pinch, ⌘/Ctrl-scroll, ⌘ + / − / 0 | Magnifies the level without reflowing it (D45, `components/zoom.tsx`) |
+| Pinch, ⌘/Ctrl-scroll, ⌘ + / − / 0 | Magnifies the level without reflowing it (D45, `components/chrome/zoom.tsx`) |
 | Right-click (desktop) | Hand the item under the pointer to Claude (`PickMenu`) |
 | Ctrl+` | Show or hide the workspace |
 | Ctrl+T / Ctrl+Shift+T | New shell tab / new tab in the default agent |
@@ -221,7 +221,7 @@ never appears unless you asked for it.
   (D56).
 - **Quizzes or self-tests** (D4).
 - **Languages beyond TS/JS for resolution** (D2).
-- **An icon library.** Marks are hand-drawn SVG (`components/shapes.tsx`).
+- **An icon library.** Marks are hand-drawn SVG (`components/map/shapes.tsx`).
 
 ---
 
@@ -256,7 +256,7 @@ in Classic:
 
 All three keep the type, the square shapes, the labels and the meaning hues.
 Only the neutral colours and the accent change. The terminal has a palette
-per theme (`PALETTES` in `components/shell.tsx`) and recolours when the
+per theme (`PALETTES` in `components/agent/shell.tsx`) and recolours when the
 theme changes.
 
 **Shadows are nearly absent.** `--shadow-panel` is an ink-tinted 1px shadow,
@@ -335,7 +335,7 @@ Amber and clay never appear except to mean "incomplete" and "look at this."
 **Square.** Nothing in the app is rounded, as on the landing's sheet. Do not
 add `rounded-*` to boxes, buttons, chips or menus. The only round things are
 true circles (`rounded-full`: dots, avatars, status lights) and the phone frame
-in `components/device.tsx`.
+in `components/preview/device.tsx`.
 
 ---
 
@@ -355,9 +355,9 @@ The sans/mono split is semantic: **mono means "this is a thing in the codebase"
 or "this is a label on the drawing."** Never set prose in mono, and never set
 an identifier in sans.
 
-- **Bracket labels.** `Eyebrow` (`components/state.tsx`) draws
+- **Bracket labels.** `Eyebrow` (`components/ui/state.tsx`) draws
   `[ INSIDE SIGN UP ]`: mono, 11px, uppercase, `0.06em`, in the accent.
-- **Buttons.** `Button` (`components/button.tsx`) is mono, uppercase,
+- **Buttons.** `Button` (`components/ui/button.tsx`) is mono, uppercase,
   `0.04em`, square. `outline` is a `border-strong` frame that fills with ink on
   hover; `primary` is filled with ink.
 
@@ -493,8 +493,8 @@ in `globals.css`. Don't add per-component guards; the blanket rule covers it.
 ## 15. Themes
 
 There is no `@custom-variant dark`. `<html data-theme>` is `classic`, `light`
-or `dark`, set before first paint by `THEME_SCRIPT` (`lib/theme.ts`) and kept
-by `followTheme` (`lib/settings.ts`). Each theme swaps the token values, so
+or `dark`, set before first paint by `THEME_SCRIPT` (`lib/client/theme.ts`) and kept
+by `followTheme` (`lib/client/settings.ts`). Each theme swaps the token values, so
 every class and every diagram that reads them follows (§8). A saved theme
 this version does not know, such as the old `system`, opens as Classic. The
 landing page sets its embedded app to Classic.
@@ -516,7 +516,7 @@ landing page sets its embedded app to Classic.
 
 ## 17. Open questions
 
-- **Theme.** Settings offers system / light / dark (`lib/settings.ts`), but
+- **Theme.** Settings offers system / light / dark (`lib/client/settings.ts`), but
   §15 still says light mode only. One of them is stale.
 - **The camera is gone.** §12 and parts of §13 (springs, `drillInto`, a dot
   field bound to pan) describe the pan/zoom canvas that D28 replaced with one

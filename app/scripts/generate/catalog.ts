@@ -5,7 +5,7 @@
  * so a file the map does not explain is still listed, with the reason, rather
  * than simply absent.
  */
-import type { IndexFile, MapIndex } from "@/lib/coverage";
+import type { IndexFile, MapIndex } from "@/lib/map/coverage";
 import { excludedBy, owners, type Cut } from "./cut";
 import { isSource, type Inventory } from "./inventory";
 import type { FileSummary } from "./summarize";

@@ -5,8 +5,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { Node } from "@/lib/data";
-import { demoSource, loadDemo, loadMap, rootOf } from "@/lib/maps";
+import type { Node } from "@/lib/map/schema";
+import { demoSource, loadDemo, loadMap, rootOf } from "@/lib/server/maps";
 
 const args = process.argv.slice(2);
 const opt = (k: string) => { const i = args.indexOf(k); return i === -1 ? undefined : args[i + 1]; };

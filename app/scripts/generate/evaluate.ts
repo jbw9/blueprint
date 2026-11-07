@@ -5,10 +5,10 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- map and report JSON */
 import { existsSync, readFileSync } from "node:fs";
-import type { Node } from "@/lib/data";
-import type { MapFile } from "@/lib/map";
-import { rootOf } from "@/lib/maps";
-import { citations, type MapIndex } from "@/lib/coverage";
+import type { Node } from "@/lib/map/schema";
+import type { MapFile } from "@/lib/map/build";
+import { rootOf } from "@/lib/server/maps";
+import { citations, type MapIndex } from "@/lib/map/coverage";
 import { bareLines, check, fileReader, LEAF } from "./check";
 import { owners, type Cut } from "./cut";
 

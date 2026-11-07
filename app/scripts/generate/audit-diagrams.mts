@@ -3,7 +3,7 @@
 //   text drawn over text or over a box, lines drawn through a box they do not connect, and pictures
 //   too wide to read. A label across another line is counted, not failed: it is drawn with a halo.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import type { Anatomy, Node } from "@/lib/data";
+import type { Anatomy, Node } from "@/lib/map/schema";
 import { layoutProblems } from "./check";
 
 const names = process.argv.slice(2).length ? process.argv.slice(2) : (existsSync("maps") ? readdirSync("maps") : []).filter((d) => existsSync(`maps/${d}/map.json`)).sort();

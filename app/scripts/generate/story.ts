@@ -13,8 +13,8 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { MapFile } from "@/lib/map";
-import { chapterProblems, cutOf, ELSEWHERE, timelineOf, type Chapter, type Story } from "@/lib/history";
+import type { MapFile } from "@/lib/map/build";
+import { chapterProblems, cutOf, ELSEWHERE, timelineOf, type Chapter, type Story } from "@/lib/server/history";
 import { parseArgs } from "./args";
 import { ask, bill, cacheIn, MODELS, type Message } from "./bedrock";
 import { ccClose } from "./claude-code";

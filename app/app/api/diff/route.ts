@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { commitLog, mapDiff, resolveRef, turnDiff, type Resolved } from "@/lib/diff";
-import { loadMap, rootOf } from "@/lib/maps";
-import { apply, readOverlay } from "@/lib/overlay";
-import { projectDir, reviewMap } from "@/lib/vault";
-import { summariesOf, summarize } from "@/lib/history";
-import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/review";
+import { commitLog, mapDiff, resolveRef, turnDiff, type Resolved } from "@/lib/server/diff";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { apply, readOverlay } from "@/lib/server/overlay";
+import { projectDir, reviewMap } from "@/lib/server/vault";
+import { summariesOf, summarize } from "@/lib/server/history";
+import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/server/review";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
@@ -15,7 +15,7 @@ import { bad, notJson } from "@/lib/server/route";
  * `to` to the working tree, which is the comparison that answers "what have I
  * changed since". `GET ?map=&commits=1` is the commit list the panel offers.
  * `GET ?map=&review=pr:<n>|<base>...<branch>` reviews a pull request or a
- * branch from where it left its base (lib/review.ts); `?branches=1` lists
+ * branch from where it left its base (lib/server/review.ts); `?branches=1` lists
  * both to pick from.
  *
  * `from` and `to` may also be English, because an agent passes a reader's words
@@ -149,7 +149,7 @@ export async function GET(request: Request) {
 
 /**
  * `POST ?map=` with `{sha, claude}`: what that commit did, in a few sentences
- * (lib/history.ts `summarize`). A paid model run, so only on the reader's
+ * (lib/server/history.ts `summarize`). A paid model run, so only on the reader's
  * click; kept by sha, so each commit is told once.
  */
 export async function POST(request: Request) {

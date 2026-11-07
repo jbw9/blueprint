@@ -309,7 +309,7 @@
    Not inside a bar: this resets only two of the bar's colours, so chrome
    nested in one (a menu once was) got a white hover under the bar's white
    ink. There it keeps the bar's colours whole; a menu is drawn on the body
-   (components/menu.tsx) and so is the sheet's. */
+   (components/ui/menu.tsx) and so is the sheet's. */
 :root[data-theme="classic"] [data-chrome]:not([data-chrome="bar"], [data-chrome="bar"] *) {
   --color-surface: #ffffff;
   --color-surface-container-low: #ffffff;
@@ -373,7 +373,7 @@
   body[data-dragging] {
     user-select: none;
   }
-  /* A part dragged off the map toward its tabs (components/canvas.tsx), whose
+  /* A part dragged off the map toward its tabs (components/map/canvas.tsx), whose
      strip shows only where it would land, not what the pointer hovers. */
   [data-drag-source] {
     opacity: 0.4;
@@ -388,7 +388,7 @@
 }
 
 @layer components {
-  /* A doc in the reader (components/docs.tsx): set for reading at length,
+  /* A doc in the reader (components/map/docs.tsx): set for reading at length,
      in the page's own type, not a second design. */
   .doc-prose {
     color: var(--color-on-surface-variant);
@@ -511,7 +511,7 @@
   }
 
   /* A plan's numbered steps, drawn as the map draws a sequence of parts:
-     numbered dots on one line (components/plan.tsx). */
+     numbered dots on one line (components/agent/plan.tsx). */
   .plan-prose ol {
     list-style: none;
     padding-left: 0;
@@ -680,7 +680,7 @@
   }
 }
 
-/* The first-run tour's steps (components/welcome.tsx) come in with a small rise. */
+/* The first-run tour's steps (components/chrome/welcome.tsx) come in with a small rise. */
 @keyframes tour-in {
   from {
     opacity: 0;

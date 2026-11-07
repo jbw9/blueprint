@@ -12,8 +12,8 @@
  * an author; only the brief and what a submit must hold differ.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
-import type { Node } from "@/lib/data";
-import type { Overview } from "@/lib/map";
+import type { Node } from "@/lib/map/schema";
+import type { Overview } from "@/lib/map/build";
 import { authorTool, converse } from "./author";
 import { type Handled } from "./claude-code";
 import { bareLines, check, EXPLAIN_LEVEL, fileReader, OVERVIEW_ID, WALK_STEPS, WALKS } from "./check";

@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
-import type { Anatomy, Node, Origin } from "@/lib/data";
-import type { MapFile } from "@/lib/map";
-import { apply, newId, readHistory, readOverlay, revertTo, writeOverlay, type Entry, type Overlay } from "@/lib/overlay";
-import { getProject, mapFileOf } from "@/lib/vault";
+import type { Anatomy, Node, Origin } from "@/lib/map/schema";
+import type { MapFile } from "@/lib/map/build";
+import { apply, newId, readHistory, readOverlay, revertTo, writeOverlay, type Entry, type Overlay } from "@/lib/server/overlay";
+import { getProject, mapFileOf } from "@/lib/server/vault";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
- * What the reader added to one of their own maps (lib/overlay.ts): read it
+ * What the reader added to one of their own maps (lib/server/overlay.ts): read it
  * with its history and anything it could not place, or add, edit, remove and
  * revert.
  *
@@ -37,7 +37,7 @@ function originOf(v: unknown): Origin | undefined {
 /**
  * One entry, validated down to what `apply` needs to place it. Blocks and
  * nodes are checked for their discriminant and the fields the renderers read
- * rather than their whole shape — the schema is `lib/data.ts`'s and would
+ * rather than their whole shape — the schema is `lib/map/schema.ts`'s and would
  * drift if restated here, and an unknown block kind simply does not render.
  */
 function entryOf(body: Record<string, unknown>): Entry | string {
@@ -69,7 +69,7 @@ function entryOf(body: Record<string, unknown>): Entry | string {
     }
     const after = typeof body.after === "number" && body.after >= 0 ? Math.floor(body.after) : undefined;
     // A kept picture or table has nowhere of its own to say whose it is, so
-    // the entry carries it and `apply` marks the level (lib/overlay.ts).
+    // the entry carries it and `apply` marks the level (lib/server/overlay.ts).
     const origin = block.kind === "note" ? undefined : originOf(body.origin);
     if (block.kind !== "note" && !origin) return "bad request";
     return { kind: "block", id: newId(), path, block, origin, after };

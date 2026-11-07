@@ -1,4 +1,4 @@
-import { liveMap, mapVersion } from "@/lib/maps";
+import { liveMap, mapVersion } from "@/lib/server/maps";
 
 /**
  * The open map, followed while something rewrites it: the generator adding
@@ -6,7 +6,7 @@ import { liveMap, mapVersion } from "@/lib/maps";
  * edits touched. The page polls with the version it has (`since`) and gets
  * only that version back until the files change, so a poll costs two stats;
  * the map itself crosses only when there is a new one. Only the reader's own
- * projects: `id` arrives from the page, and lib/maps.ts reads nothing that is
+ * projects: `id` arrives from the page, and lib/server/maps.ts reads nothing that is
  * not listed.
  */
 export async function GET(request: Request) {

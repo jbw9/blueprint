@@ -1,0 +1,1122 @@
+"use client";
+
+import { cn } from "@/lib/client/utils";
+import { StateChip } from "@/components/ui/state";
+import { rowId, type Anatomy } from "@/lib/map/schema";
+import { ROW_LABEL_MAX_PCT, ROW_VALUE_MIN_PX } from "@/lib/map/view";
+import { ExplainedBlock, isExplained } from "@/components/map/blocks";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Slice, WriteResult } from "@/lib/server/repo";
+import { useMap } from "@/components/map/map-context";
+import { readSource, SOURCE_URL } from "@/lib/map/source";
+import { useLocation } from "@/components/chrome/crumbs";
+import { openFileInTab } from "@/components/map/code";
+import { CodeEditor } from "@/components/ui/editor";
+
+/**
+ * Level 2 renders in the SHAPE of the thing it describes, and the rows are the
+ * point. Clicking a row lights it and greys everything else.
+ */
+
+export interface RowCtx {
+  /** The row clicked last, which stays lit while the others recede. */
+  traced: string | null;
+  onTrace: (id: string) => void;
+  /**
+   * The row on the open path, if the level below came from a row. Lights the
+   * row you drilled through, the same way a card stays selected.
+   */
+  open: string | null;
+  /** Drill into the level this row owns. Same gesture as opening a card. */
+  onOpenRow: (id: string) => void;
+  /**
+   * Show the lines a step cites (`Step.at`), over the page. Set only on the
+   * open level, where there is room for the code; a step with `at` then opens
+   * its code instead of tracing.
+   */
+  onStepCode?: (at: string, heading: string, detail?: string) => void;
+}
+
+export function AnatomyView({
+  owner,
+  blocks,
+  ctx,
+  headless,
+}: {
+  owner: string;
+  blocks: Anatomy[];
+  ctx: RowCtx;
+  /** Drawn inside a row that already names the block, so its own header and frame would say it twice. */
+  headless?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {blocks.map((block, i) => (
+        <Block key={i} owner={owner} block={block} ctx={ctx} headless={headless} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Points right, and turns green when this row's card is open.
+ *
+ * It does NOT rotate to point down any more. Down means "expands below me",
+ * which is what this used to do and is exactly the thing that crushed 700px of
+ * flow into a 340px column. The card opens to the RIGHT, so the mark keeps
+ * pointing that way and only changes colour.
+ */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="9"
+      height="9"
+      viewBox="0 0 12 12"
+      fill="none"
+      aria-hidden="true"
+      className={cn(
+        "shrink-0 transition-colors duration-200",
+        open ? "text-accent" : "text-faint",
+      )}
+    >
+      <path
+        d="M4.5 2.5L8 6l-3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The label is the question; the value is the answer. The answer never gets
+ * less room than the question.
+ *
+ * Measured failure this exists to delete: a `map` row 212px wide where the
+ * label `what the code does` took 112px — 53% — and the value got 32px,
+ * rendering one word per line over twelve lines. The most important comparison
+ * on the card was the least readable thing on screen.
+ *
+ * The cause was a `shrink-0` label beside a `min-w-0 flex-1` value: the only
+ * element in the row allowed to give up space was the one carrying the content.
+ * A previous fix moved the state chip INSIDE the value column (see the comment
+ * that survives in the `map` block), which was real but addressed the wrong
+ * element — the label was still unbounded.
+ *
+ * Two rules from `lib/map/view.ts`, enforced together:
+ *
+ *   label ≤ ROW_LABEL_MAX_PCT (40%)   value ≥ ROW_VALUE_MIN_PX (160px)
+ *
+ * Below a certain row width both cannot hold at once, so rather than squeeze
+ * the value under its floor the pair STACKS — label above value, each with the
+ * full width. That threshold is a property of the ROW, not of the viewport: a
+ * card is a fixed-width column on a canvas that pans, so a viewport breakpoint
+ * would tell us nothing about the space this row actually has. Hence a
+ * container query.
+ *
+ * The threshold below is 267px, and it is `ROW_VALUE_MIN_PX / (1 -
+ * ROW_LABEL_MAX_PCT/100)` — the narrowest row on which a 40% label still
+ * leaves 160px. It is written as a literal in the class strings because
+ * Tailwind scans source statically: an interpolated `@min-[${n}px]:` is a
+ * class name no build step ever sees, so it would compile to nothing and the
+ * row would silently stay stacked at every width. The assertion keeps the
+ * literal honest if either constant is ever retuned.
+ */
+const STACK_BELOW_PX = Math.ceil(ROW_VALUE_MIN_PX / (1 - ROW_LABEL_MAX_PCT / 100));
+if (STACK_BELOW_PX !== 267) {
+  throw new Error(
+    `view.ts row rules changed: the @min-[267px] literals in anatomy.tsx must become @min-[${STACK_BELOW_PX}px]`,
+  );
+}
+
+/**
+ * Every pair row is its own query container. The row, not the card, is what
+ * the rules are about — a card can be wide while a row inside a rail or an
+ * indent is not.
+ */
+const PAIR_SCOPE = "@container";
+
+/**
+ * Side by side once the row can honour both rules; stacked when it cannot.
+ *
+ * The percentage cap is a MAX, not a width, so a short label keeps its natural
+ * size and does not pad out to 40% leaving the value starved for no reason.
+ */
+// Each of these is ONE unbroken literal on purpose. Tailwind's scanner reads
+// source text, not evaluated JavaScript: splitting a class list across a `+`
+// hides every class after the operator, which compiles to nothing and fails
+// silently — measured here, where only the one class that stayed inline in JSX
+// survived into the stylesheet.
+const PAIR_ROW = "flex w-full min-w-0 flex-col items-stretch gap-0.5 @min-[267px]:flex-row @min-[267px]:items-start @min-[267px]:gap-2";
+
+/** The question side. Capped, never allowed to eat the row. */
+const PAIR_LABEL = "min-w-0 text-left @min-[267px]:max-w-[40%] @min-[267px]:shrink-0";
+
+/** The answer side. Floored, and it is the only side allowed to grow. */
+const PAIR_VALUE = "w-full min-w-0 text-left @min-[267px]:w-auto @min-[267px]:flex-1 @min-[267px]:min-w-[160px]";
+
+/** A schema row: name, type and key in fixed tracks, the note in what is left. */
+const SCHEMA_ROW =
+  "grid w-full grid-cols-[minmax(0,var(--name))_minmax(0,var(--type))_2.25rem] gap-x-4 px-3 text-left @min-[300px]:grid-cols-[minmax(0,var(--name))_minmax(0,var(--type))_2.25rem_minmax(0,1fr)]";
+
+/** Shared row chrome: lit fill, dimmed-when-others-are-lit, click to trace. */
+function rowClass(id: string, ctx: RowCtx, extra?: string) {
+  const isLit = ctx.traced === id;
+  return cn(
+    "w-full text-left transition-[background-color,opacity] duration-150",
+    isLit && "bg-accent-surface",
+    ctx.traced !== null && !isLit && "opacity-55",
+    ctx.traced === null && "hover:bg-surface-container",
+    extra,
+  );
+}
+
+function Block({
+  owner,
+  block,
+  ctx,
+  headless,
+}: {
+  owner: string;
+  block: Anatomy;
+  ctx: RowCtx;
+  headless?: boolean;
+}) {
+  if (block.kind === "schema") {
+    return (
+      <div className={headless ? "bg-card" : "overflow-hidden border border-border-gray bg-card"}>
+        <div className={cn("flex items-center gap-2 border-b border-border-gray bg-surface px-3 py-1.5", headless && "hidden")}>
+          <TableGlyph />
+          <span className="font-mono text-[11px] font-semibold text-ink">
+            {block.table}
+          </span>
+          <span className="ml-auto font-mono text-[10px] text-faint">
+            {/* A schema named like a file (`map.json`) is a document's fields, not a table's columns. */}
+            {block.rows.length} {/\.\w+$/.test(block.table) ? "fields" : "columns"}
+          </span>
+        </div>
+        {/* Every row shares one column template, sized in `ch` from the
+            longest name and type (both are monospace), so the columns line up
+            down the table. Under 300px the note takes a line of its own. */}
+        <div
+          className="@container"
+          style={{
+            ["--name" as string]: `${Math.max(6, ...block.rows.map((c) => c.name.length + (c.nullable ? 1 : 0)))}ch`,
+            ["--type" as string]: `${Math.max(4, ...block.rows.map((c) => c.type.length))}ch`,
+          }}
+        >
+          <div className={cn(SCHEMA_ROW, "border-b border-border-gray py-1 font-mono text-[9px] uppercase tracking-wide text-faint")}>
+            <span>{/\.\w+$/.test(block.table) ? "field" : "column"}</span>
+            <span>type</span>
+            <span>key</span>
+            <span className="hidden @min-[300px]:block">notes</span>
+          </div>
+          {block.rows.map((c) => {
+            const id = rowId(owner, c.name);
+            const isLit = ctx.traced === id;
+            return (
+              <button
+                key={c.name}
+                data-row={id}
+                onClick={() => ctx.onTrace(id)}
+                className={rowClass(id, ctx, cn(SCHEMA_ROW, "items-baseline gap-y-0.5 border-b border-border-gray py-1.5 last:border-b-0"))}
+              >
+                <span
+                  className={cn(
+                    "min-w-0 break-words font-mono text-[10.5px]",
+                    isLit ? "font-semibold text-accent" : "text-on-surface",
+                  )}
+                >
+                  {c.name}
+                  {c.nullable ? <span className="text-faint" title="can be empty">?</span> : null}
+                </span>
+                <span className="min-w-0 break-words font-mono text-[10.5px] text-muted-slate">
+                  {c.type}
+                </span>
+                <span className="self-center">{c.key ? <KeyTag k={c.key} lit={isLit} /> : null}</span>
+                <span className="col-span-full flex items-start gap-2 @min-[300px]:col-span-1">
+                  {c.note ? (
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 text-[10px] leading-snug",
+                        c.state === "derived" ? "text-faint" : "text-amber-ink",
+                      )}
+                    >
+                      {c.note}
+                    </span>
+                  ) : (
+                    <span className="min-w-0 flex-1" />
+                  )}
+                  <StateChip state={c.state} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {block.rel?.length ? (
+          <div className="border-t border-border-gray bg-surface-container-low px-3 py-2">
+            {block.rel.map((r) => (
+              <p
+                key={r}
+                className="text-[10px] leading-relaxed text-on-surface-variant"
+              >
+                {r}
+              </p>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (block.kind === "routes") {
+    return (
+      <div className="overflow-hidden border border-border-gray bg-card">
+        {block.rows.map((r) => {
+          const id = rowId(owner, `${r.method} ${r.path}`);
+          const isLit = ctx.traced === id;
+          return (
+            <button
+              key={r.method + r.path}
+              data-row={id}
+              onClick={() => ctx.onTrace(id)}
+              className={rowClass(
+                id,
+                ctx,
+                cn(PAIR_SCOPE, "block border-b border-border-gray px-3 py-1.5 last:border-b-0"),
+              )}
+            >
+              {/* The method is the label; the path is the answer, and it was
+                  `truncate` — so the one string a reader needs in full was the
+                  first thing cut. It wraps now, and the auth note drops to its
+                  own line before the path has to give up any width. */}
+              <span className={PAIR_ROW}>
+                <span className={cn(PAIR_LABEL, "flex items-center gap-2")}>
+                  <Method method={r.method} />
+                  <span
+                    className={cn(
+                      "min-w-0 font-mono text-[10.5px] break-all",
+                      isLit ? "font-semibold text-accent" : "text-on-surface",
+                    )}
+                  >
+                    {r.path}
+                  </span>
+                </span>
+                <span className={cn(PAIR_VALUE, "flex items-start gap-2")}>
+                  <span className="min-w-0 flex-1 font-mono text-[9.5px] leading-snug text-faint @min-[267px]:text-right">
+                    {r.auth}
+                  </span>
+                  <StateChip state={r.state} />
+                </span>
+              </span>
+              {r.note ? (
+                <span
+                  className={cn(
+                    "mt-0.5 block pl-[46px] text-[10px] leading-snug",
+                    r.state === "derived" ? "text-faint" : "text-amber-ink",
+                  )}
+                >
+                  {r.note}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (block.kind === "source") {
+    return <SourceView owner={owner} block={block} ctx={ctx} />;
+  }
+
+  if (isExplained(block)) return <ExplainedBlock block={block} />;
+
+  if (block.kind === "chips") {
+    return (
+      <div className=" border border-border-gray bg-card px-3 py-2.5">
+        {block.caption ? (
+          <p className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">
+            {block.caption}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          {block.rows.map((c) => {
+            const id = rowId(owner, c.label);
+            const isLit = ctx.traced === id;
+            return (
+              <button
+                key={c.label}
+                data-row={id}
+                onClick={() => ctx.onTrace(id)}
+                title={c.note}
+                className={cn(
+                  " border px-2 py-1 font-mono text-[10px] transition-[background-color,border-color,color,opacity] duration-150",
+                  ctx.traced !== null && !isLit && "opacity-55",
+                  isLit
+                    ? "border-accent bg-accent text-on-accent"
+                    : c.state === "derived"
+                      ? "border-accent-line bg-accent-surface text-accent"
+                      : "border-amber-line bg-amber-surface text-amber-ink",
+                )}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (block.kind === "map") return <MapRows owner={owner} block={block} ctx={ctx} />;
+
+  if (block.kind === "parts") {
+    // The ratio IS the finding. Segments are sized by real weight, so a 149KB
+    // block next to a 1KB one looks like what it is — no amount of prose makes
+    // that land the way a length does.
+    const total = block.rows.reduce((sum, p) => sum + p.weight, 0) || 1;
+    return (
+      <div className="overflow-hidden border border-border-gray bg-card">
+        <div className="flex items-center gap-2 border-b border-border-gray bg-surface px-3 py-1.5">
+          <span className="font-mono text-[11px] font-semibold text-ink">
+            {block.total}
+          </span>
+          <span className="ml-auto font-mono text-[10px] text-faint">
+            {block.rows.length} parts
+          </span>
+        </div>
+        <div className="px-3 pb-2.5 pt-2.5">
+          <div className="flex h-[22px] w-full overflow-hidden">
+            {block.rows.map((p, at) => {
+              const id = rowId(owner, p.label);
+              const isLit = ctx.traced === id;
+              return (
+                <button
+                  key={p.label}
+                  data-row={id}
+                  onClick={() => ctx.onTrace(id)}
+                  title={`${p.label} — ${p.display}`}
+                  // Floored at 6%: a slice worth naming has to be visible, and
+                  // a 1%-of-the-whole block rendered ~2px wide — present in the
+                  // DOM, absent to the eye. The exact figure is in the legend;
+                  // the bar's job is the contrast, not the arithmetic.
+                  style={{ width: `${Math.max((p.weight / total) * 100, 6)}%` }}
+                  className={cn(
+                    "h-full border-r border-card transition-[background-color,opacity] duration-150 last:border-r-0",
+                    ctx.traced !== null && !isLit && "opacity-45",
+                    isLit
+                      ? "bg-accent"
+                      : p.tone === "vary"
+                        ? "bg-amber-line"
+                        : // Alternating weights within the same family. Every
+                          // "hold" slice sharing one mint made a 198px and a
+                          // 33px segment read as a single bar with a hairline
+                          // seam — measured, not guessed. The ratio only lands
+                          // if adjacent slices are separable.
+                          at % 2 === 0
+                          ? "bg-accent/55"
+                          : "bg-accent-line",
+                  )}
+                />
+              );
+            })}
+          </div>
+          {/* Legend, not a table: label and size on one line each. */}
+          <ul className="mt-2 flex flex-col gap-1">
+            {block.rows.map((p, at) => {
+              const id = rowId(owner, p.label);
+              const isLit = ctx.traced === id;
+              return (
+                <li key={p.label} className="flex items-center gap-2">
+                  <span
+                    // Same tone rule as the bar segment above, index included.
+                    // A swatch is only a key if it is the colour it explains.
+                    className={cn(
+                      "size-[7px] shrink-0",
+                      isLit
+                        ? "bg-accent"
+                        : p.tone === "vary"
+                          ? "bg-amber-line"
+                          : at % 2 === 0
+                            ? "bg-accent/55"
+                            : "bg-accent-line",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      // `min-w-0` so a long label wraps instead of shoving the
+                      // figure past the right edge. The figure stays `shrink-0`
+                      // because it is short and is the thing being compared.
+                      "min-w-0 font-mono text-[10px]",
+                      isLit ? "font-semibold text-accent" : "text-on-surface",
+                    )}
+                  >
+                    {p.label}
+                  </span>
+                  <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-slate">
+                    {p.display}
+                  </span>
+                  <StateChip state={p.state} />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  if (block.kind === "bars") {
+    // Comparison, not enumeration. Bars share one scale so the 250x gap
+    // between an anonymous and a premium quota is visible rather than stated.
+    const max = Math.max(...block.rows.map((b) => b.value), 1);
+    return (
+      <div className="overflow-hidden border border-border-gray bg-card">
+        <div className="flex items-center gap-2 border-b border-border-gray bg-surface px-3 py-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
+            {block.unit}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5 px-3 py-2.5">
+          {block.rows.map((b) => {
+            const id = rowId(owner, b.label);
+            const isLit = ctx.traced === id;
+            return (
+              <button
+                key={b.label}
+                data-row={id}
+                onClick={() => ctx.onTrace(id)}
+                className={rowClass(id, ctx, cn(PAIR_SCOPE, ""))}
+              >
+                {/* The label was `w-[92px]` and the figure `w-[108px]`: 200px
+                    of fixed furniture either side of the bar, so on a narrow
+                    card the TRACK — the only part that carries the comparison
+                    — was what collapsed. Both are capped shares now, and the
+                    pair stacks before the bar can be squeezed out. */}
+                <span className={PAIR_ROW}>
+                  <span
+                    className={cn(
+                      PAIR_LABEL,
+                      "truncate font-mono text-[10px]",
+                      isLit ? "font-semibold text-accent" : "text-on-surface",
+                    )}
+                  >
+                    {b.label}
+                  </span>
+                  <span className={cn(PAIR_VALUE, "flex items-center gap-2")}>
+                    {/* The track is the scale. Without it a short bar reads as
+                        a small number rather than a small share. */}
+                    <span className="h-[9px] min-w-0 flex-1 bg-surface-container">
+                      <span
+                        style={{ width: `${Math.max((b.value / max) * 100, 2)}%` }}
+                        className={cn(
+                          "block h-full transition-[background-color] duration-150",
+                          isLit
+                            ? "bg-accent"
+                            : b.state === "derived"
+                              ? "bg-accent-line"
+                              : "bg-amber-line",
+                        )}
+                      />
+                    </span>
+                    <span className="shrink-0 text-right font-mono text-[9.5px] text-muted-slate">
+                      {b.display}
+                    </span>
+                    <StateChip state={b.state} />
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (block.kind === "flow") {
+    return (
+      <ol className="flex flex-col">
+        {block.rows.map((s, i) => {
+          const id = rowId(owner, s.n);
+          const isLit = ctx.traced === id;
+          return (
+            <li key={s.n} className="flex gap-2.5">
+              {/* The rail: a numbered dot with a line to the next step, so the
+                  sequence reads as one path rather than four cards. */}
+              <div className="flex flex-col items-center">
+                <span
+                  className={cn(
+                    "flex size-[18px] shrink-0 items-center justify-center rounded-full border font-mono text-[9px] font-semibold transition-colors",
+                    isLit
+                      ? "border-accent bg-accent text-on-accent"
+                      : s.state === "derived"
+                        ? "border-accent-line bg-accent-surface text-accent"
+                        : "border-amber-line bg-amber-surface text-amber-ink",
+                  )}
+                >
+                  {s.n}
+                </span>
+                {i < block.rows.length - 1 ? (
+                  <span className="w-px flex-1 bg-border-gray" />
+                ) : null}
+              </div>
+              <button
+                data-row={id}
+                data-code-step={s.at && ctx.onStepCode ? "" : undefined}
+                // See the map row above: the click must not reach the card.
+                onClick={(e) => {
+                  if (s.at && ctx.onStepCode) {
+                    e.stopPropagation();
+                    return ctx.onStepCode(s.at, `Step ${s.n} · ${s.title}`, s.detail);
+                  }
+                  if (!s.under) return ctx.onTrace(id);
+                  e.stopPropagation();
+                  ctx.onOpenRow(id);
+                }}
+                className={rowClass(
+                  id,
+                  ctx,
+                  cn(
+                    "min-w-0 flex-1 px-1.5 py-0.5",
+                    i < block.rows.length - 1 && "mb-2.5",
+                  ),
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "text-[11px] font-semibold leading-tight",
+                      isLit || ctx.open === id ? "text-accent" : "text-ink",
+                    )}
+                  >
+                    {s.title}
+                  </span>
+                  <StateChip state={s.state} />
+                  {s.at && ctx.onStepCode ? (
+                    <span className="ml-auto shrink-0 font-mono text-[9px] text-faint" title="Show the code for this step">
+                      {"</>"}
+                    </span>
+                  ) : null}
+                  {s.under ? (
+                    <span className="ml-auto">
+                      <Caret open={ctx.open === id} />
+                    </span>
+                  ) : null}
+                </span>
+                {/* A step that has somewhere to go shows its TITLE and nothing
+                    else. Its `detail` is the level behind the click, and
+                    printing it here painted the next level onto this one — 226
+                    words on this card alone, measured, of which four paragraphs
+                    were the four children it already had.
+
+                    A step with no `under` keeps its line, because for that row
+                    there is no deeper level to defer to and the sentence is the
+                    whole fact. */}
+                {s.under ? null : (
+                  <span className="mt-0.5 block text-[10px] leading-relaxed text-on-surface-variant">
+                    {s.detail}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+
+  return <Facts owner={owner} block={block} ctx={ctx} />;
+}
+
+function Facts({
+  owner,
+  block,
+  ctx,
+}: {
+  owner: string;
+  block: Extract<Anatomy, { kind: "facts" }>;
+  ctx: RowCtx;
+}) {
+
+  return (
+    <div className="overflow-hidden border border-border-gray bg-card">
+      {block.rows.map((p) => {
+        const id = rowId(owner, p.label);
+        const isLit = ctx.traced === id;
+        return (
+          <button
+            key={p.label}
+            data-row={id}
+            onClick={() => ctx.onTrace(id)}
+            className={rowClass(
+              id,
+              ctx,
+              cn(PAIR_SCOPE, "border-b border-border-gray px-3 py-1.5 last:border-b-0"),
+            )}
+          >
+            <span className={PAIR_ROW}>
+              <span
+                className={cn(
+                  PAIR_LABEL,
+                  "font-mono text-[10.5px]",
+                  isLit ? "font-semibold text-accent" : "text-on-surface",
+                )}
+              >
+                {p.label}
+              </span>
+              {/* Left-aligned: right-aligning a long value in a narrow column
+                  produces a ragged staircase of 3-4 wrapped lines. */}
+              <span className={cn(PAIR_VALUE, "flex items-start gap-2")}>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 text-[10px] leading-snug",
+                    p.state === "derived" ? "text-muted-slate" : "text-amber-ink",
+                  )}
+                >
+                  {p.value}
+                </span>
+                <StateChip state={p.state} />
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The bottom of the map, read from the real repository.
+ *
+ * Three things are kept strictly apart, and the separation is the point:
+ *
+ *   the CODE       verbatim from a real file at a real line, read from disk
+ *   the WHY        synthesized commentary, in its own tinted band
+ *   the FINDING    when disk no longer says what the map quoted
+ *
+ * The fixture's text is still what renders first, so the card is readable
+ * before any request finishes and readable at all if the repo is not there.
+ * Once the read lands, disk wins — with a mark saying it drifted, if it did.
+ * Silently swapping fresh code under a stale explanation is the exact failure
+ * this project exists to study, so it is the one thing that cannot happen here.
+ */
+export function SourceView({
+  owner,
+  block,
+  ctx,
+}: {
+  owner: string;
+  block: Extract<Anatomy, { kind: "source" }>;
+  ctx: RowCtx;
+}) {
+  const id = rowId(owner, "source");
+  const isLit = ctx.traced === id;
+
+  const quoted = block.code.replace(/\n$/, "");
+  const end = block.start + quoted.split("\n").length - 1;
+
+  const [slice, setSlice] = useState<Slice | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  // Null until the reader types: the pane is always editable, and only a
+  // change makes a draft (D74).
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saved, setSaved] = useState<WriteResult | null>(null);
+  const { name: map } = useMap();
+  const { path } = useLocation();
+
+  /**
+   * One read of the repository, resolved to what the UI should show.
+   *
+   * Pure apart from the read: it sets no state, which is what lets the effect
+   * below subscribe to it rather than call setState in its own body.
+   */
+  const read = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const r = await readSource({ map, file: block.file, start: block.start, end, fixture: quoted }, signal);
+        return "slice" in r ? { slice: r.slice, failed: null } : { slice: null, failed: r.refused };
+      } catch {
+        return { slice: null, failed: "unreachable" };
+      }
+    },
+    [map, block.file, block.start, end, quoted],
+  );
+
+  // Aborted on unmount and whenever the block changes, so a slow response for
+  // one source block can never land as the state of a different one.
+  useEffect(() => {
+    const ac = new AbortController();
+    read(ac.signal).then((r) => {
+      if (ac.signal.aborted) return;
+      setSlice(r.slice);
+      setFailed(r.failed);
+    });
+    return () => ac.abort();
+  }, [read]);
+
+  // Disk is the truth once we have it; the fixture is the fallback.
+  const shown = slice?.code ?? quoted;
+  const dirty = draft !== null && draft !== shown;
+  const drifted = slice != null && !slice.matchesFixture;
+
+  // Nothing is ever written without an explicit act — the Save button or ⌘S.
+  // Never a keystroke, a blur, a timer or navigation.
+  async function save() {
+    if (!dirty) return;
+    const res = await fetch("/api/source", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        map,
+        file: block.file,
+        start: block.start,
+        end,
+        code: draft,
+        // What we read is what we claim is there. A write built on anything
+        // else is the stale-read clobber the contract exists to refuse.
+        expected: shown,
+      }),
+    });
+    const body = (await res.json()) as WriteResult;
+    setSaved(body);
+    if (body.ok) {
+      setDraft(null);
+      // Re-read rather than trusting the draft: what is now on disk is the
+      // only thing this card is allowed to show as the file's contents.
+      const r = await read();
+      setSlice(r.slice);
+      setFailed(r.failed);
+    }
+  }
+
+  return (
+    <div
+      data-pick={`${block.file}:${block.start}`}
+      data-pick-code={`${block.file}:${block.start}-${end}`}
+      className={cn(
+        "overflow-hidden border bg-card",
+        drifted ? "border-amber-line" : isLit ? "border-accent" : "border-border-gray",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2 border-b border-border-gray px-3 py-1.5",
+          drifted ? "bg-amber-surface" : "bg-surface",
+        )}
+      >
+        <button
+          data-row={id}
+          onClick={() => ctx.onTrace(id)}
+          className={rowClass(id, ctx, "flex min-w-0 flex-1 items-center gap-2")}
+        >
+          <FileGlyph />
+          {/* file:line as one addressable string, not a path with a number
+              stranded on the far side of the row. */}
+          <span
+            className={cn(
+              "min-w-0 truncate text-left font-mono text-[11px]",
+              isLit ? "font-semibold text-accent" : "text-on-surface",
+            )}
+          >
+            {block.file}
+            <span className="text-faint">:{block.start}</span>
+          </span>
+        </button>
+        {/* "733 of 779 lines" — where this sits in the file, which a quote
+            with no denominator cannot say. */}
+        {slice ? (
+          <span className="tnum shrink-0 font-mono text-[9.5px] text-faint">
+            {block.start.toLocaleString()} of {slice.total.toLocaleString()} lines
+          </span>
+        ) : null}
+        <CopyPath text={`${block.file}:${block.start}`} />
+        {/* A static export has no repository to write to: it links to the code host instead. */}
+        {SOURCE_URL ? (
+          <a
+            href={`${SOURCE_URL}/${block.file}#L${block.start}-L${end}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0 border border-border-strong px-1.5 py-0.5 font-mono text-[9px] text-muted-slate transition-colors hover:text-on-surface"
+          >
+            github ↗
+          </a>
+        ) : (
+          /* The code here is a slice; the whole file opens in a tab of its own. */
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openFileInTab(map, path, block.file, block.start);
+            }}
+            title={`Open all of ${block.file} in a new tab, to read and edit`}
+            className="shrink-0 border border-border-strong px-1.5 py-0.5 font-mono text-[9px] text-muted-slate transition-colors hover:text-on-surface"
+          >
+            open file ↗
+          </button>
+        )}
+      </div>
+
+      {/* The finding, stated before the code it is about. */}
+      {drifted ? (
+        <p className="border-b border-amber-line bg-amber-surface px-3 py-1.5 text-[10px] leading-relaxed text-amber-ink">
+          <span className="font-semibold">Drifted.</span> The file no longer says
+          what the map quoted here. The code below is what is on disk now; the
+          explanation under it was written about the older text.
+        </p>
+      ) : null}
+      {failed ? (
+        <p className="border-b border-border-gray bg-surface-container-low px-3 py-1.5 text-[10px] leading-relaxed text-muted-slate">
+          Could not read the repository ({failed}). Showing the quote the map
+          was authored with, which nothing has verified against disk.
+        </p>
+      ) : null}
+
+      {/* Real line numbers, counting from the file's own offset, coloured by
+          lib/client/highlight.ts — and editable where it is read. */}
+      <CodeEditor file={block.file} start={block.start} value={draft ?? shown} onChange={setDraft} onSave={() => void save()} readOnly={Boolean(SOURCE_URL)} />
+      {/* The diff is shown BEFORE the write, and the write needs Save or ⌘S.
+          There is no other path to disk. */}
+      {dirty ? (
+        <div className="border-t border-border-gray px-3 py-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void save();
+              }}
+              className=" bg-accent px-2 py-1 font-mono text-[10px] text-on-accent"
+            >
+              save to disk ⌘S
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDraft(null);
+                setSaved(null);
+              }}
+              className=" border border-border-strong px-2 py-1 font-mono text-[10px] text-muted-slate hover:text-on-surface"
+            >
+              discard
+            </button>
+            <span className="font-mono text-[9.5px] text-faint">rewrites {block.file}:{block.start}-{end}</span>
+          </div>
+          <DraftDiff before={shown} after={draft!} />
+        </div>
+      ) : null}
+      {saved && !saved.ok ? (
+        <p className="border-t border-border-gray px-3 py-2 text-[10px] leading-relaxed text-clay-ink">
+          Refused: {saved.refused}
+          {saved.refused === "stale" ? " — the file changed since this was read. Discard and reopen to get the current text." : null}
+        </p>
+      ) : null}
+
+      {/* Commentary, in its own band, below the code, labelled. It is
+          synthesized and must never be able to read as something the file
+          says. */}
+      {block.why ? (
+        <div className="flex gap-2 border-t border-border-gray bg-surface-container-low px-3 py-2">
+          <span className="mt-[3px] shrink-0 font-mono text-[9px] uppercase tracking-[0.09em] text-faint">
+            why
+          </span>
+          <p className="text-[10px] leading-relaxed text-on-surface-variant">
+            {block.why}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Line-wise diff of the pending edit, shown before anything is written. */
+function DraftDiff({ before, after }: { before: string; after: string }) {
+  // Only the lines between the first and last that differ: the pane is
+  // always editable, so one typed character must not paint the whole slice.
+  let b = before.split("\n");
+  let a = after.split("\n");
+  let head = 0;
+  while (head < b.length && head < a.length && b[head] === a[head]) head++;
+  let tail = 0;
+  while (tail < b.length - head && tail < a.length - head && b[b.length - 1 - tail] === a[a.length - 1 - tail]) tail++;
+  b = b.slice(head, b.length - tail);
+  a = a.slice(head, a.length - tail);
+  return (
+    <pre className="mt-2 overflow-x-auto border border-border-gray bg-card py-1.5 font-mono text-[10.5px] leading-[1.5]">
+      {b.map((l, i) => (
+        <div key={`b${i}`} className="bg-clay-surface px-3 text-clay-ink">
+          <span className="select-none">- </span>
+          {l || " "}
+        </div>
+      ))}
+      {a.map((l, i) => (
+        <div key={`a${i}`} className="bg-accent-surface px-3 text-accent">
+          <span className="select-none">+ </span>
+          {l || " "}
+        </div>
+      ))}
+    </pre>
+  );
+}
+
+/** Copies `file:line`, the string you paste into an editor or a message. */
+function CopyPath({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        void navigator.clipboard.writeText(text);
+        setDone(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setDone(false), 1200);
+      }}
+      title={`Copy ${text}`}
+      className="shrink-0 border border-border-strong px-1.5 py-0.5 font-mono text-[9px] text-muted-slate transition-colors hover:text-on-surface"
+    >
+      {done ? "copied" : "copy path"}
+    </button>
+  );
+}
+
+function KeyTag({ k, lit }: { k: "PK" | "FK" | "UQ"; lit?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 px-1 py-px font-mono text-[8.5px] font-semibold leading-none",
+        lit
+          ? "bg-card text-accent ring-1 ring-accent/45"
+          : k === "PK"
+            ? "bg-accent-surface text-accent"
+            : "bg-surface-container text-muted-slate",
+      )}
+    >
+      {k}
+    </span>
+  );
+}
+
+const METHOD_TONE: Record<string, string> = {
+  GET: "bg-surface-container text-muted-slate",
+  POST: "bg-accent-surface text-accent",
+  PATCH: "bg-amber-surface text-amber-ink",
+  DELETE: "bg-clay-surface text-clay-ink",
+};
+
+function Method({ method }: { method: string }) {
+  return (
+    <span
+      className={cn(
+        "w-[42px] shrink-0 px-1 py-px text-center font-mono text-[8.5px] font-semibold leading-[1.4]",
+        METHOD_TONE[method],
+      )}
+    >
+      {method}
+    </span>
+  );
+}
+
+function FileGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <path
+        d="M3 1.5h3.5L9 4v6.5H3z"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinejoin="round"
+        className="text-muted-slate"
+      />
+      <path d="M6.4 1.6V4.2H9" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" className="text-muted-slate" />
+    </svg>
+  );
+}
+
+export function TableGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <rect x="1" y="1.5" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1" className="text-muted-slate" />
+      <path d="M1 4.5h10M4.5 4.5v6" stroke="currentColor" strokeWidth="1" className="text-muted-slate" />
+    </svg>
+  );
+}
+
+/**
+ * A `map` block as a list of names. Each row's `to` stays folded until the
+ * reader asks for it, so the block reads as the set of cases first and the
+ * detail of one case second, instead of a wall of arrows.
+ */
+function MapRows({ owner, block, ctx }: { owner: string; block: Extract<Anatomy, { kind: "map" }>; ctx: RowCtx }) {
+  const [shown, setShown] = useState<Set<string>>(() => new Set());
+  const toggle = (from: string) =>
+    setShown((s) => {
+      const next = new Set(s);
+      if (!next.delete(from)) next.add(from);
+      return next;
+    });
+  return (
+    <div className="overflow-hidden border border-border-gray bg-card">
+      {block.caption ? (
+        <div className="border-b border-border-gray bg-surface px-3 py-1.5">
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">
+            {block.caption}
+          </span>
+        </div>
+      ) : null}
+      {block.rows.map((m) => {
+        const id = rowId(owner, m.from);
+        const isLit = ctx.traced === id;
+        const isOpen = ctx.open === id;
+        // A row with a level of its own shows its detail while that level is open.
+        const expanded = shown.has(m.from) || isOpen;
+        return (
+          <div key={m.from} className="border-b border-border-gray last:border-b-0">
+            <button
+              data-row={id}
+              aria-expanded={expanded}
+              // The card wrapping these rows is itself clickable, and a real
+              // pointer click bubbles: without stopping it here, the card's
+              // handler fires on the SAME click and undoes the row's.
+              onClick={(e) => {
+                e.stopPropagation();
+                if (m.under) return ctx.onOpenRow(id);
+                toggle(m.from);
+                ctx.onTrace(id);
+              }}
+              className={rowClass(id, ctx, "flex w-full items-start gap-2 px-3 py-1.5 text-left")}
+            >
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "inline-block px-1.5 py-0.5 font-mono text-[10px]",
+                    isLit || isOpen ? "bg-accent text-on-accent" : "bg-surface-container text-on-surface",
+                  )}
+                >
+                  {m.from}
+                </span>
+                {m.state !== "derived" ? <StateChip state={m.state} className="ml-1.5 align-[1px]" /> : null}
+                {expanded ? (
+                  <span
+                    className={cn(
+                      "mt-1.5 mb-0.5 block border-l-2 pl-2 font-mono text-[9.5px] leading-snug",
+                      m.state === "derived" ? "border-border-strong text-muted-slate" : "border-amber-line text-amber-ink",
+                    )}
+                  >
+                    {m.to}
+                  </span>
+                ) : null}
+              </span>
+              {/* Turns down when the row unfolds in place; a row that opens a
+                  level points right like every other way down. */}
+              <span className={cn("mt-[3px] shrink-0 transition-transform duration-200", expanded && !m.under && "rotate-90")}>
+                <Caret open={expanded} />
+              </span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

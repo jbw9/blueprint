@@ -281,7 +281,7 @@ function PlanScene() {
             <div className={`${f.msg} ${f.in}`} style={at(0.5)}>
               <span className={f.ok}>⏺</span>
               <span>
-                <b>Read</b>(app/components/preview.tsx)
+                <b>Read</b>(app/components/preview/preview.tsx)
                 <br />
                 <span className={f.res}>⎿&nbsp;&nbsp;Read 1047 lines</span>
               </span>
@@ -460,10 +460,10 @@ const PLAN_FILES: [Change, string, string][] = [
   ["changed", "app/src-tauri/src/browser.rs", "open the web view with a per-project store"],
   ["changed", "app/src-tauri/Cargo.toml", "turn on the WebKit data-store features"],
   ["changed", "app/src-tauri/src/mcp.rs", "add the sign_in tool"],
-  ["changed", "app/components/preview.tsx", "sign-in bar, choose the store when opening a site"],
+  ["changed", "app/components/preview/preview.tsx", "sign-in bar, choose the store when opening a site"],
   ["added", "app/lib/sign-ins.ts", "read and write site rules"],
   ["changed", "app/src-tauri/src/agent.js", "refuse to fill or reveal password fields"],
-  ["changed", "app/components/settings.tsx", "saved sign-ins, with Forget"],
+  ["changed", "app/components/chrome/settings.tsx", "saved sign-ins, with Forget"],
 ];
 
 /* ── a change, on the map ───────────────────────────────── */

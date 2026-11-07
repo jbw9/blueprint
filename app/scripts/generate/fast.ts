@@ -25,8 +25,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model answers */
 import { basename } from "node:path";
-import type { Node } from "@/lib/data";
-import type { MapFile, Overview } from "@/lib/map";
+import type { Node } from "@/lib/map/schema";
+import type { MapFile, Overview } from "@/lib/map/build";
 import { prefixFor } from "./author";
 import { ask, type Tool } from "./bedrock";
 import { check, LEAF, looksLikePath, SUB_WORDS, words } from "./check";

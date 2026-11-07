@@ -134,7 +134,7 @@ fn open_main(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 /// The Dock icon's badge: how many Claude tabs have finished or are waiting on
-/// the user (components/workspace.tsx), so it shows from any app, as Discord's does.
+/// the user (components/agent/workspace.tsx), so it shows from any app, as Discord's does.
 #[tauri::command]
 fn attention_count(app: tauri::AppHandle, n: i64) {
     if let Some(w) = app.get_webview_window("main") {
@@ -153,11 +153,11 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
     let menu = Menu::default(app.handle())?;
     let cmd = MenuItem::with_id(app, "terminal", "Toggle Terminal", true, Some("Cmd+`"))?;
     let ctrl = MenuItem::with_id(app, "terminal-ctrl", "Toggle Terminal", true, Some("Ctrl+`"))?;
-    // Claude Code's send-now (components/shell.tsx): Control-Return is otherwise
+    // Claude Code's send-now (components/agent/shell.tsx): Control-Return is otherwise
     // AppKit's key for the context menu, which opens and the terminal never sees it.
     let send = MenuItem::with_id(app, "send-now", "Send Now", true, Some("Ctrl+Enter"))?;
     menu.append(&Submenu::with_items(app, "Terminal", true, &[&cmd, &ctrl, &send])?)?;
-    // The title bar's project tabs (components/titlebar.tsx), for when focus is in a Preview's page.
+    // The title bar's project tabs (components/chrome/titlebar.tsx), for when focus is in a Preview's page.
     let mut projects = Vec::new();
     for n in 1..=9 {
         projects.push(MenuItem::with_id(app, format!("project-{n}"), format!("Project {n}"), true, Some(&format!("Cmd+{n}")))?);
@@ -166,7 +166,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
     projects.push(MenuItem::with_id(app, "project-last", "Last Project", true, None::<&str>)?);
     let items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = projects.iter().map(|m| m as _).collect();
     menu.append(&Submenu::with_items(app, "Projects", true, &items)?)?;
-    // A Preview's own keys, as a browser's (components/preview.tsx): its page is
+    // A Preview's own keys, as a browser's (components/preview/preview.tsx): its page is
     // a webview of its own or a frame, and the keys pressed in it stay there.
     let reload = MenuItem::with_id(app, "preview-reload", "Reload Page", true, Some("Cmd+R"))?;
     let back = MenuItem::with_id(app, "preview-back", "Back", true, Some("Cmd+["))?;
@@ -174,7 +174,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
     let address = MenuItem::with_id(app, "preview-address", "Open Location", true, Some("Cmd+L"))?;
     menu.append(&Submenu::with_items(app, "Preview", true, &[&reload, &back, &forward, &address])?)?;
     // A menu key reaches the menu before the page, so the page is handed these
-    // and the tab strip with focus acts on them (components/workspace.tsx).
+    // and the tab strip with focus acts on them (components/agent/workspace.tsx).
     let next = MenuItem::with_id(app, "tab-next", "Next Tab", true, Some("Ctrl+Tab"))?;
     let prev = MenuItem::with_id(app, "tab-prev", "Previous Tab", true, Some("Ctrl+Shift+Tab"))?;
     let next_cmd = MenuItem::with_id(app, "tab-next-cmd", "Next Tab", true, Some("Cmd+Shift+]"))?;
@@ -221,7 +221,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
 /// WebKitGTK answers a touchpad pinch by magnifying the whole page — the title
 /// bar and status bar with it, out of view — and tells the page nothing. So
 /// the pinch is taken here, before WebKit's own handler runs, and handed to
-/// the level's zoom (components/zoom.tsx) as a `slop:pinch` event: only the
+/// the level's zoom (components/chrome/zoom.tsx) as a `slop:pinch` event: only the
 /// map magnifies, as a pinch does on a Mac. `scale` is relative to the start
 /// of the pinch, which is exactly 1.
 #[cfg(target_os = "linux")]

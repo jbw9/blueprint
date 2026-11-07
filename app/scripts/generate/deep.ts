@@ -25,9 +25,9 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model answers and map JSON */
 import { basename } from "node:path";
-import type { Node } from "@/lib/data";
-import type { Overview } from "@/lib/map";
-import { citations, nodesAt } from "@/lib/coverage";
+import type { Node } from "@/lib/map/schema";
+import type { Overview } from "@/lib/map/build";
+import { citations, nodesAt } from "@/lib/map/coverage";
 import type { Authored } from "./author";
 import { ask, type Tool } from "./bedrock";
 import { autofix, bareLines, BOUNDS, check, fileReader, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";

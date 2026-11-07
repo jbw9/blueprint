@@ -1,0 +1,568 @@
+"use client";
+
+import "@xterm/xterm/css/xterm.css";
+import type { ITheme } from "@xterm/xterm";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMap } from "@/components/map/map-context";
+import { onFocusClaude } from "@/lib/agent/context";
+import { screens } from "@/lib/agent/dictate";
+import { outline } from "@/lib/map/build";
+import { readSettings } from "@/lib/client/settings";
+import { themeOf, type Theme } from "@/lib/client/theme";
+import { cn } from "@/lib/client/utils";
+import { isMac } from "@/lib/client/platform";
+import { findClaude } from "@/lib/client/claude";
+
+/**
+ * One tab's program: the user's shell, or their Claude Code, on a real pty in
+ * the open map's checkout (src-tauri/src/pty.rs), drawn by xterm. The
+ * workspace window (components/agent/workspace.tsx) holds a row of these. A Shell
+ * lives as long as its tab: hiding the window or switching tabs only takes it
+ * out of sight, so scrollback and a running process survive.
+ */
+
+/**
+ * The palettes, one per theme. A terminal is chrome ([data-chrome],
+ * app/globals.css): its background is the window's own
+ * `surface-container-low`, so the terminal sits in it as a tool rather than
+ * another card. Classic's chrome is the sheet, so its terminal is white with
+ * the sheet's cobalt ink.
+ */
+const PLAIN: Record<"light" | "dark", ITheme> = {
+  light: {
+    background: "#f4f4f5",
+    foreground: "#1c1c1f",
+    cursor: "#111113",
+    cursorAccent: "#f4f4f5",
+    selectionBackground: "#d4d4d8",
+    black: "#1c1c1f",
+    red: "#b42318",
+    green: "#2a7333",
+    yellow: "#8a5a0b",
+    blue: "#1d4ed8",
+    magenta: "#7e3fb8",
+    cyan: "#0e7490",
+    white: "#71717a",
+    brightBlack: "#52525b",
+    brightRed: "#d03a2c",
+    brightGreen: "#3a8a44",
+    brightYellow: "#a36d10",
+    brightBlue: "#2f62e8",
+    brightMagenta: "#9455cf",
+    brightCyan: "#1489a8",
+    brightWhite: "#3f3f46",
+  },
+  dark: {
+    background: "#17171a",
+    foreground: "#ececee",
+    cursor: "#fafafa",
+    cursorAccent: "#17171a",
+    selectionBackground: "#3a3a40",
+    black: "#0f0f11",
+    red: "#f08a8f",
+    green: "#8fd19a",
+    yellow: "#e0b45e",
+    blue: "#93b4ff",
+    magenta: "#c9a7f5",
+    cyan: "#7dd3d8",
+    white: "#d4d4d8",
+    brightBlack: "#7a7a83",
+    brightRed: "#f5a3a7",
+    brightGreen: "#a9e0b2",
+    brightYellow: "#ecc77f",
+    brightBlue: "#b0c8ff",
+    brightMagenta: "#dcc2fa",
+    brightCyan: "#9fe1e5",
+    brightWhite: "#ffffff",
+  },
+};
+
+const PALETTES: Record<Theme, ITheme> = {
+  ...PLAIN,
+  classic: {
+    ...PLAIN.light,
+    background: "#ffffff",
+    foreground: "#1e2f9e",
+    cursor: "#2438c8",
+    cursorAccent: "#ffffff",
+    selectionBackground: "#d5daf5",
+    black: "#1e2f9e",
+    blue: "#2438c8",
+    white: "#7d8adb",
+    brightBlack: "#4a5bd2",
+    brightBlue: "#4a5bd2",
+    brightWhite: "#3445c6",
+  },
+};
+
+const palette = () => PALETTES[themeOf(document.documentElement.dataset.theme)];
+
+/* ── keys ─────────────────────────────────────────────────────── */
+
+/**
+ * What a terminal app does with a key before the program sees it, as GNOME
+ * Terminal and VS Code do, and on a Mac as Terminal.app and Ghostty do.
+ * Ctrl+←/→ and Home/End are left alone: xterm sends their standard
+ * sequences, which shells and Claude Code read themselves.
+ */
+type Action = { send: string } | { copy: true } | { paste: true } | { zoom: number | null };
+
+/** `claude`: Claude Code is in front, so Ctrl+Enter is its "send now". */
+function actionFor(e: KeyboardEvent, selected: boolean, claude: boolean): Action | null {
+  const mac = isMac();
+  const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+  // xterm sends nothing for Cmd+arrows and a plain DEL for Cmd+Backspace;
+  // a Mac terminal sends the line's start, end and delete-to-start. Option+
+  // arrows jump a word, as Esc b / Esc f, which zsh and bash read too.
+  if (mac && e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if (e.key === "ArrowLeft") return { send: "\x01" };
+    if (e.key === "ArrowRight") return { send: "\x05" };
+    if (e.key === "Backspace") return { send: "\x15" };
+  }
+  if (mac && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if (e.key === "ArrowLeft") return { send: "\x1bb" };
+    if (e.key === "ArrowRight") return { send: "\x1bf" };
+    if (e.key === "Delete") return { send: "\x1bd" };
+  }
+  // A Mac zooms on Cmd, leaving Ctrl+- to the program: Claude Code's undo.
+  if (mac ? e.metaKey && !e.ctrlKey && !e.altKey : ctrl && !e.shiftKey) {
+    if (e.code === "Equal" || e.code === "NumpadAdd") return { zoom: 1 };
+    if (e.code === "Minus" || e.code === "NumpadSubtract") return { zoom: -1 };
+    if (e.code === "Digit0" || e.code === "Numpad0") return { zoom: null };
+  }
+  if (ctrl && !e.shiftKey) {
+    // Delete a word: Ctrl+W back (shells, readline, Claude Code), Alt+D on.
+    // Off a Mac, Ctrl+W itself closes the tab (components/agent/workspace.tsx), so
+    // this is the way to send it.
+    if (e.key === "Backspace") return { send: "\x17" };
+    if (e.key === "Delete") return { send: "\x1bd" };
+    // With text selected, Ctrl+C copies it rather than interrupting — off a
+    // Mac, where Cmd+C copies and Ctrl+C always interrupts.
+    if (e.code === "KeyC" && selected && !mac) return { copy: true };
+    // xterm sends nothing for Ctrl+-; a Mac terminal sends ^_.
+    if (e.code === "Minus" && mac) return { send: "\x1f" };
+    // xterm sends a plain Return. Claude Code reads Ctrl+Enter, as CSI u,
+    // as sending now; a shell would print it, so only Claude gets it.
+    if (e.key === "Enter" && claude) return { send: "\x1b[13;5u" };
+  }
+  if (ctrl && e.shiftKey) {
+    if (e.code === "KeyC") return { copy: true };
+    if (e.code === "KeyV") return { paste: true };
+  }
+  // A new line without sending: Claude Code reads Alt+Enter as one, and a
+  // shell keeps editing a multi-line command.
+  if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) return { send: "\x1b\r" };
+  return null;
+}
+
+/** A dropped path as the shell reads it: backslashed as Terminal.app does, quoted on Windows. */
+const quote = (path: string) =>
+  /Windows/.test(navigator.userAgent)
+    ? /\s/.test(path)
+      ? `"${path}"`
+      : path
+    : path.replace(/[^\w\-.,/:@+%=\u0080-\uffff]/g, "\\$&");
+
+/** One font size for every tab, kept per machine like the window's width. */
+const FONT_KEY = "slop.terminal.fontSize";
+const FONT = { min: 9, base: 13, max: 24 };
+const ZOOMED = "slop:terminal-zoom";
+
+function storedFont() {
+  try {
+    const n = Number(localStorage.getItem(FONT_KEY));
+    if (n >= FONT.min && n <= FONT.max) return n;
+  } catch {
+    /* storage blocked: the default is fine */
+  }
+  return FONT.base;
+}
+
+function zoom(by: number | null) {
+  const next = by === null ? FONT.base : Math.max(FONT.min, Math.min(FONT.max, storedFont() + by));
+  try {
+    localStorage.setItem(FONT_KEY, String(next));
+  } catch {
+    /* applies until reload */
+  }
+  window.dispatchEvent(new CustomEvent(ZOOMED, { detail: next }));
+}
+
+/**
+ * One tab's terminal: the user's shell on a pty, an xterm drawing it. Lives as
+ * long as its tab. With Claude Code found (as Settings says, or wherever it is
+ * installed), the shell can run it through the app's launcher, and with
+ * `startClaude` it runs it first (src-tauri/src/claude.rs); quitting Claude
+ * leaves the shell.
+ */
+/** What Claude Code shows in place of a plan (src-tauri/src/claude.rs, HIDE). */
+const OPEN_PLAN = "▸ Open plan";
+/** `[Image #4]`, or a path with an extension and an optional `:line`, as agents print them. */
+const FILE_REF = /\[Image #\d+\]|((?:~\/|\.{0,2}\/)?(?:[\w.@+-]+\/)*[\w@+-][\w.@+-]*\.[A-Za-z0-9]{1,10})(?::(\d+))?(?::\d+)?/g;
+
+export function Shell({
+  startClaude = false,
+  resume,
+  run,
+  cwd,
+  visible,
+  claude = false,
+  onTitle,
+  onSpawn,
+  onClaude,
+  onOutput,
+  onInput,
+  onScreen,
+  onOpenPlan,
+  session,
+  onOpenFile,
+  onExit,
+}: {
+  startClaude?: boolean;
+  /** The conversation the started Claude picks up again, in a tab reopened after a restart. */
+  resume?: string;
+  /** A command to type into the shell once it starts, as if the user had: another agent's CLI. */
+  run?: string;
+  /** Where it starts. A tab keeps the one it was opened with. */
+  cwd?: string;
+  visible: boolean;
+  /** Claude Code is in front in it now, not the shell or another program. */
+  claude?: boolean;
+  onTitle?: (title: string) => void;
+  onSpawn?: (pty: number) => void;
+  /** Whether Claude Code was found, so this tab can run it. */
+  onClaude?: (found: boolean) => void;
+  /** What the program prints, as text: how the dev server's tab hears its address. */
+  onOutput?: (text: string) => void;
+  /** The user typed into it: what the program prints next is the echo, not its own work. */
+  onInput?: () => void;
+  /** How to read what is on screen now, line by line: how a plan's tab finds Claude Code's question.
+   * With `all`, the whole scrollback: how an agent reads the dev server's logs. */
+  onScreen?: (read: (all?: boolean) => string[]) => void;
+  /** The plan's line Claude Code shows in place of the plan (src-tauri/src/claude.rs, HIDE) was clicked. */
+  onOpenPlan?: () => void;
+  /** Claude Code's conversation in it, whose pasted images `[Image #N]` names. */
+  session?: string;
+  /** A file it printed was clicked: its absolute path, and the line it named. */
+  onOpenFile?: (path: string, line?: number) => void;
+  onExit: () => void;
+}) {
+  const el = useRef<HTMLDivElement>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  /** Files dragged from outside are over this terminal. */
+  const [dropping, setDropping] = useState(false);
+  /** Re-fit and focus, set once the terminal exists. */
+  const show = useRef<(() => void) | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Latest callbacks, so the effect below runs once per shell, not per render.
+  const handlers = useRef({ claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit });
+  useEffect(() => {
+    handlers.current = { claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
+  });
+  // The map's sections, for `slop-map-list`. Through a ref for the same
+  // reason: a map that updates must not restart the shell.
+  const map = useMap();
+  const sections = useRef(map);
+  useEffect(() => {
+    sections.current = map;
+  });
+
+  useEffect(() => {
+    if (!isTauri()) {
+      // queueMicrotask, so the effect body itself sets no state.
+      queueMicrotask(() => setError("The terminal needs the desktop app: run `npm run app:dev`."));
+      return;
+    }
+    let gone = false;
+    let id: number | null = null;
+    let cleanup = () => {};
+
+    (async () => {
+      // Every tab can run Claude, so it is looked for every time; without it
+      // the tab is still a shell.
+      const { claudePath, model, voice, research } = readSettings();
+      const found = await findClaude(claudePath);
+      if (gone) return;
+      handlers.current.onClaude?.(!!found);
+      const launch = found ? { path: found.path, model: model || null, voice, research } : null;
+      // xterm measures one glyph to size every cell, so it needs the face's
+      // name (not a var()) and the face itself loaded: measured against the
+      // fallback, the real font lands in cells of the wrong width once it
+      // arrives. A web font is only fetched when something asks for it.
+      const family = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+      const [{ Terminal }, { FitAddon }, { WebglAddon }] = await Promise.all([
+        import("@xterm/xterm"),
+        import("@xterm/addon-fit"),
+        import("@xterm/addon-webgl"),
+        document.fonts.load(`${storedFont()}px ${family}`),
+        document.fonts.load(`bold ${storedFont()}px ${family}`),
+      ]);
+      if (gone || !el.current) return;
+      const term = new Terminal({
+        theme: palette(),
+        fontFamily: `${family}, ui-monospace, monospace`,
+        // A whole pixel size: a fractional one gives fractional cells, which
+        // drift out of line across a row.
+        fontSize: storedFont(),
+        lineHeight: 1.2,
+        cursorBlink: true,
+        scrollback: 5000,
+        // Claude Code can take the mouse for itself; Option-drag still selects.
+        macOptionClickForcesSelection: true,
+        allowProposedApi: true,
+      });
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.open(el.current);
+      // The GPU renderer, as VS Code uses: glyphs from a texture atlas on an
+      // exact grid. If WebGL is missing or the context is lost, xterm falls
+      // back to its DOM renderer by itself once the addon is disposed.
+      try {
+        const gl = new WebglAddon();
+        gl.onContextLoss(() => gl.dispose());
+        term.loadAddon(gl);
+      } catch {
+        /* no WebGL: the DOM renderer stays */
+      }
+      // macOS shows the right-click menu on Ctrl+Return; in a terminal the key belongs to the program.
+      let ctrlEnter = 0;
+      term.attachCustomKeyEventHandler((e) => {
+        if (e.type === "keydown" && e.key === "Enter" && e.ctrlKey) ctrlEnter = e.timeStamp;
+        // An IME's keys (arrows and Enter among them) are its own until the text is committed.
+        if (e.isComposing || e.keyCode === 229) return true;
+        // Taken by the app first (the palette's keys, components/chrome/palette.tsx): not the program's too.
+        if (e.defaultPrevented) return false;
+        // Ctrl+` (Cmd+` too) and Ctrl+W off a Mac belong to the workspace window, never the program in a tab.
+        if (e.ctrlKey && !e.altKey && !e.shiftKey && e.code === "KeyW" && !isMac()) return false;
+        if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") return false;
+        const action = actionFor(e, term.hasSelection(), handlers.current.claude);
+        if (!action) return true;
+        e.preventDefault();
+        if (e.type !== "keydown") return false;
+        if ("send" in action) {
+          if (id !== null) void invoke("pty_write", { id, data: action.send });
+        } else if ("copy" in action) {
+          void writeText(term.getSelection());
+          term.clearSelection();
+        } else if ("paste" in action) {
+          // paste() wraps it for programs that asked for bracketed paste.
+          void readText().then((t) => t && term.paste(t), () => {});
+        } else {
+          zoom(action.zoom);
+        }
+        return false;
+      });
+
+      /** Fit to the box — skipped while hidden, when it has no size to fit. The
+       * program is told only of a real change: each one makes Claude Code redraw. */
+      let told = "";
+      const refit = () => {
+        if (!el.current?.offsetWidth) return;
+        fit.fit();
+        if (id === null || told === `${term.cols}x${term.rows}`) return;
+        told = `${term.cols}x${term.rows}`;
+        void invoke("pty_resize", { id, cols: term.cols, rows: term.rows });
+      };
+      refit();
+
+      const out = new Channel<ArrayBuffer | { exit: number }>();
+      // Streaming, so a character split across two reads still decodes.
+      const text = new TextDecoder();
+      out.onmessage = (m) => {
+        if (gone) return;
+        if (m instanceof ArrayBuffer) {
+          term.write(new Uint8Array(m));
+          handlers.current.onOutput?.(text.decode(m, { stream: true }));
+        } else handlers.current.onExit();
+      };
+      try {
+        const spawned = await invoke<{ id: number; shell: string }>("pty_spawn", {
+          cols: term.cols,
+          rows: term.rows,
+          onData: out,
+          launch,
+          startClaude: startClaude && !!launch,
+          resume: resume ?? null,
+          cwd: cwd ?? null,
+          outline: outline(sections.current),
+        });
+        id = spawned.id;
+        // Unmounted while the shell was starting: end it rather than leak it.
+        if (gone) {
+          void invoke("pty_kill", { id });
+          term.dispose();
+          return;
+        }
+        // Typed ahead: the terminal holds it until the shell is ready to read.
+        if (run) void invoke("pty_write", { id, data: `${run}\r` });
+        handlers.current.onTitle?.(spawned.shell);
+        handlers.current.onSpawn?.(spawned.id);
+        const read = (all?: boolean) => {
+          const b = term.buffer.active;
+          const from = all ? 0 : b.baseY;
+          return Array.from({ length: all ? b.length : term.rows }, (_, i) => b.getLine(from + i)?.translateToString(true) ?? "");
+        };
+        handlers.current.onScreen?.(read);
+        screens.set(spawned.id, () => read());
+      } catch (e) {
+        term.dispose();
+        setError(`Could not start a shell: ${String(e)}`);
+        return;
+      }
+
+      // Claude Code shows a plan as its title and this line; the plan itself
+      // is read in its tab, which the line opens again even once closed.
+      const planLinks = term.registerLinkProvider({
+        provideLinks(y, done) {
+          const line = term.buffer.active.getLine(y - 1)?.translateToString(true) ?? "";
+          const at = line.indexOf(OPEN_PLAN);
+          if (at < 0 || !handlers.current.onOpenPlan) return done(undefined);
+          done([
+            {
+              text: OPEN_PLAN,
+              range: { start: { x: at + 1, y }, end: { x: at + OPEN_PLAN.length, y } },
+              decorations: { pointerCursor: true, underline: true },
+              activate: () => handlers.current.onOpenPlan?.(),
+            },
+          ]);
+        },
+      });
+      // A file an agent names, or an image pasted into Claude Code, opens in
+      // an editor tab. Only what is a file on disk is underlined.
+      const fileLinks = term.registerLinkProvider({
+        provideLinks(y, done) {
+          const line = term.buffer.active.getLine(y - 1)?.translateToString(true) ?? "";
+          const found = [...line.matchAll(FILE_REF)].filter((m) => m.index === 0 || !/[\w/:.~-]/.test(line[m.index - 1]));
+          if (!found.length || !handlers.current.onOpenFile) return done(undefined);
+          const { session } = handlers.current;
+          void Promise.all(
+            found.map(async (m) => {
+              const ref = m[1] ?? m[0];
+              const path = await invoke<string | null>("file_resolve", { text: ref, cwd: cwd ?? "", session: session ?? null }).catch(() => null);
+              if (!path) return null;
+              const at = Number(m[2]) || undefined;
+              return {
+                text: m[0],
+                range: { start: { x: m.index + 1, y }, end: { x: m.index + m[0].length, y } },
+                decorations: { pointerCursor: true, underline: true },
+                activate: () => handlers.current.onOpenFile?.(path, at),
+              };
+            }),
+          ).then((links) => done(links.filter((l) => l !== null)));
+        },
+      });
+      const input = term.onData((data) => {
+        void invoke("pty_write", { id, data });
+        handlers.current.onInput?.();
+      });
+      // Selecting copies, as in herdr: no key to press after the drag.
+      const host = el.current;
+      const copySelected = () => {
+        if (term.hasSelection()) void writeText(term.getSelection());
+      };
+      host.addEventListener("mouseup", copySelected);
+      const noKeyMenu = (e: MouseEvent) => {
+        if (e.timeStamp - ctrlEnter < 500) e.preventDefault();
+      };
+      host.addEventListener("contextmenu", noKeyMenu, true);
+      // A press on the workspace's own buttons — a tab, +, a menu's item — keeps
+      // the keys here, as a terminal's tab bar does: WebKit would otherwise
+      // leave focus nowhere once the menu closes.
+      const keepFocus = (e: MouseEvent) => {
+        const at = e.target as Element;
+        if (document.activeElement === term.textarea && at.closest?.("button") && at.closest('[aria-label="Workspace"], [role="menu"]'))
+          e.preventDefault();
+      };
+      window.addEventListener("mousedown", keepFocus, true);
+      // Files dragged from Finder: their paths typed at the cursor, as a
+      // terminal does — pasted, so Claude Code takes an image's for the image.
+      // The window's native drop handler takes OS drops, so the page's own
+      // drop events never carry paths; the one under the pointer is this
+      // terminal only if nothing (the floating window, a menu) lies over it.
+      // On macOS wry reports the drop in points, which Tauri labels physical:
+      // scaling it down there would look half way to the window's corner.
+      const under = (at: { x: number; y: number; toLogical: (f: number) => { x: number; y: number } }) => {
+        const p = isMac() ? at : at.toLogical(window.devicePixelRatio || 1);
+        const hit = document.elementFromPoint(p.x, p.y);
+        return !!hit && !!pane.current?.contains(hit);
+      };
+      const drops = getCurrentWebview().onDragDropEvent(({ payload: d }) => {
+        if (d.type === "leave") return setDropping(false);
+        const here = under(d.position);
+        setDropping(here && d.type !== "drop");
+        if (d.type === "drop" && here && d.paths.length) {
+          term.paste(`${d.paths.map(quote).join(" ")} `);
+          term.focus();
+        }
+      });
+      // Pointing at the terminal is enough to type into it, no click needed.
+      const focusOnHover = () => term.focus();
+      host.addEventListener("mouseenter", focusOnHover);
+      const offFocus = onFocusClaude((pty) => {
+        if (pty === id && host.checkVisibility()) term.focus();
+      });
+      const seen = new ResizeObserver(refit);
+      seen.observe(el.current);
+      show.current = () => {
+        refit();
+        term.focus();
+      };
+      show.current();
+      // Zoom in one tab, and every tab follows; the grid is re-fitted to the new cells.
+      const onZoom = (e: Event) => {
+        term.options.fontSize = (e as CustomEvent<number>).detail;
+        refit();
+      };
+      window.addEventListener(ZOOMED, onZoom);
+      const recolour = new MutationObserver(() => (term.options.theme = palette()));
+      recolour.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      cleanup = () => {
+        window.removeEventListener(ZOOMED, onZoom);
+        recolour.disconnect();
+        host.removeEventListener("mouseup", copySelected);
+        host.removeEventListener("contextmenu", noKeyMenu, true);
+        window.removeEventListener("mousedown", keepFocus, true);
+        void drops.then((off) => off());
+        host.removeEventListener("mouseenter", focusOnHover);
+        offFocus();
+        seen.disconnect();
+        input.dispose();
+        planLinks.dispose();
+        fileLinks.dispose();
+        term.dispose();
+        if (id !== null) {
+          screens.delete(id);
+          void invoke("pty_kill", { id });
+        }
+      };
+    })();
+
+    return () => {
+      gone = true;
+      show.current = null;
+      cleanup();
+    };
+    // A tab's kind and directory are fixed at birth, so this runs once per tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Before paint, so a tab shown again never draws a frame at its old size.
+  useLayoutEffect(() => {
+    if (visible) show.current?.();
+  }, [visible]);
+
+  return (
+    // Chrome wherever it is, the window or the main view.
+    <div ref={pane} data-chrome className={cn("absolute inset-0 bg-surface-container-low px-3 pb-1", !visible && "hidden")}>
+      {error ? (
+        <p className="font-mono text-[11.5px] text-clay-ink">{error}</p>
+      ) : (
+        <div ref={el} className="h-full w-full" />
+      )}
+      {dropping ? <div className="pointer-events-none absolute inset-1 border border-dashed border-accent-line bg-accent/5" /> : null}
+    </div>
+  );
+}

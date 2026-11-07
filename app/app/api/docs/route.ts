@@ -1,5 +1,5 @@
-import { demoDocs, listDocs } from "@/lib/docs";
-import { demoSource, loadMap, rootOf } from "@/lib/maps";
+import { demoDocs, listDocs } from "@/lib/server/docs";
+import { demoSource, loadMap, rootOf } from "@/lib/server/maps";
 
 /**
  * The Markdown beside the open map's code (`?map=`), for the docs reader. Only

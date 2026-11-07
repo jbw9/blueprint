@@ -1,7 +1,7 @@
 //! The web in the preview: pages from outside this machine (a search, a
 //! library's docs, a service the project calls), which the proxy (preview.rs)
 //! cannot frame. Each opens in a webview of its own laid over the Preview
-//! tab's viewport (components/preview.tsx keeps it there), with the same agent
+//! tab's viewport (components/preview/preview.tsx keeps it there), with the same agent
 //! inside (agent.js). The page never calls the app: the tab asks it things by
 //! running script in it and collects what it has to say the same way, so a
 //! site on the open web is handed nothing of the app's.

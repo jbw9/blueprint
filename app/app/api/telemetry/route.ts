@@ -1,4 +1,4 @@
-import { readTelemetry, setTelemetry } from "@/lib/telemetry";
+import { readTelemetry, setTelemetry } from "@/lib/server/telemetry";
 import { notJson } from "@/lib/server/route";
 
 /** Whether finished runs are reported to the admin dashboard: `GET` → `{on}`, `POST {on}` sets it. */

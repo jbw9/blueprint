@@ -1,25 +1,25 @@
 import { Suspense } from "react";
-import { Acts } from "@/components/acts";
-import { Canvas } from "@/components/canvas";
-import { DiffMode } from "@/components/diff";
-import { DiffPanel } from "@/components/diff-panel";
-import { FilesPanel } from "@/components/files";
-import { MapProvider } from "@/components/map-context";
-import { ProjectsDialog } from "@/components/projects";
-import { AuditDialog } from "@/components/audit";
-import { HistoryDialog } from "@/components/history";
-import { SettingsDialog } from "@/components/settings";
-import { Dictation } from "@/components/dictation";
-import { Titlebar } from "@/components/titlebar";
-import { Workspace } from "@/components/workspace";
-import { NoProject } from "@/components/welcome";
-import { Palette } from "@/components/palette";
-import { StatusBar } from "@/components/statusbar";
-import { ReviewTray } from "@/components/review-tray";
-import { listMaps, loadDemo, loadMap, remoteOf, rootOf } from "@/lib/maps";
-import { ClaudeWeb } from "@/components/claude-web";
-import { STATIC_MAP } from "@/lib/source";
-import type { Progress } from "@/lib/vault";
+import { Acts } from "@/components/agent/acts";
+import { Canvas } from "@/components/map/canvas";
+import { DiffMode } from "@/components/review/diff";
+import { DiffPanel } from "@/components/review/diff-panel";
+import { FilesPanel } from "@/components/map/files";
+import { MapProvider } from "@/components/map/map-context";
+import { ProjectsDialog } from "@/components/projects/projects";
+import { AuditDialog } from "@/components/map/audit";
+import { HistoryDialog } from "@/components/review/additions";
+import { SettingsDialog } from "@/components/chrome/settings";
+import { Dictation } from "@/components/chrome/dictation";
+import { Titlebar } from "@/components/chrome/titlebar";
+import { Workspace } from "@/components/agent/workspace";
+import { NoProject } from "@/components/chrome/welcome";
+import { Palette } from "@/components/chrome/palette";
+import { StatusBar } from "@/components/chrome/statusbar";
+import { ReviewTray } from "@/components/review/review-tray";
+import { listMaps, loadDemo, loadMap, remoteOf, rootOf } from "@/lib/server/maps";
+import { ClaudeWeb } from "@/components/agent/claude-web";
+import { STATIC_MAP } from "@/lib/map/source";
+import type { Progress } from "@/lib/server/vault";
 
 // The open level lives in the URL, and `useSearchParams` needs a Suspense
 // boundary to prerender. `?map=` picks which repository's map is read. In the
@@ -27,7 +27,7 @@ import type { Progress } from "@/lib/vault";
 // the workspace (Claude Code and terminal tabs) floats over the map's right.
 // All of them live inside the provider, so they know which map (and checkout)
 // is open. `?none`, a project that is gone, or no project at all is the
-// blank page instead (components/welcome.tsx).
+// blank page instead (components/chrome/welcome.tsx).
 export default async function Home({
   searchParams,
 }: {

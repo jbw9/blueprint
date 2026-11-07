@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { auditOf } from "@/lib/maps";
+import { auditOf } from "@/lib/server/maps";
 import { bad, notJson } from "@/lib/server/route";
-import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, mapFileOf, progressOf, projectDir, removeProject, setPaused, updateMap, VAULT, type Turn } from "@/lib/vault";
+import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, mapFileOf, progressOf, projectDir, removeProject, setPaused, updateMap, VAULT, type Turn } from "@/lib/server/vault";
 
 /**
- * The reader's projects (lib/vault.ts): list them, start, import or clone one, regenerate,
+ * The reader's projects (lib/server/vault.ts): list them, start, import or clone one, regenerate,
  * cancel or forget one, or bring one's map up to its code after an edit. Paths arrive from the page, but only as the reader's
  * own choice of a directory on their own machine — nothing here reads or
  * writes inside it except the generator, which only reads, starting a

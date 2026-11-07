@@ -12,7 +12,7 @@
 //! It is MCP's streamable HTTP transport in its simplest form: one JSON-RPC
 //! message per POST, answered as plain JSON. The URL carries a secret, and the
 //! tab the request came from, so each Claude drives its own project's
-//! preview. The page does the work (components/preview.tsx, and the agent
+//! preview. The page does the work (components/preview/preview.tsx, and the agent
 //! inside the frame, agent.js): a call is handed to it as a `slop:preview`
 //! event and waits for `preview_reply`. A screenshot is WebKit's own picture
 //! of the frame's part of the window.
@@ -191,7 +191,7 @@ fn said(v: Value) -> Vec<Value> {
 }
 
 fn call(name: &str, args: &Value, tab: u32, app: &AppHandle) -> Result<Vec<Value>, String> {
-    // Which Preview tab a call is for, when the project has more than one (components/workspace.tsx).
+    // Which Preview tab a call is for, when the project has more than one (components/agent/workspace.tsx).
     let on = |mut cmd: Value| {
         cmd["tab"] = args.get("tab").cloned().unwrap_or(Value::Null);
         cmd

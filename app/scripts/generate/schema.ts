@@ -7,7 +7,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- validates untrusted model output */
 import { readFileSync } from "node:fs";
-import type { Node } from "@/lib/data";
+import type { Node } from "@/lib/map/schema";
 import { autofix, check } from "./check";
 import { fillFromGraph } from "./fill";
 import { activeGraph } from "./graph";

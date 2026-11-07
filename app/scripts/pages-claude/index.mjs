@@ -1,4 +1,4 @@
-// The Claude a published map's page talks to (components/claude-web.tsx): a Lambda behind a
+// The Claude a published map's page talks to (components/agent/claude-web.tsx): a Lambda behind a
 // streaming function URL, answering from the map and the code it cites, on Bedrock. The page
 // holds no credentials; this function's role may call one model and nothing else, and every
 // limit below bounds what one stranger's question can cost.
@@ -156,7 +156,7 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       const results = content
         .filter((b) => b.toolUse)
         .map(({ toolUse: { toolUseId, name, input } }) => {
-          // The page resolves the name against its map and moves there (components/claude-web.tsx).
+          // The page resolves the name against its map and moves there (components/agent/claude-web.tsx).
           if (name === "show_section") {
             // The outline writes "title — what it is"; a name copied whole is cut back to its title.
             send("show", String(input.section ?? "").split(" — ")[0].trim());

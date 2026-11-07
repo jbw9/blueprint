@@ -1,5 +1,5 @@
 //! The preview: the project's running web app, in a workspace tab
-//! (components/preview.tsx). The page is not framed from its dev server
+//! (components/preview/preview.tsx). The page is not framed from its dev server
 //! directly. It is framed through a small proxy on its own port here, which
 //! passes every request on and adds one script to each HTML page: the agent
 //! (agent.js), which lets the app, and Claude through it (mcp.rs), read the

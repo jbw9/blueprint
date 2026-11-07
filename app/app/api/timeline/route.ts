@@ -1,10 +1,10 @@
-import { cachedTimeline, storyOf } from "@/lib/history";
-import { loadMap, rootOf } from "@/lib/maps";
-import { projectDir, tellStory, telling } from "@/lib/vault";
+import { cachedTimeline, storyOf } from "@/lib/server/history";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { projectDir, tellStory, telling } from "@/lib/server/vault";
 import { notJson } from "@/lib/server/route";
 
 /**
- * The history of the map the reader has open (lib/history.ts).
+ * The history of the map the reader has open (lib/server/history.ts).
  *
  * `GET ?map=` — the timeline, the chapters a story run wrote (if any), and
  * whether one is running. `POST ?map=` with `{claude}` — start telling the

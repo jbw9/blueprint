@@ -16,7 +16,7 @@
 //! `[Map section: …]` for a whole section, `[Map element: …]` for one thing on
 //! a level — and the hook drains it on the next prompt: whatever a prompt hook
 //! prints is added to that prompt's context. The file being gone is how the
-//! UI knows a pick was delivered (components/workspace.tsx shows it).
+//! UI knows a pick was delivered (components/agent/workspace.tsx shows it).
 
 use portable_pty::CommandBuilder;
 use std::io::Write;
@@ -47,7 +47,7 @@ const EDITED: &str = r#": > "$SLOP_CONTEXT.dirty""#;
 const EDITING_TOOLS: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
 
 /// A plan Claude asks to start on: the hook's input, which carries the plan's
-/// Markdown, kept whole for the app to draw (components/plan.tsx). Renamed
+/// Markdown, kept whole for the app to draw (components/agent/plan.tsx). Renamed
 /// into place, so a plan is never read half written. A new plan ends the last
 /// one's checklist, before the app can draw the new one with its ticks, and
 /// its file waits (`.pending`) to become the checklist's once accepted.
@@ -104,7 +104,7 @@ const UNFINISHED: &str = r#"f="$SLOP_CONTEXT"; p=$(cat "$f.accepted" 2>/dev/null
 /// have run, and the plan's tab is where it is read: its diagrams are JSON in
 /// a terminal. So while the dialog is up the file is only the plan's title and
 /// OPEN_PLAN, which the terminal makes a link that opens (or reopens) the
-/// plan's tab (components/shell.tsx); it stays in the scrollback, so a closed
+/// plan's tab (components/agent/shell.tsx); it stays in the scrollback, so a closed
 /// plan can be found again. The whole plan waits beside the queue (`.hidden`)
 /// for RESTORE.
 const HIDE: &str = r#"h="$SLOP_CONTEXT.hidden"; p=$(sed -n 's/.*"planFilePath": *"\([^"]*\)".*/\1/p' | head -n 1); [ -f "$p" ] || exit 0; awk '/^# / && !t { print; print ""; t = 1 } END { print "`▸ Open plan`" }' "$p" > "$h.shown" && ! cmp -s "$p" "$h.shown" && cp "$p" "$h" && printf '%s' "$p" > "$h.file" && cp "$h.shown" "$p"; exit 0"#;
@@ -132,7 +132,7 @@ fn status(word: &str) -> serde_json::Value {
 /// At the end of every turn, two markers, for two different readers.
 ///
 /// `.ended` is written always: it names the session's transcript, which is how
-/// the app offers to keep an answer on the map (lib/keep.ts). A turn that only
+/// the app offers to keep an answer on the map (lib/agent/keep.ts). A turn that only
 /// answered a question changes no file and files no fix, so the map-following
 /// marker below never fires for it — and that is the common case for a reader
 /// who just asked how something works.

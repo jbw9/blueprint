@@ -1,6 +1,6 @@
-import { readSlice, writeSlice, Refused } from "@/lib/repo";
-import { demoSource, loadMap, rootOf } from "@/lib/maps";
-import { sliceOf } from "@/lib/source";
+import { readSlice, writeSlice, Refused } from "@/lib/server/repo";
+import { demoSource, loadMap, rootOf } from "@/lib/server/maps";
+import { sliceOf } from "@/lib/map/source";
 import { notJson } from "@/lib/server/route";
 
 /** The checkout behind the map the reader has open (`?map=`); null with no project yet. */
@@ -13,7 +13,7 @@ const rootFor = (map: string | null | undefined) => {
  * The only door to the real repository.
  *
  * GET reads a slice; POST writes one back. Both take caller-supplied paths, so
- * both go through the same containment check in `lib/repo.ts` — that check is
+ * both go through the same containment check in `lib/server/repo.ts` — that check is
  * the whole security model and neither handler is allowed its own version of
  * it.
  *

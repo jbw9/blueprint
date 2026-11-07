@@ -13,9 +13,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import type { MapIndex } from "@/lib/coverage";
-import { mapSearch, mapSection, mapWhere } from "@/lib/lookup";
-import { buildMap, type MapFile } from "@/lib/map";
+import type { MapIndex } from "@/lib/map/coverage";
+import { mapSearch, mapSection, mapWhere } from "@/lib/map/lookup";
+import { buildMap, type MapFile } from "@/lib/map/build";
 import { parseArgs } from "./args";
 import { converse, runTool, TOOLS } from "./author";
 import { ask, bill, cacheIn, MODELS, type Tool } from "./bedrock";

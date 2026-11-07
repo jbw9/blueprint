@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Node } from "@/lib/data";
+import type { Node } from "@/lib/map/schema";
 
 /** A run of changed lines: `ol` old lines from `os` became `nl` new ones from `ns`. With `ol` 0, lines were inserted after `os`. */
 export interface Hunk {

@@ -1,6 +1,6 @@
 // Bluprint's preview agent (src-tauri/src/preview.rs puts it in every
 // page the preview frames). It answers the window around the frame
-// (components/preview.tsx): reads the page, and clicks, types and scrolls in it
+// (components/preview/preview.tsx): reads the page, and clicks, types and scrolls in it
 // the way a person would, for the user's tools and for Claude's, and draws
 // Claude's pointer where it acts. It does nothing in a page that is not framed.
 //
@@ -69,7 +69,7 @@
     e.preventDefault();
   });
 
-  // Which Preview the keyboard is in, for the app's Cmd+R (components/preview.tsx).
+  // Which Preview the keyboard is in, for the app's Cmd+R (components/preview/preview.tsx).
   addEventListener("focus", () => post({ type: "focus" }));
   // Off a Mac the menu bar has no keys for the preview (src-tauri/src/lib.rs),
   // and a key pressed in the page never reaches the app: the browser's own
@@ -519,7 +519,7 @@
 
   // Boxes over the page, in the top layer like Claude's pointer: dashed, the
   // element under the pointer while selecting; solid, those picked, while
-  // their menu is open (components/preview.tsx). A page from the web has no
+  // their menu is open (components/preview/preview.tsx). A page from the web has no
   // menu over it: there a pick is taken at once, and its outline only flashes.
   const place = (b) => {
     const r = b.__slopFor.getBoundingClientRect();

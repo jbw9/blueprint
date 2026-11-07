@@ -1,4 +1,4 @@
-//! Files a terminal names, opened in an editor tab (components/file-tab.tsx):
+//! Files a terminal names, opened in an editor tab (components/agent/file-tab.tsx):
 //! a path an agent printed, or the `[Image #N]` Claude Code shows for an
 //! image pasted into it. Any file the user can read, not only the project's,
 //! since agents point at other checkouts and at Claude's own temp folder.

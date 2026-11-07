@@ -1,5 +1,5 @@
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { THEME_SCRIPT } from "../../app/lib/theme";
+import { THEME_SCRIPT } from "../../app/lib/client/theme";
 import "./globals.css";
 
 const inter = Inter({

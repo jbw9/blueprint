@@ -1,7 +1,7 @@
 import type { Diagram } from "@/lib/maps";
 import s from "./landing.module.css";
 
-/** The agents the app opens beside the map (app/components/agents.tsx), with their Simple Icons marks. */
+/** The agents the app opens beside the map (app/components/agent/agents.tsx), with their Simple Icons marks. */
 const AGENTS = [
   {
     name: "Claude Code",

@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadMap, rootOf } from "@/lib/maps";
-import { followLive } from "@/lib/live";
+import { loadMap, rootOf } from "@/lib/server/maps";
+import { followLive } from "@/lib/server/live";
 import { sourcePath } from "@/scripts/generate/inventory";
-import { projectDir } from "@/lib/vault";
-import type { MapIndex } from "@/lib/coverage";
+import { projectDir } from "@/lib/server/vault";
+import type { MapIndex } from "@/lib/map/coverage";
 
 /**
  * Every file of the map the reader has open: what the map knows of each
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   // A map made before index.json says nothing about which files it saw, so none is new to it.
   const added = index ? present.filter((p) => !files[p] && sourcePath(p)) : [];
   if (q.get("behind")) {
-    // Exactly what an update would take (lib/live.ts, as update.ts `found`), so one always clears it.
+    // Exactly what an update would take (lib/server/live.ts, as update.ts `found`), so one always clears it.
     const behind = followLive(open.name, root)?.live.files.map((f) => f.path) ?? [];
     return Response.json({ behind });
   }

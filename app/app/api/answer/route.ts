@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { lastExchange } from "@/lib/keep";
+import { lastExchange } from "@/lib/agent/keep";
 
 /**
  * The question and answer of the turn Claude just finished, read out of its

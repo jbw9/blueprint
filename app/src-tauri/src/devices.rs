@@ -1,7 +1,7 @@
 //! What a project runs as, and the phones it runs on.
 //!
 //! `project_detect` reads a checkout for how to start it: a web dev server
-//! (components/workspace.tsx starts it when the project opens, and the preview
+//! (components/agent/workspace.tsx starts it when the project opens, and the preview
 //! follows it), an Android app, an iOS app. Nothing is installed for a phone
 //! until a project has one and the user asks: then `device_setup` writes a
 //! script that a terminal tab runs in front of them, so every download and
@@ -13,7 +13,7 @@
 //! Simulator only comes with Xcode, which only Apple distributes, so setting
 //! it up means installing Xcode once; it is never opened. Either way the
 //! phone runs with no window of its own and its screen is drawn in the app's
-//! tab (components/device.tsx), from screenshots, with taps sent back: `adb`
+//! tab (components/preview/device.tsx), from screenshots, with taps sent back: `adb`
 //! for Android, `simctl` and `idb` for iOS.
 
 use std::path::{Path, PathBuf};
@@ -1135,7 +1135,7 @@ pub fn tool(args: &serde_json::Value, app: &tauri::AppHandle) -> Result<Vec<serd
         "key" => Input { kind: "key".into(), text, ..Default::default() },
         a => return Err(format!("No device action called {a}.")),
     };
-    // Claude's pointer goes there first, in the phone's tab (components/device.tsx), as it does on a page.
+    // Claude's pointer goes there first, in the phone's tab (components/preview/device.tsx), as it does on a page.
     if matches!(action, "tap" | "swipe") {
         use tauri::Emitter;
         let _ = app.emit_to("main", "slop:device-touch", json!({ "platform": platform, "x": i.x, "y": i.y, "x2": i.x2, "y2": i.y2, "swipe": action == "swipe" }));

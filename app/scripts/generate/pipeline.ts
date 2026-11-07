@@ -6,12 +6,12 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Node, Run } from "@/lib/data";
-import type { MapFile, Overview } from "@/lib/map";
-import type { Progress } from "@/lib/vault";
+import type { Node, Run } from "@/lib/map/schema";
+import type { MapFile, Overview } from "@/lib/map/build";
+import type { Progress } from "@/lib/server/vault";
 import { parseArgs } from "./args";
 import { auditMarkdown } from "./audit";
-import { coverage } from "@/lib/coverage";
+import { coverage } from "@/lib/map/coverage";
 import { authorRoot, authorSplit, inParts, submitLine, tooBig, type Authored, type OnSubmit } from "./author";
 import { catalogOf } from "./catalog";
 import { BACKEND, bill, MODELS, cacheIn, sweepCache, throttle } from "./bedrock";
