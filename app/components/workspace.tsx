@@ -594,8 +594,11 @@ export function Workspace() {
     const key = had?.key ?? nextKey++;
     if (had) patch(key, { plan });
     else setTabs((t) => [...t, { key, kind: "plan", start: null, ran: null, title: "Plan", cwd, live: false, busy: false, plan, of: from, main }]);
-    if (main) setFront((f) => ({ ...f, [cwd]: key }));
-    else {
+    if (main) {
+      setFront((f) => ({ ...f, [cwd]: key }));
+      // The window would sit over the plan; opening Claude's tab again brings both back.
+      if (cwd === latest.current.here) show(false);
+    } else {
       setActive((a) => ({ ...a, [cwd]: key }));
       if (cwd === latest.current.here) show(true);
     }
@@ -611,6 +614,16 @@ export function Workspace() {
     const plan = closedPlans.current[from];
     if (plan) placePlan(from, cwd, plan);
   };
+  // A Claude coming into view brings its open plan in front beside it.
+  const inWindow = open ? current?.key : undefined;
+  useEffect(() => {
+    const plan = tabsNow.current.find((x) => x.kind === "plan" && x.of === inWindow);
+    if (plan?.main) setFront((f) => ({ ...f, [plan.cwd]: plan.key }));
+  }, [inWindow]);
+  useEffect(() => {
+    const plan = tabsNow.current.find((x) => x.kind === "plan" && x.of === upFront?.key);
+    if (plan && !plan.main) bring(plan.key);
+  }, [upFront?.key, bring]);
   /** A file a terminal named, in an editor tab in the main view: the one already open, or a new one. */
   const openFile = (cwd: string, file: string, line?: number) => {
     const open = tabsNow.current.find((x) => x.kind === "file" && x.cwd === cwd && x.file === file);
