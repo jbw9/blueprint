@@ -24,7 +24,7 @@ import { findAddress, findQuestion, findTaken, hostOf, previewOf, type Call } fr
 import { openSettings, readSettings } from "@/lib/settings";
 import { updateMap, type Turn } from "@/lib/update-map";
 import type { Exchange } from "@/lib/keep";
-import { reportStatus, type Status } from "@/lib/open-projects";
+import { onClosed, reportStatus, type Status } from "@/lib/open-projects";
 import { cn } from "@/lib/utils";
 
 /**
@@ -144,6 +144,8 @@ function storedSite(root: string): string | null {
 }
 /** The conversations Claude was having in the tabs, per project, so the app reopens them. */
 const SESSIONS_KEY = "slop.workspace.sessions";
+/** The conversations of a closed project's Claudes, by its root, resumed when it is opened again. */
+const PARKED_KEY = "slop.workspace.parked:";
 
 function storedSessions(): { cwd: string; session: string }[] {
   try {
@@ -820,6 +822,44 @@ export function Workspace() {
     },
     [tabs, active, front, here, show],
   );
+
+  // A project closed stops its Claudes rather than leave them working unseen;
+  // their conversations wait for it to be opened again.
+  useEffect(
+    () =>
+      onClosed((root) => {
+        const all = tabsNow.current;
+        const gone = all.filter((x) => x.kind === "shell" && x.cwd === root && (x.live || x.session || x.start === CLAUDE.id));
+        if (!gone.length) return;
+        const keys = new Set(gone.map((x) => x.key));
+        const sessions = gone.flatMap((x) => (x.session ? [x.session] : []));
+        try {
+          if (sessions.length) localStorage.setItem(PARKED_KEY + root, JSON.stringify(sessions));
+        } catch {
+          /* not kept: they start afresh */
+        }
+        for (const x of gone) {
+          delete closedPlans.current[x.key];
+          if (x.pty !== undefined) tabEnded(x.pty);
+        }
+        setTabs((t) => t.filter((x) => !keys.has(x.key) && !(x.kind === "plan" && x.of !== undefined && keys.has(x.of))));
+        setActive((a) => (a[root] !== undefined && keys.has(a[root]) ? { ...a, [root]: -1 } : a));
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (!desktop || !here) return;
+    let sessions: string[] = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem(PARKED_KEY + here) ?? "[]");
+      localStorage.removeItem(PARKED_KEY + here);
+    } catch {
+      return;
+    }
+    // From storage the server render cannot read, as the restore on launch above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    for (const session of sessions) add(CLAUDE.id, { cwd: here, session, resume: session });
+  }, [desktop, here, add]);
 
   /** The project's Preview switched to another of its web apps: its server stopped, the other's started. */
   const switchSite = (root: string, dir: string) => {

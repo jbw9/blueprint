@@ -3,8 +3,9 @@ import { useSyncExternalStore } from "react";
 /**
  * The projects open as tabs in the title bar (components/titlebar.tsx), kept
  * between launches, and what Claude is doing in each, as the workspace's own
- * tab dots say it (components/workspace.tsx). Closing a project's tab here
- * ends nothing: its terminals keep running until they are closed.
+ * tab dots say it (components/workspace.tsx). Closing a project's tab stops
+ * its Claudes (the workspace hears it through onClosed), to resume when it is
+ * opened again; its other terminals keep running until they are closed.
  */
 
 export type Status = "working" | "waiting" | "done";
@@ -63,9 +64,17 @@ export function arrived(id: string, from: string | null) {
   if (open !== s.open || last !== s.last) set({ ...s, open, last });
 }
 
-export function closeProject(id: string) {
+const closing = new Set<(root: string) => void>();
+/** Hears the checkout of each project closed, when no other open project shares it. */
+export function onClosed(f: (root: string) => void) {
+  closing.add(f);
+  return () => void closing.delete(f);
+}
+
+export function closeProject(id: string, root?: string) {
   const s = get();
   set({ ...s, open: s.open.filter((x) => x !== id), last: s.last === id ? null : s.last });
+  if (root) closing.forEach((f) => f(root));
 }
 
 /** Drops tabs for projects that no longer exist. */

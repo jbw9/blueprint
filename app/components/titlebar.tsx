@@ -187,7 +187,8 @@ function Where({ mac }: { mac: boolean }) {
       const at = shown.findIndex((m) => m.id === id);
       go((shown[at + 1] ?? shown[at - 1])?.id);
     }
-    closeProject(id);
+    const root = shown.find((m) => m.id === id)?.root;
+    closeProject(id, root && !shown.some((m) => m.id !== id && m.root === root) ? root : undefined);
   };
 
   return (
