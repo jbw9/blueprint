@@ -1,19 +1,81 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { TOKEN_COLOR, highlight, langOf } from "@/lib/client/highlight";
+import { useEffect, useRef } from "react";
+import { basicSetup } from "codemirror";
+import { indentWithTab } from "@codemirror/commands";
+import { HighlightStyle, indentUnit, syntaxHighlighting, LanguageDescription } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
+import { Compartment, EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
+import { Decoration, EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { tags as t } from "@lezer/highlight";
 import { cn } from "@/lib/client/utils";
 
 /**
- * Code you can type into where you read it: the coloured text of
- * lib/client/highlight.ts with a transparent textarea laid exactly over it, so the
- * caret, selection, undo and paste are the browser's own and the colours are
- * still the code pane's. Both are one font, one line height and no wrapping,
- * inside one scroller, so they never drift apart.
+ * Code you can type into where you read it: CodeMirror, with the file's own
+ * grammar (loaded by its name, only when one is opened), and the editing a code
+ * editor has — auto-indent, bracket matching and closing, folding, multiple
+ * cursors, find and replace, completion from words in the file. Coloured with
+ * the code pane's tokens, so the theme follows light and dark.
  *
  * Typing changes only the draft. Writing to disk is the caller's, on ⌘S or
  * its Save button — never on a keystroke, a blur or navigation.
  */
+
+const v = (name: string) => `var(--color-${name})`;
+
+const colours = HighlightStyle.define([
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: v("code-comment"), fontStyle: "italic" },
+  { tag: [t.string, t.special(t.string), t.regexp, t.character, t.attributeValue], color: v("code-string") },
+  { tag: [t.number, t.bool, t.null, t.atom], color: v("code-number") },
+  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword, t.definitionKeyword, t.modifier, t.self], color: v("code-keyword") },
+  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.standard(t.tagName)], color: v("code-type") },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: v("code-call") },
+  { tag: [t.punctuation, t.operator, t.bracket, t.angleBracket, t.separator], color: v("code-punct") },
+  { tag: [t.annotation, t.meta, t.attributeName, t.labelName], color: v("code-annotation") },
+  { tag: [t.heading], color: v("code-keyword"), fontWeight: "600" },
+  { tag: [t.link, t.url], color: v("code-call"), textDecoration: "underline" },
+  { tag: [t.emphasis], fontStyle: "italic" },
+  { tag: [t.strong], fontWeight: "600" },
+  { tag: t.invalid, color: v("code-string") },
+]);
+
+const look = EditorView.theme({
+  "&": { flex: "1 1 auto", minHeight: "0", backgroundColor: v("code"), color: v("code-plain"), fontSize: "12.5px" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { fontFamily: "var(--font-mono), ui-monospace, monospace", lineHeight: "1.65", overflow: "auto" },
+  ".cm-content": { padding: "8px 0", caretColor: v("ink") },
+  ".cm-line": { padding: "0 16px 0 12px" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: v("ink") },
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 25%, transparent)",
+  },
+  ".cm-gutters": { backgroundColor: v("code"), color: v("faint"), border: "none", borderRight: `1px solid ${v("border-gray")}` },
+  ".cm-lineNumbers .cm-gutterElement": { padding: "0 10px 0 12px", fontVariantNumeric: "tabular-nums" },
+  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--color-accent) 6%, transparent)" },
+  ".cm-activeLineGutter": { backgroundColor: "transparent", color: v("ink") },
+  ".cm-lit": { backgroundColor: v("amber-surface") },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 18%, transparent)",
+    outline: `1px solid color-mix(in srgb, var(--color-accent) 45%, transparent)`,
+  },
+  ".cm-searchMatch": { backgroundColor: v("amber-surface"), outline: `1px solid ${v("amber-ink")}` },
+  ".cm-foldPlaceholder": { backgroundColor: "transparent", border: `1px solid ${v("border-gray")}`, color: v("faint") },
+  ".cm-panels": { backgroundColor: v("surface-container"), color: v("ink"), borderColor: v("border-gray") },
+  ".cm-tooltip": { backgroundColor: v("surface-container"), color: v("ink"), border: `1px solid ${v("border-gray")}` },
+  ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: v("accent"), color: v("on-accent") },
+});
+
+// The line the view opened on, lit in amber like the map's citations.
+const litLine = (line: number | undefined) =>
+  EditorView.decorations.compute(["doc"], (s) => {
+    const b = new RangeSetBuilder<Decoration>();
+    if (line && line >= 1 && line <= s.doc.lines) {
+      const at = s.doc.line(line).from;
+      b.add(at, at, Decoration.line({ class: "cm-lit" }));
+    }
+    return b.finish();
+  });
+
 export function CodeEditor({
   file,
   start,
@@ -35,73 +97,85 @@ export function CodeEditor({
   lit?: number;
   className?: string;
 }) {
-  const painted = useMemo(() => highlight(value, langOf(file)), [value, file]);
   const box = useRef<HTMLDivElement>(null);
-  // Indent the way the file already does.
-  const indent = /^\t/m.test(value) ? "\t" : "  ";
+  const view = useRef<EditorView | null>(null);
+  // Read through refs, so the editor is made once per file and never torn down
+  // (losing its undo history and cursor) because a parent drew new callbacks.
+  const handlers = useRef({ onChange, onSave });
+  useEffect(() => {
+    handlers.current = { onChange, onSave };
+  });
+  const lang = useRef(new Compartment());
+  const editable = useRef(new Compartment());
+  const lighting = useRef(new Compartment());
 
   useEffect(() => {
-    if (!lit || !box.current) return;
-    const row = box.current.querySelector<HTMLElement>(`[data-line="${lit}"]`);
-    // Scroll this box only: scrollIntoView also scrolls the page, hiding the
-    // header above. Once, where the view opened; not again as the reader types.
-    if (row) box.current.scrollTop = row.offsetTop - box.current.clientHeight / 2;
-  }, [lit]);
+    const ed = new EditorView({
+      parent: box.current!,
+      state: EditorState.create({
+        doc: value,
+        extensions: [
+          Prec.highest(keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (handlers.current.onSave?.(), true) }])),
+          lineNumbers({ formatNumber: (n) => String(start + n - 1) }),
+          basicSetup,
+          keymap.of([indentWithTab]),
+          // Indent the way the file already does.
+          indentUnit.of(/^\t/m.test(value) ? "\t" : "  "),
+          EditorState.tabSize.of(4),
+          syntaxHighlighting(colours),
+          look,
+          lang.current.of([]),
+          editable.current.of(EditorState.readOnly.of(Boolean(readOnly))),
+          lighting.current.of(litLine(lit && lit - start + 1)),
+          EditorView.updateListener.of((u) => {
+            if (u.docChanged) handlers.current.onChange(u.state.doc.toString());
+          }),
+          EditorView.contentAttributes.of({ "aria-label": `Code of ${file}` }),
+        ],
+      }),
+    });
+    view.current = ed;
+    let live = true;
+    void LanguageDescription.matchFilename(languages, file)
+      ?.load()
+      .then((support) => live && ed.dispatch({ effects: lang.current.reconfigure(support) }));
+    return () => {
+      live = false;
+      ed.destroy();
+      view.current = null;
+    };
+    // Made once per file; value, start and the rest are kept in step below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-      e.preventDefault();
-      onSave?.();
-      return;
-    }
-    if (e.key === "Tab" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !readOnly) {
-      e.preventDefault();
-      const t = e.currentTarget;
-      const { selectionStart: a, selectionEnd: b } = t;
-      onChange(value.slice(0, a) + indent + value.slice(b));
-      requestAnimationFrame(() => t.setSelectionRange(a + indent.length, a + indent.length));
-    }
-  };
+  // A value changed from outside (reloaded from disk, a save that reformatted)
+  // replaces the text; one that came from typing here is already in it.
+  useEffect(() => {
+    const ed = view.current;
+    if (ed && ed.state.doc.toString() !== value) ed.dispatch({ changes: { from: 0, to: ed.state.doc.length, insert: value } });
+  }, [value]);
 
-  return (
-    <div ref={box} className={cn("overflow-auto bg-code", className)}>
-      <div className="flex w-max min-w-full py-2 font-mono text-[12.5px] leading-[1.65] [tab-size:4]">
-        <div aria-hidden className="tnum sticky left-0 z-10 shrink-0 select-none border-r border-border-gray bg-code text-right text-faint">
-          {painted.map((_, i) => (
-            <div key={i} data-line={start + i} className={cn("pl-3 pr-2.5", start + i === lit && "bg-amber-surface text-amber-ink")}>
-              {start + i}
-            </div>
-          ))}
-        </div>
-        <div className="relative min-w-0 flex-1">
-          <pre aria-hidden className="pointer-events-none whitespace-pre pl-3 pr-4 text-code-plain">
-            {painted.map((line, i) => (
-              <div key={i} className={cn(start + i === lit && "bg-amber-surface")}>
-                {line.length
-                  ? line.map((t, j) => (
-                      <span key={j} style={{ color: TOKEN_COLOR[t.kind] }}>
-                        {t.text}
-                      </span>
-                    ))
-                  : " "}
-              </div>
-            ))}
-          </pre>
-          <textarea
-            aria-label={`Code of ${file}`}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            readOnly={readOnly}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoComplete="off"
-            autoCorrect="off"
-            wrap="off"
-            className="absolute inset-0 resize-none overflow-hidden whitespace-pre bg-transparent pl-3 pr-4 text-transparent caret-ink outline-none selection:bg-accent/25 [font:inherit] [tab-size:4]"
-          />
-        </div>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    view.current?.dispatch({ effects: editable.current.reconfigure(EditorState.readOnly.of(Boolean(readOnly))) });
+  }, [readOnly]);
+
+  useEffect(() => {
+    const ed = view.current;
+    if (!ed) return;
+    const n = lit ? lit - start + 1 : 0;
+    ed.dispatch({ effects: lighting.current.reconfigure(litLine(n)) });
+    // Once, where the view opened; not again as the reader types. Scrolls this
+    // box only: CodeMirror's scrollIntoView also scrolls the page, hiding the header above.
+    if (n >= 1 && n <= ed.state.doc.lines) {
+      const at = ed.state.doc.line(n).from;
+      ed.requestMeasure({
+        read: () => ed.lineBlockAt(at).top,
+        write: (top) => (ed.scrollDOM.scrollTop = top - ed.scrollDOM.clientHeight / 2),
+      });
+    }
+  }, [lit, start]);
+
+  // A column, so the editor shrinks to a height the caller caps and scrolls
+  // inside itself, where CodeMirror can see which lines are in view.
+  return <div ref={box} className={cn("flex flex-col overflow-hidden bg-code", className)} />;
 }
