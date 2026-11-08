@@ -318,14 +318,12 @@ async function layoutOnce(elk: Elk, ctx: Ctx, order: string[], opts: Opts) {
   return { placed, routed, W: out.width ?? 0, H: out.height ?? 0 };
 }
 
-const JOG = 24;
-
 /**
  * Straight lines where ELK draws steps. A line that steps across between two
  * boxes that overlap side to side runs straight down where they overlap. And
  * ELK spreads the lines leaving one side of a box along that side, then steps
- * each over to its own channel, which leaves a small kink just outside the
- * box: where the box edge has room, the line leaves straight down its channel.
+ * each over to its own channel, which leaves a kink just outside the box:
+ * where the channel is still over the box, the line leaves straight down it.
  * A change is kept only where the new line meets no box, label or other line's
  * end. A stack's lines are drawn by hand.
  */
@@ -338,10 +336,14 @@ function straighten(placed: LaidBox[], routed: Routed[]) {
   const vertical = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 0.5;
   for (const r of routed) {
     if (r.fixed) continue;
+    r.pts = tidy(r.pts);
     const [p0, p1, p2, p3] = r.pts;
     if (r.pts.length === 4 && vertical(p0, p1) && !vertical(p1, p2) && vertical(p2, p3)) {
       const from = at.get(r.from), to = at.get(r.to);
-      const x = inside(from, p3.x) ? p3.x : inside(to, p0.x) ? p0.x : null;
+      const lo = Math.max(from?.x ?? Infinity, to?.x ?? Infinity) + 8;
+      const hi = Math.min((from?.x ?? 0) + (from?.w ?? 0), (to?.x ?? 0) + (to?.w ?? 0)) - 8;
+      const near = Math.abs(p0.x - Math.min(hi, Math.max(lo, p0.x))) <= Math.abs(p3.x - Math.min(hi, Math.max(lo, p3.x))) ? p0.x : p3.x;
+      const x = lo <= hi ? Math.min(hi, Math.max(lo, near)) : null;
       if (x !== null && !crowded(r, x, p0.y) && !crowded(r, x, p3.y)) {
         const a = { x, y: p0.y }, b = { x, y: p3.y };
         const blocked =
@@ -360,14 +362,33 @@ function straighten(placed: LaidBox[], routed: Routed[]) {
       const [q0, q1, q2, q3] = pts;
       if (!vertical(q0, q1) || Math.abs(q1.y - q2.y) > 0.5 || !vertical(q2, q3)) continue;
       const dx = q2.x - q1.x;
-      if (Math.abs(dx) < 0.5 || Math.abs(dx) > JOG) continue;
+      if (Math.abs(dx) < 0.5) continue;
       if (!inside(at.get(first ? r.from : r.to), q2.x) || crowded(r, q2.x, q0.y)) continue;
+      const a = { x: q2.x, y: q0.y };
+      // The new stub must not run through a label or across another line.
+      const top = Math.min(q0.y, q2.y), bottom = Math.max(q0.y, q2.y);
+      const across = (o: Routed) =>
+        segs(o).some(([u, v]) => Math.abs(u.y - v.y) < 0.5 && u.y > top && u.y < bottom && Math.min(u.x, v.x) < q2.x && Math.max(u.x, v.x) > q2.x);
+      if (routed.some((o) => o !== r && ((o.label && segHitsRect(a, q2, o.label, 1)) || across(o)))) continue;
       const l = r.label;
       if (l && Math.abs(l.x + l.w / 2 - q0.x) < 1 && l.y + l.h / 2 > Math.min(q0.y, q1.y) && l.y + l.h / 2 < Math.max(q0.y, q1.y)) l.x += dx;
-      const out = [{ x: q2.x, y: q0.y }, ...pts.slice(3)];
+      const out = [a, ...pts.slice(3)];
       r.pts = first ? out : out.reverse();
     }
   }
+}
+
+/** A route without repeated points or points in the middle of a straight run. */
+function tidy(pts: Pt[]) {
+  const out: Pt[] = [];
+  for (const p of pts) {
+    const q = out.at(-1);
+    if (q && Math.abs(q.x - p.x) < 0.5 && Math.abs(q.y - p.y) < 0.5) continue;
+    const o = out.at(-2);
+    if (o && q && ((Math.abs(o.x - q.x) < 0.5 && Math.abs(q.x - p.x) < 0.5) || (Math.abs(o.y - q.y) < 0.5 && Math.abs(q.y - p.y) < 0.5))) out.pop();
+    out.push(p);
+  }
+  return out;
 }
 
 const segs = (r: Routed) => r.pts.slice(1).map((p, i) => [r.pts[i], p] as const);
