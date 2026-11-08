@@ -19,7 +19,7 @@ const QUESTIONS = [
         <LandingPromo>
           {" "}
           For a limited time the plan is optional: sign in with GitHub in Blueprint&rsquo;s settings, and Claude tabs and new blueprints run on Blueprint&rsquo;s
-          own Claude, up to a weekly allowance.
+          own Claude: blueprints with no limit, and Claude tabs up to about half a Claude Pro plan (<a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/promotion`}>the terms</a>).
         </LandingPromo>
       </>
     ),

@@ -65,10 +65,10 @@ const epoch = () => Math.floor(Date.now() / 1000);
 const ended = (c) => !!c.ends_at && Date.now() >= Date.parse(c.ends_at);
 const open = (c, a) => !!a && !a.blocked && (!!a.allowed || (!!c.enabled && !ended(c)));
 
-/** What the landing page asks: whether the promotion is on for everyone right now. */
+/** What the landing page asks: whether the promotion is on for everyone right now, and when it ends. */
 export async function promo() {
   const c = await config();
-  return { on: !!c.enabled && !ended(c) };
+  return { on: !!c.enabled && !ended(c), ends_at: c.ends_at ?? null };
 }
 
 /** The windows a lane spends from, and how long each stays open. */

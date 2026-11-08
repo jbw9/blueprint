@@ -1,0 +1,80 @@
+/* The promotion's terms (page.tsx): one column of the landing page's sheet, in its ink. */
+.sheet {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 96px) var(--gutter) clamp(56px, 8vw, 112px);
+}
+.back {
+  font: 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.back:hover {
+  color: var(--ink);
+}
+.sheet h1 {
+  margin: 28px 0 8px;
+  font: 300 clamp(36px, 6vw, 56px) / 1.05 var(--display);
+}
+.lede {
+  margin: 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+.sheet h2 {
+  margin: 48px 0 12px;
+  font: 400 24px/1.25 var(--display);
+}
+.sheet p,
+.sheet li {
+  font-size: 14.5px;
+}
+.sheet ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.sheet li + li {
+  margin-top: 6px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--ink);
+  font-size: 14px;
+}
+.table th,
+.table td {
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--line);
+}
+.table th {
+  font: 500 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-top: 0;
+}
+.table td:first-child {
+  white-space: nowrap;
+}
+.note {
+  margin-top: 10px;
+  font: 11.5px/1.6 var(--mono);
+  color: var(--muted);
+}
+.fine {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.sheet code {
+  font: 13px var(--mono);
+}
+@media (max-width: 560px) {
+  .table td:first-child {
+    white-space: normal;
+  }
+}
