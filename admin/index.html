@@ -440,8 +440,8 @@ button.repo:hover { text-decoration-color: var(--ink); }
     var rows = days.map(function (day) { var d = byDay[day] || {}; return { day: day, tab: Math.round(100 * Number(d.tab_usd || 0)), gen: Math.round(100 * Number(d.gen_usd || 0)) }; });
     return '<section><p class="eyebrow">Blueprint credit</p><h2>Claude on Blueprint\'s Bedrock</h2><p class="lede">' +
       (cfg.enabled ? "Open to every GitHub account" + (cfg.ends_at ? " until " + esc(String(cfg.ends_at).slice(0, 10)) : "") + ". " : "Off for everyone but accounts marked allowed. ") +
-      "Claude Code " + usd(cfg.tab_usd_5h) + " per " + n(cfg.window_hours) + " hours and " + usd(cfg.tab_usd_week) + " a week; maps " + usd(cfg.gen_usd_week) +
-      " a week; " + n(cfg.tab_inflight) + " calls at once; at most " + usd(cfg.monthly_usd_ceiling) + " a month for everyone. Shape policy: " + esc(cfg.policy || "log") +
+      "Claude Code " + usd(cfg.tab_usd_5h) + " per " + n(cfg.window_hours) + " hours and " + usd(cfg.tab_usd_week) + " a week; maps " + (cfg.gen_usd_week == null ? "without a cap" : usd(cfg.gen_usd_week) + " a week") +
+      "; " + n(cfg.tab_inflight) + " calls at once; at most " + usd(cfg.monthly_usd_ceiling) + " a month for everyone. Shape policy: " + esc(cfg.policy || "log") +
       ". Change it on the <code>credit / config</code> item in the bluprint table; block or let in an account on its <code>account / gh:&lt;id&gt;</code> item.</p>" +
       '<div class="grid3" style="margin-top:14px"><div class="card"><h3>Spend per day, in cents <span>' + usd(spend) + "</span></h3>" + bars(rows, "tab", "gen") +
       '<div class="key"><span><i></i>Tabs</span><span><i class="b"></i>Generation</span></div></div></div>' +

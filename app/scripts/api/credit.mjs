@@ -41,7 +41,8 @@ export const DEFAULTS = {
   // About half of Claude Pro: its 5-hour session runs to roughly $6–8 of Claude Code at list price.
   tab_usd_5h: 4,
   tab_usd_week: 40,
-  gen_usd_week: 15,
+  // Maps are free to make: null is no cap. The window still counts them, for the meter and the admin page.
+  gen_usd_week: null,
   tab_inflight: 3,
   gen_inflight: 4,
   usd_per_minute: 1,
@@ -75,8 +76,9 @@ const WINDOWS = { tab: ["tab5h", "tabweek"], gen: ["genweek"] };
 const hoursOf = (c, w) => (w === "tab5h" ? c.window_hours : c.week_hours);
 const LIMIT_OF = { tab5h: "tab_usd_5h", tabweek: "tab_usd_week", genweek: "gen_usd_week" };
 const pick = (c, a, k) => a?.[k] ?? c[k];
-/** A window's cap in micro-dollars; an uncapped account is still counted, against a cap it never meets. */
-const capOf = (c, a, w) => (a?.uncapped ? Number.MAX_SAFE_INTEGER : pick(c, a, LIMIT_OF[w]) * MICRO);
+/** A window's cap in µ$, or null for none: an uncapped account, or a limit set to null. */
+const limitOf = (c, a, w) => (a?.uncapped || pick(c, a, LIMIT_OF[w]) == null ? null : pick(c, a, LIMIT_OF[w]) * MICRO);
+const capOf = (c, a, w) => limitOf(c, a, w) ?? Number.MAX_SAFE_INTEGER;
 
 /** Spend in a window while it is open, and when it closes; nothing once it has. */
 async function windowOf(account, w, hours) {
@@ -91,7 +93,7 @@ export async function status(account) {
   const a = await get("account", account);
   const meters = Object.fromEntries(
     await Promise.all(
-      Object.keys(LIMIT_OF).map(async (w) => [w, { ...(await windowOf(account, w, hoursOf(c, w))), limit: a?.uncapped ? null : pick(c, a, LIMIT_OF[w]) * MICRO }]),
+      Object.keys(LIMIT_OF).map(async (w) => [w, { ...(await windowOf(account, w, hoursOf(c, w))), limit: limitOf(c, a, w) }]),
     ),
   );
   const reason = !a ? "Sign in again." : a.blocked ? "Blueprint credit isn't available to this account." : ended(c) && !a.allowed ? "Blueprint's free Claude Code promotion has ended." : !open(c, a) ? "Blueprint credit isn't open yet." : undefined;
@@ -173,7 +175,8 @@ async function admit(c, account, a, lane, guess) {
   held.slot = await takeSlot(account, lane, pick(c, a, lane === "tab" ? "tab_inflight" : "gen_inflight"));
   if (!held.slot) return no({ wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
 
-  if (!a.uncapped) {
+  // Maps are left out: a map run never slows a chat, and maps have no cap to pace.
+  if (!a.uncapped && lane === "tab") {
     const minute = new Date().toISOString().slice(0, 16);
     try {
       await update(`rate#${account}`, minute, "ADD micro :m SET #ttl = :ttl", { ":m": guess, ":cap": pick(c, a, "usd_per_minute") * MICRO, ":ttl": epoch() + 3600 }, "attribute_not_exists(micro) OR micro < :cap", { "#ttl": "ttl" });
