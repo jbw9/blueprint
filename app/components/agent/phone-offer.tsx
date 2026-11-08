@@ -15,22 +15,38 @@ export function Offer({ phones, onPick, onDismiss }: { phones: Platform[]; onPic
     <motion.div
       role="dialog"
       aria-label="Run the phone app here"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 380, damping: 26 }}
       style={{ bottom: STATUSBAR + GAP }}
-      className="fixed left-3 z-40 flex max-w-[340px] flex-col gap-2.5 border border-border-gray bg-card p-3.5 shadow-lift"
+      className="fixed left-3 z-40 flex max-w-[360px] flex-col gap-3 border border-accent border-l-4 bg-card p-4 shadow-lift"
     >
-      <p className="text-[13px] leading-snug text-ink">
-        This project has {what}. Run {phones.length > 1 ? "them" : "it"} here, in the app?
-      </p>
+      {/* A few pulses on arrival so the eye lands on it, then it stays still. */}
+      <motion.span
+        aria-hidden
+        className="pointer-events-none absolute -inset-px border-2 border-accent"
+        initial={{ opacity: 0.7, scale: 1 }}
+        animate={{ opacity: 0, scale: 1.06 }}
+        transition={{ duration: 1.2, ease: "easeOut", repeat: 2, delay: 0.3 }}
+      />
+      <div className="flex items-start gap-2.5">
+        <span className="flex size-7 shrink-0 items-center justify-center bg-accent-surface text-accent [&>svg]:size-4">
+          <PhoneIcon />
+        </span>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-[14px] font-semibold leading-snug text-ink">Run the phone app here</p>
+          <p className="text-[12.5px] leading-snug text-muted-slate">
+            This project has {what}. Run {phones.length > 1 ? "them" : "it"} right here, in the app.
+          </p>
+        </div>
+      </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {phones.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => onPick(p)}
-            className="flex cursor-pointer items-center gap-1.5 border border-border-strong px-2.5 py-1 text-[12px] text-ink hover:bg-surface-container"
+            className="flex cursor-pointer items-center gap-1.5 border border-accent bg-accent px-3 py-1.5 text-[12.5px] font-medium text-on-accent hover:border-accent-strong hover:bg-accent-strong"
           >
             <PhoneIcon />
             {p === "ios" ? "iOS Simulator" : "Android emulator"}
