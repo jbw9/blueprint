@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/client/utils";
 import { Eyebrow, Prose } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
@@ -17,41 +17,10 @@ import { hunksOf, type HunkLines } from "@/lib/client/hunks";
 import { readSource } from "@/lib/blueprint/source";
 import type { Slice } from "@/lib/server/repo";
 import type { Anatomy, Explainer as ExplainerData } from "@/lib/blueprint/schema";
-import { signal } from "@/lib/client/signal";
 
 /* ── the toggle ──────────────────────────────────────────────── */
 
-/**
- * Whether the plain-words layer is showing. A per-reader preference, kept in
- * the browser: on by default, since the reader it serves is the one who does
- * not yet know to look for it.
- */
-const KEY = "blueprint.explain";
-const { subscribe, emit } = signal();
-
-function readExplain(): boolean {
-  try {
-    return localStorage.getItem(KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
-export function useExplain(): [boolean, (on: boolean) => void] {
-  const on = useSyncExternalStore(subscribe, readExplain, () => true);
-  const set = (v: boolean) => {
-    try {
-      localStorage.setItem(KEY, v ? "on" : "off");
-    } catch {
-      /* private window: the choice lasts this page */
-    }
-    emit();
-  };
-  return [on, set];
-}
-
-export function ExplainToggle() {
-  const [on, set] = useExplain();
+export function ExplainToggle({ on, set }: { on: boolean; set: (on: boolean) => void }) {
   return (
     <Button
       onClick={() => set(!on)}
