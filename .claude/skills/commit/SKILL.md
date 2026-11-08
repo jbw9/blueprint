@@ -23,8 +23,12 @@ Not like this:
 - `Fix spawn bug in claude-code.ts` - names the code, not the behaviour, and has no area
 - `app: The app now opens Markdown as a preview.` - capitalised, trailing period
 
+## When
+
+As soon as a change works, without being asked (CLAUDE.md, Commits): it passes the typecheck and lint, and it was seen working. Not while it is still being debugged.
+
 ## Steps
 
-1. Read the staged diff (`git diff --cached`) and pick the one area it changes most.
+1. Stage only the change's own files (`git add <paths>`), never others' uncommitted work. Read the staged diff (`git diff --cached`) and pick the one area it changes most.
 2. Write the title, then commit with `git commit -m "<title>"`.
 3. If the diff holds two unrelated changes, make two commits.
