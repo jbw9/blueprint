@@ -103,6 +103,13 @@ export function fillFromGraph(root: any, g: Graph | null): { notes: string[]; pr
             if (d) r.at = `${d.file}:${d.start}-${d.end}`;
             else unknown(n.id, `${b.kind} row ${i + 1} at`, r.at);
           }
+        if (b.kind === "screen")
+          for (const it of Array.isArray(b.items) ? b.items : []) {
+            if (typeof it?.at !== "string" || FILE_LINE.test(it.at)) continue;
+            const d = resolveDef(g, it.at);
+            if (d) it.at = `${d.file}:${d.start}-${d.end}`;
+            else unknown(n.id, `screen item "${it.label}" at`, it.at);
+          }
       });
     (Array.isArray(n.children) ? n.children : []).forEach(expand);
   };

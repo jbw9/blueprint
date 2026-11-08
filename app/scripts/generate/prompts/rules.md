@@ -65,7 +65,11 @@ The level itself, `node` open:
    - `screen`: what a user sees on one screen, as `items` top to bottom, read from the JSX or template. No `shot`.
      - `device` is what it runs on: `phone` for a mobile app's screen, `web` for a page in a browser. The brief says which this repo has; never default to `phone`.
      - A `web` screen gives `route`, the URL path it is at (`/settings/billing`, `/invite/[token]`), when the code shows it — a URL, never a file path.
-     - An item's `note` is drawn beside the screen with a line to the item: what it does or holds, in a few words ("opens the wizard", "must be 8+ characters"). Give a note only to the items worth pointing at, about 3–6; an item that explains itself gets none.
+     - An item's `label` is what a person reads there, quoted from the code: the button's text, the placeholder, the heading, or a realistic sample of a value it shows (`Ln 12 · 175 lines · TypeScript`). Never the component's name or a description of it ("Status bar", "Code editor"): those make every app's screen look alike.
+     - An item's `note` is drawn beside the screen with a line to the item: what it does or what decides it, in a few words ("opens the wizard", "must be 8+ characters", "⌘S saves via `file_write`"), not how it looks. Give a note only to the items worth pointing at, about 3–6; an item that explains itself gets none.
+     - An item's `at` is the `file:start-end` that draws it, so clicking it shows that code.
+     - An item shown only in some states, instead of another, gives `when`: the state in 1–4 words ("image file", "unsaved"). Items that replace each other each get their own `when`; they are drawn as switchable variants, not stacked.
+     - Only a whole page, panel or dialog with at least 3 things of its own gets a screen. A small component's `flow` explains it better.
    - `example`: what a stored value or payload looks like. It is labelled as an example, synthesized from the code.
    - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`bluprint.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
    - `flow` (numbered steps), `facts` (label/value pairs), `chips` (a closed set), `map` (in → out rules), `schema` (table columns), `routes` (HTTP routes).

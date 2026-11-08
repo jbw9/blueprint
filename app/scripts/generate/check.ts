@@ -311,6 +311,13 @@ export function check(
           else if (!inRange(m[1], +m[2], +(m[3] ?? m[2]))) problems.push(`STEP ${owner} ${what} cites ${r.at}, which does not exist`);
           else if (gen && +(m[3] ?? m[2]) - +m[2] + 1 > STEP_LINES) problems.push(`STEP ${owner} ${what} cites ${+(m[3] ?? m[2]) - +m[2] + 1} lines (max ${STEP_LINES}) — the lines where this one step happens, not the whole function`);
         }
+      if (b.kind === "screen")
+        for (const it of b.items ?? []) {
+          if (it.at === undefined) continue;
+          const m = /^(.+):(\d+)(?:-(\d+))?$/.exec(it.at);
+          if (!m) problems.push(`SCREEN ${owner} item "${it.label}" at "${it.at}" — give it as file:start-end`);
+          else if (!inRange(m[1], +m[2], +(m[3] ?? m[2]))) problems.push(`SCREEN ${owner} item "${it.label}" cites ${it.at}, which does not exist`);
+        }
       if (gen && (b.rows ?? []).some((r: any) => r.under)) problems.push(`UNDER ${owner} — a deeper part is a child node, not a row with \`under\``);
       for (const r of b.rows ?? []) if (r.under) deepest = Math.max(deepest, walkBlocks(owner, r.under, d + 1));
     }

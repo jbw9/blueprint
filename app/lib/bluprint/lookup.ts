@@ -71,7 +71,7 @@ function blockText(b: Anatomy): string {
     case "facts": return `facts\n${list(b.rows.map((r) => `- ${r.label}: ${r.value}`))}`;
     case "map": return `${head}mapping\n${list(b.rows.map((r) => `- ${r.from} → ${r.to}`))}`;
     case "chips": return `${head}${b.rows.map((r) => r.label).join(", ")}`;
-    case "screen": return `screen ${b.title}${b.route ? ` at ${b.route}` : ""}\n${list(b.items.map((x) => `- ${x.type} ${x.label}${x.note ? ` — ${x.note}` : ""}`))}`;
+    case "screen": return `screen ${b.title}${b.route ? ` at ${b.route}` : ""}\n${list(b.items.map((x) => `- ${x.type} ${x.label}${x.when ? ` (when ${x.when})` : ""}${x.note ? ` — ${x.note}` : ""}${x.at ? ` [${x.at}]` : ""}`))}`;
     case "example": return `${head}example\n${b.value.slice(0, 800)}`;
     default: return "";
   }

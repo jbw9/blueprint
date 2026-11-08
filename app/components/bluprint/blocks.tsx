@@ -56,7 +56,7 @@ export function ExplainedBlock({
     case "sequence":
       return <Sequence block={block} onCode={onCode} />;
     case "screen":
-      return <Screen block={block} />;
+      return <Screen block={block} onCode={onCode} />;
     case "example":
       return <Example block={block} />;
     case "note":
@@ -612,12 +612,62 @@ function Sequence({
  * to its note. A narrow page puts the notes under the screen, and falls back to
  * numbers.
  */
-function Screen({ block }: { block: Extract<Anatomy, { kind: "screen" }> }) {
-  const noted = block.items.map((it, i) => ({ ...it, i })).filter((it) => it.note);
+function Screen({ block, onCode }: { block: Extract<Anatomy, { kind: "screen" }>; onCode?: (at: string, heading: string, detail?: string) => void }) {
+  // The screen's states, one set of tabs where the first state-bound item sits:
+  // picking one shows every item of that state wherever it is, since a
+  // generated screen interleaves them (status line for text, size for images).
+  const runs = useMemo(() => {
+    const first = block.items.findIndex((it) => it.when);
+    return new Map(block.items.flatMap((it, i) => (it.when ? [[i, first] as const] : [])));
+  }, [block.items]);
+  const [picked, setPicked] = useState<Record<number, string>>({});
+  const stateOf = (run: number) => picked[run] ?? block.items[run].when!;
+  const shown = block.items.map((it, i) => ({ ...it, i })).filter((it) => !runs.has(it.i) || it.when === stateOf(runs.get(it.i)!));
+  const noted = shown.filter((it) => it.note);
   const num = new Map(noted.map((it, k) => [it.i, k + 1]));
-  const [box, paths] = useCallouts(noted.length > 0);
+  const [box, paths] = useCallouts(noted.length > 0, JSON.stringify(picked));
   // Numbers until the lines are measured, and wherever they cannot be drawn.
   const n = (i: number) => (paths ? undefined : num.get(i));
+  const codeOf = (it: (typeof shown)[number]) => (it.at && onCode ? () => onCode(it.at!, it.label, it.note) : undefined);
+  const clickable = (code?: () => void) =>
+    code
+      ? {
+          onClick: code,
+          onKeyDown: (e: React.KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), code()),
+          role: "button",
+          tabIndex: 0,
+          title: "Show the code that draws this",
+          "data-code-step": "",
+        }
+      : {};
+  const items = shown.map((it) => {
+    const run = runs.get(it.i);
+    const tabs =
+      run !== undefined && it.i === shown.find((x) => runs.get(x.i) === run)?.i ? (
+        <div key={`tabs-${it.i}`} className="-mb-1 flex flex-wrap gap-1">
+          {[...new Set(block.items.filter((_, j) => runs.get(j) === run).map((x) => x.when!))].map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => setPicked((p) => ({ ...p, [run!]: w }))}
+              className={cn(
+                "border px-1.5 py-[1px] font-mono text-[10px]",
+                w === stateOf(run!) ? "border-border-strong bg-surface-container text-ink" : "border-border-gray text-faint hover:text-on-surface-variant",
+              )}
+            >
+              {w}
+            </button>
+          ))}
+        </div>
+      ) : null;
+    const code = codeOf(it);
+    return [
+      tabs,
+      <div key={it.i} data-pick={it.label} data-thing={num.get(it.i)} {...clickable(code)} className={cn(code && "cursor-pointer transition-opacity hover:opacity-80")}>
+        <ScreenThing type={it.type} label={it.label} n={n(it.i)} />
+      </div>,
+    ];
+  });
   return (
     <div className="min-w-0">
       <Caption>{block.caption}</Caption>
@@ -638,24 +688,14 @@ function Screen({ block }: { block: Extract<Anatomy, { kind: "screen" }> }) {
             </div>
             <div className="flex flex-col gap-2 px-5 pb-5 pt-4">
               <p className="mb-1 text-[13px] font-semibold text-ink">{block.title}</p>
-              {block.items.map((it, i) => (
-                <div key={i} data-pick={it.label} data-thing={num.get(i)}>
-                  <ScreenThing type={it.type} label={it.label} n={n(i)} />
-                </div>
-              ))}
+              {items}
             </div>
           </div>
         ) : (
           <div className="w-[280px] shrink-0 rounded-[30px] border-[1.5px] border-border-strong bg-card p-3 shadow-panel">
             <div className="mx-auto mb-3 h-[5px] w-16 rounded-full bg-surface-container" />
             <p className="mb-3 px-2 text-center text-[13px] font-semibold text-ink">{block.title}</p>
-            <div className="flex flex-col gap-2 px-2 pb-3">
-              {block.items.map((it, i) => (
-                <div key={i} data-pick={it.label} data-thing={num.get(i)}>
-                  <ScreenThing type={it.type} label={it.label} n={n(i)} />
-                </div>
-              ))}
-            </div>
+            <div className="flex flex-col gap-2 px-2 pb-3">{items}</div>
           </div>
         )}
         {noted.length ? (
@@ -664,18 +704,29 @@ function Screen({ block }: { block: Extract<Anatomy, { kind: "screen" }> }) {
           // against a column of empty space. It is the explanation of the
           // screen — the main text of the block — and is typeset as such.
           <ol className="flex min-w-[280px] max-w-[760px] flex-1 flex-col gap-4 pt-10">
-            {noted.map((it, k) => (
-              <li key={it.i} data-pick={it.label} data-note={k + 1} className="flex gap-3 text-[15.5px] leading-relaxed">
-                {paths ? null : <Badge n={k + 1} />}
-                <span>
-                  <span className="font-semibold text-ink">{it.label}</span>
-                  <span className="text-on-surface-variant">
-                    {" — "}
-                    <Prose text={it.note ?? ""} />
+            {noted.map((it, k) => {
+              const code = codeOf(it);
+              return (
+                <li
+                  key={it.i}
+                  data-pick={it.label}
+                  data-note={k + 1}
+                  {...clickable(code)}
+                  className={cn("flex gap-3 text-[15.5px] leading-relaxed", code && "-mx-2 cursor-pointer px-2 transition-colors hover:bg-surface-container-low")}
+                >
+                  {paths ? null : <Badge n={k + 1} />}
+                  <span>
+                    <span className="font-semibold text-ink">{it.label}</span>
+                    {it.when ? <span className="ml-1.5 font-mono text-[11px] text-faint">{it.when}</span> : null}
+                    <span className="text-on-surface-variant">
+                      {" — "}
+                      <Prose text={it.note ?? ""} />
+                    </span>
+                    {code ? <span className="ml-1.5 font-mono text-[10.5px] text-faint">{"</>"}</span> : null}
                   </span>
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         ) : null}
         {paths ? (
@@ -712,7 +763,7 @@ function offsetIn(el: HTMLElement, box: HTMLElement) {
  * are null when there is nothing to join or the notes have wrapped under the
  * screen, which is the cue to number them instead.
  */
-function useCallouts(on: boolean) {
+function useCallouts(on: boolean, layout?: string) {
   const box = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<{ n: string; d: string; from: Pt; to: Pt }[] | null>(null);
   useLayoutEffect(() => {
@@ -742,7 +793,7 @@ function useCallouts(on: boolean) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [on]);
+  }, [on, layout]);
   return [box, on ? paths : null] as const;
 }
 

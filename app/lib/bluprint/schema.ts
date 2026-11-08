@@ -215,6 +215,10 @@ export interface ScreenItem {
   label: string;
   /** What happens or what it holds: "must be 8+ characters", "opens RSVP". */
   note?: string;
+  /** The lines that draw it, `file:start-end`: clicking it shows them. */
+  at?: string;
+  /** Shown only in this state, instead of the items beside it with another `when`: "image file", "unsaved". */
+  when?: string;
 }
 
 /**

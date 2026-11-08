@@ -355,18 +355,37 @@ const LEAVES_TOOL: Tool = {
             },
             screen: {
               type: "object",
-              description: "Only for a piece marked `may show a screen`, and only if it renders one: what a person sees on it, in order.",
+              description:
+                "Only for a piece marked `may show a screen`, and only if it draws a whole page, panel or dialog with at least 3 things of its own. A small component, a wrapper or a single control gets none: its steps explain it better. What a person sees on it, top to bottom, as this app shows it — not a generic wireframe.",
               additionalProperties: false,
               required: ["title", "items"],
               properties: {
-                title: { type: "string" },
+                title: { type: "string", description: "The screen's name as the app shows it, or a few plain words if it shows none." },
                 items: {
                   type: "array",
+                  description: "3-10 things, top to bottom, each read from the lines that draw it.",
                   items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["type", "label"],
-                    properties: { type: { type: "string", enum: ["heading", "text", "field", "choice", "button", "list", "image"] }, label: { type: "string" }, note: { type: "string" } },
+                    required: ["type", "label", "start", "end"],
+                    properties: {
+                      type: { type: "string", enum: ["heading", "text", "field", "choice", "button", "list", "image"] },
+                      label: {
+                        type: "string",
+                        description:
+                          "What a person reads there, quoted from the code: the button's own text, the placeholder, the heading, or a realistic sample of a value it shows (`Ln 12 · 175 lines · TypeScript`, `app › components › file-tab.tsx`). Never the component's name or a description of it (not \"Status bar\", \"Code editor\", \"Breadcrumb header\").",
+                      },
+                      note: {
+                        type: "string",
+                        description: "What it does or what decides it, in a few words, naming the function or value in `backticks` (\"⌘S saves via `file_write`, refused if changed on disk\"). Not how it looks. Only for the 3-6 items worth pointing at.",
+                      },
+                      when: {
+                        type: "string",
+                        description: "Only for an item shown in some states instead of another: the state, in 1-4 words (\"image file\", \"markdown file\", \"unsaved\"). Items that replace each other each get their own `when`; items always shown get none.",
+                      },
+                      start: { type: "integer", description: "First line that draws it, as numbered in the code shown." },
+                      end: { type: "integer", description: `Last line, at most ${STEP_LINES} lines after start, within the same shown range.` },
+                    },
                   },
                 },
               },
@@ -557,7 +576,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
         `# Repository: ${inv.name}`,
         `## Section: ${quick.title} — ${quick.sub}`,
         `## The pieces of code, each with its id\n${shown.join("\n\n")}`,
-        `## Task\nFor each piece: its words, and its steps — what the code does, in order, each citing lines inside that piece's shown lines.`,
+        `## Task\nFor each piece: its words, and its steps — what the code does, in order, each citing lines inside that piece's shown lines. A piece that may show a screen gets one only if it draws a whole page, panel or dialog: its items in this app's own words and values, each citing the lines that draw it.`,
       ].join("\n\n");
     };
     // A step code can place: its first line inside the leaf's code. One running past is clamped below.
@@ -596,10 +615,23 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
         .filter(Boolean)
         .slice(0, 8)
         .map((s: any, i: number) => ({ n: i + 1, ...s }));
-      const screen =
-        l.ui && y?.screen && Array.isArray(y.screen.items) && y.screen.items.length
-          ? [{ kind: "screen", title: short(String(y.screen.title ?? w.title), 40), device: "web", items: y.screen.items.filter((it: any) => typeof it?.label === "string").slice(0, 10) }]
-          : [];
+      const items = (l.ui && Array.isArray(y?.screen?.items) ? y.screen.items : [])
+        .filter((it: any) => typeof it?.label === "string")
+        .slice(0, 10)
+        .map((it: any) => {
+          const r = Number.isInteger(it.start) && Number.isInteger(it.end) ? inLeaf(l, it.start, it.end) : undefined;
+          const end = r && Math.min(it.end, r.end, it.start + STEP_LINES - 1);
+          return {
+            type: it.type,
+            label: it.label,
+            ...(typeof it.note === "string" && it.note ? { note: it.note } : {}),
+            // A tab's name: the state before any aside ("text file (non-markdown, or…)" → "text file").
+            ...(typeof it.when === "string" && it.when.trim() ? { when: cutWords(it.when.split(/[(,;:—]/)[0] || it.when, 4) } : {}),
+            ...(r ? { at: end === it.start ? `${r.file}:${it.start}` : `${r.file}:${it.start}-${end}` } : {}),
+          };
+        });
+      // Fewer than three things is a component, not a screen: its steps say more than a wireframe would.
+      const screen = items.length >= 3 ? [{ kind: "screen", title: short(String(y.screen.title ?? w.title), 40), device: "web", items }] : [];
       Object.assign(l.node, {
         title: short(w.title, 40),
         sub: short(w.sub, 60),
