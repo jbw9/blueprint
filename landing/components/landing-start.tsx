@@ -1,3 +1,4 @@
+import { LandingPromo } from "./landing-promo";
 import s from "./landing.module.css";
 
 const QUESTIONS = [
@@ -11,7 +12,17 @@ const QUESTIONS = [
   },
   {
     q: "What do I need?",
-    a: "A Mac or a Linux desktop, and Claude Code signed in with a Claude plan. Making a blueprint counts against that plan's usage, like any other Claude Code session.",
+    a: (
+      <>
+        A Mac or a Linux desktop, and Claude Code signed in with a Claude plan. Making a blueprint counts against that plan&rsquo;s usage, like any other Claude
+        Code session.
+        <LandingPromo>
+          {" "}
+          For a limited time the plan is optional: sign in with GitHub in Blueprint&rsquo;s settings, and Claude tabs and new blueprints run on Blueprint&rsquo;s
+          own Claude, up to a weekly allowance.
+        </LandingPromo>
+      </>
+    ),
   },
   {
     q: "Which languages does it read?",

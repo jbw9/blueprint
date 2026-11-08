@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- the site is a static export, which next/image cannot optimize; these are small dithered PNGs already. */
 import { LandingInstall } from "./landing-install";
+import { LandingPromo } from "./landing-promo";
 import s from "./landing.module.css";
 
 // Published under the site's base path, like the demo blueprints beside it.
@@ -55,6 +56,11 @@ export function LandingCover() {
         </p>
         <div className={s.card}>
           <LandingInstall />
+          <LandingPromo>
+            <a className={s.promo} href="#questions">
+              Claude Code included, free for a limited time <span aria-hidden>→</span>
+            </a>
+          </LandingPromo>
         </div>
       </div>
 

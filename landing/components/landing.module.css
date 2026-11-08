@@ -360,6 +360,19 @@
 .installOs {
   display: none;
 }
+/* The free Claude Code promotion, while it lasts (landing-promo.tsx): a quiet line, not a banner. */
+.promo {
+  display: inline-block;
+  margin-top: 12px;
+  color: var(--faint);
+  font: 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.2s var(--ease);
+}
+.promo:hover {
+  color: var(--ink);
+}
 .down {
   font: 12px var(--mono);
   text-transform: uppercase;
