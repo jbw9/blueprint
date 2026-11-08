@@ -169,7 +169,7 @@ The reader of this blueprint knows a little of the field and nothing of this pro
 
 `;
 function rules(): string {
-  const all = readFileSync("scripts/generate/prompts/rules.md", "utf8");
+  const all = readFileSync(process.env.SLOP_RULES ?? "scripts/generate/prompts/rules.md", "utf8");
   if (EXPLAIN_LEVEL === "full") return all;
   const from = all.indexOf("## The plain-words layer");
   const to = all.indexOf("## ", from + 3);
