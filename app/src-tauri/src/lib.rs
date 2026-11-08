@@ -4,6 +4,7 @@ mod devices;
 mod dictate;
 mod files;
 mod mcp;
+mod popup;
 mod preview;
 mod proc;
 mod pty;
@@ -30,7 +31,7 @@ pub fn run() {
             if webview.label() == "main" && matches!(load.event(), tauri::webview::PageLoadEvent::Started) {
                 let app = webview.app_handle();
                 for (label, view) in app.webviews() {
-                    if label.starts_with("browser-") {
+                    if label.starts_with("browser-") || label.starts_with(popup::PREFIX) {
                         let _ = view.close();
                     }
                 }
@@ -128,7 +129,10 @@ pub fn run() {
 /// The main window, as `tauri.conf.json` describes it (`create: false` there,
 /// so it opens only once there is a page to show).
 fn open_main(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let _window = tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?.build()?;
+    let opener = app.clone();
+    let _window = tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+        .on_new_window(move |url, features| popup::open(&opener, &url, features))
+        .build()?;
     #[cfg(target_os = "linux")]
     pinch_to_page(&_window);
     Ok(())
