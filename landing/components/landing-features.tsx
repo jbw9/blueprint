@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- the site is a static export, which next/image cannot optimize; these are small public-domain photos. */
 
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import f from "./landing-features.module.css";
 
 /**
@@ -39,12 +39,47 @@ export function Drawn({ drawing }: { drawing: Drawing }) {
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
+  // A scene that loops plays again from the start once it has finished, until a tab in it is clicked.
+  const [round, setRound] = useState(0);
+  const [held, setHeld] = useState<Drawing | null>(null);
+  useEffect(() => {
+    const s = LOOP[drawing];
+    if (!s || held === drawing) return;
+    const t = window.setTimeout(() => setRound((r) => r + 1), s * 1000);
+    return () => window.clearTimeout(t);
+  }, [drawing, round, held]);
+  // A tab marked `data-play` plays the scene again from that second and holds at `data-play-until`: a
+  // fresh scene, so every piece has its animation still to run, skipped ahead.
+  const scene = useRef<HTMLDivElement>(null);
+  const jump = useRef<{ from: number; until: number } | null>(null);
+  const go = (e: React.MouseEvent) => {
+    const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-play]");
+    if (!tab) return;
+    jump.current = { from: Number(tab.dataset.play) * 1000, until: Number(tab.dataset.playUntil) * 1000 };
+    setHeld(drawing);
+    setRound((r) => r + 1);
+  };
+  useLayoutEffect(() => {
+    const j = jump.current;
+    if (!j || !scene.current) return;
+    jump.current = null;
+    const timed = scene.current.getAnimations({ subtree: true }).filter((a) => a.effect?.getTiming().iterations !== Infinity);
+    for (const a of timed) a.currentTime = j.from;
+    const t = window.setTimeout(() => timed.forEach((a) => a.pause()), j.until - j.from);
+    return () => window.clearTimeout(t);
+  }, [round]);
   const Scene = SCENES[drawing];
   return (
     <div ref={box} aria-hidden className={f.fit}>
       {fit ? (
-        <div className={f.app} style={{ width: fit.w, height: fit.h, transform: `scale(${fit.k})` }}>
-          <Scene />
+        <div
+          ref={scene}
+          className={f.app}
+          data-held={held === drawing || undefined}
+          onClick={go}
+          style={{ width: fit.w, height: fit.h, transform: `scale(${fit.k})` }}
+        >
+          <Scene key={round} />
         </div>
       ) : null}
     </div>
@@ -695,6 +730,8 @@ const QUERY = "Ada Lovelace";
 const TO_IOS = 4;
 const TO_ANDROID = 8.2;
 const ARTICLE = 6.7;
+// The website's part, held once Claude has read it.
+const WEB_PART: [number, number] = [0, 3.6];
 const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/wiki-${name}.jpg`;
 
 function RunScene() {
@@ -718,7 +755,7 @@ function RunScene() {
               </span>
             </span>
           </Tab>
-          <Tab lit={[0, TO_IOS]} icon={<GlobeIcon />}>
+          <Tab lit={[0, TO_IOS]} go={WEB_PART} icon={<GlobeIcon />}>
             Preview
           </Tab>
         </>
@@ -764,13 +801,13 @@ function RunScene() {
         width="370px"
         tabs={
           <>
-            <WsTab lit={[0, TO_IOS]} icon={<ClaudeIcon />} dot={[0, 11]}>
+            <WsTab lit={[0, TO_IOS]} go={WEB_PART} icon={<ClaudeIcon />} dot={[0, 11]}>
               claude 1
             </WsTab>
-            <WsTab lit={[TO_IOS, TO_ANDROID]} icon={<PhoneIcon />}>
+            <WsTab lit={[TO_IOS, TO_ANDROID]} go={[TO_IOS, TO_ANDROID - 0.25]} icon={<PhoneIcon />}>
               iOS
             </WsTab>
-            <WsTab lit={[TO_ANDROID]} icon={<PhoneIcon />}>
+            <WsTab lit={[TO_ANDROID]} go={[TO_ANDROID, 13]} icon={<PhoneIcon />}>
               Android
             </WsTab>
           </>
@@ -783,7 +820,7 @@ function RunScene() {
             <div className={`${f.msg} ${f.in}`} style={at(0.4)}>
               <span className={f.ok}>⏺</span>
               <span>
-                <b>preview - navigate</b>(en.wikipedia.org/wiki/Ada_Lovelace)
+                <b>preview - navigate</b>(localhost:3000/wiki/Ada_Lovelace)
                 <br />
                 <span className={f.res}>⎿&nbsp;&nbsp;Opened in the Preview tab</span>
               </span>
@@ -866,7 +903,7 @@ function WebBar() {
       <svg viewBox="0 0 16 16" className={f.stroke}>
         <path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10" />
       </svg>
-      <span className={f.address}>en.wikipedia.org/wiki/Ada_Lovelace</span>
+      <span className={f.address}>localhost:3000/wiki/Ada_Lovelace</span>
       <span className={f.claudeBadge}>
         <i />
         Claude
@@ -1320,6 +1357,9 @@ function SearchGlyph() {
   );
 }
 
+// How long a looping scene runs, its last frame held a moment, before it starts over.
+const LOOP: Partial<Record<Drawing, number>> = { run: 13 };
+
 const SCENES: Record<Drawing, () => ReactNode> = {
   claude: ClaudeScene,
   plan: PlanScene,
@@ -1432,9 +1472,28 @@ function Project({ on, onClick, children }: { on?: boolean; onClick?: () => void
 }
 
 /** `lit`: when the tab comes to the front, and when another does. */
-function Tab({ on, lit, icon, children }: { on?: boolean; lit?: [number, number?]; icon?: ReactNode; children: ReactNode }) {
+function Tab({
+  on,
+  lit,
+  go,
+  icon,
+  children,
+}: {
+  on?: boolean;
+  lit?: [number, number?];
+  go?: [number, number];
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <span className={f.tab} data-on={on || undefined} data-lit={lit ? "" : undefined} style={lit ? at(...lit) : undefined}>
+    <span
+      className={f.tab}
+      data-on={on || undefined}
+      data-lit={lit ? "" : undefined}
+      data-play={go?.[0]}
+      data-play-until={go?.[1]}
+      style={lit ? at(...lit) : undefined}
+    >
       {icon}
       {children}
       {on ? <span className={f.x}>×</span> : null}
@@ -1470,22 +1529,34 @@ function Workspace({
   );
 }
 
-/** `dot`: when the tab's Claude starts working and when it is done. `lit`: when the tab is open, and when another is. */
+/**
+ * `dot`: when the tab's Claude starts working and when it is done. `lit`: when the tab is open, and when another is.
+ * `go`: clicked, the scene plays from the first time and holds at the second.
+ */
 function WsTab({
   on,
   lit,
+  go,
   icon,
   dot,
   children,
 }: {
   on?: boolean;
   lit?: [number, number?];
+  go?: [number, number];
   icon: ReactNode;
   dot?: [number, number];
   children: ReactNode;
 }) {
   return (
-    <span className={f.wsTab} data-on={on || undefined} data-lit={lit ? "" : undefined} style={lit ? at(...lit) : undefined}>
+    <span
+      className={f.wsTab}
+      data-on={on || undefined}
+      data-lit={lit ? "" : undefined}
+      data-play={go?.[0]}
+      data-play-until={go?.[1]}
+      style={lit ? at(...lit) : undefined}
+    >
       {icon}
       {children}
       {dot ? (

@@ -1401,6 +1401,16 @@ button.project:hover {
   flex-direction: column;
   border-right: 1px solid var(--color-border-gray);
 }
+/* The tabs a visitor can click to play that part; once they have, the pointer that clicks them on its own goes. */
+.tab[data-play],
+.wsTab[data-play] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+[data-held] .pointer,
+[data-held] .tap[data-you] {
+  display: none;
+}
 /* One tab's pane over another's, each in its own time. */
 .pane {
   position: absolute;
