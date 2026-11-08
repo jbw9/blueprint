@@ -47,7 +47,12 @@ const REPO = "jbw9/blueprint";
 const GITHUB = `https://github.com/${REPO}`;
 
 // This repo first: the demo opens on the project explaining itself.
-const DEMOS = [{ id: "blueprint", label: "Blueprint itself" }];
+const DEMOS = [
+  { id: "blueprint", label: "Blueprint itself" },
+  { id: "nanochat", label: "nanochat" },
+  { id: "whisper", label: "OpenAI Whisper" },
+  { id: "2048", label: "2048" },
+];
 
 // The same problem at every size. John Doe is the page's own voice; the other two are people the team spoke with, by role.
 const VOICES: Voice[] = [
@@ -78,7 +83,7 @@ export default function Landing() {
 
   const blueprint = loadBlueprint("blueprint");
   const first = blueprint.AUTHORED[0];
-  const config = first.children!.find((c) => c.id === "la-analytics")!;
+  const config = first.children!.find((c) => c.id === "la-tracking-visitors")!;
 
   const ctas = (
     <>
