@@ -7,7 +7,7 @@
 set -e
 
 # The admin dashboard's backend (app/scripts/api).
-API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
+API_URL=https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws
 
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
