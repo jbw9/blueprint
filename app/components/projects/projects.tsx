@@ -27,6 +27,7 @@ type Mode = "open" | "new";
 interface Asked {
   mode?: Mode;
   root?: string;
+  remake?: string;
 }
 const show = (detail: Asked) => window.dispatchEvent(new CustomEvent<Asked>(OPEN, { detail }));
 /** Opens the list; with a folder, ready to import it. */
@@ -52,6 +53,9 @@ export async function openFolder() {
 
 export const newProject = () => show({ mode: "new" });
 
+/** Asks how much the project's new blueprint should explain, then makes it again. */
+export const remakeBlueprint = (id: string) => show({ remake: id });
+
 type Listed = Project & { hasBlueprint: boolean; stale: boolean; progress?: Progress };
 interface List {
   vault: string;
@@ -70,6 +74,8 @@ export function ProjectsDialog() {
   const [error, setError] = useState<string | null>(null);
   // Confirming an Open Folder or New Project; the list alone when null.
   const [mode, setMode] = useState<Mode | null>(null);
+  // The project whose blueprint is being made again, asked from the open blueprint (components/chrome/statusbar.tsx).
+  const [remake, setRemake] = useState<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
 
   // Which blueprints were ready last time, so a run finishing refreshes the picker.
@@ -89,6 +95,7 @@ export function ProjectsDialog() {
       setLabel(asked.mode === "open" && asked.root ? folderName(asked.root) : "");
       setUrl("");
       setMode(asked.mode ?? null);
+      setRemake(asked.remake ?? null);
       setOpen(true);
       setError(null);
       void refresh();
@@ -191,6 +198,21 @@ export function ProjectsDialog() {
 
   const home = list ? homeOf(list.vault) : undefined;
 
+  if (remake) {
+    const p = list?.projects.find((x) => x.id === remake);
+    return (
+      <Overlay onClose={close}>
+        <div role="dialog" aria-label="Remake blueprint" className={cn(DIALOG, "max-w-[520px]")}>
+          {p ? (
+            <RemakeBlueprint p={p} busy={busy} error={error} onCancel={close} onRemake={(explain) => void regenerate(p.id, explain, true)} />
+          ) : (
+            <p className="px-5 py-10 text-center text-[12.5px] text-faint">{list ? "This project is no longer in Projects." : "Loading…"}</p>
+          )}
+        </div>
+      </Overlay>
+    );
+  }
+
   return (
     <Overlay onClose={close}>
       <div role="dialog" aria-label="Projects" className={cn(DIALOG, "max-w-[600px]")}>
@@ -239,7 +261,6 @@ export function ProjectsDialog() {
                       onOpen={(at) => openBlueprint(p.id, at)}
                       onRegenerate={(explain, full) => void regenerate(p.id, explain, full)}
                       onCancel={() => void act({ action: "cancel", id: p.id })}
-                      onPause={(paused) => void act({ action: "pause", id: p.id, paused })}
                       onRemove={() => void remove(p.id)}
                     />
                   ))}
@@ -561,6 +582,52 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (on: boolean) 
   );
 }
 
+/** The open blueprint's Remake…: how much the new one explains, then the whole run again. */
+function RemakeBlueprint({
+  p,
+  busy,
+  error,
+  onCancel,
+  onRemake,
+}: {
+  p: Listed;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onRemake: (explain: Explain) => void;
+}) {
+  const [understand, setUnderstand] = useState(() => Math.max(0, UNDERSTAND.findIndex((u) => u.explain === (p.explain ?? "full"))));
+  const generating = p.blueprint.status === "generating";
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onRemake(UNDERSTAND[understand].explain);
+      }}
+      className="flex min-h-0 flex-col"
+    >
+      <header className="border-b border-border-gray px-5 py-3">
+        <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">Remake the blueprint of {p.name}</h2>
+        <p className="mt-0.5 text-[12.5px] text-muted-slate">Every level is written again from the code as it is now.</p>
+      </header>
+      <div className="px-5 py-5">
+        <Understanding value={understand} onChange={setUnderstand} />
+      </div>
+      <footer className="flex items-center justify-end gap-2 border-t border-border-gray bg-surface px-5 py-3">
+        <p className={cn("mr-auto text-[12.5px]", error ? "text-clay-ink" : "text-muted-slate")}>
+          {error ?? (generating ? "A blueprint of this project is being made now." : "About 20 min with your Claude Code, on your plan.")}
+        </p>
+        <button type="button" onClick={onCancel} className={QUIET}>
+          Cancel
+        </button>
+        <button type="submit" disabled={busy || generating} className={PRIMARY}>
+          {busy ? "Starting…" : "Remake blueprint"}
+        </button>
+      </footer>
+    </form>
+  );
+}
+
 const minutes = (from: string) => Math.max(1, Math.round((Date.now() - Date.parse(from)) / 60000));
 
 /** What the run is doing before any root exists; once they do, the list below says it. */
@@ -623,7 +690,6 @@ function ProjectRow({
   onOpen,
   onRegenerate,
   onCancel,
-  onPause,
   onRemove,
 }: {
   p: Listed;
@@ -633,7 +699,6 @@ function ProjectRow({
   onOpen: (at?: string) => void;
   onRegenerate: (explain: Explain, full?: boolean) => void;
   onCancel: () => void;
-  onPause: (paused: boolean) => void;
   onRemove: () => void;
 }) {
   // What opens under the row: making the blueprint (again), or confirming removal,
@@ -650,10 +715,8 @@ function ProjectRow({
   if (openable) items.push({ label: "Open", onClick: () => onOpen() });
   if (generating) items.push({ label: "Cancel blueprint", onClick: onCancel, disabled: busy });
   else {
-    if (status === "ready") items.push({ label: "Update blueprint to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
     if (status === "failed" || status === "cancelled") items.push({ label: "Retry blueprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    items.push({ label: p.hasBlueprint ? "Remake blueprint…" : "Make a blueprint…", onClick: () => setPanel("make") });
-    if (p.hasBlueprint) items.push({ label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint", onClick: () => onPause(!p.paused), disabled: busy });
+    if (!p.hasBlueprint) items.push({ label: "Make a blueprint…", onClick: () => setPanel("make") });
   }
   items.push({ label: "Remove from Projects…", onClick: () => setPanel("remove"), separated: true });
 
@@ -727,11 +790,11 @@ function ProjectRow({
               disabled={busy}
               onClick={() => {
                 setPanel(null);
-                onRegenerate(UNDERSTAND[understand].explain, p.hasBlueprint);
+                onRegenerate(UNDERSTAND[understand].explain);
               }}
               className={PRIMARY}
             >
-              {p.hasBlueprint ? "Remake blueprint" : "Make blueprint"}
+              Make blueprint
             </button>
           </div>
         </div>

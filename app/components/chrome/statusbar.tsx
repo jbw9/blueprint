@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Kbd, keys } from "@/components/ui/button";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openReview } from "@/components/review/diff";
 import { openFiles, useFiles } from "@/components/blueprint/files";
 import { openPalette } from "@/components/chrome/palette";
-import { openProjects } from "@/components/projects/projects";
+import { openProjects, remakeBlueprint } from "@/components/projects/projects";
+import { Menu, type MenuItem } from "@/components/ui/menu";
+import { projectAction } from "@/lib/client/api";
+import { claudePath } from "@/lib/client/claude";
+import type { Explain } from "@/lib/server/vault";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import type { Node } from "@/lib/blueprint/schema";
@@ -26,6 +30,7 @@ import { useMac } from "@/lib/client/platform";
 export function StatusBar() {
   const { name, blueprints, RUN, L0, TOP } = useBlueprint();
   const local = blueprints.some((m) => m.id === name && m.local);
+  const [project, reread] = useProject(name, local);
 
   const problems = useMemo(() => {
     let problems = 0;
@@ -45,13 +50,14 @@ export function StatusBar() {
 
   return (
     <footer data-chrome="bar" className="flex h-6 shrink-0 select-none items-center gap-0.5 border-t border-border-gray bg-surface-container-low px-2 text-[11.5px] text-muted-slate">
-      <Item title="The commit this blueprint describes" mono>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-          <circle cx="8" cy="8" r="2.5" />
-          <path d="M1 8h4.5M10.5 8H15" />
-        </svg>
-        {RUN.commit?.slice(0, 7) ?? "no commit"}
-      </Item>
+      {project ? (
+        <BlueprintMenu id={name} commit={RUN.commit?.slice(0, 7)} p={project} onChanged={reread} />
+      ) : (
+        <Item title="The commit this blueprint describes" mono>
+          <CommitIcon />
+          {RUN.commit?.slice(0, 7) ?? "no commit"}
+        </Item>
+      )}
       {files?.added.length ? (
         <Item title="Files added since the blueprint was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
           {files.added.length} not on the blueprint yet
@@ -64,7 +70,7 @@ export function StatusBar() {
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <BlueprintUpdates key={name} id={name} root={RUN.root} local={local} />
+      <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
@@ -106,6 +112,117 @@ function CreditLeft() {
   );
 }
 
+function CommitIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <circle cx="8" cy="8" r="2.5" />
+      <path d="M1 8h4.5M10.5 8H15" />
+    </svg>
+  );
+}
+
+/** The open project as the vault has it (app/api/projects/route.ts, GET with an id). */
+interface ProjectState {
+  status: "empty" | "generating" | "ready" | "failed" | "cancelled";
+  paused: boolean;
+  explain: Explain;
+  update: Update | null;
+  redoing?: string[];
+}
+
+/**
+ * Follows the open project every 2 seconds, for its updates and for what its
+ * blueprint menu offers. Only the user's own projects: an example is no project.
+ * The second value reads it again at once, after an action changed it.
+ */
+function useProject(id: string, local: boolean): [ProjectState | null, () => void] {
+  const [got, setGot] = useState<{ id: string; p: ProjectState | null } | null>(null);
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    if (!local) return;
+    let live = true;
+    const read = () =>
+      fetch(`/api/projects?id=${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((p: ProjectState | null) => live && setGot({ id, p }))
+        .catch(() => {});
+    void read();
+    const timer = setInterval(read, 2000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [id, local, asked]);
+  const reread = useCallback(() => setAsked((n) => n + 1), []);
+  return [local && got?.id === id ? got.p : null, reread];
+}
+
+/**
+ * The commit the blueprint describes, and what to do with the blueprint itself:
+ * bring it up to the code, make it again, or stop it following the code. They
+ * act on the blueprint that is open, so they are here rather than in Projects.
+ */
+function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: string; p: ProjectState; onChanged: () => void }) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (body: () => Promise<Record<string, unknown>>) => {
+    setError(null);
+    try {
+      await projectAction(await body());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    onChanged();
+  };
+  const generating = p.status === "generating";
+  const updating = p.update?.status === "running";
+  const items: MenuItem[] = [
+    {
+      label: "Update blueprint to the code",
+      disabled: generating || updating || p.status !== "ready",
+      onClick: () => void run(async () => ({ action: "regenerate", id, claude: await claudePath(), explain: p.explain })),
+    },
+    { label: "Remake blueprint…", disabled: generating, onClick: () => remakeBlueprint(id) },
+    {
+      label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint",
+      disabled: generating,
+      separated: true,
+      onClick: () => void run(async () => ({ action: "pause", id, paused: !p.paused })),
+    },
+  ];
+  return (
+    <>
+      <Item
+        title={`The commit this blueprint describes${p.paused ? ". It no longer follows the code" : ""}. Update, remake, or stop updating it`}
+        menu={Boolean(at)}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAt(at ? null : { x: r.left, y: r.top - 4 });
+        }}
+        className="mr-1 border-x border-border-gray text-ink"
+      >
+        <CommitIcon />
+        <span className="font-medium">Blueprint</span>
+        <span className="font-mono text-[11px] text-muted-slate">{commit ?? "no commit"}</span>
+        {p.paused ? <span className="text-amber-ink">· updates off</span> : null}
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-muted-slate">
+          <path d="m1.5 5 2.5-2.5L6.5 5" />
+        </svg>
+      </Item>
+      {at ? <Menu x={at.x} y={at.y} up title={`Blueprint at ${commit ?? "no commit"}`} items={items} onClose={() => setAt(null)} /> : null}
+      {error ? (
+        <Item title={`${error} Click to dismiss.`} onClick={() => setError(null)} className="min-w-0 text-clay-ink">
+          <span className="truncate">✗ {error}</span>
+        </Item>
+      ) : null}
+    </>
+  );
+}
+
+/** The one thing to do about what the bar says, filled so it reads as a button and not a note. */
+const BAR_ACTION =
+  "flex h-[18px] shrink-0 cursor-pointer items-center bg-accent px-2 font-sans text-[11px] font-medium text-on-accent hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
+
 /** A key, sized to the bar. */
 const KEY = "h-[15px] min-w-[15px] text-[10px]";
 
@@ -113,12 +230,15 @@ function Item({
   children,
   title,
   onClick,
+  menu,
   mono,
   className,
 }: {
   children: React.ReactNode;
   title: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Opens a menu; true while it is open. */
+  menu?: boolean;
   mono?: boolean;
   className?: string;
 }) {
@@ -126,10 +246,11 @@ function Item({
     "flex h-full shrink-0 items-center gap-1.5 px-1.5",
     mono && "font-mono text-[11px]",
     onClick && "cursor-pointer hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+    menu && "bg-surface-container text-ink",
     className,
   );
   return onClick ? (
-    <button type="button" title={title} onClick={onClick} className={cls}>
+    <button type="button" title={title} onClick={onClick} aria-haspopup={menu === undefined ? undefined : "menu"} aria-expanded={menu} className={cls}>
       {children}
     </button>
   ) : (
@@ -183,8 +304,8 @@ export function useRedoing(): string[] {
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
-function BlueprintUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
-  const [u, setU] = useState<Update | null>(null);
+function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: string; local: boolean }) {
+  const u = p?.update ?? null;
   const [unfollowed, setUnfollowed] = useState(false);
 
   useEffect(() => {
@@ -196,26 +317,16 @@ function BlueprintUpdates({ id, root, local }: { id: string; root?: string; loca
   const seen = useRef<string | undefined>(undefined);
   const [fresh, setFresh] = useState(false);
 
+  const first = useRef(true);
   useEffect(() => {
-    if (!local) return;
-    let first = true;
-    const tick = () =>
-      fetch(`/api/projects?id=${encodeURIComponent(id)}`)
-        .then((r) => r.json())
-        .then((p: { update: Update | null; redoing?: string[] } | null) => {
-          const next = p?.update ?? null;
-          setU(next);
-          setRedoing(next?.status === "running" ? (p?.redoing ?? []) : []);
-          const done = next?.status !== "running" ? next?.finishedAt : undefined;
-          if (!first && done && done !== seen.current) setFresh(true);
-          if (done) seen.current = done;
-          first = false;
-        })
-        .catch(() => {});
-    void tick();
-    const timer = setInterval(tick, 2000);
-    return () => (clearInterval(timer), setRedoing([]));
-  }, [id, local]);
+    if (!p) return;
+    setRedoing(u?.status === "running" ? (p.redoing ?? []) : []);
+    const done = u?.status !== "running" ? u?.finishedAt : undefined;
+    if (!first.current && done && done !== seen.current) setFresh(true);
+    if (done) seen.current = done;
+    first.current = false;
+  }, [p, u]);
+  useEffect(() => () => setRedoing([]), []);
 
   const { live } = useBlueprint();
   const behind = local ? (live?.files ?? []) : [];
@@ -266,11 +377,7 @@ function BlueprintUpdates({ id, root, local }: { id: string; root?: string; loca
           Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
  · blueprint follows on commit
         </span>
-        <button
-          type="button"
-          onClick={follow}
-          className="shrink-0 cursor-pointer text-accent underline"
-        >
+        <button type="button" onClick={follow} className={BAR_ACTION}>
           Update now
         </button>
       </span>
@@ -292,6 +399,11 @@ function BlueprintUpdates({ id, root, local }: { id: string; root?: string; loca
             ? "✗ Blueprint update failed"
             : `✓ Blueprint updated: ${u.sections!.join(", ")}`}
       </span>
+      {u.status === "failed" && root ? (
+        <button type="button" onClick={follow} className={BAR_ACTION}>
+          Retry
+        </button>
+      ) : null}
       {u.status === "done" ? (
         <button type="button" onClick={() => (setFresh(false), openReview("turn:latest"))} className="shrink-0 cursor-pointer underline">
           see what changed
