@@ -23,7 +23,8 @@ rm -rf "$next"
 clone() { if [ "$os" = Darwin ]; then cp -ca "$@"; else cp -a --reflink=auto "$@"; fi; }
 mkdir -p "$next"
 # The last snapshot's build caches, so next build only redoes what changed.
-for f in "$snap/.next" "$snap"/*.tsbuildinfo; do
+if [ -d "$snap/.next/cache" ]; then mkdir -p "$next/.next" && clone "$snap/.next/cache" "$next/.next/"; fi
+for f in "$snap"/*.tsbuildinfo; do
   if [ -e "$f" ]; then clone "$f" "$next/"; fi
 done
 # The checkout, minus the Rust side and its own build output.
@@ -32,6 +33,21 @@ for f in ./* ./.[!.]*; do
   if [ -e "$f" ]; then clone "$f" "$next/"; fi
 done
 (cd "$next" && node node_modules/next/dist/bin/next build)
+# The build links .next/node_modules to packages by absolute path (junctions on Windows can be
+# nothing else), so they would point into server-next after the swap. They point into server now.
+node -e '
+const fs = require("fs"), path = require("path");
+const [next, snap] = process.argv.slice(1).map((p) => path.resolve(p));
+const dir = path.join(next, ".next", "node_modules");
+if (fs.existsSync(dir)) for (const name of fs.readdirSync(dir)) {
+  const link = path.join(dir, name);
+  if (!fs.lstatSync(link).isSymbolicLink()) continue;
+  const rel = path.relative(next, path.resolve(dir, fs.readlinkSync(link)));
+  if (rel.startsWith("..") || path.isAbsolute(rel)) continue;
+  fs.unlinkSync(link);
+  fs.symlinkSync(path.join(snap, rel), link, "junction");
+}
+' "$next" "$snap"
 # The Node and PATH of this shell, minus the node_modules folders npm puts first, for a Bluprint
 # opened from Finder. `command -v`, not process.execPath: Homebrew's resolves to a versioned
 # Cellar path that its next upgrade deletes.
