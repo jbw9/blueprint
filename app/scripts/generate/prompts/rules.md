@@ -7,14 +7,14 @@ The reader is a developer who has to *explain* this system under questioning: wh
 ## Honesty, which overrides everything else
 
 - **Three states, never two.** Every node is `derived`, `partial` or `inferred`.
-  - `derived`: you read it in the code you were given.
+  - `derived`: the code shows it, as you were given it.
   - `partial`: you found it, but part of the answer is not in this repo (an external service, a database schema that isn't checked in, config injected at deploy time).
   - `inferred`: a judgement from naming or layout.
   - Whenever the state is not `derived`, `unsure` says why in plain words.
-  - Before calling anything unknown, look for it: grep the whole repository (config, CI workflows, other roots' code) and the installed source of the dependency it hinges on. You can read all of it.
-  - Not reasons to be unsure: code another root explains (read it, or point a box at that root); behaviour that varies with the user's machine when the code shows what it does (say what it does: "needs `idb` on PATH"); a check the code doesn't make (that is a fact, or an issue).
+  - Before calling anything unknown, look for it with the tools you have: other roots' code, config, CI workflows.
+  - Not reasons to be unsure: code another root explains (look it up, or point a box at that root); behaviour that varies with the user's machine when the code shows what it does (say what it does: "needs `idb` on PATH"); a check the code doesn't make (that is a fact, or an issue).
   - Missing analysis must never look like confident empty space.
-- **Every claim cites real lines.** Every node has `code` refs: file plus 1-indexed inclusive line range, with a plain label saying what those lines do. Cite the lines that prove the node's `detail`, not the file header.
+- **Every claim cites real lines.** Every node has `code` refs: file plus 1-indexed inclusive line range (or a graph id, which is filled in), with a plain label saying what those lines do. Cite the lines that prove the node's `detail`, not the file header.
 - **Every arrow is a real path.** Draw an arrow in a `diagram` only where the code really goes from one thing to the other: a call, a redirect, a write, a read, a navigation. Its `at` is the `file:line` where that happens; where the graph has that call, leave `at` out and it is filled with the call's line. Its `label` is a few words (at most 24 characters): "tap", "reads rsvp", "redirects". An arrow you cannot cite is an arrow you must not draw. A dead end or broken path is drawn with `tone: "warn"`, not left out.
 - **Order is a claim.** `group: {ordering: "sequence"}` only when the children really happen in that order for one run. Otherwise use `set` with a `note` saying why they belong together.
 - **Don't invent.** If the repo doesn't say, the bluprint doesn't say. Name the gap in `unsure` or as an issue.
@@ -35,7 +35,7 @@ The reader is a developer who has to *explain* this system under questioning: wh
     Add a second block only when it shows something the first cannot: the stored value a `flow` writes as an `example`, say.
   - **Every step of a leaf's `flow` and every message of its `sequence` cites the lines it happens on** in `at`, as `file:start-end`: the few lines (at most 40) where that one step is done, not the whole function. The reader clicks a step to see exactly those lines, so the code arrives attached to the sentence that explains it. They are usually inside the leaf's own `code`; a step that happens in code another part explains (the other side of a race, say) cites that code.
   - The reader sees code only on a leaf; above it, `code` refs back the claims but are not shown. So when a node would cite several separate things (five route handlers, a form and the endpoint it posts to, a writer and a reader), each is its own leaf, and the node is a level whose diagram opens them. Never stop at a node that summarises several parts and hands over all their code at once.
-- **Every part of the code is reachable.** Each top-level function, component, type, route or handler (more than 3 lines) in the files a root owns is opened by some leaf's `code` or some step's `at`. A reader looking for any of them must be able to get there by clicking down. Small related ones (a type and its helpers, three tiny formatters) may share a leaf.
+- **Every part of the code is reachable.** Each top-level function, component, type, route or handler the task asks you to cover is opened by some leaf's `code` or some step's `at`. A reader looking for any of them must be able to get there by clicking down. Small related ones (a type and its helpers, three tiny formatters) may share a leaf.
 - **Depth belongs to the branch.**
   - Most roots go 2–3 levels: root → parts → the piece of code each part is.
   - Go one level deeper when a part is itself several pieces of code, including when that is what it takes to reach every symbol. Don't pad a branch with a level that says nothing new.
@@ -51,25 +51,11 @@ The level itself, `node` open:
    - On a leaf, say what the code is for and what depends on it: who calls it, what it guards, what breaks if it is wrong. Its blocks already walk the lines; the detail must not retell them.
 4. `anatomy`: blocks drawn as the thing they describe. Use whichever fit; a level with parts has its diagram and at most two more, a leaf at most two and no diagram:
    - A block's `caption` is a heading over it: **at most 5 words**, naming what the picture shows, not a sentence explaining it. Good: "How the roots connect", "Who writes the guest list", "Dietary options". Bad: "The seven roots and how the code connects them", "Calls made, from opening the list to one check-in tap". What the picture means belongs in `detail`; an `example` may add " — " and a few words on which example it is ("events.rsvp — two students").
-   - `diagram`: how the pieces connect. This is the main picture of a level.
-     - Boxes sit on a grid (`col` left to right, `row` top to bottom, from 0). Never put two boxes in one cell. Keep it to about 5 columns and about 10 boxes.
-     - A box is a thing at runtime ("users table", "Login screen", "Stripe webhook"). Its `sub` is a few words (about 25 characters at most): "row with this id", not a sentence — a long sub widens its whole column.
-     - The checker lays the picture out as the page will and rejects one that is too wide to read, has a label drawn on another label or a box, or a line through a box it does not connect. Fix those by rearranging: put boxes an arrow joins next to each other, use more rows and fewer columns, and do not run an arrow across a box in between.
-     - A box that a child explains carries `opens: "<child id>"`, which makes the picture the way down. Every child has a box that opens it.
-     - A box's `label` is the shortest name for the thing (1–2 words: "Cut", "Verify", "Login"), not the child's full title; the box already leads to the title. When another block on the level (a `table`, `flow`, `facts`) names the same things, it uses exactly the same names as the boxes, so the reader can match a row to its box.
-     - A box with no `opens` is scenery: something this level does not explain — the user, a browser, a database table, an outside service, or code another root explains. A box for code in this root that has no child is a part the reader cannot reach: give it a child, or leave it out.
-     - A scenery box for code in this repository (another root's, or a shared module) gives `ref`: that code's `file:line`, its definition. The page opens the section that explains it, so the box leads somewhere even though this level does not explain it.
+   - `diagram`: how the pieces connect, the main picture of a level and the way down: every child has a box that `opens` it, and every other box is scenery. Its box and arrow rules are on `DiagramBox` and `DiagramArrow` in the types.
    - **How to add one.** When a root's code has a place a developer adds to — a list of routes, commands, handlers or plugins, a registry, an interface each kind implements, a table of options — the root's own level has a `flow` captioned "Adding a <thing>" (a new route, a new command): the steps a developer takes, in order, each citing in `at` the existing lines to copy or add beside (the registry entry, the interface, the place it is wired in). A root with no such place has none.
    - `sequence`: who talks to whom, in order. Every `from`/`to` must be one of `actors`.
    - `table`: real values, such as the categories, the env vars, the fields a form sends, the routes. Every row must have exactly as many cells as `columns`.
-   - `screen`: what a user sees on one screen, as `items` top to bottom, read from the JSX or template. No `shot`.
-     - `device` is what it runs on: `phone` for a mobile app's screen, `web` for a page in a browser. The brief says which this repo has; never default to `phone`.
-     - A `web` screen gives `route`, the URL path it is at (`/settings/billing`, `/invite/[token]`), when the code shows it — a URL, never a file path.
-     - An item's `label` is what a person reads there, quoted from the code: the button's text, the placeholder, the heading, or a realistic sample of a value it shows (`Ln 12 · 175 lines · TypeScript`). Never the component's name or a description of it ("Status bar", "Code editor"): those make every app's screen look alike.
-     - An item's `note` is drawn beside the screen with a line to the item: what it does or what decides it, in a few words ("opens the wizard", "must be 8+ characters", "⌘S saves via `file_write`"), not how it looks. Give a note only to the items worth pointing at, about 3–6; an item that explains itself gets none.
-     - An item's `at` is the `file:start-end` that draws it, so clicking it shows that code.
-     - An item shown only in some states, instead of another, gives `when`: the state in 1–4 words ("image file", "unsaved"). Items that replace each other each get their own `when`; they are drawn as switchable variants, not stacked.
-     - Only a whole page, panel or dialog with at least 3 things of its own gets a screen. A small component's `flow` explains it better.
+   - `screen`: what a user sees on one page, panel or dialog, as `items` top to bottom, read from the JSX or template and quoted from it, never described. `device` is the one the brief names; never default to `phone`. Its item rules are on `ScreenItem` in the types.
    - `example`: what a stored value or payload looks like. It is labelled as an example, synthesized from the code.
    - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`bluprint.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
    - `flow` (numbered steps), `facts` (label/value pairs), `chips` (a closed set), `map` (in → out rules), `schema` (table columns), `routes` (HTTP routes).

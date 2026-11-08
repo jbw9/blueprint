@@ -212,12 +212,27 @@ export interface Walkthrough {
  */
 export interface ScreenItem {
   type: "heading" | "text" | "field" | "choice" | "button" | "list" | "image";
+  /**
+   * What a person reads there, quoted from the code: the button's text, the
+   * placeholder, the heading, or a realistic sample of a value it shows
+   * (`Ln 12 · 175 lines · TypeScript`). Never the component's name or a
+   * description of it ("Status bar"): those make every app's screen look alike.
+   */
   label: string;
-  /** What happens or what it holds: "must be 8+ characters", "opens RSVP". */
+  /**
+   * Drawn beside the screen with a line to the item: what it does or what
+   * decides it, in a few words ("opens the wizard", "must be 8+ characters"),
+   * not how it looks. Only the 3–6 items worth pointing at; an item that
+   * explains itself gets none.
+   */
   note?: string;
   /** The lines that draw it, `file:start-end`: clicking it shows them. */
   at?: string;
-  /** Shown only in this state, instead of the items beside it with another `when`: "image file", "unsaved". */
+  /**
+   * Shown only in this state, in 1–4 words: "image file", "unsaved". Items that
+   * replace each other each get their own `when`, and are drawn as switchable
+   * variants, not stacked.
+   */
   when?: string;
 }
 
@@ -278,12 +293,23 @@ export interface Issue {
  * A box in a `diagram`, placed on a grid: `col` left to right, `row` top to
  * bottom, both from 0. The renderer does the geometry, so a figure is authored
  * as WHAT connects to what, never as coordinates.
+ *
+ * A box is a thing at runtime ("users table", "Login screen", "Stripe
+ * webhook"). Never two in one cell; keep to about 5 columns and 10 boxes. The
+ * checker lays the picture out as the page will and rejects one too wide to
+ * read, with a label drawn on another label or a box, or with a line through a
+ * box it does not connect: put boxes an arrow joins next to each other, use
+ * more rows and fewer columns, and do not run an arrow across a box between.
  */
 export interface DiagramBox {
   id: string;
-  /** 1-4 words. */
+  /**
+   * The shortest name for the thing, 1-2 words ("Cut", "Verify", "Login"), not
+   * the child's full title: the box already leads to that. Another block on the
+   * level naming the same things (a table, a flow) uses exactly these names.
+   */
   label: string;
-  /** A few words under the label: "row with this id". */
+  /** A few words, about 25 characters at most: "row with this id". A long sub widens its whole column. */
   sub?: string;
   col: number;
   row: number;
@@ -299,6 +325,11 @@ export interface DiagramBox {
    * table`), a part is a chapter about it (`Checking Who You Are`). So the
    * link is authored, never matched on the label, and a box with no `opens`
    * stays inert scenery rather than promising a click it cannot honour.
+   *
+   * Every child has a box that opens it. Scenery is what this level does not
+   * explain: the user, a browser, a database table, an outside service, or code
+   * another root explains. A box for code in this root with no child is a part
+   * the reader cannot reach: give it a child, or leave it out.
    */
   opens?: string;
   /**
@@ -312,7 +343,7 @@ export interface DiagramBox {
 export interface DiagramArrow {
   from: string;
   to: string;
-  /** A few words on the line: "not found", "publishes". */
+  /** A few words on the line, at most 24 characters: "tap", "reads rsvp", "not found". */
   label?: string;
   tone?: "plain" | "good" | "warn";
   /**
@@ -344,7 +375,9 @@ export type Anatomy =
   // `device` is what the screen runs on, from the app's own framework: a
   // mobile app's (React Native, Expo, Flutter) is `phone`, a page in a
   // browser is `web`; absent reads as `web`. `route` is the URL path a web
-  // screen lives at ("/settings/billing"), never a file path.
+  // screen lives at ("/settings/billing"), never a file path. Only a whole
+  // page, panel or dialog with at least 3 things of its own gets a screen; a
+  // small component's `flow` explains it better.
   | { kind: "screen"; title: string; caption?: string; device?: "phone" | "web"; route?: string; items: ScreenItem[] }
   // What a stored value looks like. Synthesized and labelled as an example.
   | { kind: "example"; caption: string; value: string; notes?: Pair[] }

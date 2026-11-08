@@ -9,6 +9,9 @@
 import type { Tool } from "./bedrock";
 import { unparsedSource, type Def, type Edge, type Graph } from "./graph";
 
+/** The one rule for a link the graph cannot follow, said the same way in every prompt that draws arrows. */
+export const INFERRED_RULE = "Where two parts connect in a way the graph cannot follow (a decorator, a callback, an event, a queue, a framework, the network), you may still draw the arrow, marked `inferred: true`, with `at` the line that wires it.";
+
 export const GRAPH_TOOLS: Tool[] = [
   {
     name: "graph_find",
