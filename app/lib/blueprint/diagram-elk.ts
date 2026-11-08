@@ -70,7 +70,7 @@ const LABEL_OPTS = { "elk.edgeLabels.inline": "true", "elk.edgeLabels.placement"
 
 type Edge = { from: string; to: string; tone: Tone; fwd: string; back: string; both: boolean };
 type Label = Rect & { lines: string[] };
-type Routed = { e: Edge; from: string; to: string; pts: Pt[]; label: Label | null; heads: { start: boolean; end: boolean } };
+type Routed = { e: Edge; from: string; to: string; pts: Pt[]; label: Label | null; heads: { start: boolean; end: boolean }; fixed?: boolean };
 type Stack = { id: string; parent: string; out: boolean; items: { e: Edge; leaf: string; label: Label; w: number }[]; branch: number; w: number; h: number };
 type Opts = { stack: boolean; wrapLabels: boolean; elk: Record<string, string>; stackEdge?: boolean };
 type Layout = { placed: LaidBox[]; routed: Routed[]; W: number; H: number; score: number; order: string[]; opts: Opts };
@@ -304,17 +304,70 @@ async function layoutOnce(elk: Elk, ctx: Ctx, order: string[], opts: Opts) {
     });
     if (g.out) {
       const last = rows.at(-1)!;
-      routed.push({ e: last.it.e, from: g.parent, to: last.it.leaf, pts: [...pts, { x: tx, y: last.cy }, { x: lx, y: last.cy }], label: lab(last), heads: { start: false, end: true } });
+      routed.push({ e: last.it.e, from: g.parent, to: last.it.leaf, pts: [...pts, { x: tx, y: last.cy }, { x: lx, y: last.cy }], fixed: true, label: lab(last), heads: { start: false, end: true } });
       for (const row of rows.slice(0, -1))
-        routed.push({ e: row.it.e, from: g.parent, to: row.it.leaf, pts: [{ x: tx, y: row.cy }, { x: lx, y: row.cy }], label: lab(row), heads: { start: false, end: true } });
+        routed.push({ e: row.it.e, from: g.parent, to: row.it.leaf, pts: [{ x: tx, y: row.cy }, { x: lx, y: row.cy }], fixed: true, label: lab(row), heads: { start: false, end: true } });
     } else {
       const first = rows[0];
-      routed.push({ e: first.it.e, from: first.it.leaf, to: g.parent, pts: [{ x: lx, y: first.cy }, { x: tx, y: first.cy }, ...pts], label: lab(first), heads: { start: false, end: true } });
+      routed.push({ e: first.it.e, from: first.it.leaf, to: g.parent, pts: [{ x: lx, y: first.cy }, { x: tx, y: first.cy }, ...pts], fixed: true, label: lab(first), heads: { start: false, end: true } });
       for (const row of rows.slice(1))
-        routed.push({ e: row.it.e, from: row.it.leaf, to: g.parent, pts: [{ x: lx, y: row.cy }, { x: tx, y: row.cy }], label: lab(row), heads: { start: false, end: false } });
+        routed.push({ e: row.it.e, from: row.it.leaf, to: g.parent, pts: [{ x: lx, y: row.cy }, { x: tx, y: row.cy }], fixed: true, label: lab(row), heads: { start: false, end: false } });
     }
   });
+  straighten(placed, routed);
   return { placed, routed, W: out.width ?? 0, H: out.height ?? 0 };
+}
+
+const JOG = 24;
+
+/**
+ * Straight lines where ELK draws steps. A line that steps across between two
+ * boxes that overlap side to side runs straight down where they overlap. And
+ * ELK spreads the lines leaving one side of a box along that side, then steps
+ * each over to its own channel, which leaves a small kink just outside the
+ * box: where the box edge has room, the line leaves straight down its channel.
+ * A change is kept only where the new line meets no box, label or other line's
+ * end. A stack's lines are drawn by hand.
+ */
+function straighten(placed: LaidBox[], routed: Routed[]) {
+  const at = new Map(placed.map((p) => [p.b.id, p]));
+  const ends = (o: Routed) => [o.pts[0], o.pts.at(-1)!];
+  const inside = (box: LaidBox | undefined, x: number) => Boolean(box) && x >= box!.x + 8 && x <= box!.x + box!.w - 8;
+  const crowded = (r: Routed, x: number, y: number) =>
+    routed.some((o) => o !== r && ends(o).some((q) => Math.abs(q.y - y) < 1 && Math.abs(q.x - x) < 10));
+  const vertical = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 0.5;
+  for (const r of routed) {
+    if (r.fixed) continue;
+    const [p0, p1, p2, p3] = r.pts;
+    if (r.pts.length === 4 && vertical(p0, p1) && !vertical(p1, p2) && vertical(p2, p3)) {
+      const from = at.get(r.from), to = at.get(r.to);
+      const x = inside(from, p3.x) ? p3.x : inside(to, p0.x) ? p0.x : null;
+      if (x !== null && !crowded(r, x, p0.y) && !crowded(r, x, p3.y)) {
+        const a = { x, y: p0.y }, b = { x, y: p3.y };
+        const blocked =
+          placed.some((p) => p !== from && p !== to && segHitsRect(a, b, p, 2)) ||
+          routed.some((o) => o !== r && o.label && segHitsRect(a, b, o.label, 1));
+        if (!blocked) {
+          r.pts = [a, b];
+          if (r.label) r.label.x = x - r.label.w / 2;
+          continue;
+        }
+      }
+    }
+    for (const first of [true, false]) {
+      const pts = first ? r.pts : [...r.pts].reverse();
+      if (pts.length < 4) continue;
+      const [q0, q1, q2, q3] = pts;
+      if (!vertical(q0, q1) || Math.abs(q1.y - q2.y) > 0.5 || !vertical(q2, q3)) continue;
+      const dx = q2.x - q1.x;
+      if (Math.abs(dx) < 0.5 || Math.abs(dx) > JOG) continue;
+      if (!inside(at.get(first ? r.from : r.to), q2.x) || crowded(r, q2.x, q0.y)) continue;
+      const l = r.label;
+      if (l && Math.abs(l.x + l.w / 2 - q0.x) < 1 && l.y + l.h / 2 > Math.min(q0.y, q1.y) && l.y + l.h / 2 < Math.max(q0.y, q1.y)) l.x += dx;
+      const out = [{ x: q2.x, y: q0.y }, ...pts.slice(3)];
+      r.pts = first ? out : out.reverse();
+    }
+  }
 }
 
 const segs = (r: Routed) => r.pts.slice(1).map((p, i) => [r.pts[i], p] as const);
@@ -423,7 +476,8 @@ function score(L: Omit<Layout, "score" | "order" | "opts">, lone: DiagramBox[], 
     labelIssues(L.placed, L.routed) * 1000 +
     up * 150 +
     crossings(L.routed) * 250 +
-    bends(L.routed) * 3 +
+    bends(L.routed) * 14 +
+    L.routed.filter((r) => r.label && !r.e.both && r.label.lines.length > 1).length * 25 +
     len / 100 +
     Math.max(0, L.W - MAX_W) * 3 +
     Math.max(0, H - MAX_H) * 2 +
