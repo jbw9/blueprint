@@ -6,6 +6,8 @@
 # builds from source where there is none, or with BLUEPRINT_FROM_SOURCE=1. Running this again updates.
 # A build from source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it).
 # When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
+# In a terminal each step is one line with a spinner, and what it runs goes to ~/.blueprint/install.log,
+# shown only when the step fails. Elsewhere (CI, a pipe into a file) it all streams as it happens.
 set -e
 
 # The admin dashboard's backend (app/scripts/api).
@@ -13,51 +15,115 @@ API_URL=https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws
 
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
-  trap report EXIT
+  trap finish EXIT
+  trap 'exit 130' INT TERM
   # Their names while the app was called Bluprint.
   BLUEPRINT_DIR=${BLUEPRINT_DIR:-$BLUPRINT_DIR}
   BLUEPRINT_NO_TELEMETRY=${BLUEPRINT_NO_TELEMETRY:-$BLUPRINT_NO_TELEMETRY}
   repo=${BLUEPRINT_REPO:-https://github.com/jbw9/blueprint.git}
   ref=${BLUEPRINT_REF:-main}
-  dir=${BLUEPRINT_DIR:-$HOME/.blueprint}/src
+  home=${BLUEPRINT_DIR:-$HOME/.blueprint}
+  dir=$home/src
   # Kept in ~/.bluprint while the app had that name.
   if [ -z "$BLUEPRINT_DIR" ] && [ -d "$HOME/.bluprint" ] && [ ! -e "$HOME/.blueprint" ]; then mv "$HOME/.bluprint" "$HOME/.blueprint"; fi
+  mkdir -p "$home"
+  log=$home/install.log
+  : >"$log"
+  ui
+
+  printf '\n  %sBlueprint installer%s\n\n' "$bold" "$off"
+
   os=$(uname)
   case $os in
-  Darwin | Linux) ;;
-  MINGW* | MSYS* | CYGWIN*) os=Windows ;;
-  *) die "Blueprint installs on macOS, Linux and Windows (in Git Bash: https://git-scm.com/downloads/win)." ;;
+  Darwin) name="macOS $(sw_vers -productVersion 2>/dev/null)" ;;
+  Linux) name=$(. /etc/os-release 2>/dev/null && echo "$NAME${VERSION_ID:+ $VERSION_ID}") && [ -n "$name" ] || name=Linux ;;
+  MINGW* | MSYS* | CYGWIN*) os=Windows name=Windows ;;
+  *) fail "Blueprint doesn't install on $os" "It installs on macOS, Linux and Windows." \
+    "On Windows, run the install command in Git Bash: https://git-scm.com/downloads/win" ;;
   esac
   case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
   release=${BLUEPRINT_RELEASE:-https://github.com/jbw9/blueprint/releases/download/latest/blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz}
-  # Blueprint's server runs on Node, however it's installed.
-  command -v node >/dev/null || die "Blueprint needs Node 20 or newer: https://nodejs.org"
-  [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || die "Blueprint needs Node 20 or newer; this is $(node -v)."
+  check_node
+  done_line "Checked your system" "$name $arch · Node $(node -v | tr -d v)"
+
+  case $os in
+  Darwin) app=/Applications/Blueprint.app ;;
+  Linux) app=$HOME/.local/bin/blueprint ;;
+  Windows) app="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint/blueprint.exe" ;;
+  esac
+  updating=$([ -e "$app" ] && echo 1 || true)
 
   tmp=$(mktemp -d)
-  if [ -z "$BLUEPRINT_FROM_SOURCE" ] && download; then
-    say "Installing Blueprint"
-    BLUEPRINT_PREBUILT="$tmp" sh "$tmp/install-app.sh"
-    # The release is built against the system libraries a source build would install.
-    if [ "$os" = Linux ] && libs=$(ldd "$HOME/.local/bin/blueprint" | grep "not found"); then
-      die "Blueprint needs system libraries this computer doesn't have:
-$libs
-Install webkit2gtk 4.1 and gtk3 (Debian or Ubuntu: sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0), then open it."
-    fi
+  if [ -z "$BLUEPRINT_FROM_SOURCE" ] && find_release; then
+    watch="$tmp/blueprint.tar.gz"
+    note=${total:+$((total / 1048576)) MB}
+    step "Downloading Blueprint" "Downloaded Blueprint" download
+    watch= note=
+    step "Installing Blueprint" "Installed Blueprint" install_release
+    check_libs
   else
     from_source
   fi
   rm -rf "$tmp"
-
-  command -v claude >/dev/null ||
-    say "Blueprint makes blueprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
+  summary
 }
 
-# The release, unpacked into $tmp. Fails, building from source instead, when there's none for this system.
+# The release for this system, and its size in $total. Fails when there's none; stops when GitHub can't be reached.
+find_release() {
+  total=
+  rc=0
+  hdr=$(curl -fsSLI "$release" 2>/dev/null) || rc=$?
+  if [ "$rc" = 22 ]; then
+    warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
+    return 1
+  fi
+  [ "$rc" = 0 ] || fail "Couldn't reach GitHub to download Blueprint" "curl stopped with error $rc." \
+    "Check your internet connection, then run the install command again."
+  total=$(printf '%s\n' "$hdr" | tr -d '\r' | awk 'tolower($1) == "content-length:" { n = $2 } END { print n }')
+}
+
 download() {
-  say "Downloading Blueprint"
-  curl -fL --progress-bar "$release" -o "$tmp/blueprint.tar.gz" && tar -xzf "$tmp/blueprint.tar.gz" -C "$tmp" && rm "$tmp/blueprint.tar.gz" ||
-    { say "There's no ready-made Blueprint for this system, so it's built from source"; return 1; }
+  curl -fsSL "$release" -o "$tmp/blueprint.tar.gz"
+  tar -xzf "$tmp/blueprint.tar.gz" -C "$tmp"
+  rm "$tmp/blueprint.tar.gz"
+}
+
+install_release() {
+  # Releases packed before app/scripts/install.sh was renamed carry it as install-app.sh.
+  place="$tmp/install.sh"
+  [ -e "$place" ] || place="$tmp/install-app.sh"
+  BLUEPRINT_PREBUILT="$tmp" sh "$place"
+}
+
+check_node() {
+  if command -v brew >/dev/null; then fix="brew install node"
+  elif [ "$os" = Windows ]; then fix="winget install OpenJS.NodeJS.LTS"
+  elif command -v dnf >/dev/null; then fix="sudo dnf install nodejs"
+  elif command -v pacman >/dev/null; then fix="sudo pacman -S nodejs npm"
+  else fix="Install it from https://nodejs.org"
+  fi
+  command -v node >/dev/null || fail "Blueprint needs Node 20 or newer" "Node isn't installed." "$fix"
+  v=$(node -p 'process.versions.node')
+  [ "${v%%.*}" -ge 20 ] || fail "Blueprint needs Node 20 or newer" "You have Node $v." "$fix"
+}
+
+# The release is built against the system libraries a source build would install.
+check_libs() {
+  [ "$os" = Linux ] || return 0
+  libs=$(ldd "$HOME/.local/bin/blueprint" | awk '/not found/ { print $1 }')
+  [ -n "$libs" ] || return 0
+  list=$(printf '%s\n' "$libs" | sed 's/^/- /')
+  if command -v dnf >/dev/null; then
+    fix="sudo dnf install$(printf " '%s()(64bit)'" $libs)"
+  elif command -v apt-get >/dev/null && ! printf '%s\n' "$libs" | grep -qvE 'webkit|javascriptcore|gtk|gdk'; then
+    fix="sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0"
+  elif command -v pacman >/dev/null; then
+    fix="Find the package that has each one with: pacman -F <library>"
+  else
+    fix="Install the packages that provide them with your package manager."
+  fi
+  fail "Blueprint is installed, but needs system libraries this computer doesn't have" "$list" "$fix" \
+    "Then open Blueprint; there's no need to run the install again."
 }
 
 from_source() {
@@ -65,76 +131,251 @@ from_source() {
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
 
   missing=""
+  fixes=""
   if [ "$os" = Darwin ]; then
     need git "xcode-select --install"
     need c++ "xcode-select --install"
-    need cmake "brew install cmake (or https://cmake.org/download)"
+    need cmake "brew install cmake"
   elif [ "$os" = Windows ]; then
-    need cmake "winget install Kitware.CMake (or https://cmake.org/download)"
+    need cmake "winget install Kitware.CMake"
     # Rust links with MSVC's C++ tools, which only vswhere can find from here.
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ] ||
-      missing="$missing
-  - the Visual Studio C++ build tools: winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
+      need_ "the Visual Studio C++ build tools" "winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
-    need git "your package manager's git"
-    if command -v apt-get >/dev/null; then
-      sys="sudo apt-get install -y build-essential cmake pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev libasound2-dev libpulse-dev"
-    elif command -v dnf >/dev/null; then
-      sys="sudo dnf install -y gcc-c++ cmake pkgconf-pkg-config webkit2gtk4.1-devel gtk3-devel librsvg2-devel openssl-devel alsa-lib-devel pulseaudio-libs-devel"
-    elif command -v pacman >/dev/null; then
-      sys="sudo pacman -S --needed base-devel cmake webkit2gtk-4.1 gtk3 librsvg openssl alsa-lib libpulse"
-    else
-      sys="a C++ compiler, cmake, pkg-config and the development packages of webkit2gtk-4.1, gtk3, librsvg, openssl, alsa and libpulse"
-    fi
-    for c in c++ cmake pkg-config; do need "$c" "$sys"; done
-    if command -v pkg-config >/dev/null; then
-      for m in webkit2gtk-4.1 gtk+-3.0 librsvg-2.0 openssl alsa libpulse; do
-        pkg-config --exists "$m" || missing="$missing
-  - the $m development files: $sys"
-      done
+    # Each thing the build needs, and its package under apt, dnf and pacman.
+    pkgs=""
+    for row in \
+      "git git git git" \
+      "c++ build-essential gcc-c++ base-devel" \
+      "cmake cmake cmake cmake" \
+      "pkg-config pkg-config pkgconf-pkg-config pkgconf" \
+      "webkit2gtk-4.1 libwebkit2gtk-4.1-dev webkit2gtk4.1-devel webkit2gtk-4.1" \
+      "gtk+-3.0 libgtk-3-dev gtk3-devel gtk3" \
+      "librsvg-2.0 librsvg2-dev librsvg2-devel librsvg" \
+      "openssl libssl-dev openssl-devel openssl" \
+      "alsa libasound2-dev alsa-lib-devel alsa-lib" \
+      "libpulse libpulse-dev pulseaudio-libs-devel libpulse"; do
+      set -- $row
+      case $1 in
+      git | c++ | cmake | pkg-config) command -v "$1" >/dev/null && continue; what=$1 ;;
+      # Without pkg-config the libraries can't be checked, so all of them are asked for.
+      *) command -v pkg-config >/dev/null && pkg-config --exists "$1" && continue; what="$1 (development files)" ;;
+      esac
+      missing="${missing:+$missing
+}- $what"
+      if command -v apt-get >/dev/null; then pkgs="$pkgs $2"
+      elif command -v dnf >/dev/null; then pkgs="$pkgs $3"
+      elif command -v pacman >/dev/null; then pkgs="$pkgs $4"
+      fi
+    done
+    if [ -z "$pkgs" ]; then fixes="Install them with your package manager."
+    elif command -v apt-get >/dev/null; then fixes="sudo apt-get install -y$pkgs"
+    elif command -v dnf >/dev/null; then fixes="sudo dnf install -y$pkgs"
+    else fixes="sudo pacman -S --needed$pkgs"
     fi
   fi
-  [ -z "$missing" ] || die "Blueprint builds from source, and needs:$missing
-Install those, then run this again."
+  [ -z "$missing" ] || fail "Building Blueprint from source needs a few things first" "$missing" "$fixes"
+  done_line "Checked the build tools"
+
   if ! command -v cargo >/dev/null; then
-    say "Installing Rust (rustup)"
-    if [ "$os" = Windows ]; then
-      init="$(mktemp -d)/rustup-init.exe"
-      case $(uname -m) in aarch64 | arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac
-      curl -fsSLo "$init" "https://win.rustup.rs/$arch"
-      "$init" -y --profile minimal
-    else
-      curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
-    fi
+    step "Installing Rust" "Installed Rust" install_rust
     PATH="$HOME/.cargo/bin:$PATH"
   fi
+  step "Getting the source" "Got the source" get_source
+  step "Installing packages" "Installed packages" install_packages
+  step "Building Blueprint (10 to 20 minutes the first time)" "Built Blueprint" build
+}
 
-  say "Getting the source into $dir"
+install_rust() {
+  if [ "$os" = Windows ]; then
+    case $(uname -m) in aarch64 | arm64) a=aarch64 ;; *) a=x86_64 ;; esac
+    init="$(mktemp -d)/rustup-init.exe"
+    curl -fsSLo "$init" "https://win.rustup.rs/$a"
+    "$init" -y --profile minimal
+  else
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+  fi
+}
+
+get_source() {
   mkdir -p "$dir"
   git init -q "$dir"
   git -C "$dir" fetch -q --depth 1 "$repo" "$ref"
   git -C "$dir" checkout -q -f --detach FETCH_HEAD
   git -C "$dir" clean -qfd
-
-  cd "$dir/app"
-  say "Installing packages"
-  npm ci --no-audit --no-fund
-  say "Building Blueprint (the first build compiles the app: 10 to 20 minutes)"
-  sh scripts/install-app.sh
 }
 
-report() {
+install_packages() {
+  cd "$dir/app"
+  npm ci --no-audit --no-fund
+}
+
+build() {
+  cd "$dir/app"
+  sh scripts/install.sh
+}
+
+summary() {
+  command -v claude >/dev/null ||
+    warn "Claude Code isn't installed. Blueprint makes blueprints through it" "https://claude.com/claude-code"
+  printf '\n'
+  if [ -n "$updating" ]; then
+    printf '  %sBlueprint is updated.%s Quit it if it'"'"'s open, then open it again.\n\n' "$green$bold" "$off"
+  else
+    printf '  %sBlueprint is installed.%s\n\n' "$green$bold" "$off"
+  fi
+  case $os in
+  Darwin) printf '  Open it from Applications, or run: %sopen -a Blueprint%s\n\n' "$cyan" "$off" ;;
+  Windows) printf '  Open it from the Start menu.\n\n' ;;
+  Linux)
+    run=blueprint
+    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) run="~/.local/bin/blueprint" ;; esac
+    printf '  Open it from your applications menu, or run: %s%s%s\n\n' "$cyan" "$run" "$off"
+    ;;
+  esac
+}
+
+# The terminal's abilities: colour and a spinner in a terminal, plain lines anywhere else.
+ui() {
+  tty=
+  bold='' dim='' red='' green='' yellow='' cyan='' off=''
+  if [ -t 1 ] && [ "$TERM" != dumb ]; then
+    tty=1
+    if [ -z "$NO_COLOR" ]; then
+      e=$(printf '\033')
+      bold="$e[1m" dim="$e[2m" red="$e[31m" green="$e[32m" yellow="$e[33m" cyan="$e[36m" off="$e[0m"
+    fi
+  fi
+  case "${LC_ALL:-${LC_CTYPE:-$LANG}}" in
+  *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) ok="✓" bad="✗" frames="⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏" ;;
+  *) ok="+" bad="x" frames='| / - \' ;;
+  esac
+  spid= note=
+}
+
+# step <doing> <done> <command...>: the command with a spinner, its output in the log; on failure, the
+# end of the log. It runs in a subshell, so what it sets doesn't outlive it.
+step() {
+  doing=$1 did=$2
+  shift 2
+  start=$(date +%s)
+  printf '\n$ %s\n' "$*" >>"$log"
+  if [ -z "$tty" ]; then
+    printf '==> %s\n' "$doing"
+    set +e
+    (set -e; "$@") </dev/null
+    rc=$?
+    set -e
+  else
+    spin "$doing" &
+    spid=$!
+    set +e
+    (set -e; "$@") </dev/null >>"$log" 2>&1
+    rc=$?
+    set -e
+    unspin
+  fi
+  if [ "$rc" = 0 ]; then
+    done_line "$did" "${note:+$note · }$(since "$start")"
+    return
+  fi
+  printf '  %s%s %s%s\n' "$red$bold" "$bad" "$doing" "$off"
+  if [ -n "$tty" ]; then
+    printf '\n'
+    grep -v '^ *$' "$log" | tail -n 15 | sed "s/^/    $dim/; s/\$/$off/"
+    printf '\n    The full log is in %s\n' "$log"
+  fi
+  printf '\n    Fix what it says, then run the install command again.\n\n'
+  exit 1
+}
+
+spin() {
+  trap - EXIT INT TERM
+  printf '\033[?25l'
+  while :; do
+    for f in $frames; do
+      t=$(since "$start")
+      extra=
+      if [ -n "$watch" ] && [ -f "$watch" ]; then
+        got=$(($(wc -c <"$watch") / 1048576))
+        extra="$got MB"
+        [ -z "$total" ] || extra="$got / $((total / 1048576)) MB"
+      fi
+      printf '\r\033[K  %s%s%s %s  %s%s%s' "$cyan" "$f" "$off" "$1" "$dim" "${extra:+$extra · }$t" "$off"
+      sleep 0.1
+    done
+  done
+}
+
+unspin() {
+  [ -n "$spid" ] || return 0
+  kill "$spid" 2>/dev/null || true
+  wait "$spid" 2>/dev/null || true
+  spid=
+  printf '\r\033[K\033[?25h'
+}
+
+# Seconds since $1, as 12s or 3m 04s.
+since() {
+  s=$(($(date +%s) - $1))
+  if [ "$s" -lt 60 ]; then echo "${s}s"; else printf '%dm %02ds\n' $((s / 60)) $((s % 60)); fi
+}
+
+done_line() {
+  if [ -n "$2" ]; then
+    printf '  %s%s%s %-28s %s%s%s\n' "$green" "$ok" "$off" "$1" "$dim" "$2" "$off"
+  else
+    printf '  %s%s%s %s\n' "$green" "$ok" "$off" "$1"
+  fi
+}
+
+# warn <message> [more]
+warn() {
+  printf '  %s! %s%s\n' "$yellow" "$1" "$off"
+  [ -z "$2" ] || printf '    %s\n' "$2"
+}
+
+# fail <what> <details> <fix> [after]: what went wrong, and the command or step that fixes it.
+fail() {
+  unspin
+  printf '\n  %s%s %s%s\n' "$red$bold" "$bad" "$1" "$off"
+  [ -z "$2" ] || printf '%s\n' "$2" | sed 's/^/    /'
+  if [ -n "$3" ]; then
+    printf '\n'
+    first=1
+    printf '%s\n' "$3" | while IFS= read -r line; do
+      if [ -n "$first" ]; then printf '    Fix:  %s%s%s\n' "$cyan" "$line" "$off"; first=
+      else printf '          %s%s%s\n' "$cyan" "$line" "$off"; fi
+    done
+  fi
+  printf '    %s\n\n' "${4:-Then run the install command again.}"
+  exit 1
+}
+
+# need <command> <fix>: notes a missing command. need_ <what> <fix> notes something missing outright.
+need() { command -v "$1" >/dev/null 2>&1 || need_ "$1" "$2"; }
+need_() {
+  missing="${missing:+$missing
+}- $1"
+  case "
+$fixes
+" in *"
+$2
+"*) ;; *) fixes="${fixes:+$fixes
+}$2" ;; esac
+}
+
+finish() {
   status=$?
-  ok=$([ "$status" = 0 ] && echo true || echo false)
+  unspin
+  [ -n "$tty" ] && printf '\033[?25h'
+  [ -z "$tmp" ] || rm -rf "$tmp"
+  worked=$([ "$status" = 0 ] && echo true || echo false)
   [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
-    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$ok}" 2>/dev/null || true
+    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked}" 2>/dev/null || true
 }
-need() { command -v "$1" >/dev/null 2>&1 || missing="$missing
-  - $1: $2"; }
-say() { printf '\033[1m==> %s\033[0m\n' "$1"; }
-die() { printf '%s\n' "$1" >&2; exit 1; }
 
 main "$@"
