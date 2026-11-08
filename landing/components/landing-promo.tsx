@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 const API_URL = "https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws";
 
 let asked: Promise<boolean> | undefined;
+// `?promo` shows it whatever the backend says, to see the page as it will be before the promotion starts.
 const promoOn = () =>
-  (asked ??= fetch(`${API_URL}/promo`)
+  (asked ??= new URLSearchParams(location.search).has("promo") ? Promise.resolve(true) : fetch(`${API_URL}/promo`)
     .then((r) => r.json() as Promise<{ on?: boolean }>)
     .then((p) => p.on === true)
     .catch(() => false));
