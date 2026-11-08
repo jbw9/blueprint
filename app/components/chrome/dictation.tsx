@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { answerQuietMedia, cancelDictation, stopDictation, useDictation, useDictationKey } from "@/lib/agent/dictate";
 import { cn } from "@/lib/client/utils";
 
+const BUTTON = "cursor-pointer px-3 py-1 text-[13px]";
+
 /**
  * On-device dictation's only chrome (lib/agent/dictate.ts): a pill over the bottom
  * of the window while it listens or writes out, and for a moment after when
@@ -26,29 +28,29 @@ export function Dictation() {
       role="status"
       className="pointer-events-none fixed inset-x-0 bottom-10 z-50 flex justify-center px-4"
     >
-      <div className="pointer-events-auto flex items-center gap-2.5 border border-border-gray bg-card px-3.5 py-1.5 font-mono text-[11.5px] text-ink shadow-lift">
+      <div className="pointer-events-auto flex items-center gap-3 border border-border-gray bg-card px-5 py-3 font-mono text-[14px] text-ink shadow-lift">
         <span
           aria-hidden
-          className={cn("h-2 w-2 rounded-full", listening ? "animate-pulse bg-clay-ink" : d.phase === "working" ? "bg-accent" : "bg-faint")}
+          className={cn("h-2.5 w-2.5 shrink-0 rounded-full", listening ? "animate-pulse bg-clay-ink" : d.phase === "working" ? "bg-accent" : "bg-faint")}
         />
         {d.ask ? (
           <>
-            While you talk, pause Music and Spotify and mute other sound?
-            <button type="button" onClick={() => answerQuietMedia(true)} className="cursor-pointer text-accent hover:underline">
-              yes
+            <span>While you talk, pause Music and Spotify and mute other sound?</span>
+            <button type="button" onClick={() => answerQuietMedia(true)} className={cn(BUTTON, "bg-accent text-on-accent hover:bg-accent-strong")}>
+              Yes
             </button>
-            <button type="button" onClick={() => answerQuietMedia(false)} className="cursor-pointer text-faint hover:text-ink">
-              no
+            <button type="button" onClick={() => answerQuietMedia(false)} className={cn(BUTTON, "border border-border-gray hover:bg-surface-container")}>
+              No
             </button>
           </>
         ) : listening ? "Listening… let go of ⌃⌥" : d.phase === "working" ? "Writing it out…" : d.error}
         {listening ? (
           <>
-            <button type="button" onClick={() => void stopDictation()} className="cursor-pointer text-accent hover:underline">
-              done
+            <button type="button" onClick={() => void stopDictation()} className={cn(BUTTON, "bg-accent text-on-accent hover:bg-accent-strong")}>
+              Done
             </button>
-            <button type="button" onClick={cancelDictation} className="cursor-pointer text-faint hover:text-ink">
-              cancel
+            <button type="button" onClick={cancelDictation} className={cn(BUTTON, "border border-border-gray hover:bg-surface-container")}>
+              Cancel
             </button>
           </>
         ) : null}
