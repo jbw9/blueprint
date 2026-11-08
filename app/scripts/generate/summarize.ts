@@ -7,7 +7,7 @@
  * which is also what an incremental bluprint will need.
  */
 
-import { ask, BACKEND, MODELS } from "./bedrock";
+import { ask, BACKEND, MODELS, UsageLimitError } from "./bedrock";
 import { isSource, numbered, type Inventory, type RepoFile } from "./inventory";
 
 export interface FileSummary {
@@ -76,6 +76,7 @@ async function one(inv: Inventory, f: RepoFile): Promise<FileSummary> {
     const union = (k: "reads" | "writes" | "external") => [...new Set([s, ...parts].flatMap((p) => p[k] ?? []))];
     return { path: f.path, ...s, symbols: [s, ...parts].flatMap((p) => p.symbols ?? []), reads: union("reads"), writes: union("writes"), external: union("external") };
   } catch (e) {
+    if (e instanceof UsageLimitError) throw e;
     // One unreadable file is a gap the cut is told about, not a failed run.
     return { path: f.path, purpose: `(not summarised: ${(e as Error).message.slice(0, 120)})`, kind: "other", symbols: [], reads: [], writes: [], external: [], user_sees: "" };
   }
@@ -115,7 +116,10 @@ async function many(inv: Inventory, files: RepoFile[]): Promise<FileSummary[]> {
       system: `${SYSTEM.replace("one source file", "several source files").replace("Call the summary tool once.", "Record every file shown, each by its path.")}`,
       messages: [{ role: "user", content: `Repository: ${inv.name}\n\n${files.map((f) => shown(inv, f)).join("\n\n")}` }],
       tool: MANY,
-    }).catch(() => ({ files: [] }))).files.filter((x) => files.some((f) => f.path === x.path));
+    }).catch((e) => {
+      if (e instanceof UsageLimitError) throw e;
+      return { files: [] };
+    })).files.filter((x) => files.some((f) => f.path === x.path));
   const left = files.filter((f) => !got.some((x) => x.path === f.path));
   return [...got, ...(await Promise.all(left.map((f) => one(inv, f))))];
 }

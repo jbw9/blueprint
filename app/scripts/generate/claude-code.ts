@@ -23,7 +23,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { createServer, type Server } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { cacheFile, chargeUsage, slot, type Message, type Reply, type Tool } from "./bedrock";
+import { cacheFile, chargeUsage, slot, UsageLimitError, type Message, type Reply, type Tool } from "./bedrock";
 
 /** Bedrock profile → the name Claude Code takes for the same model. */
 const CC_MODEL: Record<string, string> = {
@@ -276,7 +276,7 @@ async function claude(args: string[], prompt: string, stage: string, effort?: st
       if (r && !r.is_error) return r;
       const msg = (r?.result || out.stderr || out.stdout).slice(0, 500);
       // A plan's usage window does not reopen in minutes; retrying only spends the wait.
-      if (/usage limit|limit reached|resets? (at|in)/i.test(msg)) throw new Error(`${stage}: Claude plan usage limit reached — ${msg}`);
+      if (/usage limit|limit reached|resets? (at|in)/i.test(msg)) throw new UsageLimitError(`${stage}: Claude plan usage limit reached — ${msg}`);
       if (r?.subtype === "error_max_turns") return r;
       if (attempt >= 5 || !RETRYABLE.test(msg)) throw new Error(`${stage}: claude -p failed (${r?.subtype ?? `exit ${out.code}`}): ${msg}`);
       await sleep(Math.min(60_000, 3000 * 2 ** attempt) * (0.5 + Math.random()));

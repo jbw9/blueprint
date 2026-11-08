@@ -40,6 +40,8 @@ export interface Authored {
   coverage?: { symbols: number; gaps: { file: string; symbol: Sym }[] };
   /** Each reply, timed (claude-code.ts, Turn): where the root's minutes went. */
   log?: Turn[];
+  /** Parts of a section written in words (deep.ts) that kept the quick bluprint's words, each marked partial. */
+  fellBack?: number;
 }
 
 /** One agent action, in words: "read app/page.tsx 1-80", and what came of it. */

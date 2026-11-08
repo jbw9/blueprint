@@ -379,7 +379,9 @@ export function leafCode(path: string, lines: number, s: FileSummary | undefined
   if (lines <= LEAF.lines) return [{ file: path, start: 1, end: lines, label: s?.purpose?.split(/(?<=\.)\s/)[0] ?? basename(path) }];
   const out: NonNullable<Node["code"]> = [];
   let used = 0;
-  for (const sym of [...(s?.symbols ?? [])].sort((a, b) => b.end - b.start - (a.end - a.start))) {
+  // A summary's line numbers are the model's: one past the file's end is a reference to nothing.
+  const syms = (s?.symbols ?? []).filter((x) => x.start >= 1 && x.start <= lines && x.end >= x.start).map((x) => ({ ...x, end: Math.min(x.end, lines) }));
+  for (const sym of syms.sort((a, b) => b.end - b.start - (a.end - a.start))) {
     const n = sym.end - sym.start + 1;
     if (out.length >= LEAF.refs || used + n > LEAF.lines) continue;
     out.push({ file: path, start: sym.start, end: sym.end, label: sym.does || sym.name });

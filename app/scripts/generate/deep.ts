@@ -29,7 +29,7 @@ import type { Node } from "@/lib/bluprint/schema";
 import type { Overview } from "@/lib/bluprint/build";
 import { citations, nodesAt } from "@/lib/bluprint/coverage";
 import type { Authored } from "./author";
-import { ask, type Tool } from "./bedrock";
+import { ask, UsageLimitError, type Tool } from "./bedrock";
 import { autofix, bareLines, BOUNDS, check, fileReader, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";
 import type { Root } from "./cut";
 import { askWithin, diagramOf, entrypoints, leafCode, MAX_FILES, short, slug, splitFlat, within40, wordProblems } from "./fast";
@@ -117,7 +117,8 @@ async function askEntries(o: {
   const note = `\n\nWrite only these, again in full: ${bad.map(([id, ps]) => `${id} (${ps.join("; ")})`).join(", ")}.`;
   try {
     take(await ask<any>({ model: o.model, stage: o.stage, maxTokens: 16000, system, messages: [{ role: "user", content: o.prompt(bad.map(([id]) => id)) + note }], tool: o.tool }));
-  } catch {
+  } catch (e) {
+    if (e instanceof UsageLimitError) throw e;
     // The first answer stands; what it left out keeps the quick words.
   }
   return { entries, answer, calls: 2 };
@@ -406,6 +407,13 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
   const files = root.files.filter((p) => lines.has(p));
   const draw = diagramOf(g);
   let calls = 0;
+  // Parts whose words came back, and those left with the quick bluprint's: a section written by nothing is no section in full.
+  let wrote = 0;
+  const fellBack: string[] = [];
+  const keptQuick = (n: Node) => {
+    fellBack.push(n.id);
+    Object.assign(n, { state: "partial", unsure: "Its words could not be written from the code in this run, so it keeps the quick bluprint's, which may be thin." });
+  };
 
   // The quick bluprint's words for each file: what a part keeps when its words call fails.
   const quickByFile = new Map<string, Node>();
@@ -426,6 +434,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       groups = await groupFiles(quick, files, inv, sums, models.group);
       calls++;
     } catch (e) {
+      if (e instanceof UsageLimitError) throw e;
       // No groups from the model: along imports, as the quick bluprint splits a flat directory.
       say(`${root.id}: grouping failed, split along imports — ${(e as Error).message.slice(0, 120)}`);
       if (files.length > MAX_FILES) groups = splitFlat("", files, inv).map((x, i) => ({ title: `${cutWords(quick.title, 3)} ${i + 1}`, sub: quick.sub, detail: "", files: x.files }));
@@ -510,11 +519,16 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       got = await askEntries({ model: models.group, stage: "deep-levels", tool: LEVELS_TOOL, key: "levels", ids: batch.map((lv) => lv.node.id), prompt, wanting: (_, y) => thinExplain(y) });
       calls += got.calls;
     } catch (e) {
+      if (e instanceof UsageLimitError) throw e;
       say(`${root.id}: words for ${batch.length} levels failed, kept the quick ones — ${(e as Error).message.slice(0, 120)}`);
     }
     for (const lv of batch) {
       const l = got?.entries.get(lv.node.id);
-      if (!l) continue;
+      if (!l) {
+        keptQuick(lv.node);
+        continue;
+      }
+      wrote++;
       const w = fitted(l, lv.node as any);
       Object.assign(lv.node, { title: short(w.title, 40), sub: short(w.sub, 60), detail: w.detail, ...(w.explain ? { explain: { body: w.explain } } : {}) });
     }
@@ -564,11 +578,13 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       });
       calls += got.calls;
     } catch (e) {
+      if (e instanceof UsageLimitError) throw e;
       say(`${root.id}: words for ${batch.length} parts failed, kept the quick ones — ${(e as Error).message.slice(0, 120)}`);
     }
     const a = { leaves: [...(got?.entries.values() ?? [])] };
     for (const l of batch) {
       const y = (Array.isArray(a?.leaves) ? a.leaves : []).find((v: any) => v?.id === l.node.id);
+      if (y) wrote++;
       const w = fitted(y, l.node as any, LEAF_EXPLAIN_MAX);
       const steps = (Array.isArray(y?.steps) ? y.steps : [])
         .map((s: any) => {
@@ -591,6 +607,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
         ...(w.explain ? { explain: { body: w.explain } } : {}),
         anatomy: [...screen, { kind: "flow", rows: steps.length ? steps : fallbackSteps(l.ranges, sums) }],
       });
+      if (!y) keptQuick(l.node);
     }
   };
 
@@ -613,10 +630,11 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
     untangle(block);
     (lv.node as any).anatomy = [block];
   }
+  if (!wrote) return { root: null, turns: Math.max(0, calls - 1), reads: 0, submits: 0, problems: [`no words came back for any of its ${fellBack.length} parts`], trail: [] };
   const notes = autofix(rootNode, inv.repo);
   const problems = check({ AUTHORED: [rootNode], OVERVIEW: undefined as any }, inv.repo, { generated: true, only: new Set([root.id]) }).problems;
-  say(`${root.id}: written in ${calls} calls — ${problems.length ? `${problems.length} problems listed` : "clean"}${notes.length ? `, ${notes.length} fixed` : ""}`);
-  return { root: rootNode, turns: Math.max(0, calls - 1), reads: 0, submits: 1, problems, trail: [] };
+  say(`${root.id}: written in ${calls} calls — ${problems.length ? `${problems.length} problems listed` : "clean"}${notes.length ? `, ${notes.length} fixed` : ""}${fellBack.length ? `, ${fellBack.length} parts kept quick` : ""}`);
+  return { root: rootNode, turns: Math.max(0, calls - 1), reads: 0, submits: 1, problems, trail: [], fellBack: fellBack.length };
 }
 
 /* ── the overview ────────────────────────────────────────────── */

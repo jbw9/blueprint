@@ -13,6 +13,13 @@ import { existsSync } from "node:fs";
 // Before the Bedrock client is imported, so it is built with these.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 const args = process.argv.slice(2);
-if (args.includes("--update")) await (await import("./update")).update(args);
-else if (args.includes("--story")) await (await import("./story")).story(args);
-else await (await import("./pipeline")).main(args);
+try {
+  if (args.includes("--update")) await (await import("./update")).update(args);
+  else if (args.includes("--story")) await (await import("./story")).story(args);
+  else await (await import("./pipeline")).main(args);
+} catch (e) {
+  // The app shows the log's last lines as why the run failed: the reason, not a stack.
+  if (!((e as Error).name === "UsageLimitError")) throw e;
+  console.error(`\nStopped: ${(e as Error).message}`);
+  process.exit(1);
+}

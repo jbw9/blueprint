@@ -14,7 +14,7 @@ import { auditMarkdown } from "./audit";
 import { coverage } from "@/lib/bluprint/coverage";
 import { authorRoot, authorSplit, inParts, submitLine, tooBig, type Authored, type OnSubmit } from "./author";
 import { catalogOf } from "./catalog";
-import { BACKEND, bill, MODELS, cacheIn, sweepCache, throttle } from "./bedrock";
+import { BACKEND, bill, MODELS, cacheIn, sweepCache, throttle, UsageLimitError } from "./bedrock";
 import { ccClose, type Turn } from "./claude-code";
 import { deepOverview, deepRoot } from "./deep";
 import { fastBluprint } from "./fast";
@@ -76,6 +76,38 @@ export type RootStatus = Progress["roots"][number]["status"];
  * authors read describe `explain`, and measured, they wrote it on half the
  * levels unasked.
  */
+/**
+ * The check's findings a reader would be misled by — a reference to code
+ * that is not there — marked on the level they are about, so the app shows
+ * it as partial with the reason instead of as fact. Layout and wording
+ * problems stay in the report. A level already partial keeps its reason.
+ */
+export function flagProblems(roots: Node[], problems: string[]): number {
+  const why = (p: string): [string, string] | null => {
+    let m = /^(?:CODE|DOCS) (\S+) (\S+):(\d+)-(\d+) out of range \(file has (\d+)\)/.exec(p);
+    if (m) return [m[1], `It points at ${m[2]}:${m[3]}-${m[4]}, but that file has ${m[5]} lines, so this reference is wrong.`];
+    m = /^(?:CODE|DOCS) (\S+) (\S+) does not exist/.exec(p) ?? /^MISSING (\S+) (\S+)/.exec(p);
+    if (m) return [m[1], `It points at ${m[2]}, which is not in the repository.`];
+    m = /^(ARROW|STEP) (\S+) .* cites (\S+), which does not exist$/.exec(p);
+    if (m) return [m[2], `One of its ${m[1] === "ARROW" ? "arrows" : "steps"} cites ${m[3]}, which is not a line of the code.`];
+    m = /^MISMATCH (\S+) (\S+)/.exec(p);
+    if (m) return [m[1], `The code shown no longer matches ${m[2]}.`];
+    return null;
+  };
+  const nodes = new Map<string, Node>();
+  const index = (n: Node) => (nodes.set(n.id, n), (n.children ?? []).forEach(index));
+  roots.forEach(index);
+  let flagged = 0;
+  for (const p of problems) {
+    const w = why(p);
+    const n = w && nodes.get(w[0]);
+    if (!n || n.state !== "derived") continue;
+    Object.assign(n, { state: "partial", unsure: w[1] });
+    flagged++;
+  }
+  return flagged;
+}
+
 export function plain(n: Node): Node {
   if (EXPLAIN_LEVEL !== "none") return n;
   const out = { ...n, ...(n.children ? { children: n.children.map(plain) } : {}) };
@@ -255,6 +287,7 @@ export async function main(args: string[]) {
     atomic(`${out}/index.json`, JSON.stringify(catalogOf(inv, sums, fastCut)) + "\n");
 
     const deep: Record<string, Authored> = {};
+    let overviewReport: { redrawn: boolean; problems: string[] } | undefined;
     if (deepen) {
       progress.stage = "deepen";
       progress.roots = fastCut.roots.map((x) => ({ id: x.id, title: x.title, sub: x.sub, status: "queued" as RootStatus, detail: "quick version" }));
@@ -280,6 +313,12 @@ export async function main(args: string[]) {
         const i = f ? queue.indexOf(f) : -1;
         return queue.splice(i >= 0 ? i : 0, 1)[0];
       };
+      // Out of usage: what is not written yet keeps its quick version, said so on it, and the bluprint stays usable.
+      let outOfUsage = "";
+      const keepQuick = (id: string, why: string) => {
+        const n = bluprint.AUTHORED.find((x) => x.id === id);
+        if (n) Object.assign(n, { state: "partial", unsure: `Not written in full: ${why}. This is the quick version, laid out by folder with short words.` });
+      };
       const one = async (id: string) => {
         const root = fastCut.roots.find((x) => x.id === id)!;
         mark(id, "drafting", "writing in full");
@@ -287,7 +326,13 @@ export async function main(args: string[]) {
         // Code builds the section and a model writes its words (deep.ts); --deepen-agent writes it with an author agent, as before.
         if (!agentDeepen)
           // A section whose calls all fail keeps its quick version, as a failed author does.
-          done = await deepRoot(root, r.bluprint.AUTHORED.find((n) => n.id === id)!, inv, sums, activeGraph()!, { group: models.author, words: models.words }, say).catch((e: Error) => ({ root: null, turns: 0, reads: 0, submits: 0, problems: [e.message.slice(0, 300)], trail: [] }));
+          done = await deepRoot(root, r.bluprint.AUTHORED.find((n) => n.id === id)!, inv, sums, activeGraph()!, { group: models.author, words: models.words }, say).catch((e: Error) => {
+            if (e instanceof UsageLimitError) {
+              outOfUsage ||= e.message;
+              queue.length = 0;
+            }
+            return { root: null, turns: 0, reads: 0, submits: 0, problems: [e.message.slice(0, 300)], trail: [] };
+          });
         else if (tooBig(root, fastCut, inv, sums)) {
           const split = await authorSplit(root, fastCut, inv, sums, { cut: models.cut, part: models.part, join: models.author }, null, { submit: submitted(id, root.prefix), part: () => {}, say });
           done = split?.authored ?? (await authorRoot(root, fastCut, inv, sums, models.author, submitted(id, root.prefix)));
@@ -301,10 +346,12 @@ export async function main(args: string[]) {
           bluprint.AUTHORED[i] = { ...plain(done.root), col: 0, row: i };
           dedupeIssues(bluprint.AUTHORED[i]);
           await save();
-          mark(id, "done", "written in full");
-          say(`${id}: written in full after ${done.turns + 1} ${agentDeepen ? "turns" : "calls"}`);
+          mark(id, "done", done.fellBack ? `written in full, ${done.fellBack} part${done.fellBack === 1 ? "" : "s"} kept quick` : "written in full");
+          say(`${id}: written in full after ${done.turns + 1} ${agentDeepen ? "turns" : "calls"}${done.fellBack ? `, ${done.fellBack} parts kept quick` : ""}`);
         } else {
-          mark(id, "failed", "kept the quick version");
+          keepQuick(id, outOfUsage ? "the Claude usage ran out" : "its words could not be written in this run");
+          await save();
+          mark(id, "failed", outOfUsage ? "not written — usage ran out" : "kept the quick version");
           say(`${id}: kept the quick version — ${done.problems.length} problems unresolved`);
         }
       };
@@ -317,6 +364,14 @@ export async function main(args: string[]) {
           }),
         ),
       );
+      if (outOfUsage) {
+        for (const x of progress.roots.filter((x) => x.status === "queued")) {
+          keepQuick(x.id, "the Claude usage ran out");
+          mark(x.id, "failed", "not written — usage ran out");
+        }
+        await save();
+        say(`Stopped deepening: ${outOfUsage}`);
+      }
       await writing;
       await drafting;
       rmSync(`${out}/drafts.json`, { force: true });
@@ -327,7 +382,9 @@ export async function main(args: string[]) {
       // which the quick bluprint has none of. If it fails the quick one stays.
       progress.stage = "overview";
       flush();
-      const drawn: Overviewed = agentDeepen
+      const drawn: Overviewed = outOfUsage
+        ? { overview: null, turns: 0, submits: 0, problems: ["skipped: the Claude usage ran out"] }
+        : agentDeepen
         ? await lap("overview", () => overviewOf(bluprint.AUTHORED, fastCut, inv, models.author, (n, problems) => say(`overview: submit ${n} — ${problems ? `${problems} problems` : "clean"}`), sums))
         : await lap("overview", async () => {
             try {
@@ -343,11 +400,14 @@ export async function main(args: string[]) {
         bluprint.OVERVIEW = top;
         atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
       }
+      overviewReport = { redrawn: Boolean(drawn.overview), problems: drawn.problems.slice(0, 20) };
       say(`overview: ${drawn.overview ? "redrawn" : "kept the quick one"} after ${drawn.turns + 1} turns`);
     }
 
     const total = Math.round((Date.now() - t0) / 1000);
     const final = check(r.bluprint, repo, { generated: true });
+    const flagged = flagProblems(r.bluprint.AUTHORED, final.problems);
+    if (flagged) say(`${flagged} level${flagged === 1 ? "" : "s"} marked partial for code references that are not there`);
     r.bluprint.RUN.elapsed = `${Math.max(1, Math.round(total / 60))} min`;
     atomic(`${out}/bluprint.json`, JSON.stringify(r.bluprint, null, 1) + "\n");
     const usd = Object.values(bill).reduce((a, b) => a + b.usd, 0);
@@ -368,7 +428,8 @@ export async function main(args: string[]) {
           discrepancies: r.discrepancies,
           quickCheck: { problems: r.checkProblems },
           check: { problems: final.problems },
-          deepened: Object.entries(deep).map(([id, a]) => ({ id, accepted: Boolean(a.root), turns: a.turns + 1, submits: a.submits, lastProblems: a.root ? [] : a.problems.slice(0, 20), ...(a.log?.length ? { timing: timingOf(a.log) } : {}) })),
+          ...(overviewReport ? { overview: overviewReport } : {}),
+          deepened: Object.entries(deep).map(([id, a]) => ({ id, accepted: Boolean(a.root), turns: a.turns + 1, submits: a.submits, ...(a.fellBack ? { fellBack: a.fellBack } : {}), lastProblems: a.problems.slice(0, 20), ...(a.log?.length ? { timing: timingOf(a.log) } : {}) })),
         },
         null,
         1,

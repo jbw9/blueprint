@@ -145,6 +145,11 @@ export function sweepCache(): number {
   return n;
 }
 
+/** The account or plan is out of usage: no retry or fallback helps for hours, so every catch on the way lets it through and the run stops. */
+export class UsageLimitError extends Error {
+  name = "UsageLimitError";
+}
+
 /** Which door the calls go through: an AWS account (default) or the reader's own Claude Code. */
 export const BACKEND = process.env.SLOP_BACKEND === "claude-code" ? "claude-code" : "bedrock";
 
@@ -202,7 +207,7 @@ export async function invoke(req: Request): Promise<Reply> {
       } catch (e) {
         const msg = `${(e as Error).name}: ${(e as Error).message}`;
         // A daily cap does not lift in minutes; retrying only burns them.
-        if (/per day/i.test(msg)) throw new Error(`${req.stage} ${req.model}: daily token quota spent — ${msg}`);
+        if (/per day/i.test(msg)) throw new UsageLimitError(`${req.stage} ${req.model}: daily token quota spent — ${msg}`);
         const throttled = /Throttling|TooManyRequests/i.test(msg);
         if (attempt >= (throttled ? 12 : 6) || !RETRYABLE.test(msg)) throw new Error(`${req.stage} ${req.model}: ${msg}`);
         const wait = Math.min(60_000, 2000 * 2 ** attempt) * (0.5 + Math.random());
