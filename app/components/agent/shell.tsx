@@ -313,6 +313,20 @@ export function Shell({
         // Claude Code can take the mouse for itself; Option-drag still selects.
         macOptionClickForcesSelection: true,
         allowProposedApi: true,
+        // A link a program prints (OSC 8), as Claude Code does: a file opens in
+        // an editor tab, a web address in the browser. xterm's own handler
+        // asks with confirm(), which the app's webview has no dialog for.
+        linkHandler: {
+          allowNonHttpProtocols: true,
+          activate: (_, uri) => {
+            if (uri.startsWith("file:")) {
+              const path = decodeURIComponent(new URL(uri).pathname).replace(/^\/([A-Za-z]:)/, "$1");
+              handlers.current.onOpenFile?.(path);
+            } else {
+              void invoke("preview_external", { url: uri }).catch(() => {});
+            }
+          },
+        },
       });
       const fit = new FitAddon();
       term.loadAddon(fit);
