@@ -58,15 +58,15 @@
       "label": "Benchmark Tasks",
       "sub": "Load datasets, run evaluations, score responses",
       "col": 1,
-      "row": 0,
+      "row": 1,
       "opens": "tasks"
      },
      {
       "id": "bx-nanochat",
       "label": "Training And Inference",
       "sub": "Full GPT training and serving stack",
-      "col": 2,
-      "row": 0,
+      "col": 0,
+      "row": 2,
       "opens": "nanochat"
      },
      {
@@ -74,7 +74,7 @@
       "label": "Data Repackaging",
       "sub": "Reshards pretraining datasets into parquet for hosting",
       "col": 0,
-      "row": 1,
+      "row": 3,
       "opens": "dev"
      }
     ],
@@ -811,15 +811,15 @@
            "label": "Pretrain Config",
            "sub": "Parse and derive all pretraining hyperparameters from CLI",
            "col": 0,
-           "row": 0,
+           "row": 2,
            "opens": "sc-base-train-parser"
           },
           {
            "id": "b-sc-base-train-disable-fp8",
            "label": "Disable FP8",
            "sub": "Temporarily swap Float8Linear layers to BF16 for evaluation",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "sc-base-train-disable-fp8"
           },
           {
@@ -827,7 +827,7 @@
            "label": "Pretrain Loop",
            "sub": "Run evaluation, checkpointing, and gradient steps each iter…",
            "col": 0,
-           "row": 1,
+           "row": 0,
            "opens": "sc-base-train-main-training-loop"
           }
          ],
@@ -931,8 +931,8 @@
          "id": "b-sc-base-eval",
          "label": "Base Evaluation",
          "sub": "Evaluate base model on CORE benchmark, BPB, and",
-         "col": 1,
-         "row": 0,
+         "col": 0,
+         "row": 1,
          "opens": "sc-base-eval"
         }
        ],
@@ -1157,8 +1157,8 @@
            "id": "b-sc-chat-sft-parser",
            "label": "SFT Config",
            "sub": "Parse SFT hyperparameters and define best-fit conversation…",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "sc-chat-sft-parser"
           },
           {
@@ -1348,8 +1348,8 @@
            "id": "b-sc-chat-rl-parser",
            "label": "RL Config",
            "sub": "Parse GRPO training arguments and implement rollout generat…",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "sc-chat-rl-parser"
           },
           {
@@ -1574,8 +1574,8 @@
            "id": "b-sc-chat-eval-run-generative-eval",
            "label": "Chat Evaluation",
            "sub": "Run generative and categorical benchmark evaluation for chat",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "sc-chat-eval-run-generative-eval"
           },
           {
@@ -1810,15 +1810,15 @@
        "label": "Training Tokenizers",
        "sub": "Train and evaluate BPE tokenizer compression",
        "col": 0,
-       "row": 0,
+       "row": 2,
        "opens": "sc-training-tokenizers"
       },
       {
        "id": "b-sc-pretraining-base-models",
        "label": "Pretraining Base Models",
        "sub": "Distributed pretraining with Muon optimizer and evaluation",
-       "col": 0,
-       "row": 1,
+       "col": 1,
+       "row": 2,
        "opens": "sc-pretraining-base-models"
       },
       {
@@ -1826,15 +1826,15 @@
        "label": "Fine-Tuning Chat Models",
        "sub": "Supervised fine-tuning and reinforcement learning on tasks",
        "col": 0,
-       "row": 2,
+       "row": 0,
        "opens": "sc-fine-tuning-chat-models"
       },
       {
        "id": "b-sc-evaluating-chat-models",
        "label": "Evaluating Chat Models",
        "sub": "Benchmark chat models on standard tasks",
-       "col": 1,
-       "row": 0,
+       "col": 0,
+       "row": 1,
        "opens": "sc-evaluating-chat-models"
       },
       {
@@ -2232,15 +2232,15 @@
        "label": "ARC Evaluation",
        "sub": "Load and evaluate ARC multiple-choice questions",
        "col": 0,
-       "row": 0,
+       "row": 4,
        "opens": "ta-arc"
       },
       {
        "id": "b-ta-common",
        "label": "Task Foundations",
        "sub": "Base classes and dataset loading for all tasks",
-       "col": 2,
-       "row": 0,
+       "col": 0,
+       "row": 2,
        "opens": "ta-common"
       },
       {
@@ -2255,16 +2255,16 @@
        "id": "b-ta-humaneval",
        "label": "HumanEval Evaluation",
        "sub": "Execute model-generated Python against test cases",
-       "col": 0,
-       "row": 2,
+       "col": 1,
+       "row": 0,
        "opens": "ta-humaneval"
       },
       {
        "id": "b-ta-mmlu",
        "label": "MMLU Evaluation",
        "sub": "Load and score 57-subject multiple-choice benchmark",
-       "col": 2,
-       "row": 1,
+       "col": 1,
+       "row": 3,
        "opens": "ta-mmlu"
       },
       {
@@ -2272,7 +2272,7 @@
        "label": "SmolTalk Loading",
        "sub": "Load and validate conversational chat dataset",
        "col": 0,
-       "row": 3,
+       "row": 0,
        "opens": "ta-smoltalk"
       }
      ],
@@ -2539,8 +2539,8 @@
            "id": "b-na-gpt-gptconfig",
            "label": "Model Config",
            "sub": "Declares hyperparameters and shared attention building bloc…",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "na-gpt-gptconfig"
           },
           {
@@ -2847,8 +2847,8 @@
            "id": "b-na-optim-adamw-step-fused",
            "label": "Fused AdamW Step",
            "sub": "Single compiled kernel for one AdamW parameter update",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "na-optim-adamw-step-fused"
           },
           {
@@ -2884,8 +2884,8 @@
          "id": "b-na-gpt",
          "label": "GPT Model",
          "sub": "Transformer architecture with modern attention tweaks",
-         "col": 1,
-         "row": 0,
+         "col": 0,
+         "row": 1,
          "opens": "na-gpt"
         },
         {
@@ -2893,7 +2893,7 @@
          "label": "Attention Backend",
          "sub": "Auto-selects FA3 or SDPA and exposes a unified",
          "col": 0,
-         "row": 0,
+         "row": 3,
          "opens": "na-flash-attention"
         },
         {
@@ -2901,15 +2901,15 @@
          "label": "FP8 Training",
          "sub": "Drop-in FP8 linear layer with tensorwise dynamic scaling",
          "col": 0,
-         "row": 1,
+         "row": 0,
          "opens": "na-fp8"
         },
         {
          "id": "b-na-optim",
          "label": "Optimizer",
          "sub": "Mixed Muon and AdamW with distributed sharding",
-         "col": 2,
-         "row": 0,
+         "col": 0,
+         "row": 2,
          "opens": "na-optim"
         }
        ],
@@ -3119,15 +3119,15 @@
            "label": "Special Tokens",
            "sub": "Declares the nine reserved control tokens for the",
            "col": 0,
-           "row": 0,
+           "row": 2,
            "opens": "na-tokenizer-special-tokens"
           },
           {
            "id": "b-na-tokenizer-rustbpetokenizer",
            "label": "BPE Tokenizer",
            "sub": "Trains with rustbpe, infers with tiktoken, encodes conversa…",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "na-tokenizer-rustbpetokenizer"
           },
           {
@@ -3135,7 +3135,7 @@
            "label": "Tokenizer Loader",
            "sub": "Loads saved tokenizer and byte-lookup tensor from disk",
            "col": 0,
-           "row": 1,
+           "row": 0,
            "opens": "na-tokenizer-get-tokenizer"
           }
          ],
@@ -3273,7 +3273,7 @@
          "label": "Tokenizer",
          "sub": "BPE tokenizer with chat templating and masks",
          "col": 0,
-         "row": 0,
+         "row": 2,
          "opens": "na-tokenizer"
         },
         {
@@ -3281,15 +3281,15 @@
          "label": "Pretraining Dataloader",
          "sub": "BOS-aligned best-fit document packing with DDP sharding",
          "col": 0,
-         "row": 1,
+         "row": 0,
          "opens": "na-dataloader"
         },
         {
          "id": "b-na-dataset",
          "label": "Dataset Access",
          "sub": "Lists parquet shards, iterates documents, downloads from Hu…",
-         "col": 1,
-         "row": 0,
+         "col": 0,
+         "row": 1,
          "opens": "na-dataset"
         }
        ],
@@ -3504,8 +3504,8 @@
            "id": "b-na-engine-timeout",
            "label": "Inference Primitives",
            "sub": "Safe expression evaluator, KV cache, token sampler, and",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "na-engine-timeout"
           },
           {
@@ -3875,8 +3875,8 @@
            "id": "b-na-core-eval-render-prompts-mc",
            "label": "Prompt Rendering",
            "sub": "Build few-shot evaluation prompts for MC, schema, and",
-           "col": 1,
-           "row": 0,
+           "col": 0,
+           "row": 1,
            "opens": "na-core-eval-render-prompts-mc"
           },
           {
@@ -4258,16 +4258,16 @@
        "id": "b-na-model-architecture",
        "label": "Model Architecture",
        "sub": "GPT transformer with attention, FP8, and optimizer",
-       "col": 2,
-       "row": 0,
+       "col": 1,
+       "row": 1,
        "opens": "na-model-architecture"
       },
       {
        "id": "b-na-data-loading",
        "label": "Data Loading",
        "sub": "Tokenization, streaming shards, and document packing",
-       "col": 2,
-       "row": 1,
+       "col": 1,
+       "row": 3,
        "opens": "na-data-loading"
       },
       {
@@ -4282,7 +4282,7 @@
        "id": "b-na-evaluation-and-checkpointing",
        "label": "Evaluation And Checkpointing",
        "sub": "Saving, loading, BPB, and CORE eval metrics",
-       "col": 1,
+       "col": 2,
        "row": 0,
        "opens": "na-evaluation-and-checkpointing"
       },
@@ -4290,7 +4290,7 @@
        "id": "b-na-shared-runtime",
        "label": "Shared Runtime",
        "sub": "Device detection, DDP setup, logging, downloads",
-       "col": 2,
+       "col": 1,
        "row": 2,
        "opens": "na-shared-runtime"
       }
