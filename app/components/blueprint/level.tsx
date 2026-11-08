@@ -6,16 +6,14 @@ import { AnatomyView, type RowCtx } from "@/components/blueprint/anatomy";
 import { TableGlyph } from "@/components/blueprint/anatomy/glyphs";
 import { DocsList, Example, ExplainedBlock, WatchOut, isExplained, sectionOrder } from "@/components/blueprint/blocks";
 import { Building, DraftNote, Stages, NoBlueprint, isBuilding, useDrawIn } from "@/components/projects/building";
-import { CodePopup, ExplainToggle, Explainer, parseAt, type CodeFocus } from "@/components/blueprint/explain";
+import { CodePopup, Explainer, parseAt, type CodeFocus } from "@/components/blueprint/explain";
 import { Glossary, SymbolLinks } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openFile } from "@/components/blueprint/code";
 import { AgentIcon, CLAUDE, useAgents } from "@/components/agent/agents";
 import { handTo, sectionKey, usePicked } from "@/lib/agent/context";
-import { FixAndKeep, onAnswer } from "@/components/review/keep";
 import { BlockDiffView, RemovedSections, useBlockDiffs } from "@/components/review/diff";
-import type { Exchange } from "@/lib/agent/keep";
 import { codeAt, describeProblems, problemSpans } from "@/lib/blueprint/build";
 import { STATIC_BLUEPRINT, readSource } from "@/lib/blueprint/source";
 import type { Anatomy, Node } from "@/lib/blueprint/schema";
@@ -26,17 +24,6 @@ import { projectAction } from "@/lib/client/api";
 import { authored, nearBottom, setNote, siblingEdges } from "@/components/blueprint/nodes";
 import { Header } from "@/components/blueprint/header";
 import { BLOCK_NOUN, Caption, Grid, List, Note, Reach, Steps } from "@/components/blueprint/layouts";
-
-/**
- * The last answer Claude gave, so any level can offer to keep it. Held here
- * rather than per level: the reader asks from one level and may well want it on
- * the one they moved to, and a level unmounting must not forget it.
- */
-function useLatestAnswer(): Exchange | null {
-  const [answer, setAnswer] = useState<Exchange | null>(null);
-  useEffect(() => onAnswer(setAnswer), []);
-  return answer;
-}
 
 /**
  * Asks the default agent (Settings) about a section's problems, all of them,
@@ -179,8 +166,6 @@ export function Level({
   const levelCtx: RowCtx = { ...ctx, onStepCode: showStep };
   const index = useFiles()?.index ?? null;
   const key = path.join("/");
-  const [explainAt, setExplainAt] = useState<string | null>(null);
-  const explainOn = explainAt === key;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is `path` by value
   const reach = useMemo(() => neighbours(blueprint.L0, index, path), [blueprint.L0, index, key]);
   // Each indexed symbol a level cites, by name, to the deepest level citing it;
@@ -213,10 +198,7 @@ export function Level({
     else if (root) onOpen([root]);
     else openFile(path, m[1], m[2] ? +m[2] : undefined);
   };
-  // Only a blueprint made with the plain-words layer offers the toggle.
-  const explains = Boolean(blueprint.OVERVIEW?.explain || blueprint.L0.some((r) => r.explain));
   const trail = [RUN.repo, ...path.map((_, i) => nodeAt(path.slice(0, i + 1))?.title ?? "")];
-  const answer = useLatestAnswer();
   // Empty outside diff mode, so the block render below is unchanged then.
   const blockDiffs = useBlockDiffs(path);
   // Two or more data shapes (a table, a file's fields, a stored value) are one
@@ -244,7 +226,7 @@ export function Level({
   const noBlueprint = top && !STATIC_BLUEPRINT && !blueprint.progress && !node.children?.length && !blocks.length;
 
   return (
-    <Glossary.Provider value={explainOn ? (blueprint.OVERVIEW?.glossary ?? []) : []}>
+    <Glossary.Provider value={blueprint.OVERVIEW?.glossary ?? []}>
     <SymbolLinks.Provider value={linkOf}>
       <Header
         path={path}
@@ -268,8 +250,8 @@ export function Level({
         // A row-built node's fallback sub is "Inside <parent>", which the
         // eyebrow already says.
         sub={node.sub === `Inside ${parent?.title}` ? undefined : node.sub}
-        // With Explain on, the plain-words prose replaces the terse detail rather than repeating it.
-        detail={explainOn && node.explain ? node.explain.body : node.detail}
+        // The plain-words prose replaces the terse detail rather than repeating it.
+        detail={node.explain?.body ?? node.detail}
         unsure={node.state === "derived" ? undefined : node.unsure}
         meta={
           top
@@ -283,12 +265,6 @@ export function Level({
         link={top && RUN.url && RUN.commit ? { href: `${RUN.url}/tree/${RUN.commit}`, label: `${RUN.url.replace(/^https:\/\//, "")} ↗` } : undefined}
         shape={node.shape}
         onCode={code.length ? () => setCodeFocus({ heading: `The code behind ${node.title}`, refs: code, verified: node.verified }) : undefined}
-        actions={
-          <>
-            {explains ? <ExplainToggle on={explainOn} set={(on) => setExplainAt(on ? key : null)} /> : null}
-            <FixAndKeep path={path} answer={answer} />
-          </>
-        }
       />
 
       {/* One hairline between every block, the full width of the level, so it
@@ -309,7 +285,7 @@ export function Level({
         {top && !run && blueprint.progress && blueprint.progress.stage !== "done" ? <Stages progress={blueprint.progress} /> : null}
         {/* For a reader new to all of this: the level in plain words, before
             any of the terse parts. */}
-        {explainOn && node.explain ? <Explainer owner={node.id} explain={node.explain} ctx={levelCtx} /> : null}
+        {node.explain ? <Explainer owner={node.id} explain={node.explain} ctx={levelCtx} /> : null}
 
         {(run ? [] : blocks).map((b, i) =>
           grouped && shapes.includes(i) ? (

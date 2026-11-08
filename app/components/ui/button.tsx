@@ -7,7 +7,7 @@ import { cn } from "@/lib/client/utils";
  * a toolbar rather than three components that happened to land together:
  *
  * - `outline` — the default: a paper face and a hairline, for actions on the
- *   page (View the code, Keep the answer). On hover it fills with ink, as
+ *   page (View the code). On hover it fills with ink, as
  *   the landing page's buttons do.
  * - `ghost` — no face until hovered, for chrome (tab bars, the status bar).
  * - `primary` — filled with ink, the one thing a dialog is for.

@@ -18,22 +18,6 @@ import { readSource } from "@/lib/blueprint/source";
 import type { Slice } from "@/lib/server/repo";
 import type { Anatomy, Explainer as ExplainerData } from "@/lib/blueprint/schema";
 
-/* ── the toggle ──────────────────────────────────────────────── */
-
-export function ExplainToggle({ on, set }: { on: boolean; set: (on: boolean) => void }) {
-  return (
-    <Button
-      onClick={() => set(!on)}
-      aria-pressed={on}
-      title={on ? "Hide the plain-words explanations" : "Show plain-words explanations for someone new to this"}
-      className={on ? "border-accent-line bg-accent-surface text-accent hover:border-accent-line hover:bg-accent-surface hover:text-accent" : undefined}
-    >
-      <span aria-hidden className="text-[13px] leading-none">{on ? "◉" : "○"}</span>
-      Explain
-    </Button>
-  );
-}
-
 /* ── one level, in plain words ───────────────────────────────── */
 
 /**

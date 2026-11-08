@@ -129,19 +129,10 @@ fn status(word: &str) -> serde_json::Value {
     serde_json::json!({ "type": "command", "command": format!(r#"printf {word} > "$BLUEPRINT_CONTEXT.status""#) })
 }
 
-/// At the end of every turn, two markers, for two different readers.
-///
-/// `.ended` is written always: it names the session's transcript, which is how
-/// the app offers to keep an answer on the blueprint (lib/agent/keep.ts). A turn that only
-/// answered a question changes no file and files no fix, so the blueprint-following
-/// marker below never fires for it — and that is the common case for a reader
-/// who just asked how something works.
-///
-/// `.turn` is written only when the turn may have edited code or found the blueprint
-/// wrong (blueprint-fix), and is what makes the blueprint follow the agent. Keeping
-/// the two separate means offering to keep an answer never triggers an update,
-/// and an edit never implies the reader wanted a note.
-const TURN: &str = r#"f="$BLUEPRINT_CONTEXT"; s=$(cat); printf '%s' "$s" > "$f.ended.part" && mv "$f.ended.part" "$f.ended"; [ -e "$f.dirty" ] || [ -s "$f.fix" ] || exit 0; rm -f "$f.dirty"; printf '%s' "$s" > "$f.turn.part" && mv "$f.turn.part" "$f.turn"; exit 0"#;
+/// At the end of a turn, `.turn` is written when the turn may have edited code or
+/// found the blueprint wrong (blueprint-fix), and is what makes the blueprint
+/// follow the agent.
+const TURN: &str = r#"f="$BLUEPRINT_CONTEXT"; s=$(cat); [ -e "$f.dirty" ] || [ -s "$f.fix" ] || exit 0; rm -f "$f.dirty"; printf '%s' "$s" > "$f.turn.part" && mv "$f.turn.part" "$f.turn"; exit 0"#;
 
 /// What Claude runs when it finds the blueprint wrong: one line per section, kept
 /// beside the tab's queue until the turn ends. Allowed without asking.
@@ -645,8 +636,7 @@ pub enum Act {
 /// What Claude has asked to show since this was last asked. Taking it clears
 /// it, so each act happens once.
 ///
-/// Deliberately not tied to the end of the turn, unlike `take_turn` and
-/// `take_ended`: Claude shows a section as it starts explaining it, and the
+/// Deliberately not tied to the end of the turn, unlike `take_turn`: Claude shows a section as it starts explaining it, and the
 /// point is that the user is looking at it while the answer streams. So this is
 /// drained on every poll, with no Stop marker involved.
 pub fn take_acts(queue: &Path) -> Vec<Act> {
@@ -681,18 +671,6 @@ pub struct Turn {
 pub struct Correction {
     section: String,
     note: String,
-}
-
-/// The transcript of the turn Claude just finished, whatever it did. Taking it
-/// clears it, so each turn is offered once. Unlike `take_turn` this fires for a
-/// turn that only answered a question, which is what the reader keeps.
-pub fn take_ended(queue: &Path) -> Option<String> {
-    let marker = queue.with_extension("md.ended");
-    let stop = std::fs::read_to_string(&marker).ok()?;
-    let _ = std::fs::remove_file(&marker);
-    serde_json::from_str::<serde_json::Value>(&stop)
-        .ok()
-        .and_then(|v| v.get("transcript_path")?.as_str().map(String::from))
 }
 
 /// The turn Claude finished since this was last asked, if it edited code or
@@ -1087,20 +1065,6 @@ mod tests {
         assert_eq!(t.transcript.as_deref(), Some("/t/s.jsonl"));
         assert!(t.corrections.is_empty());
         assert!(take_turn(&q).is_none());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn every_turn_is_offered_for_keeping_even_one_that_only_talked() {
-        let dir = tempfile::tempdir().unwrap();
-        let q = dir.path().join("context-1.md");
-        // The case the blueprint-following marker deliberately ignores: a question
-        // answered, nothing edited. Keeping an answer has to work here.
-        stop(&q);
-        assert!(take_turn(&q).is_none());
-        assert_eq!(take_ended(&q).as_deref(), Some("/t/s.jsonl"));
-        // Offered once, so the app never asks twice about the same answer.
-        assert!(take_ended(&q).is_none());
     }
 
     #[cfg(unix)]

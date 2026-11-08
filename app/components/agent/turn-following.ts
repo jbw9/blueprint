@@ -5,9 +5,7 @@ import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "r
 import type { Plan } from "@/components/agent/plan";
 import { inFront } from "@/components/agent/strip";
 import type { Tab } from "@/components/agent/workspace-tab";
-import { announceAnswer, announceDraft } from "@/components/review/keep";
 import { announceAct, type Act } from "@/lib/agent/act";
-import type { Exchange } from "@/lib/agent/keep";
 import { followTurn, midTurn } from "@/lib/agent/turns";
 import type { Turn } from "@/lib/agent/update-blueprint";
 import type { Status } from "@/lib/client/open-projects";
@@ -16,10 +14,7 @@ import type { Status } from "@/lib/client/open-projects";
 // other program, or the shell at its prompt. Polled, since programs start
 // and quit inside the shell, unseen.
 // A turn of Claude's that edited the checkout, or found the blueprint wrong,
-// updates that project's blueprint. Separately, EVERY finished turn is offered to
-// the blueprint as an answer worth keeping (components/review/keep.tsx) — a turn that only
-// explained something edits nothing, so `turn` never fires for the very case
-// a reader most wants to keep.
+// updates that project's blueprint.
 export function useTurnFollowing({
   tabs,
   setTabs,
@@ -48,14 +43,13 @@ export function useTurnFollowing({
           busy: boolean;
           status: Status | null;
           turn: Turn | null;
-          ended: string | null;
           acts: Act[];
           plan: { text: string; file: string | null } | null;
           approved: boolean;
           steps: NonNullable<Plan["steps"]>;
           session: string | null;
         }>("pty_state", { id: pty })
-          .then(({ claude: live, busy, status: said, turn, ended, acts, plan, approved, steps = [], session }) => {
+          .then(({ claude: live, busy, status: said, turn, acts, plan, approved, steps = [], session }) => {
             if (turn && cwd) void followTurn(cwd, turn);
             if (live && cwd && (said === "working" || said === "waiting")) midTurn.set(pty, cwd);
             else midTurn.delete(pty);
@@ -77,7 +71,6 @@ export function useTurnFollowing({
                   )
                 : all,
             );
-            if (ended) void offerAnswer(ended);
             // Mid-turn, deliberately: Claude shows a section while it is still
             // explaining it (lib/agent/act.ts).
             acts?.forEach(announceAct);
@@ -109,18 +102,3 @@ export function useTurnFollowing({
   }, [started]);
 }
 
-/**
- * Reads back what Claude just asked and answered, and offers it to the blueprint.
- *
- * A draft the reader asked for (components/review/keep.tsx) comes back as an ordinary
- * answer, so it is announced on its own channel first: the dialog is waiting
- * for one and the level is not.
- */
-async function offerAnswer(transcript: string) {
-  const r = await fetch(`/api/answer?transcript=${encodeURIComponent(transcript)}`)
-    .then((x) => x.json())
-    .catch(() => null);
-  const e = r?.exchange as Exchange | null | undefined;
-  if (!e?.said) return;
-  if (!announceDraft(e.said)) announceAnswer(e);
-}

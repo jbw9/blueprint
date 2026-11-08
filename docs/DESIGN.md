@@ -156,10 +156,10 @@ code. Back is the browser's back, the swipe, Esc, the "←" link, or a crumb.
 for your next prompt → ask. Claude can run `blueprint-show section "<title>"`,
 which moves your view while the answer is still arriving (D59).
 
-**Keep or correct what the blueprint says.** After Claude answers, a level offers to
-keep the answer as a block marked as yours (`KeepAnswer`). History lists all of
-it and can revert. The "Fix this" button is gone from the level header (D62),
-and its dialog (D55) with it.
+**Correct what the blueprint says.** History lists what you added to a blueprint
+and can revert it. The "Fix this" button is gone from the level header (D62),
+and its dialog (D55) with it. So is "Keep the answer", which saved Claude's last
+answer as a block on a level.
 
 **Review a change.** Diff button → the panel lists changed sections → click
 one → the same level, decorated: tinted sections, removed things in red beside

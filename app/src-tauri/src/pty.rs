@@ -330,9 +330,6 @@ pub struct State {
     status: Option<String>,
     /// Claude finished a turn the blueprint should follow; reported once.
     turn: Option<claude::Turn>,
-    /// The transcript of the turn Claude just finished, whatever it did, so the
-    /// app can offer to keep the answer on the blueprint; reported once.
-    ended: Option<String>,
     /// What Claude asked the app to show — a section, a diff — taken mid-turn
     /// so the user is looking at it while the answer streams; reported once.
     acts: Vec<claude::Act>,
@@ -365,7 +362,6 @@ pub fn pty_state(id: u32, ptys: tauri::State<Ptys>) -> Result<State, String> {
         busy,
         status: claude::status_of(&p.context),
         turn: claude::take_turn(&p.context),
-        ended: claude::take_ended(&p.context),
         acts: claude::take_acts(&p.context),
         plan: claude::take_plan(&p.context),
         approved: claude::take_approved(&p.context),

@@ -37,7 +37,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { Node } from "@/lib/blueprint/schema";
-import { lastExchange } from "@/lib/agent/keep";
+import { lastExchange } from "@/lib/agent/transcript";
 import type { BlueprintFile } from "@/lib/blueprint/build";
 import { parseArgs } from "./args";
 import { authorRoot, authorTool, converse, submitLine } from "./author";

@@ -102,8 +102,7 @@ export function findSection(blueprint: BuiltBlueprint, name: string): string[] |
 /**
  * Acts arrive on the workspace's existing poll, where nothing knows about the
  * blueprint, and are applied on the canvas, which has the tree to resolve a name
- * against. The same event-bus hop as `announceAnswer` (components/review/keep.tsx),
- * for the same reason.
+ * against, so they cross on a window event.
  */
 const ACTED = "blueprint:acted";
 
