@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 import { goTo } from "@/components/chrome/crumbs";
 import { useMap } from "@/components/map/map-context";
 import { openFile, useOpenFile } from "@/components/map/code";
-import { closeTab, follow, insertTab, openTab, readTabs, replaceTab, selectTab, useTabs, type Tab } from "@/lib/client/tabs";
+import { closeTab, follow, insertTab, justOpened, openTab, readTabs, replaceTab, selectTab, useTabs, type Tab } from "@/lib/client/tabs";
 import { Menu } from "@/components/ui/menu";
 import { cn } from "@/lib/client/utils";
 
@@ -348,6 +348,7 @@ function SectionTab({
         tabLook(active, !!onClose),
         !active && "cursor-pointer",
         target && DROP_TARGET,
+        justOpened(id) && TAB_OPENED,
       )}
     >
       {home ? <BlueprintIcon /> : null}
@@ -362,6 +363,9 @@ function SectionTab({
  * strip when a workspace tab is dragged into it (components/agent/workspace.tsx),
  * so the map's tabs read the same with or without one there.
  */
+
+/** A tab just opened from inside the page: it rises in lit with the accent, so the eye finds it. */
+export const TAB_OPENED = "animate-[tab-opened_1.4s_ease-out]";
 
 /** The strip. Its bottom line is an inset shadow rather than a border, so the
  * tab in front can paint over it and run on into what is below. */

@@ -67,10 +67,17 @@ export function follow(map: string, path: string[], file?: string) {
     save(map, { ...t, tabs: t.tabs.map((x) => (x.id === t.active ? { id: x.id, path, ...(file ? { file } : {}) } : x)) });
 }
 
+// The tab last opened, and when, so the strip can mark it as it arrives:
+// opened from inside the page, it would otherwise appear without a sign.
+let opened = { id: 0, at: 0 };
+/** Whether the tab `id` was opened a moment ago. */
+export const justOpened = (id: number) => opened.id === id && Date.now() - opened.at < 1500;
+
 /** A new tab beside the one in front, holding `path` (and `file` over it), brought to the front. */
 export function openTab(map: string, path: string[], file?: string) {
   const t = readTabs(map) ?? { tabs: [], active: 0 };
   const id = Math.max(0, ...t.tabs.map((x) => x.id)) + 1;
+  opened = { id, at: Date.now() };
   const at = t.tabs.findIndex((x) => x.id === t.active);
   const tabs = [...t.tabs];
   tabs.splice(at + 1, 0, { id, path, ...(file ? { file } : {}) });

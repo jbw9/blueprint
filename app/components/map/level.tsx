@@ -382,7 +382,7 @@ export function Level({
             Renders nothing when there are none, diff mode or not. */}
         <RemovedSections path={path} />
 
-        {!run ? <Reach uses={reach.uses} usedBy={reach.usedBy} onOpen={onOpen} /> : null}
+        {!run ? <Reach uses={reach.uses} usedBy={reach.usedBy} /> : null}
 
         {/* The repository's way in comes after its picture: the walkthroughs
             open parts the reader has just seen drawn. A map from before they

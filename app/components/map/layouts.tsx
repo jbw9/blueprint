@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/client/utils";
 import { sectionTone } from "@/components/map/blocks";
 import { Eyebrow, StateChip } from "@/components/ui/state";
@@ -9,6 +10,7 @@ import type { Edge, Node } from "@/lib/map/schema";
 import type { Link } from "@/lib/map/coverage";
 import { BLURB_LINES } from "@/lib/map/view";
 import { authored, openable } from "@/components/map/nodes";
+import { openInTab } from "@/components/chrome/tabs";
 
 /* ── layout ──────────────────────────────────────────────────── */
 
@@ -168,45 +170,81 @@ export function List({
 /**
  * What a level's code imports, and what imports it, each as the section that
  * explains the other side (lib/map/coverage.ts neighbours): where to read next,
- * and what a change here reaches.
+ * and what a change here reaches. Grouped under the area each sits in, so a
+ * long list reads as a few places rather than a heap of names. Each opens in
+ * a new tab, so the level being read stays one tab back.
  */
-export function Reach({ uses, usedBy, onOpen }: { uses: Link[]; usedBy: Link[]; onOpen: (p: string[]) => void }) {
-  const { nodeAt } = useMap();
+export function Reach({ uses, usedBy }: { uses: Link[]; usedBy: Link[] }) {
+  const { name: map, nodeAt } = useMap();
+  const [all, setAll] = useState<Record<string, boolean>>({});
   if (!uses.length && !usedBy.length) return null;
-  const SHOWN = 8;
-  const row = (label: string, gloss: string, links: Link[]) =>
-    links.length ? (
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        <span className="mr-1.5 flex w-[96px] shrink-0 flex-col gap-1">
+  const SHOWN = 12;
+
+  const block = (label: string, gloss: string, links: Link[]) => {
+    if (!links.length) return null;
+    const shown = all[label] ? links : links.slice(0, SHOWN);
+    const groups = new Map<string, Link[]>();
+    for (const l of shown) {
+      const area = l.path && nodeAt(l.path.slice(0, 1))?.title;
+      const k = area || "Not on the map";
+      groups.set(k, [...(groups.get(k) ?? []), l]);
+    }
+    return (
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-baseline gap-2">
           <Eyebrow>{label}</Eyebrow>
-          <span className="text-[11px] leading-tight text-faint">{gloss}</span>
-        </span>
-        {links.slice(0, SHOWN).map((l) => {
-          const titles = l.path ? l.path.map((_, i) => nodeAt(l.path!.slice(0, i + 1))?.title).filter(Boolean) : [];
-          const name = titles.slice(-2).join(" › ");
-          const title = `${l.via}${l.count > 1 ? ` and ${l.count - 1} more` : ""}`;
-          return l.path && name ? (
+          <span className="font-mono text-[11px] text-faint">{links.length}</span>
+          <span className="text-[12px] text-faint">· {gloss}</span>
+        </div>
+        <div className="flex flex-col gap-1.5 border-l border-border-gray pl-3">
+          {[...groups].map(([area, ls]) => (
+            <div key={area} className="flex items-baseline gap-3">
+              <span className="w-[150px] shrink-0 truncate text-[12px] text-muted-slate" title={area}>
+                {area}
+              </span>
+              <div className="flex min-w-0 flex-wrap gap-1.5">
+                {ls.map((l) => {
+                  const title = `${l.via}${l.count > 1 ? ` and ${l.count - 1} more` : ""}`;
+                  const leaf = l.path && nodeAt(l.path)?.title;
+                  if (!l.path || !leaf)
+                    return (
+                      <span key={l.file} title={title} className="px-1 font-mono text-[11.5px] text-faint">
+                        {l.file.split("/").pop()}
+                      </span>
+                    );
+                  return (
+                    <button
+                      key={l.path.join("/")}
+                      onClick={() => openInTab(map, l.path!)}
+                      title={`${title}\nOpens in a new tab`}
+                      className="group/reach flex items-center gap-1.5 border border-border-gray px-2 py-0.5 text-[12.5px] text-ink transition-colors hover:border-accent hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      {l.path.length > 1 ? leaf : "the area itself"}
+                      <span aria-hidden className="text-[11px] text-faint group-hover/reach:text-accent">
+                        ↗
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {links.length > SHOWN ? (
             <button
-              key={l.path.join("/")}
-              onClick={() => onOpen(l.path!)}
-              title={title}
-              className=" border border-border-gray px-2 py-1 text-[12.5px] text-ink transition-colors hover:border-accent hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={() => setAll((a) => ({ ...a, [label]: !a[label] }))}
+              className="self-start text-[12px] text-faint hover:text-ink"
             >
-              {name}
+              {all[label] ? "Show fewer" : `Show all ${links.length}`}
             </button>
-          ) : (
-            <span key={l.file} title={title} className="px-1 font-mono text-[11.5px] text-faint">
-              {l.file.split("/").pop()}
-            </span>
-          );
-        })}
-        {links.length > SHOWN ? <span className="text-[12px] text-faint">+{links.length - SHOWN} more</span> : null}
+          ) : null}
+        </div>
       </div>
-    ) : null;
+    );
+  };
   return (
-    <section data-pick="Uses and used by" className="flex max-w-[820px] flex-col gap-3">
-      {row("Uses", "what its code imports", uses)}
-      {row("Used by", "what a change here reaches", usedBy)}
+    <section data-pick="Uses and used by" className="flex max-w-[820px] flex-col gap-5">
+      {block("Uses", "what its code imports", uses)}
+      {block("Used by", "what a change here reaches", usedBy)}
     </section>
   );
 }

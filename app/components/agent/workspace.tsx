@@ -26,8 +26,8 @@ import { Device, PLATFORM, type Platform } from "@/components/preview/device";
 import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
 import { TOGGLE } from "@/lib/agent/workspace-toggle";
 import { useLocation } from "@/components/chrome/crumbs";
-import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
-import { closeTab, selectTab, useTabs } from "@/lib/client/tabs";
+import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_OPENED, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
+import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
 import { findAddress, findQuestion, findTaken, hostOf, previewOf, type Call } from "@/lib/agent/preview";
 import { readSettings } from "@/lib/client/settings";
 import { onClosed } from "@/lib/client/open-projects";
@@ -1109,7 +1109,7 @@ export function Workspace() {
                   closeMap();
                 }
               }}
-              className={cn(tabLook(selected, closable), !selected && "cursor-pointer", drop !== null && "on" in drop && drop.on === m.id && DROP_TARGET)}
+              className={cn(tabLook(selected, closable), !selected && "cursor-pointer", drop !== null && "on" in drop && drop.on === m.id && DROP_TARGET, justOpened(m.id) && TAB_OPENED)}
             >
               {!m.path.length && !m.file ? <BlueprintIcon /> : null}
               <TabLabel>{label}</TabLabel>

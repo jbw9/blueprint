@@ -669,6 +669,20 @@
   }
 }
 
+/* A map tab opened from inside the page (components/chrome/tabs.tsx TAB_OPENED). */
+@keyframes tab-opened {
+  0% {
+    transform: translateY(6px);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  20% {
+    transform: none;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
