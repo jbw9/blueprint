@@ -55,19 +55,18 @@ export default function Promotion() {
               </tr>
               <tr>
                 <td>Claude tabs, per session</td>
-                <td>$4 of Claude usage every 5 hours. The 5 hours start with your first message.</td>
+                <td>About half of a Claude Pro session, usually 15&ndash;40 prompts. The 5 hours start with your first message.</td>
               </tr>
               <tr>
                 <td>Claude tabs, per week</td>
-                <td>$40 of Claude usage every 7 days. The week starts with your first message.</td>
+                <td>About ten full sessions. The week starts with your first message.</td>
               </tr>
             </tbody>
           </table>
           <p className={p.fine}>
-            Usage is counted in dollars at Anthropic&rsquo;s list price for each token, because a token read from cache costs a tenth of a new one. Claude tabs
-            run Claude Sonnet, or Claude Haiku when Claude Code asks for it. A request for Opus runs on Sonnet. Sonnet is $3 per million input tokens and
-            $15 per million output tokens; cached input is $0.30 per million. A typical session reads mostly from cache, so $4 comes to a few million tokens.
-            Settings → Blueprint credit shows how much of the session and the week you have used, and when each resets.
+            It works like Claude Code&rsquo;s own plans: a 5-hour session and a weekly limit. How many prompts fit depends on the work. Large codebases,
+            long conversations and many files read in one turn use more. Claude tabs run Claude Sonnet, or Claude Haiku when Claude Code asks for it; a
+            request for Opus runs on Sonnet. Settings → Blueprint credit shows how much of the session and the week you have used, and when each resets.
           </p>
 
           <h2>Who can use it</h2>
