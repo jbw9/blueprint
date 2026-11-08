@@ -6,22 +6,18 @@ A visual blueprint of a codebase. Start with the product's features, then go dee
 
 Code gets written faster than anyone can read it. Asking an assistant "how does this work?" answers one question but loses the big picture. blueprint lets you explore instead.
 
-## Getting started
+## Install
+
+On macOS, Linux, or Windows (in Git Bash):
 
 ```bash
-cd app
-npm install
-npm run dev
+curl -fsSL https://blpr.dev/install.sh | sh
 ```
 
-Open http://localhost:3000.
+It downloads the latest build for your system, or builds from source where there is none. Run it again to update.
 
-### Use blueprint while working on it (macOS)
-
-```bash
-cd app
-npm run app:install
-```
+- `BLUEPRINT_FROM_SOURCE=1` builds from source anyway (kept in `~/.blueprint/src`; `BLUEPRINT_DIR` moves it)
+- `BLUEPRINT_NO_TELEMETRY=1` skips the one ping it sends at the end (your OS and whether the install worked)
 
 ## Layout
 
