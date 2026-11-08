@@ -56,8 +56,8 @@ export interface Graph {
   about?: Record<string, string>;
   defs: Def[];
   edges: Edge[];
-  /** Files parsed, calls left out because their name had several candidates, links found by name in files with no grammar, and how long the build took. */
-  stats: { files: number; parsed: number; calls: number; resolved: number; ambiguous: number; mentions?: number; ms: number };
+  /** Files parsed, calls left out because their name had several candidates, links found by name in files with no grammar, requests to the repo's own routes, and how long the build took. */
+  stats: { files: number; parsed: number; calls: number; resolved: number; ambiguous: number; mentions?: number; requests?: number; ms: number };
 }
 
 /** Which grammar and which tags query each extension reads with. */
@@ -267,6 +267,50 @@ function namesOfFile(path: string): string[] {
 }
 
 const escape = (s: string) => s.replace(/[$]/g, "\\$");
+
+/** A string that starts with a path, perhaps after one `${base}`: the path up to its query, interpolations kept. */
+const URL_LITERAL = /(["'`])(?:\$\{[^}]*\})?(\/(?:[\w\-.~%]|\$\{[^}]*\}|\/)*)/g;
+/** `rest`: how many segments past `segments` it needs at least, for a catch-all (1, or 0 when optional); absent for none. */
+interface Route { file: string; segments: (string | null)[]; rest?: number }
+
+/**
+ * The URLs a Next.js server answers from its own files: `route.ts` under an
+ * app directory (one holding a root layout) and anything under `pages/api/`.
+ * A dynamic segment (`[id]`) is null, matching any one segment; a catch-all
+ * (`[...slug]`) matches the rest; route groups `(x)` and slots `@x` are not in the URL.
+ */
+function routesOf(files: string[]): Route[] {
+  // The outermost such directory is the root: a nested segment named `app` with its own layout is inside it.
+  const appDirs = files.map((f) => /^(.*\/)?layout\.[jt]sx?$/.exec(f)?.[1]).filter((d): d is string => !!d && /(^|\/)app\/$/.test(d)).sort((a, b) => a.length - b.length);
+  const out: Route[] = [];
+  for (const file of files) {
+    let path: string | undefined;
+    const dir = appDirs.find((d) => file.startsWith(d) && /\/route\.[jt]sx?$/.test(file));
+    if (dir) path = file.slice(dir.length).replace(/\/?route\.[jt]sx?$/, "");
+    else path = /(?:^|\/)pages\/(api\/.*?)(?:\/index)?\.[jt]sx?$/.exec(file)?.[1];
+    if (path === undefined) continue;
+    const parts = path.split("/").filter((p) => p && !/^\(.*\)$/.test(p) && !p.startsWith("@"));
+    const last = parts.at(-1) ?? "";
+    const rest = last.startsWith("[[...") ? 0 : last.startsWith("[...") ? 1 : undefined;
+    out.push({ file, segments: (rest === undefined ? parts : parts.slice(0, -1)).map((p) => (/^\[.*\]$/.test(p) ? null : p)), ...(rest === undefined ? {} : { rest }) });
+  }
+  return out;
+}
+
+/** The route a path asks, preferring the one with the most fixed segments; an interpolated segment matches only a dynamic one. */
+function matchRoute(routes: Route[], url: string): Route | null {
+  const parts = url.split("/").filter(Boolean);
+  let best: Route | null = null;
+  let score = -1;
+  for (const r of routes) {
+    if (r.rest === undefined ? parts.length !== r.segments.length : parts.length < r.segments.length + r.rest) continue;
+    if (!r.segments.every((s, i) => (s === null ? true : s === parts[i]))) continue;
+    const fixed = r.segments.filter((s) => s !== null).length;
+    if (fixed > score) [best, score] = [r, fixed];
+  }
+  // A bare "/" or a path of nothing but interpolations names no route.
+  return score > 0 ? best : null;
+}
 
 /**
  * Lays the summarize stage's reading onto the graph: what each file is for,
@@ -502,6 +546,36 @@ async function compile(inv: Inventory): Promise<Graph> {
     }
   }
 
+  // Requests. Code that asks a URL its own server answers (`fetch("/api/diff?…")`)
+  // reaches that route's handler over the network, which no import or call
+  // shows. A path in a string that matches a route file is a link from that
+  // line to the handler for its method, or to the file; `inferred`, as any
+  // link through the network is.
+  let requests = 0;
+  const routes = routesOf(code.map((f) => f.path));
+  if (routes.length) {
+    for (const f of code) {
+      const text = unparsed.get(f.path) ?? perFile.get(f.path)?.text;
+      if (text === undefined || !/["'`](\$\{[^}]*\})?\//.test(text)) continue;
+      const spans = perFile.get(f.path)?.spans ?? [];
+      const lines = text.split("\n");
+      let offset = 0;
+      for (let i = 0; i < lines.length; offset += lines[i].length + 1, i++) {
+        if (COMMENT.test(lines[i]) || IMPORT_LINE.test(lines[i])) continue;
+        for (const m of lines[i].matchAll(URL_LITERAL)) {
+          const route = matchRoute(routes, m[2]);
+          if (!route || route.file === f.path) continue;
+          // Its method is named in the options that follow, before the statement ends.
+          const call = text.slice(offset + m.index!, offset + m.index! + 300).split(";")[0];
+          const method = /\bmethod\s*:\s*["'`](\w+)/i.exec(call)?.[1].toUpperCase() ?? "GET";
+          const handler = defs.find((d) => d.file === route.file && !d.parent && d.name === method);
+          add(within(spans, offset + m.index!) ?? f.path, handler?.id ?? route.file, "calls", "inferred", i + 1);
+          requests++;
+        }
+      }
+    }
+  }
+
   for (const [a, bs] of Object.entries(inv.imports)) {
     const lang = langOf(a);
     for (const b of bs) add(a, b, "imports", lang && PARSED_IMPORTS.has(lang) ? "extracted" : "inferred");
@@ -512,7 +586,7 @@ async function compile(inv: Inventory): Promise<Graph> {
     files: parsedFiles,
     defs,
     edges: [...edges.values()],
-    stats: { files: code.length, parsed, calls, resolved, ambiguous, mentions, ms: Date.now() - t0 },
+    stats: { files: code.length, parsed, calls, resolved, ambiguous, mentions, requests, ms: Date.now() - t0 },
   };
   unparsedText.set(graph, unparsed);
   return graph;
