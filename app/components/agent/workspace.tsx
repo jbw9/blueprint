@@ -1125,9 +1125,12 @@ export function Workspace() {
     <section
       ref={mainPane}
       aria-label="Main view"
-      hidden={!docked.length}
+      // Invisible, not display: none, with nothing docked: another project's
+      // Preview kept in here would be laid out at 0×0 and back on every
+      // project switch, a whole page's layout on the app's own thread.
+      aria-hidden={!docked.length}
       style={{ top: desktop ? TITLEBAR : 0, bottom: STATUSBAR }}
-      className="pointer-events-none fixed inset-x-0 z-30 flex flex-col"
+      className={cn("pointer-events-none fixed inset-x-0 z-30 flex flex-col", !docked.length && "invisible")}
     >
       {/* The bluprint's own tabs, as its strip draws them (components/chrome/tabs.tsx),
           then the tabs dragged here, drawn the same way: with a tab here the

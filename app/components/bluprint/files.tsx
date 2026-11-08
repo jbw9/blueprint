@@ -40,6 +40,19 @@ interface Files {
 }
 
 const fetched = new Map<string, Files>();
+// One request per bluprint as it is now, shared by every caller (the panel, the
+// status bar, the palette, each level): each would otherwise load the whole
+// bluprint on the server again, one after another, holding up a project switch.
+const asking = new Map<string, { run: unknown; got: Promise<Files | null> }>();
+function ask(name: string, run: unknown) {
+  const had = asking.get(name);
+  if (had && had.run === run) return had.got;
+  const got = fetch(`/api/files?bluprint=${encodeURIComponent(name)}`)
+    .then((r) => (r.ok ? (r.json() as Promise<Files>) : null))
+    .catch(() => null);
+  asking.set(name, { run, got });
+  return got;
+}
 
 /** The open bluprint's file index (app/api/files), fetched again whenever the bluprint is rewritten. Null until it arrives, or on a bluprint with no checkout. */
 export function useFiles(): Files | null {
@@ -48,14 +61,11 @@ export function useFiles(): Files | null {
   const [got, setFiles] = useState<{ name: string; files: Files } | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(`/api/files?bluprint=${encodeURIComponent(bluprint.name)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((r: Files | null) => {
-        if (!live || !r) return;
-        fetched.set(bluprint.name, r);
-        setFiles({ name: bluprint.name, files: r });
-      })
-      .catch(() => {});
+    void ask(bluprint.name, bluprint.RUN).then((r) => {
+      if (!live || !r) return;
+      fetched.set(bluprint.name, r);
+      setFiles({ name: bluprint.name, files: r });
+    });
     return () => {
       live = false;
     };

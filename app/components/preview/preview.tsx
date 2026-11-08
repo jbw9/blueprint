@@ -410,7 +410,12 @@ export function Preview({
   useEffect(() => {
     const el = stage.current;
     if (!el) return;
-    const seen = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }));
+    // A tab put out of layout measures 0×0: the page keeps its last size
+    // rather than being laid out at nothing and back.
+    const seen = new ResizeObserver(([e]) => {
+      const { width: w, height: h } = e.contentRect;
+      if (w || h) setBox({ w, h });
+    });
     seen.observe(el);
     return () => seen.disconnect();
   }, []);
