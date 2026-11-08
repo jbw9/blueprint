@@ -1,6 +1,7 @@
 #!/bin/sh
 # Installs Blueprint on macOS, Linux or Windows (in Git Bash), built from source:
-#   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
+#   curl -fsSL https://blpr.dev/install.sh | sh
+# blpr.dev serves this file as main has it (scripts/build-site.sh).
 # The source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it); running this again updates and rebuilds.
 # When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
 set -e
