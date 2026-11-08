@@ -1,12 +1,15 @@
 #!/bin/sh
-# Installs Blueprint on macOS, Linux or Windows (in Git Bash), built from source:
-#   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
-# The source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it); running this again updates and rebuilds.
+# Installs Blueprint on macOS, Linux or Windows (in Git Bash):
+#   curl -fsSL https://blpr.dev/install.sh | sh
+# blpr.dev serves this file as main has it (scripts/build-site.sh).
+# It downloads the build of main that CI publishes for this system (.github/workflows/install.yml), and
+# builds from source where there is none, or with BLUEPRINT_FROM_SOURCE=1. Running this again updates.
+# A build from source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it).
 # When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
 set -e
 
 # The admin dashboard's backend (app/scripts/api).
-API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
+API_URL=https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws
 
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
@@ -25,6 +28,39 @@ main() {
   MINGW* | MSYS* | CYGWIN*) os=Windows ;;
   *) die "Blueprint installs on macOS, Linux and Windows (in Git Bash: https://git-scm.com/downloads/win)." ;;
   esac
+  case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
+  release=${BLUEPRINT_RELEASE:-https://github.com/jbw9/blueprint/releases/download/latest/blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz}
+  # Blueprint's server runs on Node, however it's installed.
+  command -v node >/dev/null || die "Blueprint needs Node 20 or newer: https://nodejs.org"
+  [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || die "Blueprint needs Node 20 or newer; this is $(node -v)."
+
+  tmp=$(mktemp -d)
+  if [ -z "$BLUEPRINT_FROM_SOURCE" ] && download; then
+    say "Installing Blueprint"
+    BLUEPRINT_PREBUILT="$tmp" sh "$tmp/install-app.sh"
+    # The release is built against the system libraries a source build would install.
+    if [ "$os" = Linux ] && libs=$(ldd "$HOME/.local/bin/blueprint" | grep "not found"); then
+      die "Blueprint needs system libraries this computer doesn't have:
+$libs
+Install webkit2gtk 4.1 and gtk3 (Debian or Ubuntu: sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0), then open it."
+    fi
+  else
+    from_source
+  fi
+  rm -rf "$tmp"
+
+  command -v claude >/dev/null ||
+    say "Blueprint makes blueprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
+}
+
+# The release, unpacked into $tmp. Fails, building from source instead, when there's none for this system.
+download() {
+  say "Downloading Blueprint"
+  curl -fL --progress-bar "$release" -o "$tmp/blueprint.tar.gz" && tar -xzf "$tmp/blueprint.tar.gz" -C "$tmp" && rm "$tmp/blueprint.tar.gz" ||
+    { say "There's no ready-made Blueprint for this system, so it's built from source"; return 1; }
+}
+
+from_source() {
   # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
 
@@ -32,10 +68,8 @@ main() {
   if [ "$os" = Darwin ]; then
     need git "xcode-select --install"
     need c++ "xcode-select --install"
-    need node "Node 20 or newer: https://nodejs.org (or: brew install node)"
     need cmake "brew install cmake (or https://cmake.org/download)"
   elif [ "$os" = Windows ]; then
-    need node "Node 20 or newer: winget install OpenJS.NodeJS.LTS (or https://nodejs.org)"
     need cmake "winget install Kitware.CMake (or https://cmake.org/download)"
     # Rust links with MSVC's C++ tools, which only vswhere can find from here.
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
@@ -44,7 +78,6 @@ main() {
   - the Visual Studio C++ build tools: winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
     need git "your package manager's git"
-    need node "Node 20 or newer: https://nodejs.org/en/download/package-manager"
     if command -v apt-get >/dev/null; then
       sys="sudo apt-get install -y build-essential cmake pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev libasound2-dev libpulse-dev"
     elif command -v dnf >/dev/null; then
@@ -64,8 +97,6 @@ main() {
   fi
   [ -z "$missing" ] || die "Blueprint builds from source, and needs:$missing
 Install those, then run this again."
-  command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] ||
-    die "Blueprint needs Node 20 or newer; this is $(node -v)."
   if ! command -v cargo >/dev/null; then
     say "Installing Rust (rustup)"
     if [ "$os" = Windows ]; then
@@ -91,9 +122,6 @@ Install those, then run this again."
   npm ci --no-audit --no-fund
   say "Building Blueprint (the first build compiles the app: 10 to 20 minutes)"
   sh scripts/install-app.sh
-
-  command -v claude >/dev/null ||
-    say "Blueprint makes blueprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
 }
 
 report() {

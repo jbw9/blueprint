@@ -54,9 +54,17 @@ export async function GET(request: Request) {
   const id = params.get("id");
   if (id) {
     const p = listProjects().find((x) => x.id === id);
-    return Response.json(
-      p ? { id: p.id, update: p.update ?? null, redoing: p.update?.status === "running" ? redoingOf(p.id) : [], progress: p.blueprint.status === "generating" ? progressOf(p.id) : null } : null,
-    );
+    if (!p) return Response.json(null);
+    return Response.json({
+      id: p.id,
+      status: p.blueprint.status,
+      paused: Boolean(p.paused),
+      explain: p.explain ?? "full",
+      hasBlueprint: Boolean(blueprintFileOf(p.id)),
+      update: p.update ?? null,
+      redoing: p.update?.status === "running" ? redoingOf(p.id) : [],
+      progress: p.blueprint.status === "generating" ? progressOf(p.id) : null,
+    });
   }
   const projects = listProjects().map((p) => {
     const head = headOf(p.root);

@@ -31,9 +31,12 @@ export function Menu({
   title,
   items,
   onClose,
+  up,
 }: {
   x: number;
   y: number;
+  /** Opens upward, with its bottom edge at `y`, as from a bar along the window's bottom. */
+  up?: boolean;
   /** What the menu acts on, named above the items. */
   title?: string;
   items: MenuItem[];
@@ -47,9 +50,9 @@ export function Menu({
     if (!box) return;
     setAt({
       x: Math.max(4, Math.min(x, window.innerWidth - box.width - 4)),
-      y: Math.max(4, Math.min(y, window.innerHeight - box.height - 4)),
+      y: Math.max(4, Math.min(up ? y - box.height : y, window.innerHeight - box.height - 4)),
     });
-  }, [x, y]);
+  }, [x, y, up]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -29,6 +29,8 @@ printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content=
 # The admin dashboard, at blpr.dev/admin: one static page, its data behind a password (app/scripts/api/admin.mjs).
 mkdir -p "$site/admin"
 cp ../admin/index.html "$site/admin/index.html"
+# The one-line install: curl -fsSL https://blpr.dev/install.sh | sh
+cp ../install.sh "$site/install.sh"
 touch "$site/.nojekyll"
 # The site is served at blpr.dev; Pages drops the custom domain when this file is gone.
 echo blpr.dev > "$site/CNAME"

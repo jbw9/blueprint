@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 // The admin dashboard's backend (app/scripts/api).
-const API_URL = "https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws";
+const API_URL = "https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws";
 
 /**
  * Counts a visit for the admin dashboard: one anonymous id per browser,

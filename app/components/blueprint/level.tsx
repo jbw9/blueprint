@@ -6,7 +6,7 @@ import { AnatomyView, type RowCtx } from "@/components/blueprint/anatomy";
 import { TableGlyph } from "@/components/blueprint/anatomy/glyphs";
 import { DocsList, Example, ExplainedBlock, WatchOut, isExplained, sectionOrder } from "@/components/blueprint/blocks";
 import { Building, DraftNote, Stages, NoBlueprint, isBuilding, useDrawIn } from "@/components/projects/building";
-import { CodePopup, ExplainToggle, Explainer, parseAt, useExplain, type CodeFocus } from "@/components/blueprint/explain";
+import { CodePopup, ExplainToggle, Explainer, parseAt, type CodeFocus } from "@/components/blueprint/explain";
 import { Glossary, SymbolLinks } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
@@ -177,9 +177,10 @@ export function Level({
     if (ref) setCodeFocus({ heading, detail, refs: [ref] });
   };
   const levelCtx: RowCtx = { ...ctx, onStepCode: showStep };
-  const [explainOn] = useExplain();
   const index = useFiles()?.index ?? null;
   const key = path.join("/");
+  const [explainAt, setExplainAt] = useState<string | null>(null);
+  const explainOn = explainAt === key;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is `path` by value
   const reach = useMemo(() => neighbours(blueprint.L0, index, path), [blueprint.L0, index, key]);
   // Each indexed symbol a level cites, by name, to the deepest level citing it;
@@ -284,7 +285,7 @@ export function Level({
         onCode={code.length ? () => setCodeFocus({ heading: `The code behind ${node.title}`, refs: code, verified: node.verified }) : undefined}
         actions={
           <>
-            {explains ? <ExplainToggle /> : null}
+            {explains ? <ExplainToggle on={explainOn} set={(on) => setExplainAt(on ? key : null)} /> : null}
             <FixAndKeep path={path} answer={answer} />
           </>
         }

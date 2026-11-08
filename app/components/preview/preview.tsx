@@ -1,6 +1,6 @@
 "use client";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Menu } from "@/components/ui/menu";
@@ -22,6 +22,7 @@ import { keepOver } from "@/components/preview/webview";
 import { mention, usePicks, type Target } from "@/lib/agent/context";
 import { PRESETS, registerPreview, type Call } from "@/lib/agent/preview";
 import { cn } from "@/lib/client/utils";
+import { isDesktop } from "@/lib/client/platform";
 
 /**
  * A project's running web app, in a workspace tab (components/agent/workspace.tsx).
@@ -196,7 +197,7 @@ export function Preview({
   // kept for the tab's life: a server that restarts elsewhere is followed on
   // the same port, so the page keeps its storage.
   useEffect(() => {
-    if (!target || !isTauri()) return;
+    if (!target || !isDesktop()) return;
     const open = proxy.current;
     if (open) {
       void invoke("preview_target", { id: open.id, target }).then(() => {
@@ -373,7 +374,7 @@ export function Preview({
     onScreen.set(id, me);
     // Just brought to the front, with nothing else of the app's in use.
     if (touched === null) touch(id);
-    const off = isTauri() ? listen<string>("blueprint:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
+    const off = isDesktop() ? listen<string>("blueprint:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
     return () => {
       if (onScreen.get(id) === me) onScreen.delete(id);
       void off?.then((f) => f());

@@ -2,7 +2,7 @@
 
 import "@xterm/xterm/css/xterm.css";
 import type { ITheme, Terminal } from "@xterm/xterm";
-import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -14,7 +14,7 @@ import { outline } from "@/lib/blueprint/build";
 import { readSettings } from "@/lib/client/settings";
 import { themeOf, type Theme } from "@/lib/client/theme";
 import { cn } from "@/lib/client/utils";
-import { isMac } from "@/lib/client/platform";
+import { isDesktop, isMac } from "@/lib/client/platform";
 import { findClaude } from "@/lib/client/claude";
 import { creditRelay } from "@/lib/client/credit";
 
@@ -291,7 +291,7 @@ export function Shell({
   });
 
   useEffect(() => {
-    if (!isTauri()) {
+    if (!isDesktop()) {
       // queueMicrotask, so the effect body itself sets no state.
       queueMicrotask(() => setError("The terminal needs the desktop app: run `npm run app:dev`."));
       return;
@@ -404,6 +404,15 @@ export function Shell({
       };
       refit();
 
+      const early: string[] = [];
+      const input = term.onData((data) => {
+        if (id === null) return void early.push(data);
+        const back = handlers.current.claude && (data === "\x7f" || data === "\x17");
+        const n = back ? unmention(id, beforeCursor(term)) : 0;
+        void invoke("pty_write", { id, data: n ? "\x7f".repeat(n) : data });
+        handlers.current.onInput?.();
+      });
+
       const out = new Channel<ArrayBuffer | { exit: number }>();
       // Streaming, so a character split across two reads still decodes.
       const text = new TextDecoder();
@@ -432,6 +441,7 @@ export function Shell({
           term.dispose();
           return;
         }
+        if (early.length) void invoke("pty_write", { id, data: early.join("") });
         // Typed ahead: the terminal holds it until the shell is ready to read.
         if (run) void invoke("pty_write", { id, data: `${run}\r` });
         handlers.current.onTitle?.(spawned.shell);
@@ -489,12 +499,6 @@ export function Shell({
             }),
           ).then((links) => done(links.filter((l) => l !== null)));
         },
-      });
-      const input = term.onData((data) => {
-        const back = handlers.current.claude && (data === "\x7f" || data === "\x17") && id !== null;
-        const n = back ? unmention(id!, beforeCursor(term)) : 0;
-        void invoke("pty_write", { id, data: n ? "\x7f".repeat(n) : data });
-        handlers.current.onInput?.();
       });
       // Selecting copies, as in herdr: no key to press after the drag.
       const host = el.current;

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import s from "./landing.module.css";
 
-const CMD = "curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh";
+const CMD = "curl -fsSL https://blpr.dev/install.sh | sh";
 
-/** The one-line install, the same on macOS and Linux, with a button that copies it. */
+/** The one-line install, the same on macOS, Linux and Windows (Git Bash), with a button that copies it. */
 export function LandingInstall() {
   const [copied, setCopied] = useState(false);
 
@@ -41,7 +41,7 @@ export function LandingInstall() {
           </svg>
         </button>
       </div>
-      <div className={s.installOs}>Paste it in a terminal on macOS or Linux.</div>
+      <div className={s.installOs}>Paste it in a terminal on macOS or Linux, or in Git Bash on Windows.</div>
     </div>
   );
 }

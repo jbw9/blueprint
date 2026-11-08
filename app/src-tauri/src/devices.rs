@@ -379,13 +379,36 @@ fn simctl_ok() -> bool {
     cfg!(target_os = "macos") && ok(crate::proc::command("xcrun").args(["simctl", "help"])).is_some()
 }
 
-fn idb() -> Option<PathBuf> {
-    let candidates = [home().join(".local/bin/idb"), "/opt/homebrew/bin/idb".into(), "/usr/local/bin/idb".into()];
-    candidates.into_iter().find(|p| p.is_file()).or_else(|| {
+/// A program in the usual places, else wherever the user's login shell finds it.
+fn installed(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
+    dirs.iter().map(|d| d.join(name)).find(|p| p.is_file()).or_else(|| {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
-        let p = PathBuf::from(ok(crate::proc::command(shell).args(["-lc", "command -v idb"]))?.trim());
+        let p = PathBuf::from(ok(crate::proc::command(shell).args(["-lc", &format!("command -v {name}")]))?.trim());
         p.is_file().then_some(p)
     })
+}
+
+fn idb() -> Option<PathBuf> {
+    installed("idb", &[home().join(".local/bin"), "/opt/homebrew/bin".into(), "/usr/local/bin".into()])
+}
+
+/// idb's native half, which does the touching. idb looks for it on PATH, which
+/// an app opened from the Dock does not have Homebrew's folder on, then in
+/// /usr/local/bin alone; so it is found here and named to idb.
+fn idb_companion() -> Option<PathBuf> {
+    installed("idb_companion", &[home().join(".local/bin"), "/opt/homebrew/bin".into(), "/usr/local/bin".into()])
+}
+
+const IDB_INSTALL: &str = "brew tap facebook/fb && brew install facebook/fb/idb-companion && pipx install fb-idb";
+
+/// idb, told where its companion is.
+fn idb_command() -> Result<Command, String> {
+    let (Some(idb), Some(companion)) = (idb(), idb_companion()) else {
+        return Err(format!("Touching and reading the iOS Simulator needs Meta's idb and its companion: {IDB_INSTALL}"));
+    };
+    let mut cmd = crate::proc::command(idb);
+    cmd.arg("--companion-path").arg(companion);
+    Ok(cmd)
 }
 
 const IOS_SETUP: &str = r#"#!/bin/sh
@@ -416,9 +439,9 @@ if ! xcrun simctl list runtimes | grep -q '^iOS'; then
   xcodebuild -downloadPlatform iOS
 fi
 echo
-if ! command -v idb >/dev/null 2>&1; then
+if ! command -v idb >/dev/null 2>&1 || ! command -v idb_companion >/dev/null 2>&1; then
   echo "To tap and type in the simulator from the app, install Meta's idb as well:"
-  echo "  brew tap facebook/fb && brew install idb-companion && pipx install fb-idb"
+  echo "  brew tap facebook/fb && brew install facebook/fb/idb-companion && pipx install fb-idb"
   echo "Without it the iOS tab still shows the simulator's screen."
   echo
 fi
@@ -538,15 +561,18 @@ fn status(platform: &str) -> Status {
         if emulator(&sdk).is_file() && avds(&sdk).is_empty() {
             missing.push("a virtual phone".into());
         }
-        let size = if missing.len() == 1 && java_home().is_none() { "about 200 MB" } else { "about 4–6 GB" };
+        let no_java = java_home().is_none();
+        let size = if missing.len() == 1 && no_java { "about 200 MB" } else { "about 4–6 GB" };
         Status {
-            ready: missing.is_empty(),
+            // Java only builds the project's app: an emulator already on the
+            // machine, as Android Studio's is, starts without it.
+            ready: missing.len() == usize::from(no_java),
             missing,
             running,
             location: sdk.to_string_lossy().into_owned(),
             size: size.into(),
             can_setup: cfg!(unix),
-            note: None,
+            note: no_java.then(|| "Run app needs Java 17 or 21, which Android Studio comes with; the emulator runs without it.".into()),
         }
     } else {
         let macos = cfg!(target_os = "macos");
@@ -560,8 +586,8 @@ fn status(platform: &str) -> Status {
             can_setup: macos,
             note: if !macos {
                 Some("The iOS Simulator only runs on a Mac.".into())
-            } else if ready && idb().is_none() {
-                Some("Tapping and typing need Meta's idb: brew tap facebook/fb && brew install idb-companion && pipx install fb-idb".into())
+            } else if ready && (idb().is_none() || idb_companion().is_none()) {
+                Some(format!("Tapping and typing need Meta's idb and its companion: {IDB_INSTALL}"))
             } else {
                 None
             },
@@ -804,10 +830,12 @@ fn input(platform: &str, i: &Input) -> Result<(), String> {
             k => Err(format!("No input called {k}.")),
         };
     }
-    let idb = idb().ok_or("Tapping in the iOS Simulator needs Meta's idb: brew tap facebook/fb && brew install idb-companion && pipx install fb-idb")?;
-    let density = density.unwrap_or_else(|| ios_density(&idb, &id));
+    let density = match density {
+        Some(d) => d,
+        None => ios_density(&id)?,
+    };
     let pt = |f: f64, of: u32| ((f.clamp(0.0, 1.0) * of as f64 / density) as u32).to_string();
-    let ui = |args: &[&str]| run(crate::proc::command(&idb).arg("ui").args(args).args(["--udid", &id]));
+    let ui = |args: &[&str]| run(idb_command()?.arg("ui").args(args).args(["--udid", &id]));
     match i.kind.as_str() {
         "tap" => ui(&["tap", &pt(i.x, w), &pt(i.y, h)]),
         "swipe" => ui(&["swipe", &pt(i.x, w), &pt(i.y, h), &pt(i.x2, w), &pt(i.y2, h), "--duration", &format!("{:.2}", i.ms.max(100) as f64 / 1000.0)]),
@@ -824,15 +852,15 @@ fn input(platform: &str, i: &Input) -> Result<(), String> {
 }
 
 /// iOS: pixels per point, asked of idb once and kept.
-fn ios_density(idb: &Path, id: &str) -> f64 {
-    let d = ok(crate::proc::command(idb).args(["describe", "--udid", id, "--json"]))
+fn ios_density(id: &str) -> Result<f64, String> {
+    let d = ok(idb_command()?.args(["describe", "--udid", id, "--json"]))
         .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
         .and_then(|v| v.get("screen_dimensions")?.get("density")?.as_f64())
         .unwrap_or(3.0);
     if let Some(r) = phones().lock().unwrap().ios.as_mut() {
         r.density = Some(d);
     }
-    d
+    Ok(d)
 }
 
 /* ── the user pointing Claude at something ───────────────────── */
@@ -921,10 +949,14 @@ fn describe_point(platform: &str, x: f64, y: f64) -> Result<Picked, String> {
             h: (b.3 - b.1) / h,
         });
     }
-    let idb = idb().ok_or("Reading the iOS Simulator's screen needs Meta's idb: brew tap facebook/fb && brew install idb-companion && pipx install fb-idb")?;
-    let density = phones().lock().unwrap().ios.as_ref().and_then(|r| r.density).unwrap_or_else(|| ios_density(&idb, &id));
+    // Read first: a lock held through the match would deadlock ios_density.
+    let known = phones().lock().unwrap().ios.as_ref().and_then(|r| r.density);
+    let density = match known {
+        Some(d) => d,
+        None => ios_density(&id)?,
+    };
     let (pw, ph) = (w / density, h / density);
-    let out = ok(crate::proc::command(&idb).args(["ui", "describe-point", "--udid", &id, "--json"]).arg(((x * pw) as u32).to_string()).arg(((y * ph) as u32).to_string()))
+    let out = ok(idb_command()?.args(["ui", "describe-point", "--udid", &id, "--json"]).arg(((x * pw) as u32).to_string()).arg(((y * ph) as u32).to_string()))
         .ok_or("The simulator did not say what is on its screen: try again.")?;
     let v: serde_json::Value = serde_json::from_str(&out).map_err(|e| e.to_string())?;
     let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
@@ -952,6 +984,80 @@ fn describe_point(platform: &str, x: f64, y: f64) -> Result<Picked, String> {
     })
 }
 
+/// Everything named or tappable on the screen, for Claude, as `read_page` is
+/// for a page: one line each, with its middle in `scale`'s units per screen
+/// pixel (the screenshot's), so a tap can go straight there.
+fn read_screen(platform: &str, scale: f64) -> Result<String, String> {
+    let id = running_id(platform)?;
+    let known = slot(&mut phones().lock().unwrap(), platform)?.as_ref().and_then(|r| r.size);
+    let (w, h) = match known {
+        Some(s) => s,
+        None => crate::mcp::png_size(&frame(platform)?).ok_or("The screen's size is unknown.")?,
+    };
+    let mid = |x: f64, y: f64| format!("({}, {})", (x * scale).round(), (y * scale).round());
+    let mut lines = Vec::new();
+    if platform == "android" {
+        let out = crate::proc::command(adb(&sdk()))
+            .args(["-s", &id, "exec-out", "uiautomator", "dump", "/dev/tty"])
+            .stderr(Stdio::null())
+            .output()
+            .map_err(|e| e.to_string())?;
+        let xml = String::from_utf8_lossy(&out.stdout);
+        for node in xml.split("<node ").skip(1) {
+            let node = &node[..node.find('>').unwrap_or(node.len())];
+            let Some(b) = bounds(&attr(node, "bounds")) else { continue };
+            let (text, desc, rid) = (attr(node, "text"), attr(node, "content-desc"), attr(node, "resource-id"));
+            let tap = attr(node, "clickable") == "true";
+            if !tap && text.is_empty() && desc.is_empty() {
+                continue;
+            }
+            let class = attr(node, "class");
+            let short = class.rsplit('.').next().unwrap_or(&class);
+            let name = [&text, &desc].into_iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" / ");
+            let id = rid.rsplit('/').next().unwrap_or("");
+            lines.push(format!(
+                "{short}{}{}{} at {}",
+                if name.is_empty() { String::new() } else { format!(" \"{name}\"") },
+                if id.is_empty() { String::new() } else { format!(" #{id}") },
+                if tap { " (tappable)" } else { "" },
+                mid((b.0 + b.2) / 2.0, (b.1 + b.3) / 2.0),
+            ));
+        }
+    } else {
+        let known = phones().lock().unwrap().ios.as_ref().and_then(|r| r.density);
+        let density = match known {
+            Some(d) => d,
+            None => ios_density(&id)?,
+        };
+        let out = ok(idb_command()?.args(["ui", "describe-all", "--udid", &id, "--json"])).ok_or("The simulator did not say what is on its screen: try again.")?;
+        let all: Vec<serde_json::Value> = serde_json::from_str(&out).map_err(|e| e.to_string())?;
+        for v in &all {
+            let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let f = |k: &str| v.get("frame").and_then(|fr| fr.get(k)).and_then(|n| n.as_f64()).unwrap_or(0.0);
+            let (kind, label, value, uid) = (s("type"), s("AXLabel"), s("AXValue"), s("AXUniqueId"));
+            if kind == "Application" || (label.is_empty() && value.is_empty() && uid.is_empty()) {
+                continue;
+            }
+            let name = [&label, &value].into_iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" / ");
+            lines.push(format!(
+                "{kind}{}{} at {}",
+                if name.is_empty() { String::new() } else { format!(" \"{name}\"") },
+                if uid.is_empty() { String::new() } else { format!(" #{uid}") },
+                mid((f("x") + f("width") / 2.0) * density, (f("y") + f("height") / 2.0) * density),
+            ));
+        }
+    }
+    if lines.is_empty() {
+        return Err("Nothing on the screen has a name: take a screenshot instead.".into());
+    }
+    Ok(format!(
+        "On the {platform} screen, each at its middle in screenshot pixels ({}×{}), by its kind, \"its text\" and #its id (a testID):\n{}",
+        (w as f64 * scale).round(),
+        (h as f64 * scale).round(),
+        lines.join("\n")
+    ))
+}
+
 #[tauri::command]
 pub async fn device_describe(platform: String, x: f64, y: f64) -> Result<Picked, String> {
     tauri::async_runtime::spawn_blocking(move || describe_point(&platform, x, y)).await.map_err(|e| e.to_string())?
@@ -971,7 +1077,7 @@ pub fn device_run(platform: String, root: String) -> Result<String, String> {
     let kind = kind(&root);
     if platform == "android" {
         let sdk = sdk();
-        let java = java_home().ok_or("Java 17 is missing: run Set up.")?;
+        let java = java_home().ok_or("Building the app needs Java 17 or 21, which Android Studio comes with: install either, or set JAVA_HOME.")?;
         let env = if cfg!(windows) {
             format!(
                 "set \"ANDROID_HOME={sdk}\" && set \"ANDROID_SDK_ROOT={sdk}\" && set \"JAVA_HOME={java}\" && set \"PATH={tools};{emu};{bin};%PATH%\" && ",
@@ -1083,16 +1189,23 @@ fn shrink(png: &[u8], w: u32, h: u32) -> (Vec<u8>, u32) {
 
 pub fn tool(args: &serde_json::Value, app: &tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
     use serde_json::json;
-    let p = phones().lock().unwrap();
+    let mut p = phones().lock().unwrap();
     let platform = match args.get("platform").and_then(|v| v.as_str()) {
         Some(p) => p.to_string(),
         None => match (&p.ios, &p.android) {
             (Some(_), None) => "ios".into(),
             (None, Some(_)) => "android".into(),
             (Some(_), Some(_)) => return Err("Both an iOS Simulator and an Android emulator are running: say which with platform.".into()),
-            (None, None) => return Err("No phone is running in the app. The user starts one from the iOS or Android tab.".into()),
+            (None, None) => return Err("No phone is running in the app: say which to start with platform, ios or android.".into()),
         },
     };
+    let running = slot(&mut p, &platform)?.is_some();
+    drop(p);
+    // A phone named but not running is started, as the user's Start does; its tab picks it up.
+    if !running {
+        start(&platform)?;
+    }
+    let p = phones().lock().unwrap();
     let known = match platform.as_str() {
         "ios" => p.ios.as_ref(),
         "android" => p.android.as_ref(),
@@ -1105,6 +1218,13 @@ pub fn tool(args: &serde_json::Value, app: &tauri::AppHandle) -> Result<Vec<serd
         let a = args.get(key)?.as_array()?;
         Some((a.first()?.as_f64()?, a.get(1)?.as_f64()?))
     };
+    if action == "read" {
+        let size = match known {
+            Some(s) => s,
+            None => crate::mcp::png_size(&frame(&platform)?).ok_or("The screen's size is unknown.")?,
+        };
+        return Ok(vec![json!({ "type": "text", "text": read_screen(&platform, 1.0 / divisor(size.0, size.1) as f64)? })]);
+    }
     if action == "screenshot" {
         let png = frame(&platform)?;
         let (w, h) = crate::mcp::png_size(&png).unwrap_or((0, 0));
