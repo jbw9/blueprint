@@ -311,23 +311,21 @@ export function FilePane({
   at,
   of,
   onStep,
-  onBack,
+  layout,
 }: {
   file: FileChange;
   view: View;
   at: number;
   of: number;
   onStep: (k: 1 | -1) => void;
-  onBack: () => void;
+  /** The split/inline switch, drawn in the bar. */
+  layout?: React.ReactNode;
 }) {
   const hunks = useMemo(() => hunksOf(file.diff), [file.diff]);
   const step = "cursor-pointer px-1.5 py-0.5 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink disabled:cursor-default disabled:opacity-40";
   return (
     <>
       <div className="flex shrink-0 items-center gap-2 border-b border-border-gray px-4 py-2">
-        <button type="button" onClick={onBack} className={step}>
-          ‹ Back
-        </button>
         <span className="font-mono text-[11px] font-semibold" style={{ color: TINT[file.verdict].ink }}>
           {STATUS[file.verdict]}
         </span>
@@ -338,6 +336,7 @@ export function FilePane({
         <span className="tnum shrink-0 text-[11px] text-faint">
           {at + 1} of {of}
         </span>
+        {layout}
         <button type="button" aria-label="Previous file" disabled={at <= 0} onClick={() => onStep(-1)} className={step}>
           ↑
         </button>

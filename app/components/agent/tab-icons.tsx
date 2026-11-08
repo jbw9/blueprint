@@ -11,7 +11,7 @@ export function iconOf(t: Tab) {
     <GlobeIcon />
   ) : t.kind === "plan" ? (
     <PlanIcon />
-  ) : t.kind === "file" ? (
+  ) : t.kind === "file" || t.kind === "diff" ? (
     <FileIcon />
   ) : t.kind === "blank" ? (
     <GlobeIcon />

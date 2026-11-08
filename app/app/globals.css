@@ -385,6 +385,14 @@
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  /* A press shows: whatever is clicked sinks a pixel and darkens while held,
+     so a click is felt even where nothing else changes. */
+  button:not(:disabled):active,
+  [role="tab"]:active,
+  [role="option"]:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--color-ink) 12%, transparent);
+  }
 }
 
 @layer components {
@@ -691,6 +699,23 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* A popup lifted off the page (components/review/diff-panel.tsx): a deep shadow
+   and a short rise, so it reads as in front of the bluprint, not part of it.
+   Unlayered, to win over DIALOG's own shadow utility. */
+.pop {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-night) 10%, transparent),
+    0 30px 72px -16px color-mix(in srgb, var(--color-night) 50%, transparent),
+    0 10px 24px -10px color-mix(in srgb, var(--color-night) 30%, transparent);
+  animation: pop-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
 }
 

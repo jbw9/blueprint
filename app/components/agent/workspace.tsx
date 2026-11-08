@@ -12,6 +12,7 @@ import { Shell } from "@/components/agent/shell";
 import { Preview } from "@/components/preview/preview";
 import { PlanView, type Plan } from "@/components/agent/plan";
 import { FileTab } from "@/components/agent/file-tab";
+import { DiffTab, setDiffFile, useDiffFile } from "@/components/review/diff-file";
 import { Held } from "@/components/agent/held";
 import { Offer } from "@/components/agent/phone-offer";
 import { StatusDot, DOT } from "@/components/agent/status-dot";
@@ -24,7 +25,7 @@ import type { Project, Tab } from "@/components/agent/workspace-tab";
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
 import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
-import { TOGGLE } from "@/lib/agent/workspace-toggle";
+import { SHOW_BLUPRINT, TOGGLE } from "@/lib/agent/workspace-toggle";
 import { useLocation } from "@/components/chrome/crumbs";
 import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_OPENED, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
 import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
@@ -616,6 +617,7 @@ export function Workspace() {
         setAsking((all) => ({ ...all, [stopped.cwd]: undefined }));
       }
       forgetPlan(gone);
+      if (gone.kind === "diff") setDiffFile(null);
       if (gone.pty !== undefined) tabEnded(gone.pty);
       if (dev?.pty !== undefined) tabEnded(dev.pty);
       // The neighbour in the same place takes over: in the window, whose last
@@ -634,6 +636,33 @@ export function Workspace() {
     },
     [tabs, active, front, here, show],
   );
+
+  // A file picked in the history panel (components/review/diff-file.tsx) reads
+  // in one tab of the window, opened with the panel's first pick and closed
+  // with the panel, unless it was moved to the main view. The window goes back
+  // to how it was: hidden again if the tab is what showed it.
+  const diffFile = useDiffFile();
+  const readingOpen = !!diffFile?.open;
+  const readingPath = diffFile?.path;
+  const hidAfter = useRef(false);
+  useEffect(() => {
+    const had = tabsNow.current.find((x) => x.kind === "diff");
+    if (readingOpen) {
+      if (!had) {
+        hidAfter.current = !open;
+        add(null, { kind: "diff", title: "Diff", cwd: here });
+      } else if (!had.main) bring(had.key);
+    } else if (had && !had.main) {
+      close(had.key);
+      if (hidAfter.current) show(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on the panel's picks only
+  }, [readingOpen, readingPath]);
+  useEffect(() => {
+    const front = () => setFront((f) => ({ ...f, [latest.current.here]: null }));
+    window.addEventListener(SHOW_BLUPRINT, front);
+    return () => window.removeEventListener(SHOW_BLUPRINT, front);
+  }, []);
 
   // A project closed stops its Claudes rather than leave them working unseen;
   // their conversations wait for it to be opened again.
@@ -858,7 +887,8 @@ export function Workspace() {
   // keeps clear of it, and so does the bluprint (components/bluprint/canvas.tsx), which is
   // not drawn here and reads it as --workspace-inset.
   // Kept until the window has slid away, so the bluprint widens once, after, not under it.
-  const inset = shown || !settled ? `calc(min(${width}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)` : undefined;
+  // With no tab left the window is not drawn at all, so it never finishes sliding away.
+  const inset = tabs.length && (shown || !settled) ? `calc(min(${width}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)` : undefined;
   useEffect(() => {
     const root = document.documentElement.style;
     if (inset) root.setProperty("--workspace-inset", inset);
@@ -920,6 +950,8 @@ export function Workspace() {
         ? (t.plan?.text.match(/^#\s+(.+)$/m)?.[1].trim() ?? "Plan")
         : t.kind === "file" || t.kind === "blank"
         ? t.title
+        : t.kind === "diff"
+        ? (diffFile?.path.split("/").pop() ?? "Diff")
         : t.kind !== "shell"
         ? PLATFORM[t.kind].label
         : front
@@ -1017,7 +1049,11 @@ export function Workspace() {
         visibility: !shown && settled ? "hidden" : "visible",
       }}
       data-chrome
-      className="fixed z-40 flex flex-col overflow-hidden border border-border-gray bg-surface-container-low shadow-[0_8px_28px_-8px_rgba(0,0,0,0.35)]"
+      // Over the history popup's veil while it has a file open here, so the two read together.
+      className={cn(
+        "fixed flex flex-col overflow-hidden border border-border-gray bg-surface-container-low shadow-[0_8px_28px_-8px_rgba(0,0,0,0.35)]",
+        readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
+      )}
     >
       <div
         onPointerDown={drag}
@@ -1299,6 +1335,12 @@ export function Workspace() {
             return !t.file ? null : (
               <Held key={t.key} slot={slot}>
                 <FileTab path={t.file} line={t.line} visible={visible} inset={t.main ? inset : undefined} />
+              </Held>
+            );
+          if (t.kind === "diff")
+            return (
+              <Held key={t.key} slot={slot}>
+                <DiffTab visible={visible} inset={t.main ? inset : undefined} />
               </Held>
             );
           if (t.kind === "blank")

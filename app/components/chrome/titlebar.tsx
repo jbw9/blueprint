@@ -293,7 +293,7 @@ function Control({
         // are small square targets, as in an editor's title bar.
         win ? "h-full w-11" : "mx-px h-7 w-7",
         danger ? "hover:bg-clay-ink hover:text-paper" : "hover:bg-surface-container hover:text-ink",
-        active && "bg-accent/15 text-accent hover:text-accent",
+        active && "bg-accent text-on-accent hover:bg-accent-strong hover:text-on-accent",
         className,
       )}
     >

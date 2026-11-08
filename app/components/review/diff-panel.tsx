@@ -5,20 +5,22 @@ import { DIALOG, Overlay } from "@/components/ui/dialog";
 import { OPEN_DIFF, TINT, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
-import { cn } from "@/lib/client/utils";
 import type { Commit, SectionDiff } from "@/lib/server/diff";
 import { ReviewCard, ReviewPicker, Outside } from "@/components/review/reviews";
 import { FileRow, Rail, Row } from "@/components/review/commits";
-import { Comparing, Details, EndTag, FilePane, OnTheBluprint, Refs } from "@/components/review/commit-detail";
-import type { View } from "@/components/review/diff-view";
+import { Comparing, Details, EndTag, OnTheBluprint, Refs } from "@/components/review/commit-detail";
+import { setDiffFile, useDiffFile } from "@/components/review/diff-file";
+import { showBluprint } from "@/lib/agent/workspace-toggle";
 import { ago } from "@/components/review/ago";
 import { openTimeline } from "@/components/review/timeline";
 
 /**
  * The history and what each commit did, laid out the way a code editor's
  * source control is (D75): the commits down the left on one line, the one
- * picked opening onto its files beneath it, and the file picked drawn on the
- * right, side by side or inline. With no file picked the right side is the
+ * picked opening onto its files beneath it (clicked again, folding them
+ * away). A file picked opens in a tab of the workspace window
+ * (components/review/diff-file.tsx), so this stays a small popup; it closes
+ * with the panel unless moved to the main view. The right side is the
  * commit itself — who, when, and which sections of the bluprint it moved, each
  * opening its level, where the red and green are drawn in place
  * (components/review/diff.tsx).
@@ -35,25 +37,19 @@ import { openTimeline } from "@/components/review/timeline";
  */
 
 type Item = { k: "commit"; c: Commit } | { k: "file"; path: string };
-const VIEW_KEY = "bluprint.diff.view";
 
 export function DiffPanel() {
   const d = useDiff();
   const { nodeAt, name: bluprint } = useBluprint();
-  const [shown, setShown] = useState(false);
-  const [file, setFile] = useState<string | null>(null);
+  const [shown, setShownRaw] = useState(false);
+  // A commit clicked again folds its files away.
+  const [folded, setFolded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<View>(() => {
-    try {
-      return localStorage.getItem(VIEW_KEY) === "inline" ? "inline" : "split";
-    } catch {
-      return "split";
-    }
-  });
+  const reading = useDiffFile();
   const list = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const on = () => setShown(true);
+    const on = () => setShownRaw(true);
     window.addEventListener(OPEN_DIFF, on);
     return () => window.removeEventListener(OPEN_DIFF, on);
   }, []);
@@ -73,16 +69,24 @@ export function DiffPanel() {
   const pair = !single && d && !d.review && d.from && d.to ? { base: all.find((c) => is(c, d.from)), with: all.find((c) => is(c, d.to)) } : null;
   const span = pair?.base && pair.with ? [all.indexOf(pair.base), all.indexOf(pair.with)].sort((a, b) => a - b) : null;
   const files = d && !d.loading ? (diff?.files ?? []) : [];
-  const open = files.find((f) => f.path === file) ?? null;
+  // The file read in the workspace (components/review/diff-file.tsx), while it is one of this pick's.
+  const open = reading?.open && reading.files === files ? (files.find((f) => f.path === reading.path) ?? null) : null;
+  const setFile = (path: string | null) => setDiffFile(path ? { files, path, open: true } : null);
+  const setShown = (on: boolean) => {
+    setShownRaw(on);
+    // The file's tab goes with the panel, unless it was moved into the main view to keep.
+    if (!on) setDiffFile((was) => was && { ...was, open: false });
+  };
 
   const items: Item[] = [];
   for (const c of commits) {
     items.push({ k: "commit", c });
-    if (c === (picked ?? pair?.with)) for (const f of files) items.push({ k: "file", path: f.path });
+    if (c === (picked ?? pair?.with) && folded !== c.sha) for (const f of files) items.push({ k: "file", path: f.path });
   }
-  const active = items.findIndex((it) =>
-    open ? it.k === "file" && it.path === open.path : it.k === "commit" && it.c === (picked ?? pair?.with),
-  );
+  const atCommit = items.findIndex((it) => it.k === "commit" && it.c === (picked ?? pair?.with));
+  const atFile = open ? items.findIndex((it) => it.k === "file" && it.path === open.path) : -1;
+  // A file folded away under its commit leaves the commit lit.
+  const active = atFile >= 0 ? atFile : atCommit;
 
   useEffect(() => {
     if (shown) list.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "nearest" });
@@ -93,10 +97,14 @@ export function DiffPanel() {
 
   if (!shown || !d) return null;
 
-  function pick(it: Item) {
+  function pick(it: Item, click = false) {
     if (it.k === "file") return setFile(it.path);
-    setFile(null);
-    if (it.c !== picked) d!.setRange(`${it.c.sha}~1`, it.c.sha);
+    if (it.c === picked) {
+      if (click) setFolded((f) => (f === it.c.sha ? null : it.c.sha));
+      return;
+    }
+    setFolded(null);
+    d!.setRange(`${it.c.sha}~1`, it.c.sha);
   }
 
   /** The commit in view, compared with `c`: the older is the base. */
@@ -104,16 +112,8 @@ export function DiffPanel() {
   function compare(c: Commit) {
     if (!anchor || anchor === c) return pick({ k: "commit", c });
     const [newer, older] = all.indexOf(anchor) < all.indexOf(c) ? [anchor, c] : [c, anchor];
-    setFile(null);
     d!.setRange(older.sha, newer.sha);
   }
-
-  const setViewKept = (v: View) => {
-    setView(v);
-    try {
-      localStorage.setItem(VIEW_KEY, v);
-    } catch {}
-  };
 
   /** The trail to a section, in the titles the reader sees rather than ids. */
   const trail = (s: SectionDiff) =>
@@ -138,32 +138,24 @@ export function DiffPanel() {
           : "Reading the history…";
 
   return (
-    <Overlay onClose={() => setShown(false)}>
-      <div className={DIALOG + " h-full max-w-[1320px]"}>
+    <Overlay
+      onClose={() => setShown(false)}
+      dim
+      // A file open in the workspace window: the popup keeps clear of it.
+      style={reading?.open ? { paddingRight: "calc(var(--workspace-inset, 0px) + 24px)" } : undefined}
+    >
+      {/* With a file open beside it, only the list stays: the commit's details would be crushed, and the file is what is being read. */}
+      <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
         <header className="flex shrink-0 items-center gap-3 border-b border-border-gray px-4 py-2.5">
           <h2 className="text-[14px] font-semibold text-ink">History</h2>
-          <span className="min-w-0 flex-1 truncate text-[12px] text-muted-slate">{caption}</span>
-          <div role="group" aria-label="Diff layout" className="flex shrink-0 border border-border-gray p-0.5">
-            {(["split", "inline"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => setViewKept(v)}
-                className={cn(
-                  "cursor-pointer px-2 py-0.5 text-[11.5px]",
-                  view === v ? "bg-accent/15 text-ink" : "text-muted-slate hover:text-ink",
-                )}
-              >
-                {v === "split" ? "Side by side" : "Inline"}
-              </button>
-            ))}
-          </div>
+          <span className="min-w-0 flex-1 truncate text-[12px] text-muted-slate">{reading?.open ? null : caption}</span>
           <button
             type="button"
             onClick={() => {
               setShown(false);
               openTimeline();
+              // A tab docked in the main view would hide the timeline it opens on.
+              showBluprint();
             }}
             title="How the code got here — every commit on the bluprint's sections, over time"
             className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
@@ -174,7 +166,7 @@ export function DiffPanel() {
             type="button"
             onClick={() => setShown(false)}
             title="Close this and keep the bluprint coloured by what changed"
-            className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-accent hover:bg-surface-container-low"
+            className={(reading?.open ? "hidden " : "") + "shrink-0 cursor-pointer px-2 py-1 text-[12px] text-accent hover:bg-surface-container-low"}
           >
             See it on the bluprint
           </button>
@@ -200,7 +192,7 @@ export function DiffPanel() {
 
         <div className="flex min-h-0 flex-1">
           {/* ── history ── */}
-          <aside className="flex w-[340px] shrink-0 flex-col border-r border-border-gray">
+          <aside className={reading?.open ? "flex min-w-0 flex-1 flex-col" : "flex w-[320px] shrink-0 flex-col border-r border-border-gray"}>
             <div className="shrink-0 border-b border-border-gray p-2">
               <ReviewPicker bluprint={bluprint} value={d.review} onPick={d.setReview} />
               <input
@@ -241,7 +233,7 @@ export function DiffPanel() {
                     <Row
                       on={on || !!end}
                       soft={inPair}
-                      onPick={(e) => (e.shiftKey || e.metaKey || e.ctrlKey ? compare(c) : pick(it))}
+                      onPick={(e) => (e.shiftKey || e.metaKey || e.ctrlKey ? compare(c) : pick(it, true))}
                       title={`${c.subject}\n${c.author} <${c.email ?? ""}> · ${new Date(c.at).toLocaleString()}\n${c.sha}`}
                     >
                       <Rail dot={(c.parents?.length ?? 0) > 1 ? "merge" : on || inPair ? "on" : "off"} first={first} last={last} />
@@ -276,7 +268,7 @@ export function DiffPanel() {
                       ) : null}
                     </Row>
                     {/* The commit's own paths, from the log, while its diff is read. */}
-                    {c === picked && d.loading
+                    {c === picked && d.loading && folded !== c.sha
                       ? c.files.slice(0, 200).map((p) => (
                           <div key={p} className="flex items-center gap-1.5 pr-3 text-faint">
                             <Rail />
@@ -294,18 +286,8 @@ export function DiffPanel() {
           </aside>
 
           {/* ── what the pick changed ── */}
-          <main className="flex min-w-0 flex-1 flex-col">
-            {open ? (
-              <FilePane
-                file={open}
-                view={view}
-                at={files.indexOf(open)}
-                of={files.length}
-                onStep={(k) => setFile(files[files.indexOf(open) + k]?.path ?? open.path)}
-                onBack={() => setFile(null)}
-              />
-            ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <main className={reading?.open ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 {picked ? (
                   <Details key={picked.sha} bluprint={bluprint} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
                 ) : pair?.base && pair.with ? (
@@ -313,7 +295,7 @@ export function DiffPanel() {
                     base={pair.base}
                     other={pair.with}
                     between={span ? span[1] - span[0] : 0}
-                    onSwap={() => (setFile(null), d.setRange(d.to, d.from))}
+                    onSwap={() => d.setRange(d.to, d.from)}
                     onDone={() => pick({ k: "commit", c: pair.with! })}
                   />
                 ) : (
@@ -349,8 +331,7 @@ export function DiffPanel() {
                     {diff.outside?.length ? <Outside outside={diff.outside} title={(p) => nodeAt(p)?.title ?? p.at(-1)!} onOpen={(p) => (goTo(p), setShown(false))} /> : null}
                   </>
                 ) : null}
-              </div>
-            )}
+            </div>
           </main>
         </div>
       </div>

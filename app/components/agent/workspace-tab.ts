@@ -5,8 +5,8 @@ import type { Status } from "@/lib/client/open-projects";
 /** A tab of the workspace (components/agent/workspace.tsx), in the window or the main view. */
 export interface Tab {
   key: number;
-  /** A terminal, the project running (its web app, or a phone), a plan, a file a terminal named, or nothing yet. */
-  kind: "shell" | "preview" | "plan" | "file" | "blank" | Platform;
+  /** A terminal, the project running (its web app, or a phone), a plan, a file a terminal named, a file a commit changed, or nothing yet. */
+  kind: "shell" | "preview" | "plan" | "file" | "diff" | "blank" | Platform;
   /** The agent it opened into, or null for a plain shell. */
   start: string | null;
   /** The agent last started in it, from the menu or the strip: what a busy shell is running. */

@@ -7,7 +7,18 @@ import { useEffect } from "react";
  * on Escape or a click outside (Escape stops here rather than also leaving the
  * level), and the form parts inside one.
  */
-export function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+export function Overlay({
+  onClose,
+  dim,
+  style,
+  children,
+}: {
+  onClose: () => void;
+  /** A darker layer, for a popup that should read as lifted off the bluprint. */
+  dim?: boolean;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -24,7 +35,8 @@ export function Overlay({ onClose, children }: { onClose: () => void; children: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-night/20 p-6"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${dim ? "bg-night/40" : "bg-night/20"}`}
+      style={style}
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >
       {children}
