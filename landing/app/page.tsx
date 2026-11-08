@@ -56,14 +56,14 @@ const DEMOS = [
   { id: "2048", label: "2048" },
 ];
 
-// The same problem at every size. John Doe is the page's own voice; the other two are people the team spoke with, by role.
+// The same problem at every size. The solo developer is the page's own voice; the other two are people the team spoke with, by role.
 const VOICES: Voice[] = [
   {
     quote: "Code review is the new bottleneck. Some engineers have ten waiting.",
     by: "Software Development Manager, Amazon",
   },
   { quote: "The agents ship more in a week than the team can review.", by: "CTO, Series B tech startup" },
-  { quote: "You built it in a weekend. I bet you can’t explain how it works.", by: "John Doe, solo developer" },
+  { quote: "You built it in a weekend. I bet you can’t explain how it works.", by: "Solo developer" },
 ];
 
 // The lines this repo's Visit Tracking part cites, from landing/components/landing-visit.tsx.
