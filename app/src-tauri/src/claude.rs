@@ -328,11 +328,13 @@ r=$(cat "$BLUPRINT_CONTEXT.resume" 2>/dev/null); rm -f "$BLUPRINT_CONTEXT.resume
 "#;
 
 /// `claude` typed in a tab: the launcher, so it is in front and takes context
-/// like one the app started. Not from Claude's own Bash tool, where the
-/// launcher's exit would take the tab's live marker from the Claude still running.
+/// like one the app started. Not from Claude's own Bash tool, nor from a script
+/// with no terminal (the generator's `claude -p`, which clears `CLAUDECODE`),
+/// where the launcher's exit would take the tab's live marker from the Claude still running.
 #[cfg(unix)]
 const CLAUDE_SHIM: &str = r#"#!/bin/sh
 [ -n "$CLAUDECODE" ] && exec "$BLUPRINT_CLAUDE_BIN" "$@"
+[ -t 0 ] || exec "$BLUPRINT_CLAUDE_BIN" "$@"
 exec "$BLUPRINT_LAUNCHER" "$@"
 "#;
 
