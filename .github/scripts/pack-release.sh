@@ -1,7 +1,7 @@
 #!/bin/sh
 # Packs the Blueprint this runner just installed from source (install.sh) as the release install.sh
-# downloads: server/ (the Next server as app/scripts/install-app.sh built it), the app, and the
-# install-app.sh that places them. Prints the archive's path. Takes the installed server away.
+# downloads: server/ (the Next server as app/scripts/install.sh built it), the app, and the
+# install.sh that places them. Prints the archive's path. Takes the installed server away.
 set -e
 src=$HOME/.blueprint/src/app
 case $(uname) in
@@ -13,7 +13,7 @@ case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
 
 stage=$(mktemp -d)
 server="$data/server"
-# Links (junctions on Windows) don't survive the archive; install-app.sh makes them again from links.json.
+# Links (junctions on Windows) don't survive the archive; install.sh makes them again from links.json.
 node -e '
 const fs = require("fs"), path = require("path");
 const server = path.resolve(process.argv[1]), dir = path.join(server, ".next", "node_modules");
@@ -30,7 +30,7 @@ fs.writeFileSync(path.join(dir, "links.json"), JSON.stringify(links));
 # The build cache only speeds up the next build here; env.json is this runner's Node and PATH.
 rm -rf "$server/.next/cache" "$server/env.json"
 mv "$server" "$stage/server"
-cp "$src/scripts/install-app.sh" "$stage/"
+cp "$src/scripts/install.sh" "$stage/"
 case $os in
 darwin) mkdir -p "$stage/bundle/macos" && cp -R "$src/src-tauri/target/release/bundle/macos/Blueprint.app" "$stage/bundle/macos/" ;;
 linux) cp "$src/src-tauri/target/release/blueprint" "$src/src-tauri/icons/128x128.png" "$stage/" ;;

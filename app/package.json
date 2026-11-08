@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build",
-    "app:install": "sh scripts/install-app.sh"
+    "app:install": "sh scripts/install.sh"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1155.0",

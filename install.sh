@@ -37,7 +37,10 @@ main() {
   tmp=$(mktemp -d)
   if [ -z "$BLUEPRINT_FROM_SOURCE" ] && download; then
     say "Installing Blueprint"
-    BLUEPRINT_PREBUILT="$tmp" sh "$tmp/install-app.sh"
+    # Releases packed before app/scripts/install.sh was renamed carry it as install-app.sh.
+    place="$tmp/install.sh"
+    [ -e "$place" ] || place="$tmp/install-app.sh"
+    BLUEPRINT_PREBUILT="$tmp" sh "$place"
     # The release is built against the system libraries a source build would install.
     if [ "$os" = Linux ] && libs=$(ldd "$HOME/.local/bin/blueprint" | grep "not found"); then
       die "Blueprint needs system libraries this computer doesn't have:
@@ -121,7 +124,7 @@ Install those, then run this again."
   say "Installing packages"
   npm ci --no-audit --no-fund
   say "Building Blueprint (the first build compiles the app: 10 to 20 minutes)"
-  sh scripts/install-app.sh
+  sh scripts/install.sh
 }
 
 report() {

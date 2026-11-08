@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 const OLD: &str = "dev.bluprint.app";
 
-/// The old app's own server snapshot (server.rs, scripts/install-app.sh): the
+/// The old app's own server snapshot (server.rs, scripts/install.sh): the
 /// new install builds its own, so the old one is dropped, not merged.
 const REBUILT: &[&str] = &["server", "server-next", "server.old"];
 
