@@ -61,6 +61,21 @@ const look = EditorView.theme({
   ".cm-searchMatch": { backgroundColor: v("amber-surface"), outline: `1px solid ${v("amber-ink")}` },
   ".cm-foldPlaceholder": { backgroundColor: "transparent", border: `1px solid ${v("border-gray")}`, color: v("faint") },
   ".cm-panels": { backgroundColor: v("surface-container"), color: v("ink"), borderColor: v("border-gray") },
+  ".cm-panel.cm-search": { padding: "6px 10px", fontSize: "11px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" },
+  ".cm-panel.cm-search br": { flexBasis: "100%", height: 0 },
+  ".cm-textfield": {
+    margin: 0, padding: "3px 8px", font: "inherit", fontFamily: "var(--font-mono), ui-monospace, monospace",
+    backgroundColor: v("surface"), color: v("ink"), border: `1px solid ${v("border-gray")}`, borderRadius: 0, outline: "none",
+  },
+  ".cm-textfield:focus": { borderColor: v("accent") },
+  ".cm-button": {
+    margin: 0, padding: "3px 10px", font: "inherit", backgroundImage: "none", backgroundColor: v("surface"),
+    color: v("ink"), border: `1px solid ${v("border-gray")}`, borderRadius: 0, cursor: "pointer",
+  },
+  ".cm-button:hover": { borderColor: v("accent"), color: v("accent") },
+  ".cm-panel.cm-search label": { display: "inline-flex", alignItems: "center", gap: "4px", margin: 0, color: v("faint"), fontSize: "11px" },
+  ".cm-panel.cm-search input[type=checkbox]": { margin: 0, accentColor: v("accent") },
+  ".cm-panel.cm-search [name=close]": { position: "static", marginLeft: "auto", fontSize: "16px", color: v("faint"), cursor: "pointer" },
   ".cm-tooltip": { backgroundColor: v("surface-container"), color: v("ink"), border: `1px solid ${v("border-gray")}` },
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: v("accent"), color: v("on-accent") },
 });
