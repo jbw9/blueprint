@@ -86,6 +86,16 @@ export function Header({
             </Button>
           </Fragment>
         ))}
+        {/* Where you are, as a step that goes nowhere: without it the last
+            link read as the current page and took clicks meant for none. */}
+        {back?.length ? (
+          <>
+            <span aria-hidden className="text-muted-slate">›</span>
+            <span aria-current="page" className="inline-flex h-7 items-center whitespace-nowrap px-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.04em] text-ink">
+              {title}
+            </span>
+          </>
+        ) : null}
         <span className="flex-1" />
         {pending ? (
           <span role="status" className="arrive flex items-center gap-2 text-[12.5px] text-muted-slate">
