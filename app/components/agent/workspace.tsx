@@ -1279,7 +1279,12 @@ export function Workspace() {
                 <FileTab path={t.file} line={t.line} visible={visible} inset={t.main ? inset : undefined} />
               </Held>
             );
-          if (t.kind === "blank") return null;
+          if (t.kind === "blank")
+            return (
+              <Held key={t.key} slot={slot}>
+                <Preview id={t.key} root={t.cwd} visible={visible} docked={!!t.main} blank />
+              </Held>
+            );
           if (t.kind !== "shell")
             return (
               <Held key={t.key} slot={slot}>

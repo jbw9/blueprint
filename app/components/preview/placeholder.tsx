@@ -2,6 +2,7 @@
 
 /** The viewport before there is a page to show: why not, and what can be done about it. */
 export function Placeholder({
+  blank,
   error,
   waiting,
   asking,
@@ -9,6 +10,7 @@ export function Placeholder({
   onServer,
   onStart,
 }: {
+  blank?: boolean;
   error: string | null;
   waiting?: string;
   asking?: string;
@@ -51,6 +53,11 @@ export function Placeholder({
               Show its terminal
             </button>
           ) : null}
+        </>
+      ) : blank ? (
+        <>
+          <p className="text-[13px] text-ink">New tab</p>
+          <p className="text-[12px] text-muted-slate">Type an address above, or anything to search the web.</p>
         </>
       ) : (
         <>

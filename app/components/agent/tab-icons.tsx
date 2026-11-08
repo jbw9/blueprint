@@ -13,7 +13,9 @@ export function iconOf(t: Tab) {
     <PlanIcon />
   ) : t.kind === "file" ? (
     <FileIcon />
-  ) : t.kind === "blank" ? null : t.kind !== "shell" ? (
+  ) : t.kind === "blank" ? (
+    <GlobeIcon />
+  ) : t.kind !== "shell" ? (
     <PhoneIcon />
   ) : front ? (
     <AgentIcon id={front.id} />

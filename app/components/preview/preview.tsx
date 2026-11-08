@@ -61,6 +61,7 @@ export function Preview({
   onSite,
   onStart,
   docked,
+  blank,
 }: {
   /** Its tab's key: what Claude's calls find it by. */
   id: number;
@@ -86,6 +87,8 @@ export function Preview({
   onStart?: () => void;
   /** In the main view rather than the window (components/agent/workspace.tsx). */
   docked?: boolean;
+  /** A new tab of its own, as a browser's: no dev server, and the address bar taken at once. */
+  blank?: boolean;
 }) {
   // Another server this tab was pointed at, from its address bar or by
   // Claude: this tab's alone, so the project's other Previews stay put.
@@ -458,6 +461,13 @@ export function Preview({
   const dims = `${vw} × ${vh}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}`;
   const ready = (src !== null && !!target) || web !== null;
 
+  const typedInto = useRef(false);
+  useEffect(() => {
+    if (!blank || !visible || typedInto.current) return;
+    typedInto.current = true;
+    address.current?.focus();
+  }, [blank, visible]);
+
   return (
     <div
       ref={whole}
@@ -493,7 +503,7 @@ export function Preview({
             ref={address}
             aria-label="Address"
             value={draft ?? shown}
-            placeholder={target ? "" : "localhost:3000, or search the web"}
+            placeholder={target ? "" : blank ? "Search or type an address" : "localhost:3000, or search the web"}
             onFocus={(e) => {
               setDraft(shown);
               e.currentTarget.select();
@@ -608,7 +618,7 @@ export function Preview({
             />
           </>
         ) : (
-          <Placeholder error={error} waiting={waiting} asking={asking} onAnswer={onAnswer} onServer={onServer} onStart={onStart} />
+          <Placeholder blank={blank} error={error} waiting={waiting} asking={asking} onAnswer={onAnswer} onServer={onServer} onStart={onStart} />
         )}
         <div
           ref={sizeBadge}
