@@ -206,6 +206,9 @@ export interface Meter {
   resets: string | null;
 }
 
+/** Whether a window is full until it resets. */
+export const usedUp = (m?: Meter) => !!m && m.limit != null && !!m.resets && Date.parse(m.resets) > Date.now() && m.used >= m.limit;
+
 export interface CreditStatus {
   /** Whether the credit can run Claude here: signed in, and open to the account. */
   available: boolean;

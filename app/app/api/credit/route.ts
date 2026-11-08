@@ -1,16 +1,17 @@
-import { creditStatus, pollSignIn, relayAt, relaySecret, setCreditOn, signOut, startSignIn } from "@/lib/server/credit";
+import { creditStatus, pollSignIn, relayAt, relaySecret, setCreditOn, signOut, startSignIn, usedUp } from "@/lib/server/credit";
 import { notJson } from "@/lib/server/route";
 
 /**
  * Blueprint credit on this machine: `GET` → its status, and with the credit on, where a Claude tab
- * sends its calls (`relay`). `POST {on}` turns it on or off; `{signin: "start"}` asks GitHub for a
+ * sends its calls (`relay`): none once its session or week is used up, so a new tab opens on the
+ * reader's own Claude Code until the credit resets. `POST {on}` turns it on or off; `{signin: "start"}` asks GitHub for a
  * code to enter, `{signin: "poll"}` asks whether it has been entered, and `{signout: true}` ends
  * the session.
  */
 export async function GET(request: Request) {
   const url = relayAt(request);
   const s = await creditStatus();
-  const relay = s.available && s.on ? { url, token: relaySecret() } : null;
+  const relay = s.available && s.on && !usedUp(s.meters?.session) && !usedUp(s.meters?.week) ? { url, token: relaySecret() } : null;
   return Response.json({ ...s, relay });
 }
 
