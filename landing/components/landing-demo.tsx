@@ -17,34 +17,30 @@ const src = (id: string) => (process.env.NODE_ENV === "production" ? `${process.
 
 /**
  * What the app does, a tab each. The first is the app itself; the rest need
- * the desktop app, so they are drawn (landing-features.tsx). `project` names
- * the drawing's blueprint in the window's bar.
+ * the desktop app, so they are drawn (landing-features.tsx), each in the
+ * desktop app's own window.
  */
-const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?: string }[] = [
+const FEATURES: { id: "explore" | Drawing; label: string; cap?: string }[] = [
   { id: "explore", label: "Explore a codebase" },
   {
     id: "claude",
     label: "Ask Claude Code",
-    project: "blueprint",
-    cap: "In the desktop app, Claude Code runs in a tab beside the blueprint. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
+    cap: "In the desktop app, Claude Code runs in a tab beside the blueprint. Right-click any part to add it to Claude, and Claude moves your view to what it’s talking about.",
   },
   {
     id: "plan",
     label: "Read the plan",
-    project: "blueprint",
-    cap: "In the desktop app, a plan from Claude’s plan mode opens as a short doc: a picture of what it will change, the screen you’ll see, then the steps and files, before a line is written. Accept it right there.",
+    cap: "In the desktop app, a plan from Claude’s plan mode opens as a short doc: a picture of what it will change, the screen you’ll see, then the steps and files, before a line is written. Accept it there, and watch the steps tick off as Claude builds.",
   },
   {
     id: "review",
     label: "Review diffs",
-    project: "blueprint",
     cap: "In the desktop app, a commit, branch or pull request is drawn on the blueprint you already know: the parts it touched, by how much, and the lines under each.",
   },
   {
     id: "run",
     label: "Preview your app",
-    project: "blueprint",
-    cap: "In the desktop app, your web app runs in a Preview tab and your phone app on the iOS Simulator or Android emulator. Claude can see both, and tap through them too.",
+    cap: "In the desktop app, your phone app runs on the real iOS Simulator or Android emulator, and your web app in a Preview tab. Claude taps through them too, and the blueprint shows the part of the code on screen.",
   },
 ];
 
@@ -200,17 +196,7 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
         style={{ "--i": 4 } as React.CSSProperties}
       >
         <div className={s.canvas} data-drawn={!exploring}>
-          {/* The app brings its own strip along the top; only a drawing needs a bar to name its blueprint. */}
-          {exploring ? null : (
-            <div className={s.bar}>
-              <div aria-hidden className={s.lights}>
-                <span />
-                <span />
-                <span />
-              </div>
-              <span className={s.project}>{shown.project}</span>
-            </div>
-          )}
+          {/* The app brings its own strip, and a drawing its own window. */}
           <div ref={stage} className={s.stage} data-ready={loaded === open}>
             {exploring && loaded !== open ? <p className={s.loading}>loading {current.id}…</p> : null}
             {/* Kept while another tab is open, so coming back finds the blueprint where it was left. */}

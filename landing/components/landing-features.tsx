@@ -6,8 +6,9 @@ import f from "./landing-features.module.css";
 /**
  * The desktop app's other tools, drawn: the workspace, plans, diffs and the
  * running app need the desktop app, so the live frame (a static export of a
- * blueprint) can't show them. Each is drawn from the real components' markup and
- * the flask demo blueprint's own names, and plays once when its tab opens.
+ * blueprint) can't show them. Each is drawn from the real components' markup in
+ * the app's Classic theme, with this repo's and the Wikipedia demo's own names,
+ * and plays once when its tab opens.
  */
 export type Drawing = "claude" | "plan" | "review" | "run";
 
@@ -51,206 +52,226 @@ export function Drawn({ drawing }: { drawing: Drawing }) {
 
 /* ── Claude Code beside the blueprint ─────────────────────────── */
 
+const QUESTION = "how does a first blueprint get made?";
+
 function ClaudeScene() {
   return (
-    <>
-      <Strip>
-        <Tab on>
+    <Window
+      projects={<Project on>blueprint</Project>}
+      tabs={
+        <Tab on icon={<BlueprintIcon />}>
           <span className={f.swap}>
             <span className={f.out} style={at(0, 5.6)}>
-              Handling Requests
+              Blueprint
             </span>
             <span className={f.in} style={at(5.6)}>
-              Saving A Session
+              Authoring Sections
             </span>
           </span>
         </Tab>
-      </Strip>
-      <div className={f.main} style={{ "--ws": "40%" } as CSSProperties}>
-        <div className={`${f.page} ${f.out}`} style={at(0, 5.6)}>
-          <Head trail={["flask", "Handling Requests"]} eyebrow="Inside flask" title="Handling Requests" sub={HANDLING_SUB} />
-          <p className={f.cap}>
-            {HANDLING_CAPTION}
-            <span>colours match the parts below</span>
-          </p>
-          <Picture view={TOP_RIGHT} lit="session">
-            <svg className={f.mouse} style={{ left: "84%", top: "23%" }} viewBox="0 0 16 16">
-              <path d="M2.5 1.5v12l3.2-3 2.2 4.7 2.1-1-2.2-4.6h4.4z" />
-            </svg>
-            <div data-chrome className={`${f.menu} ${f.blip}`} style={{ right: "16%", top: "34%", ...at(1.35, 2.45) }}>
-              <span>Open in new tab</span>
-              <span>Add to Claude context</span>
-              <span className={f.hot} style={at(2)}>
-                Add and open Claude
-              </span>
-            </div>
-          </Picture>
-        </div>
-        <div className={`${f.page} ${f.in}`} style={at(5.7)}>
-          <Head
-            trail={["flask", "Handling Requests", "Session Management", "Saving A Session"]}
-            eyebrow="Inside Session Management"
-            title="Saving A Session"
-            sub="Serialise modified session data into a signed Set-Cookie header on the response"
-          />
-          <p className={f.detail}>
-            Called in <code>process_response</code>. If the session is empty and modified the cookie is deleted; if{" "}
-            <code>should_set_cookie</code> returns false the cookie is skipped entirely.
-          </p>
-          <ol className={f.flow}>
-            {SAVE_STEPS.map(([title, body], i) => (
-              <li key={title} className={f.in} style={at(5.9 + i * 0.12)}>
-                <i>{i + 1}</i>
-                <b>{title}</b>
-                <span>{body}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <Workspace
-          tabs={
-            <>
-              <WsTab on icon={<ClaudeIcon />}>
-                claude 1
-              </WsTab>
-              <WsTab icon={<TerminalIcon />}>zsh 2</WsTab>
-            </>
-          }
-          strip={
-            <>
-              <span className={f.in} style={at(2.5)}>
-                context
-              </span>
-              <span className={f.swap}>
-                <span className={`${f.chip} ${f.blip}`} data-queued style={at(2.5, 4.6)}>
-                  <i>◷</i>Session Interface<em>×</em>
-                </span>
-                <span className={`${f.chip} ${f.in}`} style={at(4.6)}>
-                  <i>✓</i>Session Interface<em>×</em>
-                </span>
-              </span>
-              <span className={`${f.clear} ${f.in}`} style={at(2.5)}>
-                clear
-              </span>
-            </>
-          }
-        >
-          <div className={f.term}>
-            <Hello />
-            <p className={`${f.you} ${f.in}`} style={at(4.6)}>
-              &gt; {QUESTION}
-            </p>
-            <div className={`${f.msg} ${f.in}`} style={at(5.15)}>
-              <span className={f.ok}>⏺</span>
-              <span>
-                <b>Bash</b>(blueprint-show section &quot;Saving A Session&quot;)
-                <br />
-                <span className={f.res}>⎿&nbsp;&nbsp;Showing Saving A Session</span>
-              </span>
-            </div>
-            <div className={`${f.msg} ${f.in}`} style={at(6.3)}>
-              <span>⏺</span>
-              <span>
-                After your view returns. <b>process_response</b> runs the after_request hooks, then{" "}
-                <b>save_session</b> (src/flask/sessions.py:337).
-              </span>
-            </div>
-            <div className={`${f.msg} ${f.in}`} style={at(7)}>
-              <span />
-              <span>
-                It sets the cookie only when the session was modified, or is permanent with
-                SESSION_REFRESH_EACH_REQUEST on. An empty, modified session deletes the cookie instead.
-              </span>
-            </div>
-            <span className={f.grow} />
-            <Prompt>
-              <span className={f.typed} style={{ "--n": QUESTION.length, ...at(2.85, 4.6) } as CSSProperties}>
-                {QUESTION}
-              </span>
-            </Prompt>
-            <p className={f.hint}>? for shortcuts</p>
+      }
+    >
+      <div className={`${f.page} ${f.out}`} style={{ "--ws": "44%", ...at(0, 5.6) } as CSSProperties}>
+        <Head title="blueprint" sub="Visual, navigable map of any codebase" meta="222 files · commit c37b9ff" />
+        <p className={f.cap}>
+          How the parts connect<span>colours match the parts below</span>
+        </p>
+        <Diagram boxes={TOP} links={TOP_LINKS} w={232} gx={64} gy={52}>
+          <svg className={f.mouse} style={{ left: "74%", top: "47%" }} viewBox="0 0 16 16">
+            <path d="M2.5 1.5v12l3.2-3 2.2 4.7 2.1-1-2.2-4.6h4.4z" />
+          </svg>
+          <div className={`${f.menu} ${f.blip}`} style={{ left: "50%", top: "56%", ...at(1.35, 2.45) }}>
+            <p>Repository Mapping</p>
+            <span>Open in new tab</span>
+            <span className={f.hot} style={at(2)}>
+              Add to Claude
+            </span>
           </div>
-        </Workspace>
+        </Diagram>
       </div>
-    </>
+      <div className={`${f.page} ${f.in}`} style={{ "--ws": "44%", ...at(5.7) } as CSSProperties}>
+        <Head
+          back={["Repository Mapping"]}
+          title="Authoring Sections"
+          eyebrow="Inside Repository Mapping"
+          sub="Cut the repository into four to ten roots, then write each one's sections in full."
+          action={
+            <span className={`${f.btn} ${f.in}`} style={at(7.6)}>
+              Keep the answer
+            </span>
+          }
+        />
+        <ol className={f.flow}>
+          {AUTHOR_STEPS.map(([title, body, file], i) => (
+            <li key={title} className={f.in} style={at(5.9 + i * 0.12)}>
+              <b>{title}</b>
+              <span>{body}</span>
+              <code>{file}</code>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <Workspace
+        width="44%"
+        tabs={
+          <>
+            <WsTab on icon={<ClaudeIcon />} dot={[4.6, 7.4]}>
+              claude 1
+            </WsTab>
+            <WsTab icon={<TerminalIcon />}>zsh 2</WsTab>
+          </>
+        }
+      >
+        <div className={f.term}>
+          <Hello />
+          <p className={`${f.you} ${f.in}`} style={at(4.6)}>
+            &gt; <span className={f.pick}>[Repository Mapping]</span> {QUESTION}
+          </p>
+          <div className={`${f.msg} ${f.in}`} style={at(5)}>
+            <span className={f.ok}>⏺</span>
+            <span>
+              <b>blueprint - blueprint_section</b> (MCP)(id: &quot;Repository Mapping&quot;)
+              <br />
+              <span className={f.res}>⎿&nbsp;&nbsp;3 parts: Entry Points, Repository Analysis, Authoring Sections</span>
+            </span>
+          </div>
+          <div className={`${f.msg} ${f.in}`} style={at(5.4)}>
+            <span className={f.ok}>⏺</span>
+            <span>
+              <b>Bash</b>(blueprint-show section &quot;Authoring Sections&quot;)
+              <br />
+              <span className={f.res}>⎿&nbsp;&nbsp;Showing Authoring Sections</span>
+            </span>
+          </div>
+          <div className={`${f.msg} ${f.in}`} style={at(6.3)}>
+            <span>⏺</span>
+            <span>
+              In four passes. It reads and summarises every file, then <b>cut.ts</b> splits the repo into four to ten roots,
+              and an author agent per root writes its sections (<b>author.ts</b>).
+            </span>
+          </div>
+          <div className={`${f.msg} ${f.in}`} style={at(7)}>
+            <span />
+            <span>Each sentence is checked against the lines it cites before it&rsquo;s kept. Authoring Sections is open beside you.</span>
+          </div>
+          <span className={f.grow} />
+          <Prompt>
+            <span className={`${f.pick} ${f.blip}`} style={at(2.5, 4.6)}>
+              [Repository Mapping]{" "}
+            </span>
+            <span className={f.typed} style={{ "--n": QUESTION.length, ...at(2.75, 4.6) } as CSSProperties}>
+              {QUESTION}
+            </span>
+          </Prompt>
+        </div>
+      </Workspace>
+    </Window>
   );
 }
 
-const QUESTION = "when does the session cookie get written?";
+/** The repo's top level, as its blueprint draws it. */
+const TOP: Box[] = [
+  { id: "read", label: "Reading And Editing Maps", col: 0, row: 0, sec: 1 },
+  { id: "tauri", label: "Tauri Backend", col: 1, row: 0, sec: 2 },
+  { id: "view", label: "Viewing Code Maps", col: 0, row: 1, sec: 3 },
+  { id: "map", label: "Repository Mapping", col: 1, row: 1, sec: 4 },
+  { id: "land", label: "Visiting the Landing Page", col: 0, row: 2, sec: 5 },
+  { id: "stats", label: "Analytics Schema", col: 1, row: 2, sec: 6 },
+];
+const TOP_LINKS: Link[] = [
+  { from: "read", to: "tauri", label: "invokes" },
+  { from: "read", to: "view", label: "loads blueprint data" },
+  { from: "view", to: "map", label: "spawns" },
+  { from: "land", to: "view", label: "frames an export" },
+  { from: "land", to: "stats", label: "records" },
+];
 
-const SAVE_STEPS: [string, ReactNode][] = [
-  ["Add Vary header", <>If <code>session.accessed</code>, adds <code>Vary: Cookie</code> to the response so caches key on the cookie.</>],
-  ["Handle empty", "If the session is falsy and modified, deletes the cookie. If falsy and unmodified, returns early."],
-  ["Check should_set_cookie", "Returns if not modified and not (permanent + SESSION_REFRESH_EACH_REQUEST)."],
-  ["Serialize and set", <>Calls <code>signing_serializer.dumps(dict(session))</code>, then <code>response.set_cookie</code>.</>],
+const AUTHOR_STEPS: [string, string, string][] = [
+  ["Root Cutting", "Partitions the codebase into four to ten roots, then checks the cut and repairs it.", "scripts/generate/cut.ts"],
+  ["Section Authoring", "An agent per root writes its sections and validates each against the code.", "scripts/generate/author.ts"],
+  ["Overview Authoring", "Drafts the top-level overview and checks it against the roots.", "scripts/generate/overview.ts"],
+  ["Deep Mapping", "Writes the full depth: structure, titles and walkthroughs in one pass.", "scripts/generate/deep.ts"],
 ];
 
 /* ── a plan, before it is built ─────────────────────────── */
 
-/** The plan as written in plan mode. */
+/** The plan as written in plan mode, open in the main view with Claude's window put away. */
 function PlanScene() {
   return (
-    <>
-      <Strip>
-        <Tab>Desktop App</Tab>
-        <Tab on>
-          <PlanIcon />
-          Plan
-        </Tab>
-      </Strip>
-      <div className={f.main} style={{ "--ws": "36%" } as CSSProperties}>
-        <div className={f.doc}>
-          <article className={f.scroll} style={at(3.2)}>
-            <header className={f.in} style={at(0.15)}>
-              <p className={f.planMeta}>
-                <span className={f.eyebrow}>Plan</span>
-                <span>
-                  6 steps · 7 files <b data-v="changed">~6</b> <b data-v="added">+1</b> · 2 min read
-                </span>
-              </p>
-              <h3 className={f.planTitle}>Saved sign-ins for the Preview browser</h3>
-              <p className={f.lede}>
-                You sign in to a site once in the Preview, choose &ldquo;all projects&rdquo; or &ldquo;this project
-                only&rdquo;, and from then on Claude opens it already signed in. Blueprint keeps the site&rsquo;s session cookies
-                the way a browser does and never stores your password.
-              </p>
-            </header>
-            <section className={f.in} style={at(0.4)}>
-              <PlanDiagram />
-              <PlanScreen />
-            </section>
-            <section className={f.in} style={at(0.65)}>
-              <p className={f.eyebrow}>Steps</p>
-              <ol className={f.steps}>
-                {PLAN_STEPS.map((s, i) => (
-                  <li key={i}>
-                    <i>{i + 1}.</i>
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-            <section className={f.in} style={at(0.8)}>
-              <p className={f.eyebrow}>Files</p>
-              <ul className={f.files}>
-                {PLAN_FILES.map(([v, path, why]) => (
-                  <li key={path}>
-                    <b data-v={v}>{v === "added" ? "+" : "~"}</b>
-                    <code>{path}</code>
-                    <span>{why}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </article>
-          <footer className={`${f.ask} ${f.in}`} style={at(1.2)}>
+    <Window
+      projects={<Project on>blueprint</Project>}
+      tabs={
+        <>
+          <Tab icon={<BlueprintIcon />}>Blueprint</Tab>
+          <Tab on icon={<PlanIcon />}>
+            Saved sign-ins for the Preview
+          </Tab>
+        </>
+      }
+    >
+      <div className={f.doc}>
+        <article className={f.scroll} style={at(3.2)}>
+          <header className={f.in} style={at(0.15)}>
+            <p className={f.planMeta}>
+              <Eyebrow>Plan</Eyebrow>
+              <span>
+                6 steps{" "}
+                · 7 files <b data-v="changed">~6</b> <b data-v="added">+1</b> · 2 min read
+              </span>
+            </p>
+            <h3 className={f.planTitle}>Saved sign-ins for the Preview</h3>
+            <p className={f.lede}>
+              You sign in to a site once in the Preview, choose &ldquo;all projects&rdquo; or &ldquo;only this project&rdquo;,
+              and from then on Claude opens it already signed in. Blueprint keeps the site&rsquo;s cookies the way a browser
+              does and never stores your password.
+            </p>
+          </header>
+          <section className={f.in} style={at(0.4)}>
+            <Eyebrow>How it works</Eyebrow>
+            <p className={f.figCap}>
+              Where a sign-in is kept<span>green is new · amber changes</span>
+            </p>
+            <Diagram boxes={PLAN_BOXES} links={PLAN_LINKS} w={170} gx={44} gy={44} />
+          </section>
+          <section className={f.in} style={at(0.55)}>
+            <Eyebrow>What you&rsquo;ll see</Eyebrow>
+            <PlanScreen />
+          </section>
+          <section className={f.in} style={at(0.7)}>
+            <Eyebrow>Steps</Eyebrow>
+            <ol className={f.steps}>
+              {PLAN_STEPS.map((s, i) => (
+                <li key={i} data-state={i === 0 ? "done" : i === 1 ? "doing" : undefined} style={at(i === 0 ? 9.6 : 9.9)}>
+                  <i>{i + 1}</i>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+          <section className={f.in} style={at(0.8)}>
+            <Eyebrow>Files</Eyebrow>
+            <ul className={f.files}>
+              {PLAN_FILES.map(([v, path, why]) => (
+                <li key={path}>
+                  <b data-v={v}>{v === "added" ? "+" : "~"}</b>
+                  <code>{path}</code>
+                  <span>{why}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </article>
+        <footer className={`${f.ask} ${f.in}`} style={at(1.2)}>
+          <div className={f.out} style={at(0, 9)}>
             <div>
               <span className={f.askQ}>
                 <i />
                 Build this plan?
               </span>
               <span className={f.btn}>Yes, manually approve edits</span>
-              <span className={`${f.btn} ${f.primary}`}>Yes, and auto-accept edits</span>
+              <span className={`${f.btn} ${f.primary} ${f.press}`} style={at(8.6)}>
+                Yes, and use auto mode
+              </span>
             </div>
             <div>
               <span className={f.field}>No, keep planning…</span>
@@ -258,155 +279,52 @@ function PlanScene() {
                 Send
               </span>
             </div>
-          </footer>
-        </div>
-        <Workspace
-          tabs={
-            <WsTab on icon={<ClaudeIcon />}>
-              claude 1
-            </WsTab>
-          }
-        >
-          <div className={f.term}>
-            <Hello cwd="~/code/blueprint" />
-            <p className={f.you}>&gt; let me sign in to Instagram once and keep it for every project</p>
-            <div className={`${f.msg} ${f.in}`} style={at(0.3)}>
-              <span className={f.ok}>⏺</span>
-              <span>
-                <b>Read</b>(app/src-tauri/src/browser.rs)
-                <br />
-                <span className={f.res}>⎿&nbsp;&nbsp;Read 342 lines</span>
-              </span>
-            </div>
-            <div className={`${f.msg} ${f.in}`} style={at(0.5)}>
-              <span className={f.ok}>⏺</span>
-              <span>
-                <b>Read</b>(app/components/preview/preview.tsx)
-                <br />
-                <span className={f.res}>⎿&nbsp;&nbsp;Read 1047 lines</span>
-              </span>
-            </div>
-            <div className={`${f.choices} ${f.in}`} style={at(1)}>
-              <p>Would you like to proceed?</p>
-              <p>
-                <b>❯ 1. Yes, and auto-accept edits</b>
-              </p>
-              <p>&nbsp;&nbsp;2. Yes, manually approve edits</p>
-              <p>&nbsp;&nbsp;3. No, keep planning</p>
-            </div>
-            <span className={f.grow} />
-            <Prompt />
-            <p className={`${f.hint} ${f.planMode}`}>⏸ plan mode on (shift+tab to cycle)</p>
           </div>
-        </Workspace>
+          <div className={f.in} style={at(9)}>
+            <div>
+              <span className={f.askQ} data-ok>
+                <i />
+                Accepted. Claude is building it.
+              </span>
+              <span className={f.btn}>Show Claude</span>
+            </div>
+          </div>
+        </footer>
       </div>
-    </>
+      {/* The window put away: its tabs' dots wait in the corner. */}
+      <div className={`${f.dots} ${f.in}`} style={at(1.2)}>
+        <ClaudeIcon />
+        <span className={f.swap}>
+          <Dot status="waiting" className={f.out} style={at(0, 9)} />
+          <Dot status="working" className={f.in} style={at(9)} />
+        </span>
+      </div>
+    </Window>
   );
 }
 
-type Change = "added" | "changed";
-
-/** The plan's ```diagram, laid out as components/diff.tsx lays out a plan's boxes. */
-const PLAN_BOXES: { label: string; sub: string; col: number; row: number; v?: Change }[] = [
-  { label: "Claude", sub: "navigate / sign_in tools", col: 0, row: 0 },
-  { label: "Preview tools", sub: "src-tauri/src/mcp.rs", col: 0, row: 1, v: "changed" },
-  { label: "Sign-in bar", sub: "components/preview.tsx", col: 1, row: 0, v: "added" },
-  { label: "Site rules", sub: "vault sign-ins.json (hosts only)", col: 1, row: 1, v: "added" },
-  { label: "Web view", sub: "src-tauri/src/browser.rs", col: 1, row: 2, v: "changed" },
-  { label: "Shared store", sub: "WebKit default, all projects", col: 2, row: 1 },
-  { label: "Project store", sub: "WebKit store per project id", col: 2, row: 2, v: "added" },
+const PLAN_BOXES: Box[] = [
+  { id: "claude", label: "Claude", sub: "navigate, sign_in", col: 0, row: 0 },
+  { id: "tools", label: "Preview tools", sub: "src-tauri/src/mcp.rs", col: 0, row: 1, v: "changed" },
+  { id: "bar", label: "Sign-in bar", sub: "preview/sign-in-bar.tsx", col: 1, row: 0, v: "added" },
+  { id: "rules", label: "Site rules", sub: "sign-ins.json, hosts only", col: 1, row: 1, v: "added" },
+  { id: "view", label: "Web view", sub: "src-tauri/src/browser.rs", col: 1, row: 2, v: "changed" },
+  { id: "shared", label: "Shared store", sub: "all projects", col: 2, row: 1 },
+  { id: "own", label: "Project store", sub: "one per project", col: 2, row: 2, v: "added" },
+];
+const PLAN_LINKS: Link[] = [
+  { from: "claude", to: "tools", label: "sign_in" },
+  { from: "claude", to: "bar", label: "asks you", v: "added" },
+  { from: "bar", to: "rules", label: "your choice", v: "added" },
+  { from: "rules", to: "view", label: "picks store", v: "added" },
+  { from: "rules", to: "shared", label: "default" },
+  { from: "view", to: "own", label: "project-only", v: "added" },
 ];
 
-const PLAN_ARROWS: { d: string; label: string; x: number; y: number; anchor?: "start" | "end"; v?: Change }[] = [
-  { d: "M117 72V122", label: "sign_in", x: 125, y: 101, anchor: "start" },
-  { d: "M222 153H267V43H310", label: "asks you", x: 267, y: 101, v: "added" },
-  { d: "M417 72V122", label: "your choice", x: 425, y: 101, anchor: "start", v: "added" },
-  { d: "M417 182V232", label: "picks store", x: 425, y: 211, anchor: "start", v: "added" },
-  { d: "M522 250H588V153H610", label: "default", x: 582, y: 204, anchor: "end" },
-  { d: "M522 272H610", label: "project-only", x: 562, y: 290, v: "added" },
-];
-
-const PLAN_BOX_W = 210;
-const PLAN_BOX_H = 58;
-const TINTS = {
-  added: { ink: "var(--color-diff-add-ink)", surface: "var(--color-diff-add-surface)", line: "var(--color-diff-add-line)", mark: "+" },
-  changed: { ink: "var(--color-amber-ink)", surface: "var(--color-amber-surface)", line: "var(--color-amber-line)", mark: "~" },
-};
-
-function PlanDiagram() {
-  return (
-    <figure className={f.planFig}>
-      <figcaption>
-        Where a sign-in is kept<span>green is new · amber changes</span>
-      </figcaption>
-      <svg viewBox="0 0 834 306">
-        <defs>
-          {(["added", "changed", "untouched"] as const).map((v) => (
-            <marker key={v} id={`p-${v}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M1 1.2L7 4 1 6.8z" fill={v === "untouched" ? "var(--color-wire)" : TINTS[v].line} />
-            </marker>
-          ))}
-        </defs>
-        {PLAN_ARROWS.map((a) => {
-          const t = a.v ? TINTS[a.v] : null;
-          return (
-            <g key={a.d} opacity={t ? 1 : 0.45}>
-              <path d={a.d} fill="none" stroke={t?.line ?? "var(--color-wire)"} strokeWidth={t ? 2 : 1.5} markerEnd={`url(#p-${a.v ?? "untouched"})`} />
-              <text
-                x={a.x}
-                y={a.y}
-                textAnchor={a.anchor ?? "middle"}
-                fontSize="12"
-                fill={t?.ink ?? "var(--color-muted-slate)"}
-                stroke="var(--color-warm-cream)"
-                strokeWidth="4"
-                strokeLinejoin="round"
-                paintOrder="stroke"
-              >
-                {a.label}
-              </text>
-            </g>
-          );
-        })}
-        {PLAN_BOXES.map((b) => {
-          const x = 12 + b.col * 300;
-          const y = 14 + b.row * 110;
-          const t = b.v ? TINTS[b.v] : null;
-          return (
-            <g key={b.label} opacity={t ? 1 : 0.5}>
-              <rect
-                x={x}
-                y={y}
-                width={PLAN_BOX_W}
-                height={PLAN_BOX_H}
-                rx="3"
-                fill={t?.surface ?? "var(--color-pure-white)"}
-                stroke={t?.line ?? "var(--color-border-strong)"}
-                strokeWidth={t ? 2 : 1.5}
-              />
-              <text x={x + PLAN_BOX_W / 2} y={y + 25} textAnchor="middle" fontSize="14.5" fontWeight="600" fill={t?.ink ?? "var(--color-ink)"}>
-                {b.label}
-              </text>
-              <text x={x + PLAN_BOX_W / 2} y={y + 43} textAnchor="middle" fontSize="12" fill="var(--color-faint)">
-                {b.sub}
-              </text>
-              {t ? (
-                <text x={x + PLAN_BOX_W - 11} y={y + 18} textAnchor="middle" fontSize="15" fontWeight="700" fill={t.ink}>
-                  {t.mark}
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
-      </svg>
-    </figure>
-  );
-}
-
-/** The plan's ```screen, as components/blocks.tsx draws a web screen with its notes numbered. */
+/** The plan's ```screen, as components/blueprint/blocks.tsx numbers a screen's notes when its lines can't be drawn. */
 const PLAN_SCREEN: { type: "heading" | "choice" | "button" | "image"; label: string; note: string }[] = [
-  { type: "heading", label: "Claude needs you to sign in to instagram.com", note: "new bar above the page; Claude can't type into the page while it's showing" },
-  { type: "choice", label: "Keep this sign-in for: All projects · Only this project", note: "new; the default is 'All projects' for social sites and 'Only this project' for everything else" },
+  { type: "heading", label: "Claude needs you to sign in to instagram.com", note: "a new bar over the page; Claude can't type into the page while it shows" },
+  { type: "choice", label: "Keep for: All projects · Only this project", note: "new; social sites default to all projects, the rest to this one" },
   { type: "button", label: "I'm signed in", note: "new; Claude carries on" },
   { type: "image", label: "the site's own login page", note: "you type your password here yourself" },
 ];
@@ -421,10 +339,9 @@ function PlanScreen() {
             <i />
             <i />
           </span>
-          <p>instagram.com/reel/…</p>
+          <p>instagram.com/accounts/login</p>
         </div>
         <div className={f.browserBody}>
-          <p className={f.screenTitle}>Preview, Claude needs a sign-in</p>
           {PLAN_SCREEN.map((it, i) => (
             <div key={it.label} className={f.thing} data-type={it.type}>
               {it.label}
@@ -448,37 +365,38 @@ function PlanScreen() {
 }
 
 const PLAN_STEPS = [
-  "Give every project its own WebKit cookie store, next to the shared one that already persists today.",
-  "Keep a short list of which sites use which store: shared sites in the vault and project-only sites in the project's folder. The list holds site names only, never secrets.",
-  "When the web view opens a site, use the store that site's rule names. If the store has to change, close the view and reopen it.",
-  "Add a sign_in tool for Claude. It shows the bar, you pick where to keep the sign-in, the page reopens in that store, and you sign in yourself.",
-  "While the bar is up, block Claude from typing into the page. Always block it from reading or filling password fields.",
-  "Add “Saved sign-ins” to settings with a Forget button for each site. Removing a project also deletes its store.",
+  "Give every project its own WebKit cookie store, next to the shared one.",
+  "Keep a short list of which sites use which store. It holds site names only, never secrets.",
+  "When the web view opens a site, use the store its rule names, reopening the view if the store changes.",
+  "Add a sign_in tool for Claude: it shows the bar, you choose where to keep the sign-in, and you sign in yourself.",
+  "While the bar is up, Claude can't type into the page, and it never reads or fills a password field.",
+  "List saved sign-ins in Settings with a Forget button each. Removing a project deletes its store.",
 ];
+
+type Change = "added" | "changed";
 
 const PLAN_FILES: [Change, string, string][] = [
   ["changed", "app/src-tauri/src/browser.rs", "open the web view with a per-project store"],
-  ["changed", "app/src-tauri/Cargo.toml", "turn on the WebKit data-store features"],
   ["changed", "app/src-tauri/src/mcp.rs", "add the sign_in tool"],
-  ["changed", "app/components/preview/preview.tsx", "sign-in bar, choose the store when opening a site"],
-  ["added", "app/lib/sign-ins.ts", "read and write site rules"],
-  ["changed", "app/src-tauri/src/agent.js", "refuse to fill or reveal password fields"],
+  ["added", "app/components/preview/sign-in-bar.tsx", "the bar, and where to keep it"],
+  ["changed", "app/components/preview/preview.tsx", "show the bar, pick the store"],
+  ["changed", "app/src-tauri/src/agent.js", "refuse password fields"],
   ["changed", "app/components/chrome/settings.tsx", "saved sign-ins, with Forget"],
+  ["changed", "app/src-tauri/Cargo.toml", "WebKit data-store features"],
 ];
 
 /* ── a change, on the blueprint ───────────────────────────────── */
 
 function ReviewScene() {
   return (
-    <>
-      <Strip>
-        <Tab on>Handling Requests</Tab>
-      </Strip>
+    <Window projects={<Project on>blueprint</Project>} git tabs={<Tab on icon={<BlueprintIcon />}>Working With Agents</Tab>}>
       <div className={f.diffBar}>
         <span className={f.showing}>
           <i />
           <b>Showing changes</b>
-          <span>Reviewing cap-flashes</span>
+          <span>
+            <code>399291d</code> double-click a terminal or agent tab to rename it
+          </span>
         </span>
         <span className={f.legend}>
           <span data-v="added">+ new</span>
@@ -491,71 +409,101 @@ function ReviewScene() {
           <span>Next ›</span>
           <i />
           <span>History</span>
-          <span className={f.quiet}>Exit</span>
+          <span>Exit</span>
         </span>
       </div>
-      <div className={f.main}>
-        <div className={`${f.page} ${f.review}`}>
-          <Head trail={["flask", "Handling Requests"]} eyebrow="Inside flask" title="Handling Requests" />
-          <p className={f.cap}>
-            {HANDLING_CAPTION}
-            <span>colours match the parts below</span>
-          </p>
-          <div className={`${f.narrow} ${f.in}`} style={at(0.1)}>
-            <Picture marks={{ helpers: "changed", dispatch: "near" }} tags={{ helpers: [3, 1] }} recede />
+      <div className={f.page}>
+        <Head back={["Blueprint", "Reading And Editing Maps"]} title="Working With Agents" eyebrow="Inside Reading And Editing Maps" />
+        <div className={`${f.narrow} ${f.in}`} style={at(0.1)}>
+          <Diagram boxes={AGENT_BOXES} links={AGENT_LINKS} w={196} gx={56} gy={46} recede />
+        </div>
+        <div className={`${f.changes} ${f.in}`} style={at(0.35)}>
+          <p>2 parts of this picture changed — open one to read its lines</p>
+          <div className={f.change}>
+            <span className={f.caret}>▾</span>
+            <b className={f.mark}>~</b>
+            <b>Workspace Window</b>
+            <span className={f.word}>changed</span>
+            <span className={f.faint}>1 file</span>
+            <span className={f.stat}>
+              <span data-v="added">+63</span>
+              <span data-v="removed">−11</span>
+              <Blocks added={63} removed={11} />
+            </span>
+            <span className={f.openLink}>Open ›</span>
           </div>
-          <div className={`${f.changes} ${f.in}`} style={at(0.35)}>
-            <p>1 part of this picture changed — open one to read its lines</p>
-            <div className={f.change}>
-              <span className={f.caret}>▾</span>
-              <b className={f.mark}>~</b>
-              <b>Helpers</b>
-              <span className={f.word}>changed</span>
-              <span className={f.faint}>1 file</span>
-              <span className={f.stat}>
-                <span data-v="added">+3</span>
-                <span data-v="removed">−1</span>
-                <Blocks added={3} removed={1} />
-              </span>
-              <span className={f.openLink}>open ›</span>
-            </div>
-            <div className={f.hunkWrap}>
-              <p className={f.path}>src/flask/helpers.py</p>
-              <pre className={f.hunk}>
-                <span className={f.hunkHead}>line 348</span>
-                {HUNK.map(([k, old, now, text], i) => (
-                  <span key={i} className={`${f.line} ${f.in}`} data-k={k} style={at(0.55 + i * 0.07)}>
-                    <span>{old}</span>
-                    <span>{now}</span>
-                    <span>{k === " " ? "" : k === "+" ? "+" : "−"}</span>
-                    <code>{tint(text)}</code>
-                  </span>
-                ))}
-              </pre>
-            </div>
+          <div className={f.hunkWrap}>
+            <p className={f.path}>app/components/agent/workspace.tsx</p>
+            <pre className={f.hunk}>
+              <span className={f.hunkHead}>line 995</span>
+              {HUNK.map(([k, old, now, text], i) => (
+                <span key={i} className={`${f.line} ${f.in}`} data-k={k} style={at(0.55 + i * 0.07)}>
+                  <span>{old}</span>
+                  <span>{now}</span>
+                  <span>{k === " " ? "" : k === "+" ? "+" : "−"}</span>
+                  <code>{tint(text)}</code>
+                </span>
+              ))}
+            </pre>
+          </div>
+          <div className={f.change}>
+            <span className={f.caret}>▸</span>
+            <b className={f.mark}>~</b>
+            <b>Tab Contracts</b>
+            <span className={f.word}>changed</span>
+            <span className={f.faint}>1 file</span>
+            <span className={f.stat}>
+              <span data-v="added">+2</span>
+              <span data-v="removed">−0</span>
+              <Blocks added={2} removed={0} />
+            </span>
+            <span className={f.openLink}>Open ›</span>
           </div>
         </div>
       </div>
-    </>
+    </Window>
   );
 }
 
-/** flash() in src/flask/helpers.py at the demo blueprint's commit, with a change a reviewer might be handed. */
-const HUNK: [" " | "+" | "-", number | "", number | "", string][] = [
-  ["-", 348, "", '    flashes = session.get("_flashes", [])'],
-  ["+", "", 348, '    flashes = list(session.get("_flashes", []))'],
-  [" ", 349, 349, "    flashes.append((category, message))"],
-  ["+", "", 350, '    limit = current_app.config["MAX_FLASHED_MESSAGES"]'],
-  ["+", "", 351, "    del flashes[:-limit]"],
-  [" ", 350, 352, '    session["_flashes"] = flashes'],
-  [" ", 351, 353, "    app = current_app._get_current_object()"],
+const AGENT_BOXES: Box[] = [
+  { id: "start", label: "Start Agent", col: 0, row: 0, sec: 1 },
+  { id: "ws", label: "Workspace Window", col: 1, row: 0, v: "changed", tag: [63, 11] },
+  { id: "term", label: "Terminal", col: 2, row: 0, v: "near" },
+  { id: "follow", label: "Follow Turns", col: 3, row: 0, sec: 2 },
+  { id: "registry", label: "Agent Registry", col: 0, row: 1, sec: 3 },
+  { id: "contracts", label: "Tab Contracts", col: 1, row: 1, v: "changed", tag: [2, 0] },
+  { id: "plan", label: "Design Plan", col: 2, row: 1, sec: 4 },
+  { id: "persist", label: "Persist Workspace", col: 3, row: 1, v: "near" },
+];
+const AGENT_LINKS: Link[] = [
+  { from: "start", to: "ws", label: "opens" },
+  { from: "ws", to: "term", label: "mounts" },
+  { from: "term", to: "follow", label: "polls" },
+  { from: "start", to: "registry", label: "which agents" },
+  { from: "ws", to: "contracts", label: "typed by" },
+  { from: "term", to: "plan", label: "opens plans" },
+  { from: "follow", to: "persist", label: "saves sessions" },
 ];
 
-/** Strings, comments and the one keyword, in the drawer's own colours. */
+/** workspace.tsx in commit 399291d: the rename it added. */
+const HUNK: [" " | "+" | "-", number | "", number | "", string][] = [
+  [" ", 991, 995, "  };"],
+  [" ", 992, 996, ""],
+  ["+", "", 997, "  // Terminals and the agents in them can be renamed; their glyph stays."],
+  ["+", "", 998, "  const rename = (t: Tab) =>"],
+  ["+", "", 999, '    t.kind === "shell"'],
+  ["+", "", 1000, "      ? () => {"],
+  ["+", "", 1001, "          nameKept.current = true;"],
+  ["+", "", 1002, "          setNaming(t.key);"],
+  ["+", "", 1003, "        }"],
+  ["+", "", 1004, "      : undefined;"],
+];
+
+/** Strings, comments and keywords, in the app's code colours. */
 function tint(line: string) {
-  return line.split(/("[^"]*"|#.*$|\bdel\b)/).map((p, i) =>
+  return line.split(/("[^"]*"|\/\/.*$|\b(?:const|true|undefined)\b)/).map((p, i) =>
     i % 2 ? (
-      <span key={i} data-tok={p.startsWith('"') ? "string" : p.startsWith("#") ? "comment" : "keyword"}>
+      <span key={i} data-tok={p.startsWith('"') ? "string" : p.startsWith("//") ? "comment" : "keyword"}>
         {p}
       </span>
     ) : (
@@ -576,159 +524,305 @@ function Blocks({ added, removed }: { added: number; removed: number }) {
   );
 }
 
-/* ── the app running: a preview, and a phone ───────────── */
+/* ── the app running: the iOS Simulator, and the blueprint following ── */
 
-const HABITS: { name: string; streak: number; done?: boolean; tap?: number }[] = [
-  { name: "Morning run", streak: 12, done: true },
-  { name: "Read 20 pages", streak: 4, tap: 2 },
-  { name: "Drink water", streak: 31, done: true },
-  { name: "Stretch", streak: 2, tap: 4.05 },
-  { name: "Call home", streak: 1 },
-];
+const QUERY = "Ada Lovelace";
 
 function RunScene() {
   return (
-    <>
-      <Strip>
-        <Tab>habits</Tab>
-        <Tab on>
-          <GlobeIcon />
-          Preview
-        </Tab>
-      </Strip>
-      <div className={f.main} style={{ "--ws": "300px" } as CSSProperties}>
-        <div className={f.preview}>
-          <div data-chrome className={f.toolbar}>
-            <Glyph d="M10 3.5 5.5 8l4.5 4.5" />
-            <Glyph d="M6 3.5 10.5 8 6 12.5" />
-            <Glyph d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10" />
-            <span className={f.address}>localhost:8081</span>
-            <span className={f.sizes}>
-              <Glyph d="M5.5 2h5a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM7.5 12h1" />
-              <Glyph d="M3.5 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM7.5 12h1" />
-              <Glyph on d="M1.5 3h13v8.5h-13zM5.5 14h5M8 11.5V14" />
+    <Window
+      projects={
+        <>
+          <Project>blueprint</Project>
+          <Project on>wikipedia</Project>
+        </>
+      }
+      tabs={
+        <Tab on icon={<BlueprintIcon />}>
+          <span className={f.swap}>
+            <span className={f.out} style={at(0, 5.5)}>
+              Wikipedia
             </span>
-            <Glyph d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v4h-9v-9h4" />
-          </div>
-          <div className={f.site}>
-            <nav>
-              <b>
-                <i />
-                Habits
-              </b>
-              <span data-on>Today</span>
-              <span>Stats</span>
-              <span>Settings</span>
-            </nav>
-            <div className={f.siteBody}>
-              <p className={f.date}>Sunday, 1 November</p>
-              <div className={f.siteHead}>
-                <h4>Today</h4>
-                <Done shift={0.3} />
-              </div>
-              <ul className={f.habits}>
-                {HABITS.map((h) => (
-                  <Habit key={h.name} {...h} tap={h.tap && h.tap + 0.3} />
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-        <Workspace
-          tabs={
-            <>
-              <WsTab icon={<ClaudeIcon />}>claude 1</WsTab>
-              <WsTab on icon={<PhoneIcon />}>
-                iOS
-              </WsTab>
-            </>
-          }
-        >
-          <div className={f.device}>
-            <span className={f.deviceName}>iPhone 16 Pro</span>
-            <span className={f.small}>Home</span>
-            <span className={f.runApp}>Run app</span>
-          </div>
-          <div className={f.dock}>
-            <div className={f.phone}>
-              <div className={f.status}>
-                <b>9:41</b>
-                <i />
-                <span>
-                  <Glyph d="M2 12h1.5M5.5 10h1.5v2H5.5zM9 8h1.5v4H9zM12.5 5.5H14V12h-1.5z" />
-                </span>
-              </div>
-              <div className={f.phoneHead}>
-                <p>Sunday, 1 November</p>
-                <h4>Today</h4>
-              </div>
-              <Done />
-              <ul className={`${f.habits} ${f.phoneList}`}>
-                {HABITS.map((h) => (
-                  <Habit key={h.name} {...h} />
-                ))}
-              </ul>
-              <span className={f.tap} style={{ left: 27, top: 216, ...at(1.95) }} />
-              <span className={f.tap} style={{ left: 27, top: 320, ...at(4) }} />
-              <div className={f.hand}>
-                <svg width="22" height="24" viewBox="0 0 22 24">
-                  <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" />
-                </svg>
-                <span>Claude</span>
-              </div>
-            </div>
-          </div>
-        </Workspace>
+            <span className={f.in} style={at(5.5)}>
+              Reading An Article
+            </span>
+          </span>
+        </Tab>
+      }
+    >
+      <div className={`${f.page} ${f.out}`} style={{ "--ws": "370px", ...at(0, 5.5) } as CSSProperties}>
+        <Head title="wikipedia" sub="The official Wikipedia app for iPhone and iPad" meta="1,402 files · commit 8e1f0c2" />
+        <p className={f.cap}>
+          How the parts connect<span>colours match the parts below</span>
+        </p>
+        <Diagram boxes={WIKI} links={WIKI_LINKS} w={210} gx={70} gy={50}>
+          {/* What the phone shows, lit on the blueprint as Claude moves through it. */}
+          <span className={`${f.lit} ${f.blip}`} style={{ left: "2.33%", top: "4.64%", ...at(1.7, 2.9) }} />
+          <span className={`${f.lit} ${f.blip}`} style={{ left: "56.81%", top: "4.64%", ...at(2.9, 5.5) }} />
+        </Diagram>
       </div>
-    </>
+      <div className={`${f.page} ${f.in}`} style={{ "--ws": "370px", ...at(5.6) } as CSSProperties}>
+        <Head
+          back={["Wikipedia"]}
+          title="Reading An Article"
+          eyebrow="Inside Wikipedia"
+          sub="Fetch a page's mobile HTML, lay it out in a web view, and keep its place."
+        />
+        <ol className={f.flow}>
+          {ARTICLE_STEPS.map(([title, body, file], i) => (
+            <li key={title} className={f.in} style={at(5.8 + i * 0.12)}>
+              <b>{title}</b>
+              <span>{body}</span>
+              <code>{file}</code>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <Workspace
+        width="370px"
+        tabs={
+          <>
+            <WsTab icon={<ClaudeIcon />} dot={[0, 6.4]}>
+              claude 1
+            </WsTab>
+            <WsTab icon={<GlobeIcon />}>Preview</WsTab>
+            <WsTab on icon={<PhoneIcon />}>
+              iOS
+            </WsTab>
+          </>
+        }
+      >
+        <div className={f.device}>
+          <span className={f.deviceName}>iPhone 17 Pro</span>
+          <span className={f.small}>Home</span>
+          <span className={f.runApp}>
+            <span className={f.swap}>
+              <span className={f.out} style={at(0, 1.5)}>
+                Building…
+              </span>
+              <span className={f.in} style={at(1.5)}>
+                Run app
+              </span>
+            </span>
+          </span>
+        </div>
+        <div className={`${f.building} ${f.out}`} style={at(0, 1.5)}>
+          <i />
+          <span>Building the app. It opens here when it&rsquo;s done.</span>
+          <u>Show log</u>
+        </div>
+        <div className={f.dock}>
+          <Phone />
+        </div>
+      </Workspace>
+    </Window>
   );
 }
 
-/** "2 of 5 done", counting up as Claude taps. `shift` delays it, for the page that hears of the tap later. */
-function Done({ shift = 0 }: { shift?: number }) {
+const WIKI: Box[] = [
+  { id: "feed", label: "Exploring The Feed", col: 0, row: 0, sec: 1 },
+  { id: "search", label: "Searching Articles", col: 1, row: 0, sec: 2 },
+  { id: "article", label: "Reading An Article", col: 1, row: 1, sec: 3 },
+  { id: "saved", label: "Saving For Later", col: 0, row: 1, sec: 4 },
+  { id: "api", label: "Wikimedia APIs", col: 1, row: 2, sec: 5 },
+  { id: "sync", label: "Syncing Reading Lists", col: 0, row: 2, sec: 6 },
+];
+const WIKI_LINKS: Link[] = [
+  { from: "feed", to: "search", label: "tap search" },
+  { from: "search", to: "article", label: "opens a result" },
+  { from: "article", to: "saved", label: "save" },
+  { from: "article", to: "api", label: "fetches HTML" },
+  { from: "saved", to: "sync", label: "syncs" },
+];
+
+const ARTICLE_STEPS: [string, string, string][] = [
+  ["Open the page", "The result's URL becomes an article view, pushed onto the navigation stack.", "ArticleViewController.swift"],
+  ["Fetch mobile HTML", "Asks the page content service for the article, served from the cache when it's fresh.", "ArticleFetcher.swift"],
+  ["Lay it out", "Loads the HTML into a web view with the app's theme and font size.", "ArticleWebMessagingController.swift"],
+  ["Keep your place", "Saves the scroll position, so the article reopens where you left it.", "ArticleViewController+Scroll.swift"],
+];
+
+/**
+ * The Simulator's own screen, as the device pane shows it: the app running
+ * in iOS, with Claude's pointer and its taps over it. Claude taps search,
+ * types, and opens the first result.
+ */
+function Phone() {
   return (
-    <div className={f.done}>
-      <span className={f.swap}>
-        <span className={f.out} style={at(0, 2 + shift)}>
-          2 of 5 done
+    <div className={f.phone}>
+      <div className={f.status}>
+        <b>9:41</b>
+        <i />
+        <span>
+          <svg viewBox="0 0 18 12">
+            <path d="M1 9h2v2H1zM5 7h2v4H5zM9 4.5h2V11H9zM13 2h2v9h-2z" />
+          </svg>
+          <svg viewBox="0 0 16 12">
+            <path d="M8 10.6 6.3 8.9a2.4 2.4 0 0 1 3.4 0zM3.9 6.5a5.8 5.8 0 0 1 8.2 0l-1.2 1.2a4.1 4.1 0 0 0-5.8 0zM1.5 4.1a9.2 9.2 0 0 1 13 0l-1.2 1.2a7.5 7.5 0 0 0-10.6 0z" />
+          </svg>
+          <em />
         </span>
-        <span className={f.blip} style={at(2 + shift, 4.05 + shift)}>
-          3 of 5 done
-        </span>
-        <span className={f.in} style={at(4.05 + shift)}>
-          4 of 5 done
-        </span>
-      </span>
-      <span className={f.bar}>
-        <i style={{ animationDelay: `${shift}s` }} />
-      </span>
+      </div>
+
+      {/* Launch: the app's mark while it opens. */}
+      <div className={`${f.screen} ${f.out}`} data-launch style={at(0, 1.6)}>
+        <b className={f.wordmark}>W</b>
+      </div>
+
+      {/* Explore. */}
+      <div className={`${f.screen} ${f.blip}`} style={at(1.6, 2.9)}>
+        <div className={f.wikiTop}>
+          <b className={f.wordmark}>W</b>
+        </div>
+        <div className={f.searchField}>
+          <SearchGlyph />
+          Search Wikipedia
+        </div>
+        <p className={f.feedHead}>Featured article</p>
+        <div className={f.card}>
+          <div className={f.photo} data-sky />
+          <b>Hubble Space Telescope</b>
+          <span>Space telescope launched into low Earth orbit in 1990 and still in operation.</span>
+        </div>
+        <p className={f.feedHead}>Top read</p>
+        <ol className={f.top}>
+          {["Solar eclipse", "Large language model", "Olympic Games"].map((t, i) => (
+            <li key={t}>
+              <i>{i + 1}</i>
+              <span>{t}</span>
+            </li>
+          ))}
+        </ol>
+        <TabBar />
+      </div>
+
+      {/* Search, typed into. */}
+      <div className={`${f.screen} ${f.blip}`} style={at(2.9, 5.2)}>
+        <div className={f.searchRow}>
+          <div className={f.searchField} data-on>
+            <SearchGlyph />
+            <span className={f.typed} style={{ "--n": QUERY.length, ...at(3.2) } as CSSProperties}>
+              {QUERY}
+            </span>
+            <i className={f.caret2} />
+          </div>
+          <span className={f.cancel}>Cancel</span>
+        </div>
+        <ul className={`${f.results} ${f.in}`} style={at(3.9)}>
+          {RESULTS.map(([t, d]) => (
+            <li key={t}>
+              <b>{t}</b>
+              <span>{d}</span>
+            </li>
+          ))}
+        </ul>
+        <div className={f.keyboard}>
+          {["qwertyuiop", "asdfghjkl", "zxcvbnm"].map((row) => (
+            <div key={row}>
+              {row.split("").map((k) => (
+                <i key={k}>{k}</i>
+              ))}
+            </div>
+          ))}
+          <div>
+            <i data-wide>123</i>
+            <i data-space>space</i>
+            <i data-wide data-go>
+              search
+            </i>
+          </div>
+        </div>
+      </div>
+
+      {/* The article. */}
+      <div className={`${f.screen} ${f.in}`} style={at(5.2)}>
+        <div className={f.articleBar}>
+          <span>‹ Search</span>
+          <span className={f.articleTools}>
+            <Ios d={IOS.lang} />
+            <Ios d={IOS.share} />
+          </span>
+        </div>
+        <div className={f.article}>
+          <h4>Ada Lovelace</h4>
+          <p className={f.desc}>English mathematician (1815–1852)</p>
+          <div className={f.photo} data-portrait />
+          <p>
+            <b>Augusta Ada King, Countess of Lovelace</b> was an English mathematician and writer, chiefly known for her work
+            on Charles Babbage&rsquo;s proposed mechanical general-purpose computer, the Analytical Engine.
+          </p>
+          <p className={f.h5}>Early life</p>
+          <p>Lord Byron expected his child to be a &ldquo;glorious boy&rdquo; and was disappointed when Lady Byron gave birth to a girl.</p>
+        </div>
+        <div className={f.toolbarIOS}>
+          {[IOS.back, IOS.forward, IOS.saved, IOS.toc, IOS.text].map((d) => (
+            <Ios key={d} d={d} />
+          ))}
+        </div>
+      </div>
+
+      <span className={f.home} />
+      <span className={f.tap} style={{ left: 126, top: 91, ...at(2.65) }} />
+      <span className={f.tap} style={{ left: 90, top: 106, ...at(4.75) }} />
+      <div className={f.hand}>
+        <svg width="22" height="24" viewBox="0 0 22 24">
+          <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" />
+        </svg>
+        <span>Claude</span>
+      </div>
     </div>
   );
 }
 
-function Habit({ name, streak, done, tap }: { name: string; streak: number; done?: boolean; tap?: number }) {
-  const days = (n: number) => `${n} day streak`;
+const RESULTS: [string, string][] = [
+  ["Ada Lovelace", "English mathematician (1815–1852)"],
+  ["Ada Lovelace Day", "International celebration of women in STEM"],
+  ["Ada (programming language)", "Programming language named after her"],
+];
+
+function TabBar() {
   return (
-    <li>
-      <span className={f.check} data-done={done || tap !== undefined || undefined}>
-        {done || tap === undefined ? null : <i className={f.pop} style={at(tap)} />}
-      </span>
-      <span className={f.habit}>
-        <b>{name}</b>
-        {tap === undefined ? (
-          <span>{days(streak)}</span>
-        ) : (
-          <span className={f.swap}>
-            <span className={f.out} style={at(0, tap)}>
-              {days(streak)}
-            </span>
-            <span className={f.in} style={at(tap)}>
-              {days(streak + 1)}
-            </span>
-          </span>
-        )}
-      </span>
-    </li>
+    <div className={f.tabBar}>
+      {(["Explore", "Places", "Saved", "History", "Search"] as const).map((t, i) => (
+        <span key={t} data-on={i === 0 || undefined}>
+          <Ios d={IOS[t]} />
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** The app's toolbar and tab bar glyphs, drawn on iOS's 24 grid. */
+const IOS = {
+  Explore: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM15.5 8.5l-2 5-5 2 2-5z",
+  Places: "M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  Saved: "M6.5 3.5h11v17L12 16.5l-5.5 4z",
+  History: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3.5 2",
+  Search: "M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.2 15.2 20 20",
+  back: "M14.5 5 8 12l6.5 7",
+  forward: "M9.5 5 16 12l-6.5 7",
+  saved: "M6.5 3.5h11v17L12 16.5l-5.5 4z",
+  toc: "M4 6h2M9 6h11M4 12h2M9 12h11M4 18h2M9 18h11",
+  text: "M3 18 7.5 6 12 18M4.5 14h6M14 18l3-8 3 8M15 15.5h4",
+  lang: "M3 5h9M7.5 3v2M5 5c.5 3.5 2.5 6 6 7.5M10 5c-.5 3.5-2.5 6-6 7.5M13 21l4-10 4 10M14.5 17.5h5",
+  share: "M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1",
+};
+
+function Ios({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={f.ios}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+function SearchGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className={f.stroke}>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="m10.5 10.5 3 3" />
+    </svg>
   );
 }
 
@@ -741,220 +835,331 @@ const SCENES: Record<Drawing, () => ReactNode> = {
 
 /* ── the app's own pieces ───────────────────────────────── */
 
-/** The blueprint's tabs, as the app draws them: dark in either theme. */
-function Strip({ children }: { children: ReactNode }) {
+/**
+ * The desktop app's window in Classic: a black title bar with the open
+ * projects and the tools (components/chrome/titlebar.tsx), the blueprint's tabs
+ * on a black strip (tabs.tsx), the white sheet, and the status bar (statusbar.tsx).
+ */
+function Window({ projects, git, tabs, children }: { projects: ReactNode; git?: boolean; tabs: ReactNode; children: ReactNode }) {
   return (
-    <div data-chrome className={f.strip}>
-      {children}
-      <span className={f.add}>+</span>
-    </div>
+    <>
+      <header className={`${f.black} ${f.titlebar}`}>
+        <span className={f.lights}>
+          <i />
+          <i />
+          <i />
+        </span>
+        {projects}
+        <span className={f.add}>+</span>
+        <span className={f.grow} />
+        <Glyph on={git} d="M4 2v8M12 4a2 2 0 1 1 0 .01M4 12a2 2 0 1 1 0 .01M12 6a6 6 0 0 1-6 6" />
+        <Glyph d="M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12" />
+        <i className={f.divider} />
+        <Glyph d="M1.5 2.5h13v11h-13zM4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
+        <Glyph d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+      </header>
+      <div className={`${f.black} ${f.strip}`}>
+        {tabs}
+        <span className={f.add}>+</span>
+      </div>
+      <div className={f.main}>{children}</div>
+      <footer className={`${f.black} ${f.statusbar}`}>
+        <span>
+          <svg viewBox="0 0 16 16" className={f.stroke}>
+            <circle cx="8" cy="8" r="2.5" />
+            <path d="M1.5 8h4M10.5 8h4" />
+          </svg>
+          Blueprint ⌃
+        </span>
+        <span className={f.grow} />
+        <span>
+          Go to <kbd>⌘P</kbd>
+        </span>
+        <span>
+          <TerminalIcon />
+          Workspace <kbd>⌘`</kbd>
+        </span>
+      </footer>
+    </>
   );
 }
 
-function Tab({ on, children }: { on?: boolean; children: ReactNode }) {
+/** An open project in the title bar. */
+function Project({ on, children }: { on?: boolean; children: ReactNode }) {
   return (
-    <span className={f.tab} data-on={on || undefined}>
+    <span className={f.project} data-on={on || undefined}>
       {children}
     </span>
   );
 }
 
-/** The floating window of terminals, previews and phones, over the blueprint's right edge. */
-function Workspace({ tabs, strip, children }: { tabs: ReactNode; strip?: ReactNode; children: ReactNode }) {
+function Tab({ on, icon, children }: { on?: boolean; icon?: ReactNode; children: ReactNode }) {
   return (
-    <aside data-chrome className={f.ws}>
-      <div className={f.wsTabs}>
+    <span className={f.tab} data-on={on || undefined}>
+      {icon}
+      {children}
+      {on ? <span className={f.x}>×</span> : null}
+    </span>
+  );
+}
+
+/** The floating window of terminals, previews and phones, over the blueprint's right edge. */
+function Workspace({ width, tabs, children }: { width: string; tabs: ReactNode; children: ReactNode }) {
+  return (
+    <aside className={f.ws} style={{ width }}>
+      <div className={`${f.black} ${f.wsTabs}`}>
         {tabs}
         <span className={f.wsBtn}>+</span>
         <span className={f.wsRest} />
         <span className={f.wsBtn}>✕</span>
       </div>
       <div className={f.wsBody}>{children}</div>
-      {strip ? <div className={f.wsStrip}>{strip}</div> : null}
     </aside>
   );
 }
 
-function WsTab({ on, icon, children }: { on?: boolean; icon: ReactNode; children: ReactNode }) {
+/** `dot`: when the tab's Claude starts working and when it is done. */
+function WsTab({ on, icon, dot, children }: { on?: boolean; icon: ReactNode; dot?: [number, number]; children: ReactNode }) {
   return (
     <span className={f.wsTab} data-on={on || undefined}>
       {icon}
       {children}
+      {dot ? (
+        <span className={f.swap}>
+          <Dot status="working" className={f.blip} style={at(dot[0], dot[1])} />
+          <Dot status="done" className={f.in} style={at(dot[1])} />
+        </span>
+      ) : null}
+      {on ? <span className={f.x}>×</span> : null}
     </span>
   );
 }
 
-function Hello({ cwd = "~/code/flask" }: { cwd?: string }) {
+/** components/agent/status-dot.tsx: yellow while Claude works, red when it needs you, green when done. */
+function Dot({ status, className, style }: { status: "working" | "waiting" | "done"; className?: string; style?: CSSProperties }) {
+  return <span className={`${f.dot} ${className ?? ""}`} data-status={status} style={style} />;
+}
+
+/** Claude Code's own header, as it opens in a tab. */
+function Hello() {
   return (
     <div className={f.hello}>
-      <p>
-        <b>✻</b> Welcome to Claude Code!
-      </p>
-      <p className={f.res}>/help for help, /status for your current setup</p>
-      <p className={f.res}>cwd: {cwd}</p>
+      <b>✻</b>
+      <span>
+        <b>Claude Code</b>
+        <br />
+        <span className={f.res}>Opus 5.5 · ~/Code/blueprint</span>
+      </span>
     </div>
   );
 }
 
 function Prompt({ children }: { children?: ReactNode }) {
   return (
-    <div className={f.prompt}>
-      &gt; {children}
-      <i className={f.cursor} />
-    </div>
+    <>
+      <div className={f.prompt}>
+        &gt; {children}
+        <i className={f.cursor} />
+      </div>
+      <p className={f.hint}>? for shortcuts</p>
+    </>
   );
 }
 
-function Head({ trail, eyebrow, title, sub }: { trail: string[]; eyebrow: string; title: string; sub?: string }) {
+/**
+ * A level's header (components/blueprint/header.tsx): the way back as one
+ * toolbar row, then the bracketed eyebrow, the title and its line.
+ */
+function Head({
+  back,
+  title,
+  eyebrow,
+  sub,
+  meta,
+  action,
+}: {
+  back?: string[];
+  title: string;
+  eyebrow?: string;
+  sub?: string;
+  meta?: string;
+  action?: ReactNode;
+}) {
   return (
-    <header>
-      <p className={f.crumbs}>{trail.join("  ›  ")}</p>
-      <p className={f.eyebrow}>{eyebrow}</p>
+    <header className={f.head}>
+      {back ? (
+        <div className={f.trail}>
+          {back.map((b, i) => (
+            <span key={b}>
+              {i > 0 ? <i>›</i> : null}
+              <span className={f.ghost}>
+                {i === 0 ? "← " : ""}
+                {b}
+              </span>
+            </span>
+          ))}
+          <i>›</i>
+          <span className={f.here}>{title}</span>
+          <span className={f.grow} />
+          {action}
+        </div>
+      ) : null}
+      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
       <h3 className={f.title}>{title}</h3>
       {sub ? <p className={f.sub}>{sub}</p> : null}
+      {meta ? <p className={f.meta}>{meta}</p> : null}
     </header>
   );
 }
 
-const HANDLING_SUB = "Push contexts, access request and session globals, serve files, flash messages, and handle errors at runtime.";
-const HANDLING_CAPTION = "How a WSGI request flows through Flask's context and dispatch machinery";
+/** components/ui/state.tsx's bracket label, `[ PARTS ]`. */
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <span className={f.eyebrow}>{children}</span>;
+}
 
-/* ── the Handling Requests picture, from the flask demo blueprint ── */
+/* ── a diagram, as components/blueprint/blocks.tsx draws one ── */
 
-type BoxId = "wsgi" | "appctx" | "cv" | "session" | "wrappers" | "preprocess" | "dispatch" | "finalize" | "debug" | "helpers";
+type Box = {
+  id: string;
+  label: string;
+  sub?: string;
+  col: number;
+  row: number;
+  /** Which of the level's parts the box opens, so its colour matches that part's. */
+  sec?: number;
+  /** A change on it: amber where the code changed, green where it is new, dashed where a box calls into one. */
+  v?: Change | "near";
+  /** The change's size, on the box's top edge. */
+  tag?: [number, number];
+};
+type Link = { from: string; to: string; label: string; v?: Change };
 
-/** `sec`: which of the level's parts the box opens, so its colour matches that part's. */
-const BOXES: { id: BoxId; label: string; col: number; row: number; sec?: number }[] = [
-  { id: "wsgi", label: "WSGI Server", col: 0, row: 0 },
-  { id: "appctx", label: "AppContext", col: 1, row: 0, sec: 1 },
-  { id: "cv", label: "_cv_app ContextVar", col: 2, row: 0, sec: 2 },
-  { id: "session", label: "Session Interface", col: 3, row: 0, sec: 4 },
-  { id: "wrappers", label: "Request / Response", col: 0, row: 1, sec: 3 },
-  { id: "preprocess", label: "Preprocess", col: 1, row: 1 },
-  { id: "dispatch", label: "Dispatch", col: 2, row: 1 },
-  { id: "finalize", label: "Finalize", col: 3, row: 1 },
-  { id: "debug", label: "Debug & Logging", col: 0, row: 2, sec: 6 },
-  { id: "helpers", label: "Helpers", col: 2, row: 2, sec: 5 },
-];
-
-const ARROWS: { d: string; label: string; x: number; y: number; anchor?: "start" | "end" }[] = [
-  { d: "M182 39H301", label: "from_environ", x: 242, y: 31 },
-  { d: "M472 39H591", label: "push sets _cv_app", x: 532, y: 31 },
-  { d: "M762 39H881", label: "opens session", x: 822, y: 31 },
-  { d: "M97 64V133", label: "Request(environ)", x: 105, y: 103, anchor: "start" },
-  { d: "M387 64V133", label: "before_request", x: 395, y: 103, anchor: "start" },
-  { d: "M472 159H591", label: "calls view", x: 532, y: 151 },
-  { d: "M762 159H881", label: "return value", x: 822, y: 151 },
-  { d: "M967 134V65", label: "save_session", x: 959, y: 103, anchor: "end" },
-  { d: "M677 184V253", label: "view code uses", x: 685, y: 223, anchor: "start" },
-];
-
-/** Parts of the picture, where a narrower column would shrink the whole of it past reading. */
-const TOP_RIGHT = "292 0 772 200";
-
-const BOX_W = 170;
-const BOX_H = 50;
-const boxAt = (b: { col: number; row: number }) => ({ x: 12 + b.col * 290, y: 14 + b.row * 120 });
+const BOX_H = 58;
+const TINTS = {
+  added: { ink: "var(--color-diff-add-ink)", surface: "var(--color-diff-add-surface)", line: "var(--color-diff-add-line)", mark: "+" },
+  changed: { ink: "var(--color-amber-ink)", surface: "var(--color-amber-surface)", line: "var(--color-amber-line)", mark: "~" },
+};
 
 /**
- * `marks`: a change drawn as the blueprint draws one in diff mode — amber where the
- * code changed, dashed where a box calls into it, the rest receding.
- * `tags`: the change's size, on the box's top edge. `lit`: the box a right
- * click is on. `view`: the part of the picture shown.
+ * Boxes on a grid, `w` wide with `gx`/`gy` between them; a link runs edge to
+ * edge between two boxes in one row or one column. `recede`: a diff, where
+ * what didn't change fades.
  */
-function Picture({
-  view = "0 0 1064 318",
-  marks = {},
-  tags = {},
+function Diagram({
+  boxes,
+  links,
+  w,
+  gx,
+  gy,
   recede,
-  lit,
   children,
 }: {
-  marks?: Partial<Record<BoxId, "changed" | "near">>;
-  tags?: Partial<Record<BoxId, [number, number]>>;
+  boxes: Box[];
+  links: Link[];
+  w: number;
+  gx: number;
+  gy: number;
   recede?: boolean;
-  lit?: BoxId;
-  view?: string;
   children?: ReactNode;
 }) {
+  const pos = (b: Box) => ({ x: 12 + b.col * (w + gx), y: 14 + b.row * (BOX_H + gy) });
+  const byId = new Map(boxes.map((b) => [b.id, b]));
+  const W = 24 + (Math.max(...boxes.map((b) => b.col)) + 1) * (w + gx) - gx;
+  const H = 28 + (Math.max(...boxes.map((b) => b.row)) + 1) * (BOX_H + gy) - gy;
   return (
     <div className={f.pic}>
-      <svg viewBox={view}>
+      <svg viewBox={`0 0 ${W} ${H}`}>
         <defs>
-          <marker id="f-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M1 1.2L7 4 1 6.8z" fill="var(--color-wire)" />
-          </marker>
+          {(["plain", "added", "changed"] as const).map((v) => (
+            <marker key={v} id={`d-${v}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1.2L7 4 1 6.8z" fill={v === "plain" ? "var(--color-wire)" : TINTS[v].line} />
+            </marker>
+          ))}
         </defs>
-        {ARROWS.map((a) => (
-          <g key={a.d} opacity={recede ? 0.6 : 1}>
-            <path d={a.d} fill="none" stroke="var(--color-wire)" strokeWidth="1.5" markerEnd="url(#f-arrow)" />
-            <text
-              x={a.x}
-              y={a.y}
-              textAnchor={a.anchor ?? "middle"}
-              fontSize="12"
-              fill="var(--color-muted-slate)"
-              stroke="var(--color-warm-cream)"
-              strokeWidth="4"
-              strokeLinejoin="round"
-              paintOrder="stroke"
-            >
-              {a.label}
-            </text>
-          </g>
-        ))}
-        {BOXES.map((b) => {
-          const { x, y } = boxAt(b);
-          const m = marks[b.id];
-          const tag = tags[b.id];
-          const sec = b.sec ? { fill: `var(--color-sec-${b.sec}-surface)`, ink: `var(--color-sec-${b.sec}-ink)` } : null;
-          const fill = m === "changed" ? "var(--color-amber-surface)" : (sec?.fill ?? "var(--color-pure-white)");
-          const ink = m === "changed" ? "var(--color-amber-ink)" : (sec?.ink ?? "var(--color-ink)");
-          const stroke = m ? "var(--color-amber-line)" : (sec?.ink ?? "var(--color-border-strong)");
+        {links.map((l) => {
+          const a = pos(byId.get(l.from)!);
+          const b = pos(byId.get(l.to)!);
+          const t = l.v ? TINTS[l.v] : null;
+          const across = a.y === b.y;
+          const d = across
+            ? a.x < b.x
+              ? `M${a.x + w} ${a.y + BOX_H / 2}H${b.x - 2}`
+              : `M${a.x} ${a.y + BOX_H / 2}H${b.x + w + 2}`
+            : a.y < b.y
+              ? `M${a.x + w / 2} ${a.y + BOX_H}V${b.y - 2}`
+              : `M${a.x + w / 2} ${a.y}V${b.y + BOX_H + 2}`;
+          const x = across ? (a.x + b.x + w) / 2 : a.x + w / 2 + 8;
+          const y = across ? a.y + BOX_H / 2 - 8 : (a.y + b.y + BOX_H) / 2 + 4;
           return (
-            <g key={b.id} opacity={recede && !m ? 0.45 : 1}>
+            <g key={`${l.from}-${l.to}`} opacity={recede && !t ? 0.6 : 1}>
+              <path d={d} fill="none" stroke={t?.line ?? "var(--color-wire)"} strokeWidth={t ? 2 : 1.25} markerEnd={`url(#d-${l.v ?? "plain"})`} />
+              <text
+                x={x}
+                y={y}
+                textAnchor={across ? "middle" : "start"}
+                fontSize="12"
+                fill={t?.ink ?? "var(--color-muted-slate)"}
+                stroke="var(--color-paper)"
+                strokeWidth="4"
+                strokeLinejoin="round"
+                paintOrder="stroke"
+              >
+                {l.label}
+              </text>
+            </g>
+          );
+        })}
+        {boxes.map((b) => {
+          const { x, y } = pos(b);
+          const t = b.v && b.v !== "near" ? TINTS[b.v] : null;
+          const sec = b.sec ? { fill: `var(--color-sec-${b.sec}-surface)`, ink: `var(--color-sec-${b.sec}-ink)` } : null;
+          const fill = t?.surface ?? sec?.fill ?? "var(--color-card)";
+          const ink = t?.ink ?? sec?.ink ?? "var(--color-ink)";
+          const stroke = t?.line ?? (b.v === "near" ? TINTS.changed.line : (sec?.ink ?? "var(--color-border-strong)"));
+          const fade = recede && !b.v;
+          return (
+            <g key={b.id} opacity={fade ? 0.45 : 1}>
               <rect
                 x={x}
                 y={y}
-                width={BOX_W}
+                width={w}
                 height={BOX_H}
                 rx="3"
                 fill={fill}
                 stroke={stroke}
-                strokeWidth={m === "changed" ? 2 : 1}
-                strokeOpacity={!m && sec ? 0.55 : 1}
-                strokeDasharray={m === "near" ? "3 3" : undefined}
+                strokeWidth={t ? 2 : 1}
+                strokeOpacity={!b.v && sec ? 0.55 : 1}
+                strokeDasharray={b.v === "near" ? "3 3" : undefined}
               />
-              <text x={x + BOX_W / 2} y={y + 30} textAnchor="middle" fontSize="14.5" fontWeight="600" fill={ink}>
+              <text
+                x={x + w / 2}
+                y={b.sub ? y + 26 : y + BOX_H / 2 + 6}
+                textAnchor="middle"
+                fontFamily="var(--font-display), Georgia, serif"
+                fontSize="18"
+                letterSpacing="-0.01em"
+                fill={ink}
+              >
                 {b.label}
               </text>
-              {m === "changed" ? (
-                <text x={x + BOX_W - 8} y={y + 15} textAnchor="end" fontSize="12" fontWeight="700" fill="var(--color-amber-ink)">
-                  ~
+              {b.sub ? (
+                <text x={x + w / 2} y={y + 44} textAnchor="middle" fontSize="11.5" fill="var(--color-faint)">
+                  {b.sub}
                 </text>
               ) : null}
-              {tag ? (
+              {t ? (
+                <text x={x + w - 8} y={y + 15} textAnchor="end" fontSize="12" fontWeight="700" fill={t.ink}>
+                  {t.mark}
+                </text>
+              ) : null}
+              {b.tag && t ? (
                 <g>
-                  <rect x={x + 8} y={y - 9} width={58} height={18} rx="9" fill="var(--color-amber-surface)" stroke="var(--color-amber-line)" />
+                  <rect x={x + 8} y={y - 9} width={`+${b.tag[0]} −${b.tag[1]}`.length * 6.6 + 14} height={18} rx="9" fill={t.surface} stroke={t.line} />
                   <text x={x + 15} y={y + 4} fontSize="11" fontWeight="600" fontFamily="var(--font-mono)">
-                    <tspan fill="var(--color-diff-add-ink)">+{tag[0]}</tspan>
-                    <tspan fill="var(--color-diff-remove-ink)"> −{tag[1]}</tspan>
+                    <tspan fill={TINTS.added.ink}>+{b.tag[0]}</tspan>
+                    <tspan fill="var(--color-diff-remove-ink)"> −{b.tag[1]}</tspan>
                   </text>
                 </g>
-              ) : null}
-              {lit === b.id ? (
-                <rect
-                  className={f.blip}
-                  style={at(1.3, 2.6)}
-                  x={x}
-                  y={y}
-                  width={BOX_W}
-                  height={BOX_H}
-                  rx="3"
-                  fill="none"
-                  stroke={ink}
-                  strokeWidth="3.5"
-                />
               ) : null}
             </g>
           );
@@ -994,6 +1199,15 @@ function TerminalIcon() {
   );
 }
 
+function BlueprintIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className={f.stroke}>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+      <path d="M7.5 2.5v6h6M2.5 10.5h3" />
+    </svg>
+  );
+}
+
 function GlobeIcon() {
   return (
     <svg viewBox="0 0 16 16" className={f.stroke}>
@@ -1012,11 +1226,12 @@ function PhoneIcon() {
   );
 }
 
+/** A page with a check: a plan's tab. */
 function PlanIcon() {
   return (
     <svg viewBox="0 0 16 16" className={f.stroke}>
       <path d="M4 1.5h5.5L12 4v10.5H4z" />
-      <path d="M6 7h4M6 9.5h4M6 12h2.5" />
+      <path d="m6.2 9.2 1.4 1.4 2.4-2.8" />
     </svg>
   );
 }

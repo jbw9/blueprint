@@ -611,32 +611,10 @@
   overflow: hidden;
   background: var(--paper);
 }
-.bar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 14px;
-  height: 36px;
-  padding: 0 8px 0 10px;
-  border-bottom: 1px solid var(--ink);
-  background: var(--paper);
-  color: var(--ink);
-}
-/* The window's three buttons, as the sheet draws them: empty squares. */
-.lights {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
-}
-.lights span,
 .dots i {
   width: 9px;
   height: 9px;
   border: 1px solid currentColor;
-}
-.project {
-  font: 11.5px var(--mono);
-  text-transform: uppercase;
 }
 .replay {
   height: 38px;
