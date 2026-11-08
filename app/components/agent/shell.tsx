@@ -34,12 +34,12 @@ import { creditRelay } from "@/lib/client/credit";
  */
 const PLAIN: Record<"light" | "dark", ITheme> = {
   light: {
-    background: "#f4f4f5",
-    foreground: "#1c1c1f",
-    cursor: "#111113",
-    cursorAccent: "#f4f4f5",
-    selectionBackground: "#d4d4d8",
-    black: "#1c1c1f",
+    background: "#eceef1",
+    foreground: "#24292f",
+    cursor: "#1f2328",
+    cursorAccent: "#eceef1",
+    selectionBackground: "#cdd2d9",
+    black: "#24292f",
     red: "#b42318",
     green: "#2a7333",
     yellow: "#8a5a0b",

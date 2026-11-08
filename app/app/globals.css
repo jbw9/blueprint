@@ -151,30 +151,34 @@
    terminals, menus — is marked [data-chrome] and follows the theme. In
    Classic it is the sheet, with black bars (below). <html data-theme> is
    set before first paint by the script in app/layout.tsx, from Settings. */
+/* Light is a soft sheet, not a glaring one: the paper sits a shade off white
+   so cards (white) stand on it, the lines are dark enough to see, and the
+   accent is a muted slate blue rather than black, so a selected control or a
+   primary button is marked without a black block landing on the page. */
 :root[data-theme="light"],
 :root[data-theme="light"] [data-chrome] {
   color-scheme: light;
 
-  --color-paper: #ffffff;
+  --color-paper: #f5f6f8;
   --color-card: #ffffff;
-  --color-surface: #f7f7f8;
-  --color-surface-container-low: #f4f4f5;
-  --color-surface-container: #ebebed;
-  --color-surface-dim: #d9d9dd;
+  --color-surface: #eef0f3;
+  --color-surface-container-low: #eceef1;
+  --color-surface-container: #e3e6ea;
+  --color-surface-dim: #cdd2d9;
 
-  --color-ink: #111113;
-  --color-night: #09090b;
-  --color-bezel: #27272a;
-  --color-on-surface: #1c1c1f;
-  --color-on-surface-variant: #3a3a40;
-  --color-muted-slate: #5e5e66;
-  --color-faint: #85858e;
+  --color-ink: #1f2328;
+  --color-night: #1f2328;
+  --color-bezel: #3d444d;
+  --color-on-surface: #24292f;
+  --color-on-surface-variant: #3d444d;
+  --color-muted-slate: #59636e;
+  --color-faint: #6b7480;
 
-  --color-accent: #18181b;
-  --color-accent-strong: #000000;
+  --color-accent: #3d5a80;
+  --color-accent-strong: #2f4866;
   --color-on-accent: #ffffff;
-  --color-accent-surface: #f0f0f2;
-  --color-accent-line: #c9c9cf;
+  --color-accent-surface: #e6edf5;
+  --color-accent-line: #a9bbd2;
 
   --color-amber-ink: #8a5a0b;
   --color-amber-surface: #fbf1d9;
@@ -184,38 +188,38 @@
   --color-clay-surface: #fde4e1;
   --color-clay-line: #eda59c;
 
-  --color-border-gray: #e4e4e7;
-  --color-border-strong: #c4c4ca;
-  --color-wire: #a1a1aa;
+  --color-border-gray: #d8dce2;
+  --color-border-strong: #b4bcc6;
+  --color-wire: #959eab;
 
   --color-sec-1-surface: #e3ebfc;
   --color-sec-1-ink: #2f5fd0;
   --color-actor-1: #2f5fd0;
   --color-actor-1-surface: #e3ebfc;
 
-  --color-code: #f6f6f7;
-  --color-code-plain: #1c1c1f;
-  --color-code-comment: #85858e;
+  --color-code: #ffffff;
+  --color-code-plain: #24292f;
+  --color-code-comment: #6b7480;
   --color-code-string: #a8381f;
   --color-code-number: #8a5a0b;
   --color-code-keyword: #6d28d9;
   --color-code-type: #0e7490;
   --color-code-call: #1d4ed8;
-  --color-code-punct: #5e5e66;
+  --color-code-punct: #59636e;
   --color-code-annotation: #8a5a0b;
 
-  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-lift: 0 10px 34px -6px rgba(0, 0, 0, 0.14);
+  --shadow-panel: 0 1px 2px rgba(31, 35, 40, 0.08);
+  --shadow-lift: 0 10px 34px -6px rgba(31, 35, 40, 0.18);
 }
 
 /* The light chrome sits a step below the paper, so the sheet still reads as
    the thing on top. */
 :root[data-theme="light"] [data-chrome] {
-  --color-paper: #f4f4f5;
+  --color-paper: #eceef1;
   --color-card: #ffffff;
-  --color-surface: #f4f4f5;
-  --color-surface-container-low: #f4f4f5;
-  --color-surface-container: #e8e8eb;
+  --color-surface: #e6e9ed;
+  --color-surface-container-low: #e6e9ed;
+  --color-surface-container: #dce0e5;
 }
 
 :root[data-theme="dark"],
