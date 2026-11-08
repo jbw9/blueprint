@@ -16,7 +16,7 @@ import { API_URL as CREDIT_URL } from "@/lib/server/api";
 export { CREDIT_URL };
 
 /** Blueprint's GitHub OAuth app, which signs in by device code: its id is public, and it has no secret here. */
-const GITHUB_CLIENT_ID = "";
+const GITHUB_CLIENT_ID = "Ov23li6hsQHhIxCkRrDT";
 
 /** The id the operating system keeps for this machine, unchanged by reinstalling anything but the system. */
 function hardwareId(): string | null {
