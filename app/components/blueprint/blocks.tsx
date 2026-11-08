@@ -189,6 +189,12 @@ function Diagram({
     [diff, block.boxes],
   );
   const [lit, setLit] = useState<string | null>(null);
+  // The box under the pointer or the keyboard: its lines glow and the rest of
+  // the picture steps back, so who it talks to reads at a glance.
+  const [held, setHeld] = useState<string | null>(null);
+  const touches = (a: { from: string; to: string }) => held !== null && (a.from === held || a.to === held);
+  const kin = new Set(held ? [held, ...arrows.filter(touches).flatMap((a) => [a.from, a.to])] : []);
+  const fade = "transition-opacity duration-150 motion-reduce:transition-none";
 
   return (
     <figure className="min-w-0">
@@ -258,25 +264,29 @@ function Diagram({
             // where every link crosses apps, dots on every line were noise.
             const pair = block.arrows.filter((a) => ways.has(`${a.from}→${a.to}`));
             const inferred = pair.length > 0 && pair.every((a) => a.inferred);
+            const glow = touches({ from, to });
+            const line = isHot ? TINT.changed.line : TONE[tone].line;
             return (
-              <path
-                key={i}
-                d={d}
-                fill="none"
-                stroke={isHot ? TINT.changed.line : TONE[tone].line}
-                strokeWidth={isHot ? 2.5 : 1.5}
-                strokeOpacity={inferred && !isHot ? 0.5 : 1}
-                strokeDasharray={tone === "warn" ? "5 4" : undefined}
-                strokeLinejoin="round"
-                markerStart={start ? `url(#dg-${tone})` : undefined}
-                markerEnd={end ? `url(#dg-${tone})` : undefined}
-              >
-                {inferred ? <title>Read from the code, not a call the code graph confirms</title> : null}
-              </path>
+              <g key={i} className={fade} opacity={held && !glow ? 0.15 : 1}>
+                {glow ? <path d={d} fill="none" stroke={line} strokeWidth={7} strokeOpacity={0.22} strokeLinejoin="round" strokeLinecap="round" /> : null}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={line}
+                  strokeWidth={isHot || glow ? 2.5 : 1.5}
+                  strokeOpacity={inferred && !isHot && !glow ? 0.5 : 1}
+                  strokeDasharray={tone === "warn" ? "5 4" : undefined}
+                  strokeLinejoin="round"
+                  markerStart={start ? `url(#dg-${tone})` : undefined}
+                  markerEnd={end ? `url(#dg-${tone})` : undefined}
+                >
+                  {inferred ? <title>Read from the code, not a call the code graph confirms</title> : null}
+                </path>
+              </g>
             );
           })}
           {/* Labels go over every line, so no other line runs through one. */}
-          {arrows.map(({ label }, i) => {
+          {arrows.map(({ label, from, to }, i) => {
             if (!label) return null;
             const name = (id: string) => block.boxes.find((x) => x.id === id)?.label ?? id;
             // Arrows between the same two boxes are drawn as one, and a pair
@@ -286,7 +296,7 @@ function Diagram({
               block.arrows.find((a) => a.from === f && a.to === t && a.at)?.at ??
               block.arrows.find((a) => a.from === t && a.to === f && a.at)?.at;
             return (
-              <g key={`l${i}`}>
+              <g key={`l${i}`} className={fade} opacity={held && !touches({ from, to }) ? 0.2 : 1}>
                 <rect x={label.x} y={label.y} width={label.w} height={label.h} rx={label.pill ? Math.min(11, label.h / 2) : 4} fill="var(--color-paper)" />
                 {label.lines.map((l, k) => {
                   const at = atOf(l.from, l.to);
@@ -334,8 +344,10 @@ function Diagram({
                 opens={b.opens}
                 href={b.opens ? hrefFor?.(b.opens) : undefined}
                 onActivate={go}
+                onHold={(on) => setHeld(on ? b.id : null)}
                 label={b.label}
               >
+                <g className={fade} opacity={held && !kin.has(b.id) ? 0.4 : 1}>
                 <rect
                   x={x}
                   y={y}
@@ -407,6 +419,7 @@ function Diagram({
                     </text>
                   </g>
                 ) : null}
+                </g>
               </Box>
             );
           })}
@@ -428,6 +441,7 @@ function Box({
   opens,
   href,
   onActivate,
+  onHold,
   label,
   children,
 }: {
@@ -437,12 +451,26 @@ function Box({
   /** A real destination, so the link focuses and Enter fires natively. */
   href?: string;
   onActivate?: () => void;
+  /** The pointer or the keyboard is on this box, or has left it. */
+  onHold?: (on: boolean) => void;
   label: string;
   children: React.ReactNode;
 }) {
-  if (!live) return <g data-pick={label} data-opens={opens}>{children}</g>;
+  const hold = {
+    onMouseEnter: () => onHold?.(true),
+    onMouseLeave: () => onHold?.(false),
+    onFocus: () => onHold?.(true),
+    onBlur: () => onHold?.(false),
+  };
+  if (!live)
+    return (
+      <g data-pick={label} data-opens={opens} {...hold}>
+        {children}
+      </g>
+    );
   return (
     <a
+      {...hold}
       data-pick={label}
       data-opens={opens}
       className="dg-live"
