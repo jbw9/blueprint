@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import s from "./landing.module.css";
-import { Drawn, type Drawing } from "./landing-features";
+import { Drawn, LiveStatusBar, LiveTitleBar, type Drawing } from "./landing-features";
 
 export interface DemoBlueprint {
   id: string;
@@ -80,29 +80,11 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
   const shownBlueprint = useRef(open);
 
   // The page is always the white sheet, so the app in it is always Classic, the sheet's own cobalt, whatever the reader picked in the app.
-  // The frame shows the demos as its own tabs, one per repository (app/components/chrome/tabs.tsx).
   const light = () => {
     try {
       frame.current!.contentDocument!.documentElement.dataset.theme = "classic";
     } catch {}
-    tell();
   };
-  const tell = () =>
-    frame.current?.contentWindow?.postMessage(
-      { type: "blueprint:repos", repos: blueprints.map(({ id, label }) => ({ id, label })), open },
-      location.origin,
-    );
-
-  // The frame asks for its tabs once it listens, and a tab picked there points it at that repository.
-  useEffect(() => {
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== location.origin || e.source !== frame.current?.contentWindow) return;
-      if (e.data?.type === "blueprint:ready") tell();
-      if (e.data?.type === "blueprint:open") setOpen(e.data.id);
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  });
 
   // The first frame is server-rendered and can finish loading before React
   // hydrates, so its load event is missed. Read the document instead.
@@ -196,7 +178,8 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
         style={{ "--i": 4 } as React.CSSProperties}
       >
         <div className={s.canvas} data-drawn={!exploring}>
-          {/* The app brings its own strip, and a drawing its own window. */}
+          {/* The app in the window the drawings have: each demo an open project in its title bar. */}
+          {exploring ? <LiveTitleBar repos={blueprints.map((b) => b.id)} open={open} onOpen={setOpen} /> : null}
           <div ref={stage} className={s.stage} data-ready={loaded === open}>
             {exploring && loaded !== open ? <p className={s.loading}>loading {current.id}…</p> : null}
             {/* Kept while another tab is open, so coming back finds the blueprint where it was left. */}
@@ -222,6 +205,7 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
             </div>
             {shown.id === "explore" ? null : <Drawn key={shown.id} drawing={shown.id} />}
           </div>
+          {exploring ? <LiveStatusBar /> : null}
         </div>
       </div>
       <div className={s.under}>

@@ -142,6 +142,22 @@
   padding: 0 10px 0 8px;
   font: 11.5px var(--font-mono);
 }
+/* The live frame's bars, outside a drawing's scaled stage. */
+.live {
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-body), system-ui, sans-serif;
+  flex-shrink: 0;
+  user-select: none;
+}
+button.project {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+button.project:hover {
+  color: var(--color-ink);
+}
 .project[data-on] {
   background: var(--color-surface-container);
   color: var(--color-ink);

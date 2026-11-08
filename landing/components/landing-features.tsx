@@ -827,50 +827,94 @@ const SCENES: Record<Drawing, () => ReactNode> = {
 function Window({ projects, git, tabs, children }: { projects: ReactNode; git?: boolean; tabs: ReactNode; children: ReactNode }) {
   return (
     <>
-      <header className={`${f.black} ${f.titlebar}`}>
-        <span className={f.lights}>
-          <i />
-          <i />
-          <i />
-        </span>
-        {projects}
-        <span className={f.add}>+</span>
-        <span className={f.grow} />
-        <Glyph on={git} d="M4 2v8M12 4a2 2 0 1 1 0 .01M4 12a2 2 0 1 1 0 .01M12 6a6 6 0 0 1-6 6" />
-        <Glyph d="M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12" />
-        <i className={f.divider} />
-        <Glyph d="M1.5 2.5h13v11h-13zM4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
-        <Glyph d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
-      </header>
+      <TitleBar projects={projects} git={git} />
       <div className={`${f.black} ${f.strip}`}>
         {tabs}
         <span className={f.add}>+</span>
       </div>
       <div className={f.main}>{children}</div>
-      <footer className={`${f.black} ${f.statusbar}`}>
-        <span>
-          <svg viewBox="0 0 16 16" className={f.stroke}>
-            <circle cx="8" cy="8" r="2.5" />
-            <path d="M1.5 8h4M10.5 8h4" />
-          </svg>
-          Blueprint ⌃
-        </span>
-        <span className={f.grow} />
-        <span>
-          Go to <kbd>⌘P</kbd>
-        </span>
-        <span>
-          <TerminalIcon />
-          Workspace <kbd>⌘`</kbd>
-        </span>
-      </footer>
+      <StatusBar />
     </>
   );
 }
 
-/** An open project in the title bar. */
-function Project({ on, children }: { on?: boolean; children: ReactNode }) {
+/** The window's title bar (components/chrome/titlebar.tsx): the Mac's buttons, the open projects, the tools. */
+function TitleBar({ projects, git }: { projects: ReactNode; git?: boolean }) {
   return (
+    <header className={`${f.black} ${f.titlebar}`}>
+      <span className={f.lights}>
+        <i />
+        <i />
+        <i />
+      </span>
+      {projects}
+      <span className={f.add}>+</span>
+      <span className={f.grow} />
+      <Glyph on={git} d="M4 2v8M12 4a2 2 0 1 1 0 .01M4 12a2 2 0 1 1 0 .01M12 6a6 6 0 0 1-6 6" />
+      <Glyph d="M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12" />
+      <i className={f.divider} />
+      <Glyph d="M1.5 2.5h13v11h-13zM4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
+      <Glyph d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+    </header>
+  );
+}
+
+/** The status bar under the blueprint (components/chrome/statusbar.tsx). */
+function StatusBar() {
+  return (
+    <footer className={`${f.black} ${f.statusbar}`}>
+      <span>
+        <svg viewBox="0 0 16 16" className={f.stroke}>
+          <circle cx="8" cy="8" r="2.5" />
+          <path d="M1.5 8h4M10.5 8h4" />
+        </svg>
+        Blueprint ⌃
+      </span>
+      <span className={f.grow} />
+      <span>
+        Go to <kbd>⌘P</kbd>
+      </span>
+      <span>
+        <TerminalIcon />
+        Workspace <kbd>⌘`</kbd>
+      </span>
+    </footer>
+  );
+}
+
+/**
+ * The live frame's window (landing-demo.tsx): the real app sits between the
+ * same title bar and status bar the drawings have, each demo an open project.
+ */
+export function LiveTitleBar({ repos, open, onOpen }: { repos: string[]; open: string; onOpen: (id: string) => void }) {
+  return (
+    <div className={f.live}>
+      <TitleBar
+        projects={repos.map((id) => (
+          <Project key={id} on={id === open} onClick={() => onOpen(id)}>
+            {id}
+          </Project>
+        ))}
+      />
+    </div>
+  );
+}
+
+export function LiveStatusBar() {
+  return (
+    <div className={f.live}>
+      <StatusBar />
+    </div>
+  );
+}
+
+/** An open project in the title bar. */
+function Project({ on, onClick, children }: { on?: boolean; onClick?: () => void; children: ReactNode }) {
+  return onClick ? (
+    <button className={f.project} data-on={on || undefined} aria-pressed={!!on} onClick={onClick}>
+      {children}
+    </button>
+  ) : (
     <span className={f.project} data-on={on || undefined}>
       {children}
     </span>
