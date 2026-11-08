@@ -707,19 +707,33 @@ function RunScene() {
         </>
       }
       tabs={
-        <Tab on icon={<BlueprintIcon />}>
-          <span className={f.swap}>
-            <span className={f.out} style={at(0, ARTICLE)}>
-              Wikipedia
+        <>
+          <Tab lit={[TO_IOS]} icon={<BlueprintIcon />}>
+            <span className={f.swap}>
+              <span className={f.out} style={at(0, ARTICLE)}>
+                Wikipedia
+              </span>
+              <span className={f.in} style={at(ARTICLE)}>
+                Article Display
+              </span>
             </span>
-            <span className={f.in} style={at(ARTICLE)}>
-              Article Display
-            </span>
-          </span>
-        </Tab>
+          </Tab>
+          <Tab lit={[0, TO_IOS]} icon={<GlobeIcon />}>
+            Preview
+          </Tab>
+        </>
       }
     >
-      <div className={`${f.page} ${f.out}`} style={{ "--ws": "370px", ...at(0, ARTICLE) } as CSSProperties}>
+      {/* The website, in a Preview tab docked in the main view. */}
+      <div className={`${f.docked} ${f.out}`} style={{ "--ws": "370px", ...at(0, TO_IOS) } as CSSProperties}>
+        <WebBar />
+        <div className={f.stage}>
+          <Site />
+          <Hand t={0.5} d={3.2} a={[330, 250]} b={[350, 220]} />
+        </div>
+      </div>
+      {/* Once a phone opens, the blueprint is back in front, following the screens. */}
+      <div className={`${f.page} ${f.blip}`} style={{ "--ws": "370px", ...at(TO_IOS, ARTICLE) } as CSSProperties}>
         <Head title="wikipedia" sub="Official Wikipedia iOS app" meta="1,918 files · commit 0b9980f" />
         <p className={f.cap}>
           How the parts connect<span>colours match the parts below</span>
@@ -750,11 +764,8 @@ function RunScene() {
         width="370px"
         tabs={
           <>
-            <WsTab icon={<ClaudeIcon />} dot={[0, 11]}>
+            <WsTab lit={[0, TO_IOS]} icon={<ClaudeIcon />} dot={[0, 11]}>
               claude 1
-            </WsTab>
-            <WsTab lit={[0, TO_IOS]} icon={<GlobeIcon />}>
-              Preview
             </WsTab>
             <WsTab lit={[TO_IOS, TO_ANDROID]} icon={<PhoneIcon />}>
               iOS
@@ -766,10 +777,29 @@ function RunScene() {
         }
       >
         <div className={`${f.pane} ${f.out}`} style={at(0, TO_IOS)}>
-          <WebBar />
-          <div className={f.stage}>
-            <Site />
-            <Hand t={0.5} d={3.2} a={[200, 170]} b={[214, 150]} />
+          <div className={f.term}>
+            <Hello />
+            <p className={f.you}>&gt; check search and saving an article work on the site, the iPhone and Android</p>
+            <div className={`${f.msg} ${f.in}`} style={at(0.4)}>
+              <span className={f.ok}>⏺</span>
+              <span>
+                <b>preview - navigate</b>(en.wikipedia.org/wiki/Ada_Lovelace)
+                <br />
+                <span className={f.res}>⎿&nbsp;&nbsp;Opened in the Preview tab</span>
+              </span>
+            </div>
+            <div className={`${f.msg} ${f.in}`} style={at(1.4)}>
+              <span className={f.ok}>⏺</span>
+              <span>
+                <b>preview - scroll</b>(down)
+                <br />
+                <span className={f.res}>⎿&nbsp;&nbsp;Early life, Education</span>
+              </span>
+            </div>
+            <div className={`${f.msg} ${f.in}`} style={at(2.7)}>
+              <span>⏺</span>
+              <span>The site reads right. Now the app, on the iPhone and then Android.</span>
+            </div>
           </div>
         </div>
         <div className={`${f.pane} ${f.blip}`} style={at(TO_IOS, TO_ANDROID)}>
@@ -785,8 +815,8 @@ function RunScene() {
           </div>
         </div>
         {/* Your pointer, opening the iOS tab and then the Android one. */}
-        <span className={f.tap} data-you style={{ left: 232, top: -16, ...at(TO_IOS - 0.1) }} />
-        <span className={f.tap} data-you style={{ left: 317, top: -16, ...at(TO_ANDROID - 0.1) }} />
+        <span className={f.tap} data-you style={{ left: 145, top: -16, ...at(TO_IOS - 0.1) }} />
+        <span className={f.tap} data-you style={{ left: 230, top: -16, ...at(TO_ANDROID - 0.1) }} />
         <svg className={f.pointer} width="16" height="22" viewBox="0 0 16 22">
           <path d="M1 1v16.5l4-3.8 2.8 6.3 2.6-1.1-2.7-6.2H13z" />
         </svg>
@@ -845,7 +875,7 @@ function WebBar() {
   );
 }
 
-/** The article on the website, in its Vector skin, drawn at a laptop's width and scaled into the tab. Claude scrolls it. */
+/** The article on the website, in its Vector skin. Claude scrolls it. */
 function Site() {
   return (
     <div className={f.site}>
@@ -1401,12 +1431,14 @@ function Project({ on, onClick, children }: { on?: boolean; onClick?: () => void
   );
 }
 
-function Tab({ on, icon, children }: { on?: boolean; icon?: ReactNode; children: ReactNode }) {
+/** `lit`: when the tab comes to the front, and when another does. */
+function Tab({ on, lit, icon, children }: { on?: boolean; lit?: [number, number?]; icon?: ReactNode; children: ReactNode }) {
   return (
-    <span className={f.tab} data-on={on || undefined}>
+    <span className={f.tab} data-on={on || undefined} data-lit={lit ? "" : undefined} style={lit ? at(...lit) : undefined}>
       {icon}
       {children}
       {on ? <span className={f.x}>×</span> : null}
+      {lit ? <span className={`${f.x} ${lit[1] === undefined ? f.in : f.blip}`} style={at(...lit)}>×</span> : null}
     </span>
   );
 }

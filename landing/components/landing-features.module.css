@@ -1375,6 +1375,32 @@ button.project:hover {
     color: var(--color-muted-slate);
   }
 }
+.tab[data-lit] {
+  animation: front-on 0.12s ease-out var(--t) forwards, front-off 0.12s ease-in var(--u, 999s) forwards;
+}
+@keyframes front-on {
+  to {
+    border-color: var(--color-border-gray);
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+}
+@keyframes front-off {
+  to {
+    border-color: transparent;
+    color: var(--color-muted-slate);
+    font-weight: 400;
+  }
+}
+/* A Preview tab docked in the main view, clear of the workspace as the blueprint is. */
+.docked {
+  position: absolute;
+  inset: 0;
+  right: calc(var(--ws, 0px) + 24px);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border-gray);
+}
 /* One tab's pane over another's, each in its own time. */
 .pane {
   position: absolute;
@@ -1411,7 +1437,7 @@ button.project:hover {
   41%,
   47% {
     opacity: 1;
-    translate: 231px -17px;
+    translate: 144px -17px;
   }
   55%,
   71% {
@@ -1424,7 +1450,7 @@ button.project:hover {
   86%,
   93% {
     opacity: 1;
-    translate: 316px -17px;
+    translate: 229px -17px;
   }
   100% {
     opacity: 0;
@@ -1499,15 +1525,10 @@ button.project:hover {
   background: #fff;
 }
 
-/* The website, in Wikipedia's Vector skin at a laptop's 600px, scaled to the tab. */
+/* The website, in Wikipedia's Vector skin. */
 .site {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 600px;
-  height: 920px;
-  transform: scale(0.615);
-  transform-origin: 0 0;
+  inset: 0;
   background: #fff;
   font: 14px/1.6 sans-serif;
   color: #202122;
