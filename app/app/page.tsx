@@ -9,6 +9,7 @@ import { ProjectsDialog } from "@/components/projects/projects";
 import { AuditDialog } from "@/components/bluprint/audit";
 import { HistoryDialog } from "@/components/review/additions";
 import { SettingsDialog } from "@/components/chrome/settings";
+import { Copied } from "@/components/chrome/copied";
 import { MenuBar } from "@/components/chrome/menubar";
 import { Dictation } from "@/components/chrome/dictation";
 import { Titlebar } from "@/components/chrome/titlebar";
@@ -97,6 +98,7 @@ export default async function Home({
         </Suspense>
         <SettingsDialog />
         {STATIC_BLUPRINT ? null : <Dictation />}
+        {STATIC_BLUPRINT ? null : <Copied />}
         <ProjectsDialog />
         <HistoryDialog />
         <AuditDialog />
