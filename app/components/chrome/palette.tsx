@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
-import { openFile } from "@/components/map/code";
+import { openFileInTab } from "@/components/map/code";
 import { useMap } from "@/components/map/map-context";
 import { Kbd, keys } from "@/components/ui/button";
 import { StateChip } from "@/components/ui/state";
@@ -46,7 +46,7 @@ interface Item {
   hint?: string;
   /** A second line: why a level is not certain, or what goes wrong. */
   detail?: string;
-  kind: "level" | "action" | "map" | "unsure" | "problem" | "doc" | "file" | "symbol";
+  kind: "level" | "action" | "map" | "unsure" | "problem" | "doc" | "file" | "folder" | "symbol";
   node?: Node;
   /** Words it is about, matched last and weakest: a level's sub, detail and plain-words layer. */
   body?: string;
@@ -151,7 +151,7 @@ export function Palette() {
   const files = useFiles();
   const cited = useCitations();
   const trailOf = useTrail();
-  const code = useMemo<Item[]>(() => {
+  const code = useMemo(() => {
     const out: Item[] = [];
     const deepest = (file: string, s = 1, e = Infinity) =>
       (cited.get(file) ?? []).filter((c) => c.start <= e && c.end >= s).sort((a, b) => b.path.length - a.path.length)[0]?.path;
@@ -162,7 +162,7 @@ export function Palette() {
         label: file,
         hint: at ? trailOf(at) : f.status === "excluded" ? "left out of the map · opens the file" : "not on any level · opens the file",
         kind: "file",
-        run: () => openFile(at ?? path, file),
+        run: () => openFileInTab(map.name, at ?? path, file),
       });
       for (const sym of f.symbols) {
         const by = deepest(file, sym.start, sym.end);
@@ -171,19 +171,62 @@ export function Palette() {
           label: sym.name,
           hint: `${file} → ${by ? trailOf(by) : at ? `not explained; nearest ${trailOf(at)}` : "not explained"}`,
           kind: "symbol",
-          run: () => openFile(by ?? at ?? path, file, sym.start),
+          run: () => openFileInTab(map.name, by ?? at ?? path, file, sym.start),
         });
       }
     }
     // Files the map has not seen: new since it was made, or ignored by git
     // and kept by hand, like the .env an API key goes in.
     for (const file of files?.added ?? [])
-      out.push({ key: `file:${file}`, label: file, hint: "new since the map was made · opens the file", kind: "file", run: () => openFile(path, file) });
+      out.push({ key: `file:${file}`, label: file, hint: "new since the map was made · opens the file", kind: "file", run: () => openFileInTab(map.name, path, file) });
     for (const file of files?.local ?? [])
-      out.push({ key: `file:${file}`, label: file, hint: "not in git · opens the file", kind: "file", run: () => openFile(path, file) });
-    return out;
+      out.push({ key: `file:${file}`, label: file, hint: "not in git · opens the file", kind: "file", run: () => openFileInTab(map.name, path, file) });
+    // The rest of the checkout: everything, while a map is still being made
+    // and has no index; after, files the map would not explain, like a README.
+    const seen = new Set(out.map((it) => it.key));
+    for (const file of files?.present ?? []) {
+      if (seen.has(`file:${file}`)) continue;
+      out.push({
+        key: `file:${file}`,
+        label: file,
+        hint: files?.index ? "not on the map · opens the file" : "the map is still being made · opens the file",
+        kind: "file",
+        run: () => openFileInTab(map.name, path, file),
+      });
+    }
+    // Folders, each opening as a listing of what is directly inside it, so the
+    // palette browses like a file explorer as well as searching.
+    const browse = (dir: string) => () => {
+      setMode("code");
+      setQuery(dir && `${dir}/`);
+      setSel(0);
+    };
+    const inside = new Map<string, number>();
+    const tree = new Map<string, Item[]>([["", []]]);
+    const childOf = (dir: string) => tree.get(dir) ?? tree.set(dir, []).get(dir)!;
+    for (const it of out) {
+      if (it.kind !== "file") continue;
+      const parts = it.label.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        const dir = parts.slice(0, i).join("/");
+        inside.set(dir, (inside.get(dir) ?? 0) + 1);
+      }
+      childOf(parts.slice(0, -1).join("/")).push({ ...it, label: parts[parts.length - 1] });
+    }
+    for (const [dir, n] of inside) {
+      const folder: Item = { key: `dir:${dir}`, label: `${dir}/`, hint: `${n} file${n === 1 ? "" : "s"}`, kind: "folder", run: browse(dir) };
+      out.push(folder);
+      const parent = dir.split("/").slice(0, -1).join("/");
+      childOf(parent).push({ ...folder, label: `${dir.split("/").pop()}/` });
+    }
+    // Folders first, then files, each by name; and a way up out of any folder.
+    for (const [dir, items] of tree) {
+      items.sort((a, b) => (a.kind === b.kind ? a.label.localeCompare(b.label) : a.kind === "folder" ? -1 : 1));
+      if (dir) items.unshift({ key: "dir:..", label: "../", hint: dir.split("/").slice(0, -1).join("/") || "the top", kind: "folder", run: browse(dir.split("/").slice(0, -1).join("/")) });
+    }
+    return { all: out, tree };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- trailOf reads the same map as cited
-  }, [files, cited, path]);
+  }, [files, cited, path, map.name]);
 
   const docList = useDocList();
   const docs = useMemo<Item[]>(
@@ -266,12 +309,17 @@ export function Palette() {
   const shown = useMemo(() => {
     const actionsOnly = query.startsWith(">");
     const q = (actionsOnly ? query.slice(1) : query).trim().toLowerCase();
+    // Nothing typed, or a folder's path: list that folder, as an explorer would.
+    if (mode === "code" && (!query.trim() || query.endsWith("/"))) {
+      const listing = code.tree.get(query.trim().replace(/\/$/, ""));
+      if (listing) return listing;
+    }
     const pool =
       mode === "maps" ? maps
       : mode === "unsure" ? findings.unsure
       : mode === "problems" ? findings.problems
       : mode === "docs" ? docs
-      : mode === "code" ? code
+      : mode === "code" ? code.all
       : actionsOnly ? actions
       : q ? [...levels, ...docs, ...actions]
       : levels;
@@ -335,7 +383,7 @@ export function Palette() {
             : mode === "unsure" ? `${findings.unsure.length} levels the map is not certain about — filter…`
             : mode === "problems" ? `${findings.problems.length} problems found in the code — filter…`
             : mode === "docs" ? (docList === null ? "Finding the docs…" : `${docList.length} docs in this project — filter…`)
-            : mode === "code" ? "Open a file or symbol in the editor…"
+            : mode === "code" ? "Open a file, folder or symbol in the editor…"
             : "Go to a level, or type > for actions"
           }
           className="h-11 w-full shrink-0 border-b border-border-gray bg-transparent px-4 text-[14px] text-ink placeholder:text-faint focus:outline-none"
@@ -430,7 +478,7 @@ function KindIcon({ kind }: { kind: Item["kind"] }) {
         <path d="M4 1.5h5l3 3v10H4zM9 1.5v3h3" />
       ) : kind === "symbol" ? (
         <path d="M6 3.5c-1.5 0-2 .7-2 2v1c0 .8-.5 1.5-1.5 1.5 1 0 1.5.7 1.5 1.5v1c0 1.3.5 2 2 2M10 3.5c1.5 0 2 .7 2 2v1c0 .8.5 1.5 1.5 1.5-1 0-1.5.7-1.5 1.5v1c0 1.3-.5 2-2 2" />
-      ) : kind === "map" ? (
+      ) : kind === "map" || kind === "folder" ? (
         <path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.5 1.5h5.9a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
       ) : (
         <path d="m5 4 4 4-4 4M9 12h3" />

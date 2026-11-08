@@ -57,5 +57,7 @@ export async function GET(request: Request) {
     const behind = followLive(open.name, root)?.live.files.map((f) => f.path) ?? [];
     return Response.json({ behind });
   }
-  return Response.json({ index, added, local });
+  // Every file in the checkout, for the palette to find one by: a map still being
+  // made has no index yet, and a non-code file added since is in no other list.
+  return Response.json({ index, added, local, present });
 }

@@ -35,6 +35,8 @@ interface Files {
   added: string[];
   /** Files git ignores that are edited by hand: `.env` and its kin. */
   local?: string[];
+  /** Every file in the checkout now, whatever the map knows of it. */
+  present?: string[];
 }
 
 const fetched = new Map<string, Files>();

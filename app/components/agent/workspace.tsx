@@ -119,6 +119,14 @@ export function Workspace() {
   const docked = mine.filter((t) => t.main && !t.dev);
   const current = panel.find((t) => t.key === active[here]) ?? panel.at(-1);
   const upFront = docked.find((t) => t.key === front[here]);
+  // A map tab just opened (a file from the palette, a level in a new tab) comes
+  // to the front, over any tab docked here, as clicking a map tab does.
+  const seenMapTabs = useRef<{ map: string; ids: Set<number> } | null>(null);
+  useEffect(() => {
+    const seen = seenMapTabs.current;
+    if (seen?.map === map.name && !seen.ids.has(mapActive)) setFront((f) => ({ ...f, [here]: null }));
+    seenMapTabs.current = { map: map.name, ids: new Set((mapState?.tabs ?? []).map((t) => t.id)) };
+  }, [map.name, mapActive, mapState, here]);
   // Where tab bodies are drawn: the window's and the main view's.
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
   const [mainSlot, setMainSlot] = useState<HTMLElement | null>(null);
