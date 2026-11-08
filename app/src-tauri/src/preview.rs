@@ -158,6 +158,25 @@ pub fn preview_external(url: String) -> Result<(), String> {
     opener.arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// The folder the program serving `port` on this machine runs in, by `lsof`:
+/// a dev server whose port is taken shows what holds it only when that is
+/// the same project's (components/agent/workspace.tsx). None where it cannot tell.
+#[tauri::command]
+pub fn port_owner(port: u16) -> Option<String> {
+    let out = |args: &[&str]| -> Option<String> {
+        let o = crate::proc::command("lsof").args(args).output().ok()?;
+        Some(String::from_utf8_lossy(&o.stdout).into_owned())
+    };
+    let pid = out(&["-nP", &format!("-iTCP:{port}"), "-sTCP:LISTEN", "-t"])?.lines().next()?.trim().to_string();
+    out(&["-a", "-p", &pid, "-d", "cwd", "-Fn"])?.lines().find_map(|l| l.strip_prefix('n').map(str::to_string))
+}
+
+/// A port nothing on this machine is serving, for a dev server whose own is taken.
+#[tauri::command]
+pub fn free_port() -> Result<u16, String> {
+    Ok(TcpListener::bind(("127.0.0.1", 0)).and_then(|l| l.local_addr()).map_err(|e| e.to_string())?.port())
+}
+
 /* ── HTTP, as little of it as a proxy needs ───────────────────── */
 
 pub(crate) struct Head {
