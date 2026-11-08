@@ -62,7 +62,7 @@ pub fn run() {
                 });
             }
             #[cfg(target_os = "macos")]
-            terminal_menu(app)?;
+            app_menu(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -82,6 +82,8 @@ pub fn run() {
             preview::preview_target,
             preview::preview_close,
             preview::preview_external,
+            preview::port_owner,
+            preview::free_port,
             mcp::preview_reply,
             browser::browser_open,
             browser::browser_place,
@@ -147,29 +149,60 @@ fn attention_count(app: tauri::AppHandle, n: i64) {
     }
 }
 
-/// Cmd+` and Ctrl+` from the menu bar as well as the page: a key pressed in
+/// The menu bar: the app's actions, and its keys from anywhere. A key pressed in
 /// a Preview's page (its own webview, or a frame) never reaches the page's
 /// handler, but a menu key equivalent is the app's wherever focus is. A key
-/// the page handles itself is not passed on to the menu, so it toggles once.
+/// the page handles itself is not passed on to the menu, so it acts once.
 #[cfg(target_os = "macos")]
-fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
-    use tauri::menu::{Menu, MenuItem, Submenu};
+fn app_menu(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::Emitter;
     let menu = Menu::default(app.handle())?;
+    // Items that open something in the page (components/chrome/menubar.tsx), each sent as `bluprint:menu`.
+    let open = |id: &str, text: &str, key: Option<&str>| MenuItem::with_id(app, format!("open-{id}"), text, true, key);
+    let named = |name: &str| -> tauri::Result<Option<Submenu<tauri::Wry>>> {
+        Ok(menu.items()?.into_iter().filter_map(|i| i.as_submenu().cloned()).find(|s| s.text().is_ok_and(|t| t == name)))
+    };
+    if let Some(first) = menu.items()?.first().and_then(|i| i.as_submenu().cloned()) {
+        // After About and its separator.
+        first.insert_items(&[&open("settings", "Settings…", Some("Cmd+,"))?, &PredefinedMenuItem::separator(app)?], 2)?;
+    }
+    if let Some(file) = named("File")? {
+        file.prepend_items(&[&open("new-project", "New Project…", Some("Cmd+N"))?, &open("open-folder", "Open Folder…", Some("Cmd+O"))?])?;
+    }
+    if let Some(view) = named("View")? {
+        // Cmd+P, Cmd+K and Cmd+Shift+P are the palette's own keys (components/chrome/palette.tsx).
+        // No zoom here: Cmd+= and Cmd+- are also the terminal's font size, and a menu key would take them from it.
+        view.prepend_items(&[
+            &open("palette", "Go to…", Some("Cmd+P"))?,
+            &open("palette-code", "Find File or Symbol", Some("Cmd+K"))?,
+            &open("palette-actions", "Actions", Some("Cmd+Shift+P"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &open("bluprint", "Show Bluprint", None)?,
+            &open("diff", "Changes", Some("Cmd+Shift+D"))?,
+            &open("history", "History", None)?,
+            &open("files", "Files", None)?,
+            &PredefinedMenuItem::separator(app)?,
+        ])?;
+    }
     let cmd = MenuItem::with_id(app, "terminal", "Toggle Terminal", true, Some("Cmd+`"))?;
     let ctrl = MenuItem::with_id(app, "terminal-ctrl", "Toggle Terminal", true, Some("Ctrl+`"))?;
     // Claude Code's send-now (components/agent/shell.tsx): Control-Return is otherwise
     // AppKit's key for the context menu, which opens and the terminal never sees it.
     let send = MenuItem::with_id(app, "send-now", "Send Now", true, Some("Ctrl+Enter"))?;
-    menu.append(&Submenu::with_items(app, "Terminal", true, &[&cmd, &ctrl, &send])?)?;
+    let claude = open("claude", "Ask Claude", None)?;
+    menu.append(&Submenu::with_items(app, "Terminal", true, &[&cmd, &ctrl, &send, &claude])?)?;
     // The title bar's project tabs (components/chrome/titlebar.tsx), for when focus is in a Preview's page.
+    let manage = open("projects", "Manage Projects…", Some("Cmd+Shift+O"))?;
+    let gap = PredefinedMenuItem::separator(app)?;
     let mut projects = Vec::new();
     for n in 1..=9 {
         projects.push(MenuItem::with_id(app, format!("project-{n}"), format!("Project {n}"), true, Some(&format!("Cmd+{n}")))?);
     }
     // No key: Ctrl+Tab steps through the tabs (the Window menu below), as in a browser.
     projects.push(MenuItem::with_id(app, "project-last", "Last Project", true, None::<&str>)?);
-    let items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = projects.iter().map(|m| m as _).collect();
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&manage, &gap];
+    items.extend(projects.iter().map(|m| m as &dyn tauri::menu::IsMenuItem<tauri::Wry>));
     menu.append(&Submenu::with_items(app, "Projects", true, &items)?)?;
     // A Preview's own keys, as a browser's (components/preview/preview.tsx): its page is
     // a webview of its own or a frame, and the keys pressed in it stay there.
@@ -200,7 +233,9 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
     app.set_menu(menu)?;
     app.on_menu_event(|app, e| {
         let id = e.id().as_ref();
-        if id == "terminal" || id == "terminal-ctrl" {
+        if let Some(what) = id.strip_prefix("open-") {
+            let _ = app.emit_to("main", "bluprint:menu", what.to_string());
+        } else if id == "terminal" || id == "terminal-ctrl" {
             let _ = app.emit_to("main", "bluprint:toggle-workspace", ());
         } else if id == "send-now" {
             let _ = app.emit_to("main", "bluprint:send-now", ());

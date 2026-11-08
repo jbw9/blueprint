@@ -9,6 +9,7 @@ import { ProjectsDialog } from "@/components/projects/projects";
 import { AuditDialog } from "@/components/bluprint/audit";
 import { HistoryDialog } from "@/components/review/additions";
 import { SettingsDialog } from "@/components/chrome/settings";
+import { MenuBar } from "@/components/chrome/menubar";
 import { Dictation } from "@/components/chrome/dictation";
 import { Titlebar } from "@/components/chrome/titlebar";
 import { Workspace } from "@/components/agent/workspace";
@@ -51,6 +52,7 @@ export default async function Home({
         <NoProject bluprints={listBluprints()} />
         <SettingsDialog />
         <ProjectsDialog />
+        <MenuBar />
       </div>
     );
   const { name, file } = open;
@@ -98,6 +100,7 @@ export default async function Home({
         <ProjectsDialog />
         <HistoryDialog />
         <AuditDialog />
+        {STATIC_BLUPRINT ? null : <MenuBar />}
       </div>
     </BluprintProvider>
   );

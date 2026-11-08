@@ -267,7 +267,8 @@ export function Level({
         // A row-built node's fallback sub is "Inside <parent>", which the
         // eyebrow already says.
         sub={node.sub === `Inside ${parent?.title}` ? undefined : node.sub}
-        detail={node.detail}
+        // With Explain on, the plain-words prose replaces the terse detail rather than repeating it.
+        detail={explainOn && node.explain ? node.explain.body : node.detail}
         unsure={node.state === "derived" ? undefined : node.unsure}
         meta={
           top
