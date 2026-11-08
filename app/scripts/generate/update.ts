@@ -374,8 +374,10 @@ export async function update(args: string[]) {
   // A scoped bluprint keeps to its part. One made before the scope was saved covers
   // far fewer files than the checkout holds; what its cut claims is its part.
   // Without this, an update of a bluprint of Kafka's controller tried to place the
-  // other 3,490 files of Kafka, and failed on the prompt's length.
-  const legacy = !bluprint.RUN.scope && bluprint.RUN.files < inv.files.length / 2;
+  // other 3,490 files of Kafka, and failed on the prompt's length. Counted in
+  // code files, as a quick bluprint counts its own: against every file, a whole
+  // repo with many docs and assets read as a part, and never took a new file in.
+  const legacy = !bluprint.RUN.scope && bluprint.RUN.files < inv.files.filter(isSource).length / 2;
   const scope = bluprint.RUN.scope ?? (legacy ? { paths: [...new Set(cut.roots.flatMap((r) => r.files))], focus: "" } : undefined);
   if (scope) scopeTo(inv, scope);
   if (legacy) console.log(`a scoped bluprint from before scopes were saved: keeping to the ${scope!.paths.length} paths its roots claim`);

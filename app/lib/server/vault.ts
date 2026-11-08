@@ -570,6 +570,15 @@ export interface Turn {
 }
 
 /**
+ * A bluprint that follows its code: one exists, with the cut an update starts
+ * from (scripts/generate/update.ts), no run is writing it, and its updates are
+ * not turned off. A first run stopped after writing it still counts; a project
+ * the reader chose not to map has none, and is left alone.
+ */
+export const follows = (p: Project) =>
+  !p.paused && p.bluprint.status !== "generating" && !!bluprintFileOf(p.id) && existsSync(join(projectDir(p.id), ".cache", "cut.json"));
+
+/**
  * Bring a project's bluprint up to the code in its checkout, redoing only what
  * changed or what an agent found wrong (scripts/generate/update.ts). Asked
  * for when an agent in the app finishes a turn that edited the checkout at
@@ -579,7 +588,7 @@ export interface Turn {
  */
 export function updateBluprint(root: string, claude?: string, turn?: Turn): Project | undefined {
   const p = listProjects().find((x) => x.root === root);
-  if (!p || p.paused || p.bluprint.status !== "ready" || !bluprintFileOf(p.id)) return p;
+  if (!p || !follows(p)) return p;
   if (turn) {
     const file = join(projectDir(p.id), "turns.json");
     let waiting: Turn[] = [];

@@ -264,7 +264,7 @@ export async function main(args: string[]) {
     flush();
     const deepen = !has("--no-deepen");
     const agentDeepen = has("--deepen-agent");
-    const run: Run = { command: `bluprint make ${inv.name} --fast`, mapperVersion: MAPPER_VERSION, repo: inv.scope ? name : inv.name, commit: inv.commit, files: code.length, elapsed: "", root: repo, explain: deepen ? EXPLAIN_LEVEL : "none", models };
+    const run: Run = { command: `bluprint make ${inv.name} --fast`, mapperVersion: MAPPER_VERSION, repo: inv.scope ? name : inv.name, commit: inv.commit, files: code.length, elapsed: "", root: repo, explain: deepen ? EXPLAIN_LEVEL : "none", models, ...(inv.scope ? { scope: inv.scope } : {}) };
     const r = await lap("fast", () => fastBluprint(inv, sums, activeGraph()!, models.author, run, say));
     const quick = Math.round((Date.now() - t0) / 1000);
     r.bluprint.RUN.elapsed = `${Math.max(1, Math.round(quick / 60))} min`;

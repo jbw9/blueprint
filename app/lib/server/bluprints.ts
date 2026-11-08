@@ -12,7 +12,7 @@ import type { Node, Run } from "@/lib/bluprint/schema";
 import { LIVE_SEP, type BluprintFile } from "@/lib/bluprint/build";
 import { followLive, liveOf, shiftRefs } from "@/lib/server/live";
 import { apply, overlayFile, readOverlay } from "@/lib/server/overlay";
-import { listProjects, bluprintFileOf, markOpened, progressOf, projectDir, type Progress, type Project } from "@/lib/server/vault";
+import { listProjects, bluprintFileOf, follows, markOpened, progressOf, projectDir, type Progress, type Project } from "@/lib/server/vault";
 
 /** One entry in the bluprint picker. */
 export interface BluprintEntry {
@@ -143,7 +143,7 @@ export function bluprintVersion(id: string): string | undefined {
   const disk =
     p.bluprint.status === "generating" || !file ? `${made}:${p.bluprint.status}:${mtime(runFile(id))}:${mtime(join(projectDir(id), "drafts.json"))}` : made;
   // Asked only for the open bluprint, so this is what keeps its checkout watched.
-  const live = file ? followLive(id, p.root)?.live : undefined;
+  const live = file && follows(p) ? followLive(id, p.root)?.live : undefined;
   return live ? `${disk}${LIVE_SEP}${live.seq}` : disk;
 }
 
