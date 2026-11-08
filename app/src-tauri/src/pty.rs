@@ -130,6 +130,22 @@ fn shell() -> String {
     return std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into());
 }
 
+/// Claude first in the tab, resuming `resume` when the tab reopens a conversation.
+fn start(cmd: &mut CommandBuilder, program: &str, name: &str, login: bool, context: &std::path::Path, resume: Option<&str>) -> std::io::Result<()> {
+    if let Some(id) = resume {
+        claude::resuming(context, id)?;
+    }
+    if cfg!(unix) {
+        cmd.args(["-c", if login { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL""# }]);
+        cmd.env("SHELL", program);
+    } else if name.eq_ignore_ascii_case("cmd") {
+        cmd.args(["/k", "blueprint-claude"]);
+    } else {
+        cmd.args(["-NoExit", "-Command", "blueprint-claude"]);
+    }
+    Ok(())
+}
+
 /// What the tab is called: the shell's own name, `zsh` for `/usr/bin/zsh`.
 #[derive(serde::Serialize)]
 pub struct Spawned {
@@ -171,17 +187,7 @@ pub fn pty_spawn(
     if let Some(launch) = &launch {
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
         if start_claude {
-            if cfg!(unix) {
-                cmd.args(["-c", if login { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL""# }]);
-                cmd.env("SHELL", &program);
-                if let Some(id) = &resume {
-                    claude::resuming(&context, id).map_err(|e| e.to_string())?;
-                }
-            } else if name.eq_ignore_ascii_case("cmd") {
-                cmd.args(["/k", "blueprint-claude"]);
-            } else {
-                cmd.args(["-NoExit", "-Command", "blueprint-claude"]);
-            }
+            start(&mut cmd, &program, &name, login, &context, resume.as_deref()).map_err(|e| e.to_string())?;
         }
     }
     // The checkout the page named, if it is really there; home otherwise.
@@ -422,6 +428,19 @@ mod tests {
             let _ = done.send(());
         });
         assert!(ended.recv_timeout(std::time::Duration::from_secs(10)).is_ok(), "ending the shell hung");
+    }
+
+    #[test]
+    fn a_reopened_tab_resumes_its_conversation_in_every_shell() {
+        for name in ["sh", "cmd", "powershell"] {
+            let context = std::env::temp_dir().join("blueprint").join(format!("context-test-resume-{name}.md"));
+            let _ = std::fs::remove_file(context.with_extension("md.resume"));
+            let mut cmd = CommandBuilder::new(name);
+            start(&mut cmd, name, name, false, &context, Some("abc-1")).unwrap();
+            assert_eq!(std::fs::read_to_string(context.with_extension("md.resume")).ok().as_deref(), Some("abc-1"), "{name}");
+            assert_eq!(claude::session_of(&context).as_deref(), Some("abc-1"), "{name}");
+            claude::forget(&context);
+        }
     }
 
     #[cfg(unix)]
