@@ -5,7 +5,7 @@ import { basicSetup } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { HighlightStyle, indentUnit, syntaxHighlighting, LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
-import { Compartment, EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
+import { Compartment, EditorState, type Extension, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { cn } from "@/lib/client/utils";
@@ -23,7 +23,7 @@ import { cn } from "@/lib/client/utils";
 
 const v = (name: string) => `var(--color-${name})`;
 
-const colours = HighlightStyle.define([
+export const colours = HighlightStyle.define([
   { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: v("code-comment"), fontStyle: "italic" },
   { tag: [t.string, t.special(t.string), t.regexp, t.character, t.attributeValue], color: v("code-string") },
   { tag: [t.number, t.bool, t.null, t.atom], color: v("code-number") },
@@ -39,7 +39,7 @@ const colours = HighlightStyle.define([
   { tag: t.invalid, color: v("code-string") },
 ]);
 
-const look = EditorView.theme({
+export const look = EditorView.theme({
   "&": { flex: "1 1 auto", minHeight: "0", backgroundColor: v("code"), color: v("code-plain"), fontSize: "12.5px" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": { fontFamily: "var(--font-mono), ui-monospace, monospace", lineHeight: "1.65", overflow: "auto" },
@@ -80,6 +80,13 @@ const look = EditorView.theme({
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: v("accent"), color: v("on-accent") },
 });
 
+/** The main caret's line, as the file numbers it, and column, from 1. */
+export function caretOf(s: EditorState, start = 1) {
+  const head = s.selection.main.head;
+  const line = s.doc.lineAt(head);
+  return { line: start + line.number - 1, col: head - line.from + 1 };
+}
+
 // The line the view opened on, lit in amber like the bluprint's citations.
 const litLine = (line: number | undefined) =>
   EditorView.decorations.compute(["doc"], (s) => {
@@ -99,6 +106,9 @@ export function CodeEditor({
   onSave,
   readOnly,
   lit,
+  onCursor,
+  extensions,
+  language,
   className,
 }: {
   file: string;
@@ -110,19 +120,26 @@ export function CodeEditor({
   readOnly?: boolean;
   /** A line to light and bring into view, as the file numbers it. */
   lit?: number;
+  /** Where the caret is, as the file numbers it, each time it moves. */
+  onCursor?: (at: { line: number; col: number }) => void;
+  /** More of CodeMirror, swapped in place when it changes (keep it memoized). */
+  extensions?: Extension;
+  /** The grammar, when the file's name is not the one to pick it by. */
+  language?: Extension;
   className?: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // Read through refs, so the editor is made once per file and never torn down
   // (losing its undo history and cursor) because a parent drew new callbacks.
-  const handlers = useRef({ onChange, onSave });
+  const handlers = useRef({ onChange, onSave, onCursor });
   useEffect(() => {
-    handlers.current = { onChange, onSave };
+    handlers.current = { onChange, onSave, onCursor };
   });
   const lang = useRef(new Compartment());
   const editable = useRef(new Compartment());
   const lighting = useRef(new Compartment());
+  const extra = useRef(new Compartment());
 
   useEffect(() => {
     const ed = new EditorView({
@@ -139,11 +156,13 @@ export function CodeEditor({
           EditorState.tabSize.of(4),
           syntaxHighlighting(colours),
           look,
-          lang.current.of([]),
+          lang.current.of(language ?? []),
+          extra.current.of(extensions ?? []),
           editable.current.of(EditorState.readOnly.of(Boolean(readOnly))),
           lighting.current.of(litLine(lit && lit - start + 1)),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) handlers.current.onChange(u.state.doc.toString());
+            if (u.docChanged || u.selectionSet) handlers.current.onCursor?.(caretOf(u.state, start));
           }),
           EditorView.contentAttributes.of({ "aria-label": `Code of ${file}` }),
         ],
@@ -151,7 +170,7 @@ export function CodeEditor({
     });
     view.current = ed;
     let live = true;
-    void LanguageDescription.matchFilename(languages, file)
+    if (!language) void LanguageDescription.matchFilename(languages, file)
       ?.load()
       .then((support) => live && ed.dispatch({ effects: lang.current.reconfigure(support) }));
     return () => {
@@ -169,6 +188,10 @@ export function CodeEditor({
     const ed = view.current;
     if (ed && ed.state.doc.toString() !== value) ed.dispatch({ changes: { from: 0, to: ed.state.doc.length, insert: value } });
   }, [value]);
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: extra.current.reconfigure(extensions ?? []) });
+  }, [extensions]);
 
   useEffect(() => {
     view.current?.dispatch({ effects: editable.current.reconfigure(EditorState.readOnly.of(Boolean(readOnly))) });

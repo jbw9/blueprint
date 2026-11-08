@@ -4,15 +4,15 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/editor";
+import { FileFrame, TextStatus } from "@/components/ui/file-frame";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
-import { Eyebrow } from "@/components/ui/state";
 import type { Slice, WriteResult } from "@/lib/server/repo";
 import { readSource, SOURCE_URL } from "@/lib/bluprint/source";
 import { openTab } from "@/lib/client/tabs";
 
 /**
- * A whole file, to read and edit as in an editor (D74). It takes the level's
- * place while `?file=` is in the URL, as a doc does (D66), and usually opens
+ * A whole file, to read and edit as in an editor (D74), filling the view in
+ * the shared FileFrame. It takes the level's place while `?file=` is in the URL, as a doc does (D66), and usually opens
  * in a tab of its own beside the level it came from — "Open the whole file"
  * on any code — so Back, Escape and closing the tab all return there.
  *
@@ -57,7 +57,12 @@ export function useOpenFile(): { file: string; line?: number } | null {
   return file ? { file, line: Number(params.get("line")) || undefined } : null;
 }
 
-export function FileView({ file, line }: { file: string; line?: number }) {
+/**
+ * A whole file of the repository as an editor holds it: read once, a draft
+ * while it is typed in, and a save that writes the draft back. What is on disk
+ * after a save is read again and is the only thing shown as the file.
+ */
+export function useRepoFile(file: string) {
   const { name: bluprint } = useBluprint();
   const [slice, setSlice] = useState<Slice | null | "failed">(null);
   const [draft, setDraft] = useState<string | null>(null);
@@ -80,7 +85,7 @@ export function FileView({ file, line }: { file: string; line?: number }) {
   const dirty = draft !== null && draft !== text;
 
   async function save() {
-    if (!dirty || !slice || slice === "failed") return;
+    if (!dirty || !slice || slice === "failed" || SOURCE_URL) return;
     const res = await fetch("/api/source", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -91,62 +96,72 @@ export function FileView({ file, line }: { file: string; line?: number }) {
     const body = (await res.json()) as WriteResult;
     setSaved(body);
     if (body.ok) {
-      // What is on disk now is the only thing this view may show as the file.
       setSlice(await read());
       setDraft(null);
     }
   }
 
+  return {
+    bluprint,
+    /** Null while reading. */
+    loaded: slice === null ? null : slice !== "failed",
+    text,
+    value: draft ?? text,
+    dirty,
+    readOnly: Boolean(SOURCE_URL),
+    edit: (next: string) => (setDraft(next), setSaved(null)),
+    save: () => void save(),
+    /** For the status line: "saved", or why the write was refused. */
+    saved: !saved
+      ? null
+      : saved.ok
+        ? ("saved" as const)
+        : saved.refused === "stale"
+          ? "the file changed on disk since it was opened. Close it and open it again to get the current text."
+          : (saved.refused ?? "refused"),
+  };
+}
+
+/** A close for the frame's corner: back to the level the file or doc was opened over. */
+export function CloseButton({ onClose }: { onClose: () => void }) {
   return (
-    <>
-      <header className="mb-5 border-b border-border-gray pb-5">
-        <div className="mb-4">
-          <Button onClick={closeFile}>‹ Back to the bluprint</Button>
-        </div>
-        <Eyebrow>Code</Eyebrow>
-        <h1 className="mt-2 break-all font-mono text-[20px] font-semibold tracking-[-0.01em] text-ink">{file}</h1>
-        {slice && slice !== "failed" ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span className="tnum font-mono text-[11px] text-faint">{slice.total.toLocaleString()} lines</span>
-            {SOURCE_URL ? null : dirty ? (
-              <>
-                <Button variant="primary" onClick={() => void save()}>
-                  Save to disk
-                </Button>
-                <Button variant="ghost" onClick={() => (setDraft(null), setSaved(null))}>
-                  Discard changes
-                </Button>
-                <span className="text-[12px] text-muted-slate">⌘S saves. Nothing is written until you do.</span>
-              </>
-            ) : (
-              <span className="text-[12px] text-muted-slate">Type to edit; ⌘S saves to disk.</span>
-            )}
-            {saved?.ok && !dirty ? <span className="text-[12px] text-accent">Saved.</span> : null}
-            {saved && !saved.ok ? (
-              <span className="text-[12px] text-clay-ink">
-                Not saved: {saved.refused}
-                {saved.refused === "stale" ? " — the file changed on disk since it was opened. Discard and reopen to get the current text." : ""}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
-      {slice === null ? <p className="text-[13px] text-faint">Reading…</p> : null}
-      {slice === "failed" ? <p className="text-[13px] text-clay-ink">Could not read this file from the repository.</p> : null}
-      {slice && slice !== "failed" ? (
-        <div className="overflow-hidden border border-border-gray">
-          <CodeEditor
-            file={file}
-            start={1}
-            value={draft ?? text}
-            onChange={setDraft}
-            onSave={() => void save()}
-            readOnly={Boolean(SOURCE_URL)}
-            lit={line}
-            className="max-h-[calc(100vh-260px)]"
-          />
-        </div>
+    <Button variant="ghost" size="sm" onClick={onClose} title="Back to the bluprint (Esc)" aria-label="Close">
+      ✕
+    </Button>
+  );
+}
+
+export function FileView({ file, line }: { file: string; line?: number }) {
+  const f = useRepoFile(file);
+  const [caret, setCaret] = useState<{ line: number; col: number } | null>(null);
+  return (
+    <FileFrame
+      path={file}
+      dirty={f.dirty}
+      onSave={f.save}
+      tools={<CloseButton onClose={closeFile} />}
+      className="absolute inset-0"
+      status={
+        f.loaded ? (
+          <TextStatus file={file} caret={caret} lines={f.value.split("\n").length} dirty={f.dirty} saved={f.saved} readOnly={f.readOnly} />
+        ) : null
+      }
+    >
+      {f.loaded === null ? <p className="p-4 text-[12.5px] text-faint">Reading…</p> : null}
+      {f.loaded === false ? <p className="p-4 text-[12.5px] text-clay-ink">Could not read this file from the repository.</p> : null}
+      {f.loaded ? (
+        <CodeEditor
+          file={file}
+          start={1}
+          value={f.value}
+          onChange={f.edit}
+          onSave={f.save}
+          onCursor={setCaret}
+          readOnly={f.readOnly}
+          lit={line}
+          className="absolute inset-0"
+        />
       ) : null}
-    </>
+    </FileFrame>
   );
 }

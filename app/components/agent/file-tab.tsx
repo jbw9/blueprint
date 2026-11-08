@@ -1,18 +1,18 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
 import { CodeEditor } from "@/components/ui/editor";
+import { FileFrame, TextStatus, ViewSwitch, crumbsOf, useMarkdownView } from "@/components/ui/file-frame";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { keys } from "@/components/ui/button";
-import { langOf } from "@/lib/client/highlight";
+import { PLUGINS, REHYPE } from "@/lib/client/markdown";
 import { cn } from "@/lib/client/utils";
-import { useMac } from "@/lib/client/platform";
 
 /**
  * A file a terminal named (components/agent/shell.tsx), open in the main view as an
- * editor tab: a breadcrumb over the path, the code pane's editor with its
- * gutter, and a status line. Any file on disk, read and written through the
+ * editor tab in the shared FileFrame (components/ui/file-frame.tsx), a
+ * Markdown one in the Markdown editor's views. Any file on disk, read and written through the
  * desktop app (src-tauri/src/files.rs) rather than the bluprint's `/api/source`,
  * since agents name files outside the project and Claude's pasted images.
  */
@@ -27,16 +27,15 @@ type Read =
   | { kind: "image"; url: string; bytes: number }
   | { kind: "other"; why: string };
 
-const LANG: Record<string, string> = { c: "Code", python: "Python", sql: "SQL", markup: "Markup", plain: "Plain text" };
-
 export function FileTab({ path, line, visible, inset }: { path: string; line?: number; visible: boolean; inset?: string }) {
   const [read, setRead] = useState<Read | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [saved, setSaved] = useState<"saved" | string | null>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  const [source, setSource] = useState(false);
+  const [caret, setCaret] = useState<{ line: number; col: number } | null>(null);
+  const [view, setView] = useMarkdownView();
   const md = MARKDOWN.test(path);
-  const mac = useMac();
+  const image = useLocalImages(path.slice(0, path.lastIndexOf("/")));
 
   const load = () =>
     invoke<ArrayBuffer>("file_read", { path }).then((buf): Read => {
@@ -85,90 +84,139 @@ export function FileTab({ path, line, visible, inset }: { path: string; line?: n
     }
   }
 
-  const home = path.match(/^\/Users\/[^/]+|^\/home\/[^/]+/)?.[0];
-  const crumbs = (home ? `~${path.slice(home.length)}` : path).split("/").filter(Boolean);
-  const name = crumbs.at(-1) ?? path;
+  const name = crumbsOf(path).at(-1) ?? path;
+  const value = draft ?? text;
+  const edit = (next: string) => (setDraft(next), setSaved(null));
 
   return (
-    <div data-chrome className={cn("absolute inset-0 flex flex-col bg-code", !visible && "hidden")} style={{ paddingRight: inset }}>
-      <div className="flex h-7 shrink-0 items-center gap-1 overflow-x-auto border-b border-border-gray px-4 font-mono text-[11.5px] text-faint" title={path}>
-        {crumbs.map((c, i) => (
-          <span key={i} className="flex shrink-0 items-center gap-1">
-            {i > 0 ? <span aria-hidden>›</span> : null}
-            <span className={cn(i === crumbs.length - 1 && "text-ink")}>{c}</span>
-          </span>
-        ))}
-        {dirty ? <span aria-label="Unsaved changes" className="ml-1.5 size-2 shrink-0 rounded-full bg-ink" /> : null}
-      </div>
-
-      <div className="relative min-h-0 flex-1">
-        {read === null ? <p className="p-4 text-[12.5px] text-faint">Reading…</p> : null}
-        {read?.kind === "other" ? <p className="p-4 text-[12.5px] text-muted-slate">{read.why}</p> : null}
-        {read?.kind === "image" ? (
-          <div className="absolute inset-0 flex items-center justify-center overflow-auto p-6">
-            {/* eslint-disable-next-line @next/next/no-img-element -- a local blob, not a page asset */}
-            <img
-              src={read.url}
-              alt={name}
-              onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-              className="max-h-full max-w-full object-contain shadow-[0_0_0_1px_var(--color-border-gray)]"
-            />
-          </div>
-        ) : null}
-        {read?.kind === "text" && md && !source ? (
-          <MarkdownEditor
-            key={path}
-            file={path}
-            value={draft ?? text}
-            onChange={(next) => (setDraft(next), setSaved(null))}
-            onSave={() => void save()}
-            lit={line}
-            className="absolute inset-0"
-          />
-        ) : read?.kind === "text" ? (
-          <CodeEditor
-            key={path}
-            file={path}
-            start={1}
-            value={draft ?? text}
-            onChange={(next) => (setDraft(next), setSaved(null))}
-            onSave={() => void save()}
-            lit={line}
-            className="absolute inset-0"
-          />
-        ) : null}
-      </div>
-
-      <div className="flex h-6 shrink-0 items-center gap-4 border-t border-border-gray px-4 font-mono text-[11px] text-faint">
-        {read?.kind === "text" ? (
-          <>
-            {line ? <span>Ln {line}</span> : null}
-            <span className="tnum">{(draft ?? text).split("\n").length.toLocaleString()} lines</span>
-            {md ? (
-              <button type="button" onClick={() => setSource((v) => !v)} className="cursor-pointer hover:text-ink" title="Switch between the drawn page and its Markdown">
-                {source ? "Markdown source · show page" : "Live preview · show source"}
-              </button>
-            ) : (
-              <span>{LANG[langOf(path)]}</span>
-            )}
-            <span>UTF-8</span>
-            <span className="ml-auto">
-              {saved && saved !== "saved" ? (
-                <span className="text-clay-ink">Not saved: {saved}</span>
-              ) : dirty ? (
-                `${keys(mac, "S")} to save`
-              ) : saved === "saved" ? (
-                "Saved"
-              ) : null}
-            </span>
-          </>
+    <FileFrame
+      path={path}
+      dirty={dirty}
+      onSave={() => void save()}
+      active={visible}
+      tools={read?.kind === "text" && md ? <ViewSwitch view={view} onView={setView} /> : null}
+      className={cn("absolute inset-0", !visible && "hidden")}
+      style={{ paddingRight: inset }}
+      status={
+        read?.kind === "text" ? (
+          <TextStatus file={path} caret={caret} lines={value.split("\n").length} dirty={dirty} saved={saved} />
         ) : read?.kind === "image" ? (
           <>
             {size ? <span className="tnum">{size.w} × {size.h}</span> : null}
             <span className="tnum">{(read.bytes / 1024).toFixed(0)} KB</span>
           </>
-        ) : null}
-      </div>
-    </div>
+        ) : null
+      }
+    >
+      {read === null ? <p className="p-4 text-[12.5px] text-faint">Reading…</p> : null}
+      {read?.kind === "other" ? <p className="p-4 text-[12.5px] text-muted-slate">{read.why}</p> : null}
+      {read?.kind === "image" ? (
+        <div className="absolute inset-0 flex items-center justify-center overflow-auto p-6">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a local blob, not a page asset */}
+          <img
+            src={read.url}
+            alt={name}
+            onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            className="max-h-full max-w-full object-contain shadow-[0_0_0_1px_var(--color-border-gray)]"
+          />
+        </div>
+      ) : null}
+      {read?.kind === "text" && md ? (
+        <MarkdownEditor
+          key={path}
+          file={path}
+          value={value}
+          onChange={edit}
+          onSave={() => void save()}
+          onCursor={setCaret}
+          lit={line}
+          view={view}
+          image={image}
+          preview={(t) => <LocalMarkdown text={t} image={image} />}
+          className="absolute inset-0"
+        />
+      ) : read?.kind === "text" ? (
+        <CodeEditor
+          key={path}
+          file={path}
+          start={1}
+          value={value}
+          onChange={edit}
+          onSave={() => void save()}
+          onCursor={setCaret}
+          lit={line}
+          className="absolute inset-0"
+        />
+      ) : null}
+    </FileFrame>
+  );
+}
+
+type Resolve = (src: string) => Promise<string> | string;
+
+/** A path an image in the doc names, on disk, or null for one on the web. */
+const localOf = (dir: string, src: string) =>
+  /^[a-z][a-z0-9+.-]*:/i.test(src) ? null : src.startsWith("/") ? src : `${dir}/${decodeURIComponent(src.split(/[?#]/)[0])}`;
+
+/** Images beside the file, read off disk once each and kept while the tab is open. */
+function useLocalImages(dir: string): Resolve {
+  const [cache] = useState(() => new Map<string, Promise<string>>());
+  useEffect(
+    () => () => {
+      for (const p of cache.values()) void p.then((u) => URL.revokeObjectURL(u), () => {});
+      cache.clear();
+    },
+    [cache],
+  );
+  return useCallback(
+    (src) => {
+      const local = localOf(dir, src);
+      if (!local) return src;
+      let p = cache.get(local);
+      if (!p) {
+        const type = local.toLowerCase().endsWith(".svg") ? { type: "image/svg+xml" } : {};
+        p = invoke<ArrayBuffer>("file_read", { path: local }).then((buf) => URL.createObjectURL(new Blob([buf], type)));
+        cache.set(local, p);
+      }
+      return p;
+    },
+    [dir, cache],
+  );
+}
+
+const ImageSource = createContext<Resolve>((s) => s);
+
+function LocalImg({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
+  const resolve = useContext(ImageSource);
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!src) return;
+    let gone = false;
+    void Promise.resolve(resolve(src)).then((u) => !gone && setUrl(u), () => {});
+    return () => {
+      gone = true;
+    };
+  }, [src, resolve]);
+  // eslint-disable-next-line @next/next/no-img-element -- a local file's own image
+  return <img src={url} alt={alt ?? ""} title={title} />;
+}
+
+const LOCAL: Components = {
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  ),
+  img: ({ src, alt, title }) => <LocalImg src={typeof src === "string" ? src : undefined} alt={alt} title={title} />,
+};
+
+/** The page a Markdown file on disk draws, for the split view. */
+function LocalMarkdown({ text, image }: { text: string; image: Resolve }) {
+  return (
+    <ImageSource.Provider value={image}>
+      <Markdown remarkPlugins={PLUGINS} rehypePlugins={REHYPE} components={LOCAL}>
+        {text}
+      </Markdown>
+    </ImageSource.Provider>
   );
 }

@@ -8,7 +8,7 @@ import { Zoom } from "@/components/chrome/zoom";
 import { Crumbs, goTo, useLocation } from "@/components/chrome/crumbs";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { useFlash } from "@/components/bluprint/flash";
-import { DocView, closeDoc, useOpenDoc } from "@/components/bluprint/docs";
+import { DocView, closeDoc, isMarkdown, useOpenDoc } from "@/components/bluprint/docs";
 import { TimelineView, closeTimeline, useTimelineOpen } from "@/components/review/timeline";
 import { FileView, closeFile, useOpenFile } from "@/components/bluprint/code";
 import { section, type Target } from "@/lib/agent/context";
@@ -118,6 +118,8 @@ export function Canvas() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.closest("textarea, input")) return;
+      // Keys typed into an editor are the editor's: Esc there closes its search, not the file.
+      if (e.target instanceof HTMLElement && e.target.closest(".cm-editor")) return;
       if (e.key === "Escape") {
         // Unwind one layer at a time: an open doc, file or the history, the trace, then one level.
         if (doc) closeDoc();
@@ -145,6 +147,8 @@ export function Canvas() {
   const [menu, setMenu] = useState<{ x: number; y: number; target: Target; words: string; opens: string[] | null } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const onContextMenu = (e: React.MouseEvent) => {
+    // An editor's text keeps its own menu: copy, paste, spelling.
+    if ((e.target as Element).closest(".cm-editor")) return;
     // Anything else on the level — a caption, the space between blocks — is
     // part of the section you are in, so that is what it offers.
     const el = (e.target as Element).closest<HTMLElement | SVGElement>(PICKABLE);
@@ -239,7 +243,8 @@ export function Canvas() {
       <SectionTabs path={path} />
       <main
         ref={scrollRef}
-        className={cn(GROUND[ground], "relative min-h-0 min-w-0 flex-1 overflow-auto")}
+        // A file or doc is an editor: it fills the pane and scrolls inside itself.
+        className={cn(GROUND[ground], "relative min-h-0 min-w-0 flex-1", doc || file ? "flex flex-col overflow-hidden" : "overflow-auto")}
         // The level is laid out in what the workspace window leaves of the
         // width (components/agent/workspace.tsx), but never in less than 480px: a
         // window dragged nearly full width covers the bluprint rather than crushing it.
@@ -250,6 +255,18 @@ export function Canvas() {
           <Crumbs repo={RUN.repo} bluprint={name} bluprints={bluprints} crumbs={crumbs} onJump={(d) => goTo(path.slice(0, d))} />
         )}
         {doc || file || timeline ? null : <DiffBar path={path} />}
+        {doc || file ? (
+          <div className="relative min-h-0 flex-1">
+            {doc ? (
+              <DocView key={doc.file} file={doc.file} line={doc.line} />
+            ) : file && isMarkdown(file.file) ? (
+              // A Markdown file opened as a file (the palette, a link on a level) is still written in the Markdown editor.
+              <DocView key={file.file} file={file.file} line={file.line} onClose={closeFile} />
+            ) : file ? (
+              <FileView key={file.file} file={file.file} line={file.line} />
+            ) : null}
+          </div>
+        ) : (
         <Zoom scrollRef={scrollRef}>
         <div ref={contentRef} className="relative mx-auto max-w-[1680px] px-10 pb-28 pt-5">
           {/* The CSS reduced-motion rule (app/globals.css) does not reach motion's own animations. */}
@@ -271,11 +288,7 @@ export function Canvas() {
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             >
               <Arrive pane={scrollRef} kept={scrolls} at={key} back={came.back} />
-              {doc ? (
-                <DocView file={doc.file} line={doc.line} />
-              ) : file ? (
-                <FileView key={file.file} file={file.file} line={file.line} />
-              ) : timeline ? (
+              {timeline ? (
                 <TimelineView />
               ) : (
                 <>
@@ -288,6 +301,7 @@ export function Canvas() {
           </MotionConfig>
         </div>
         </Zoom>
+        )}
       </main>
     </div>
   );

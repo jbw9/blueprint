@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { useSearchParams } from "next/navigation";
 import Markdown, { type Components } from "react-markdown";
@@ -10,7 +10,9 @@ import { toJsxRuntime } from "hast-util-to-jsx-runtime";
 import type { Root } from "hast";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { Eyebrow } from "@/components/ui/state";
-import { Button } from "@/components/ui/button";
+import { FileFrame, TextStatus, ViewSwitch, useMarkdownView } from "@/components/ui/file-frame";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { CloseButton, useRepoFile } from "@/components/bluprint/code";
 import { STATIC_BLUPRINT, readSource } from "@/lib/bluprint/source";
 import type { Doc } from "@/lib/server/docs";
 import { cn } from "@/lib/client/utils";
@@ -137,6 +139,9 @@ const imageSet = (at: { bluprint: string; file: string }, set: string | undefine
 
 /** Docs that are a page of HTML rather than Markdown. */
 const isHtml = (file: string) => /\.html?$/i.test(file);
+/** Markdown, which opens in the Markdown editor however it was opened. */
+export const isMarkdown = (path: string) => /\.(mdx?|markdown)$/i.test(path);
+
 /** Docs the reader opens: Markdown, and HTML pages. */
 const isDoc = (path: string) => /\.(mdx?|html?)$/i.test(path);
 
@@ -255,7 +260,93 @@ function HtmlDoc({ html }: { html: string }) {
   return toJsxRuntime(tree, { Fragment, jsx, jsxs, passNode: true, components: COMPONENTS as never });
 }
 
-export function DocView({ file, line }: { file: string; line?: number }) {
+/**
+ * A doc, filling the view as a file does. Markdown opens in the Markdown
+ * editor, drawn as the page it reads as and written where it is read, saved
+ * with ⌘S as code is (useRepoFile). An HTML page is only read.
+ */
+export function DocView({ file, line, onClose = closeDoc }: { file: string; line?: number; onClose?: () => void }) {
+  return isHtml(file) ? <HtmlReader file={file} line={line} onClose={onClose} /> : <MarkdownDoc file={file} line={line} onClose={onClose} />;
+}
+
+/** The line a heading's anchor names, numbered as GitHub numbers repeats. */
+function headingLine(text: string, anchor: string): number | undefined {
+  const seen = new Map<string, number>();
+  let fence: string | null = null;
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const f = lines[i].match(/^ {0,3}(`{3,}|~{3,})/)?.[1];
+    if (fence) {
+      if (f && f[0] === fence[0] && f.length >= fence.length) fence = null;
+      continue;
+    }
+    if (f) {
+      fence = f;
+      continue;
+    }
+    const h = lines[i].match(/^ {0,3}#{1,6}\s+(.*?)(?:\s+#+)?\s*$/);
+    if (!h) continue;
+    const base = slug(h[1].replace(/[*_`~]|\[([^\]]*)\]\([^)]*\)/g, "$1"));
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    if ((n ? `${base}-${n}` : base) === anchor) return i + 1;
+  }
+}
+
+function MarkdownDoc({ file, line, onClose }: { file: string; line?: number; onClose: () => void }) {
+  const f = useRepoFile(file);
+  const [view, setView] = useMarkdownView();
+  const [caret, setCaret] = useState<{ line: number; col: number } | null>(null);
+  // Where the doc was asked to open: a line the bluprint cites, or a heading in the hash.
+  const [hash] = useState(() => (typeof window === "undefined" ? "" : decodeURIComponent(window.location.hash.slice(1))));
+  const lit = line ?? (hash && f.loaded ? headingLine(f.text, hash) : undefined);
+  const at = useMemo(() => ({ bluprint: f.bluprint, file }), [f.bluprint, file]);
+  const image = useCallback((src: string) => imageSrc(at, src) ?? src, [at]);
+  return (
+    <FileFrame
+      path={file}
+      dirty={f.dirty}
+      onSave={f.save}
+      tools={
+        <>
+          {f.loaded ? <ViewSwitch view={view} onView={setView} /> : null}
+          <CloseButton onClose={onClose} />
+        </>
+      }
+      className="absolute inset-0"
+      status={f.loaded ? <TextStatus file={file} caret={caret} lines={f.value.split("\n").length} dirty={f.dirty} saved={f.saved} readOnly={f.readOnly} /> : null}
+    >
+      {f.loaded === null ? <p className="p-4 text-[12.5px] text-faint">Reading…</p> : null}
+      {f.loaded === false ? <p className="p-4 text-[12.5px] text-clay-ink">Could not read this doc from the repository.</p> : null}
+      {f.loaded ? (
+        <MarkdownEditor
+          file={file}
+          value={f.value}
+          onChange={f.edit}
+          onSave={f.save}
+          onCursor={setCaret}
+          readOnly={f.readOnly}
+          lit={lit}
+          view={view}
+          image={image}
+          preview={(t) => (
+            <article data-file={file}>
+              <Reading.Provider value={at}>
+                <Markdown remarkPlugins={PLUGINS} rehypePlugins={REHYPE} components={COMPONENTS}>
+                  {t}
+                </Markdown>
+              </Reading.Provider>
+            </article>
+          )}
+          className="absolute inset-0"
+        />
+      ) : null}
+    </FileFrame>
+  );
+}
+
+/** An HTML doc, read as a page, with its outline beside it. */
+function HtmlReader({ file, line, onClose }: { file: string; line?: number; onClose: () => void }) {
   const { name: bluprint } = useBluprint();
   const [loaded, setLoaded] = useState<{ file: string; text: Text }>({ file, text: null });
   const text = loaded.file === file ? loaded.text : null;
@@ -303,59 +394,60 @@ export function DocView({ file, line }: { file: string; line?: number }) {
 
 
   return (
-    <>
-      <header className="mb-8 border-b border-border-gray pb-6">
-        <div className="mb-4">
-          <Button onClick={closeDoc}>‹ Back to the bluprint</Button>
+    <FileFrame
+      path={file}
+      tools={<CloseButton onClose={onClose} />}
+      className="absolute inset-0"
+      status={
+        <>
+          <span>HTML</span>
+          <span className="ml-auto">Read only</span>
+        </>
+      }
+    >
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto max-w-[1100px] px-10 pb-28 pt-8">
+          {text === null ? (
+            <p className="text-[13px] text-faint">Reading…</p>
+          ) : "failed" in text ? (
+            <p className="text-[13px] text-clay-ink">Could not read this doc from the repository.</p>
+          ) : (
+            <div className="flex items-start gap-12">
+              <article ref={article} data-file={file} className="doc-prose min-w-0 max-w-[760px] flex-1">
+                <Reading.Provider value={{ bluprint, file }}>
+                  <HtmlDoc html={text.text} />
+                </Reading.Provider>
+              </article>
+              {outline.length > 2 ? (
+                <nav aria-label="Outline" className="sticky top-4 hidden max-h-[calc(100vh-10rem)] w-[240px] shrink-0 overflow-auto xl:block">
+                  <Eyebrow>On this page</Eyebrow>
+                  <ul className="mt-3 flex flex-col gap-0.5">
+                    {outline.map((h) => (
+                      <li key={h.id}>
+                        <a
+                          href={`#${h.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            scrollToHeading(article.current, h.id);
+                          }}
+                          className={cn(
+                            "block truncate py-1 text-[12.5px] text-muted-slate hover:text-ink",
+                            h.depth === 3 && "pl-3 text-[12px]",
+                          )}
+                          title={h.label}
+                        >
+                          {h.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ) : null}
+            </div>
+          )}
         </div>
-        <Eyebrow>Doc</Eyebrow>
-        <h1 className="mt-2 font-mono text-[22px] font-semibold tracking-[-0.01em] text-ink">{file}</h1>
-      </header>
-      {text === null ? (
-        <p className="text-[13px] text-faint">Reading…</p>
-      ) : "failed" in text ? (
-        <p className="text-[13px] text-clay-ink">Could not read this doc from the repository.</p>
-      ) : (
-        <div className="flex items-start gap-12">
-          <article ref={article} data-file={file} className="doc-prose min-w-0 max-w-[760px] flex-1">
-            <Reading.Provider value={{ bluprint, file }}>
-              {isHtml(file) ? (
-                <HtmlDoc html={text.text} />
-              ) : (
-                <Markdown remarkPlugins={PLUGINS} rehypePlugins={REHYPE} components={COMPONENTS}>
-                  {text.text}
-                </Markdown>
-              )}
-            </Reading.Provider>
-          </article>
-          {outline.length > 2 ? (
-            <nav aria-label="Outline" className="sticky top-4 hidden max-h-[calc(100vh-10rem)] w-[240px] shrink-0 overflow-auto xl:block">
-              <Eyebrow>On this page</Eyebrow>
-              <ul className="mt-3 flex flex-col gap-0.5">
-                {outline.map((h) => (
-                  <li key={h.id}>
-                    <a
-                      href={`#${h.id}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        scrollToHeading(article.current, h.id);
-                      }}
-                      className={cn(
-                        "block truncate py-1 text-[12.5px] text-muted-slate hover:text-ink",
-                        h.depth === 3 && "pl-3 text-[12px]",
-                      )}
-                      title={h.label}
-                    >
-                      {h.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ) : null}
-        </div>
-      )}
-    </>
+      </div>
+    </FileFrame>
   );
 }
 
