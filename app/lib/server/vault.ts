@@ -379,6 +379,8 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
   rmSync(join(dir, "base.json"), { force: true });
   rmSync(join(dir, "bluprint.base.json"), { force: true });
   rmSync(join(dir, "update.json"), { force: true });
+  // A remake asks the model again: replayed replies and the old cut would give back the same bluprint.
+  if (full) rmSync(join(dir, ".cache"), { recursive: true, force: true });
   // Turns and reviews are diffs against the old bluprint, which would read as nonsense against the new one.
   for (const f of ["changes.json", "snapshots", "reviews"]) rmSync(join(dir, f), { recursive: true, force: true });
   // The last run's progress would otherwise read as this one's until the
