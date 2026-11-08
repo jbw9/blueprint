@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
-import { describe, type BuiltBluprint } from "@/lib/bluprint/build";
+import { describe, type BuiltBlueprint } from "@/lib/blueprint/build";
 import { signal } from "@/lib/client/signal";
 
 /**
- * What the user has handed to Claude from the bluprint: whole sections, or any one
+ * What the user has handed to Claude from the blueprint: whole sections, or any one
  * thing on a level — a row, a box, a message, a line of the screen, a problem,
  * a place in the code.
  *
@@ -47,7 +47,7 @@ const set = (next: State) => {
 
 export const sectionKey = (path: string[]) => path.join("/");
 
-export const section = (m: BuiltBluprint, path: string[]): Target => ({
+export const section = (m: BuiltBlueprint, path: string[]): Target => ({
   key: sectionKey(path),
   title: path.length ? (m.nodeAt(path)?.title ?? sectionKey(path)) : m.RUN.repo,
   text: describe(m, path),
@@ -66,7 +66,7 @@ let naming: string[] = [];
 /* ── tabs coming and going (components/agent/workspace.tsx) ─────────── */
 
 /** Anything can ask for Claude: shows a tab running it, or opens one. */
-const OPEN = "bluprint:claude";
+const OPEN = "blueprint:claude";
 export const openClaude = () => window.dispatchEvent(new Event(OPEN));
 export const onOpenClaude = (f: () => void) => {
   window.addEventListener(OPEN, f);
@@ -74,7 +74,7 @@ export const onOpenClaude = (f: () => void) => {
 };
 
 /** The keys to Claude's terminal (components/agent/shell.tsx), when it is in view, so a pick is followed by typing the prompt. */
-const FOCUS = "bluprint:focus-claude";
+const FOCUS = "blueprint:focus-claude";
 export const onFocusClaude = (f: (pty: number) => void) => {
   const on = (e: Event) => f((e as CustomEvent<number>).detail);
   window.addEventListener(FOCUS, on);
@@ -343,7 +343,7 @@ export function takePicks(pty: number): string[] {
 
 /* ── handing to any agent ─────────────────────────────────────── */
 
-const HAND = "bluprint:hand";
+const HAND = "blueprint:hand";
 
 /**
  * Hand something to a coding agent by id (components/agent/agents.tsx). Claude

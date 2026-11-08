@@ -5,7 +5,7 @@
 //! the console. And on a phone simulator, through `device` (devices.rs). And
 //! the project's terminals, the dev server's logs first (`read_terminal`).
 //!
-//! Agents other than Claude get no MCP config, so `bluprint-terminal` (claude.rs)
+//! Agents other than Claude get no MCP config, so `blueprint-terminal` (claude.rs)
 //! reaches `read_terminal` through `/text` on the same URL: one tools/call,
 //! answered as its plain text.
 //!
@@ -13,7 +13,7 @@
 //! message per POST, answered as plain JSON. The URL carries a secret, and the
 //! tab the request came from, so each Claude drives its own project's
 //! preview. The page does the work (components/preview/preview.tsx, and the agent
-//! inside the frame, agent.js): a call is handed to it as a `bluprint:preview`
+//! inside the frame, agent.js): a call is handed to it as a `blueprint:preview`
 //! event and waits for `preview_reply`. A screenshot is WebKit's own picture
 //! of the frame's part of the window.
 
@@ -75,7 +75,7 @@ pub fn url(tab: u32) -> Option<String> {
 
 /// The `--mcp-config` for Claude in tab `tab`, once the server is up.
 pub fn config(tab: u32) -> Option<String> {
-    Some(json!({ "mcpServers": { "bluprint-preview": { "type": "http", "url": url(tab)? } } }).to_string())
+    Some(json!({ "mcpServers": { "blueprint-preview": { "type": "http", "url": url(tab)? } } }).to_string())
 }
 
 fn handle(conn: TcpStream, app: &AppHandle) -> std::io::Result<()> {
@@ -148,8 +148,8 @@ docs as text; they stay out of the preview. `device` does the same on an iOS Sim
 Android emulator running in the app. `read_terminal` reads the project's terminals, the dev \
 server's logs by default: read it when the page misbehaves, a build fails or a request errors. When a page \
 needs an account (a login wall on Instagram, X, a private dashboard), call `sign_in` and let the user sign in \
-themselves; never type a password. Sign-ins are kept, so a site signed in to once opens signed in later. `bluprint_search`, `bluprint_section` and `bluprint_where` read the project's \
-blueprint in Blueprint: what each part of the code is for and which section explains it. Ask `bluprint_where` about a \
+themselves; never type a password. Sign-ins are kept, so a site signed in to once opens signed in later. `blueprint_search`, `blueprint_section` and `blueprint_where` read the project's \
+blueprint in Blueprint: what each part of the code is for and which section explains it. Ask `blueprint_where` about a \
 file before changing it, and name sections by the id path these tools give.";
 
 /// One JSON-RPC message; nothing back for a notification.
@@ -160,7 +160,7 @@ fn rpc(msg: &Value, tab: u32, app: &AppHandle) -> Option<Value> {
         "initialize" => Ok(json!({
             "protocolVersion": params.get("protocolVersion").and_then(Value::as_str).unwrap_or("2025-06-18"),
             "capabilities": { "tools": { "listChanged": false } },
-            "serverInfo": { "name": "bluprint", "version": env!("CARGO_PKG_VERSION") },
+            "serverInfo": { "name": "blueprint", "version": env!("CARGO_PKG_VERSION") },
             "instructions": INSTRUCTIONS,
         })),
         "ping" => Ok(json!({})),
@@ -210,7 +210,7 @@ fn call(name: &str, args: &Value, tab: u32, app: &AppHandle) -> Result<Vec<Value
         "resize_preview" => ask(app, tab, on(json!({ "op": "resize", "args": args }))).map(said),
         "read_console_messages" => ask(app, tab, on(json!({ "op": "console", "args": args }))).map(said),
         "device" => crate::devices::tool(args, app),
-        "bluprint_search" | "bluprint_section" | "bluprint_where" => ask(app, tab, json!({ "op": "bluprint", "name": name, "args": args })).map(said),
+        "blueprint_search" | "blueprint_section" | "blueprint_where" => ask(app, tab, json!({ "op": "blueprint", "name": name, "args": args })).map(said),
         "read_terminal" => ask(app, tab, json!({ "op": "terminal", "args": args })).map(said),
         _ => Err(format!("No tool called {name}.")),
     }
@@ -225,7 +225,7 @@ fn ask_for(app: &AppHandle, tab: u32, cmd: Value, secs: u64) -> Reply {
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel();
     pending().lock().unwrap().insert(id, tx);
-    let sent = app.emit_to("main", "bluprint:preview", json!({ "id": id, "tab": tab, "cmd": cmd }));
+    let sent = app.emit_to("main", "blueprint:preview", json!({ "id": id, "tab": tab, "cmd": cmd }));
     let out = match sent {
         Ok(()) => rx
             .recv_timeout(Duration::from_secs(secs))
@@ -483,7 +483,7 @@ fn tools() -> Value {
             }
         },
         {
-            "name": "bluprint_search",
+            "name": "blueprint_search",
             "description": "Search the project's blueprint in Blueprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and that section's id path.",
             "inputSchema": {
                 "type": "object",
@@ -492,16 +492,16 @@ fn tools() -> Value {
             }
         },
         {
-            "name": "bluprint_section",
+            "name": "blueprint_section",
             "description": "One section of the blueprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.",
             "inputSchema": {
                 "type": "object",
-                "properties": { "name": { "type": "string", "description": "An id path from bluprint_search, an id, or a title." } },
+                "properties": { "name": { "type": "string", "description": "An id path from blueprint_search, an id, or a title." } },
                 "required": ["name"]
             }
         },
         {
-            "name": "bluprint_where",
+            "name": "blueprint_where",
             "description": "Which sections of the blueprint explain a file, or one line of it, deepest first; or why none does (left out, not source, new since the blueprint was made).",
             "inputSchema": {
                 "type": "object",
@@ -515,7 +515,7 @@ fn tools() -> Value {
     ]);
     for t in all.as_array_mut().into_iter().flatten() {
         let name = t["name"].as_str().unwrap_or("");
-        if !["device", "read_terminal", "bluprint_search", "bluprint_section", "bluprint_where"].contains(&name) {
+        if !["device", "read_terminal", "blueprint_search", "blueprint_section", "blueprint_where"].contains(&name) {
             t["inputSchema"]["properties"]["tab"] = json!({
                 "type": "number",
                 "description": "Which Preview tab, by its number (\"Preview 2\" is 2), when the project has more than one. Left out, your own: the one you used last, else one no other agent is using, opened for you when every one is. Replies name the tab used and list every Preview with the page it shows."

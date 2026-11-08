@@ -6,7 +6,7 @@ import { Button, Kbd } from "@/components/ui/button";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { cn } from "@/lib/client/utils";
 import { readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
-import type { BluprintEntry } from "@/lib/server/bluprints";
+import type { BlueprintEntry } from "@/lib/server/blueprints";
 
 /**
  * The blank page: what the window shows with no project open — none asked
@@ -14,14 +14,14 @@ import type { BluprintEntry } from "@/lib/server/bluprints";
  * as VS Code's welcome is: Start on one side, Recent on the other, which with
  * no projects yet is just Start.
  */
-export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
+export function NoProject({ blueprints }: { blueprints: BlueprintEntry[] }) {
   const router = useRouter();
   const { onboarded } = useSettings();
   // The saved settings are only known in the browser: until then show
   // nothing, so a returning reader never sees the tour flash by.
   const ready = useSyncExternalStore(noop, () => true, () => false);
   if (!ready) return <main className="flex-1 bg-paper" />;
-  if (!onboarded && !bluprints.length) return <Tour />;
+  if (!onboarded && !blueprints.length) return <Tour />;
   return (
     <main className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-paper px-6 py-16">
       <div className="w-full max-w-[640px]">
@@ -41,7 +41,7 @@ export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
                   New Project…
                 </button>
               </li>
-              {bluprints.length ? (
+              {blueprints.length ? (
                 <li>
                   <button type="button" onClick={() => openProjects()} className={LINK}>
                     Manage Projects…
@@ -50,13 +50,13 @@ export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
               ) : null}
             </ul>
           </section>
-          {bluprints.length ? (
+          {blueprints.length ? (
             <section>
               <h2 className="mb-2 text-[13px] font-semibold text-ink">Recent</h2>
               <ul className="flex flex-col gap-1.5 text-[13px]">
-                {bluprints.map((m) => (
+                {blueprints.map((m) => (
                   <li key={m.id}>
-                    <button type="button" onClick={() => router.push(`/?bluprint=${encodeURIComponent(m.id)}`)} className={cn(LINK, "max-w-full truncate font-mono")}>
+                    <button type="button" onClick={() => router.push(`/?blueprint=${encodeURIComponent(m.id)}`)} className={cn(LINK, "max-w-full truncate font-mono")}>
                       {m.label}
                     </button>
                   </li>
@@ -77,7 +77,7 @@ const noop = () => () => {};
 const finish = () => saveSettings({ ...readSettings(), onboarded: true });
 
 /**
- * The first run: what a bluprint is, shown by opening one, then the theme, then
+ * The first run: what a blueprint is, shown by opening one, then the theme, then
  * the way in. Three steps, any of them skippable.
  */
 function Tour() {
@@ -120,7 +120,7 @@ function Tour() {
   );
 }
 
-/* ── step 1: a bluprint you can open ───────────────────────────────── */
+/* ── step 1: a blueprint you can open ───────────────────────────────── */
 
 type Node = { label: string; sub: string; kids?: Node[]; code?: string[] };
 

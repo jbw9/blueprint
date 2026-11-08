@@ -6,7 +6,7 @@
  * what it does, and who calls whom, at which line. So every box, arrow and
  * line it draws is one the graph has, and the checker proves its arrows
  * against the same graph. It hands in the finished node through `submit`,
- * which runs the checks the bluprint is held to; problems come back as the tool's
+ * which runs the checks the blueprint is held to; problems come back as the tool's
  * answer, so the repair loop is the conversation itself.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
@@ -14,8 +14,8 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve, sep } from "node:path";
-import { citations, required, symbolsOf, TRIVIAL_LINES, type Sym } from "@/lib/bluprint/coverage";
-import type { Node } from "@/lib/bluprint/schema";
+import { citations, required, symbolsOf, TRIVIAL_LINES, type Sym } from "@/lib/blueprint/coverage";
+import type { Node } from "@/lib/blueprint/schema";
 import { ask, BACKEND, invoke, callsOf, type Block, type Message, type Tool } from "./bedrock";
 import { ccAgent, type Handled, type Turn } from "./claude-code";
 import { activeGraph, type Def } from "./graph";
@@ -40,7 +40,7 @@ export interface Authored {
   coverage?: { symbols: number; gaps: { file: string; symbol: Sym }[] };
   /** Each reply, timed (claude-code.ts, Turn): where the root's minutes went. */
   log?: Turn[];
-  /** Parts of a section written in words (deep.ts) that kept the quick bluprint's words, each marked partial. */
+  /** Parts of a section written in words (deep.ts) that kept the quick blueprint's words, each marked partial. */
   fellBack?: number;
 }
 
@@ -116,9 +116,9 @@ export function authorTool(call: { name: string; input: any }): string {
 }
 
 /**
- * The worked example: one root of the hand-authored explorify bluprint, kept as a
- * prompt file now that the example bluprints are gone. It was cut from that bluprint
- * with figures and screenshots stripped, which generated bluprints may not use.
+ * The worked example: one root of the hand-authored explorify blueprint, kept as a
+ * prompt file now that the example blueprints are gone. It was cut from that blueprint
+ * with figures and screenshots stripped, which generated blueprints may not use.
  */
 function exemplar(): string {
   const text = readFileSync("scripts/generate/prompts/exemplar.json", "utf8").trimEnd();
@@ -140,7 +140,7 @@ function exemplar(): string {
   return JSON.stringify(cut(JSON.parse(text)), null, 2);
 }
 
-/** The rules at the bluprint's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
+/** The rules at the blueprint's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
 const BRIEF_RULES = `## The plain-words layer: \`explain\`
 
 The reader of this blueprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
@@ -182,7 +182,7 @@ export function system(): Block[] {
     { type: "text", text: rules() },
     {
       type: "text",
-      text: `# The types (lib/bluprint/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored blueprint, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
+      text: `# The types (lib/blueprint/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored blueprint, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
       cache_control: { type: "ephemeral" },
     },
   ];
@@ -410,7 +410,7 @@ const tryJson = (s: string) => {
  * null is removed. Authors send only what they changed — replacing the node
  * whole wiped its title and sub and cost a round of "title missing" (as many
  * as 68 problems in one rejection). The tool's wording is left as it was, so
- * the API path's requests still replay from the committed bluprints' caches.
+ * the API path's requests still replay from the committed blueprints' caches.
  */
 function merged(old: Node, fix: Node): Node {
   const out: any = { ...old, ...fix, children: fix.children ?? old.children };
@@ -499,7 +499,7 @@ export async function authorRoot(
     // Coverage is asked beside the other problems as soon as the tree's shape
     // holds: held back until a tree was down to ten, it took a round of its
     // own after the last fix in most roots. A tree whose shape is broken is
-    // not asked yet; the bluprint cannot be shown with it.
+    // not asked yet; the blueprint cannot be shown with it.
     const sound = !missing.length && (!problems.length || !shapeProblems(structuredClone(node), root.prefix).length);
     if (sound) {
       const gaps = gapsIn(node);
@@ -578,7 +578,7 @@ export async function converse<T>(a: Agent): Promise<{ value: T | null; turns: n
     for (const c of calls) {
       const h = a.handle(c.name, c.input);
       if (h.done) return { value: h.done as T, turns, log };
-      // Key order as before, so the requests of bluprints already made still replay from cache.
+      // Key order as before, so the requests of blueprints already made still replay from cache.
       results.push(h.isError ? { type: "tool_result", tool_use_id: c.id, is_error: true, content: h.content } : { type: "tool_result", tool_use_id: c.id, content: h.content });
     }
     if (turns === a.maxTurns - 6) results.push({ type: "text", text: "You are almost out of turns. Submit the complete root now." });
@@ -654,7 +654,7 @@ export function prefixFor(id: string, taken: Set<string>): string {
 /**
  * A section's own files cut into 2-4 parts by one short call with no tools
  * and no thinking: the outline its parts are then written from, side by side.
- * The repository's cut (cutRepo) does the same job for the whole bluprint, but
+ * The repository's cut (cutRepo) does the same job for the whole blueprint, but
  * with rounds of checks at high effort; for a section it took minutes, and
  * once ran out of turns. A file the answer leaves out goes to the part it
  * shares the most imports with. Null when fewer than two parts come back.

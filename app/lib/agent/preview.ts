@@ -1,6 +1,6 @@
 /**
  * The previews open in the workspace, and how a call from Claude reaches one
- * (src-tauri/src/mcp.rs): it arrives as a `bluprint:preview` event naming the tab
+ * (src-tauri/src/mcp.rs): it arrives as a `blueprint:preview` event naming the tab
  * Claude runs in, the workspace finds that tab's project and the Preview that
  * agent drives (components/agent/workspace.tsx), and that preview runs it
  * (components/preview/preview.tsx).
@@ -16,8 +16,8 @@ export type Call = { tab?: number | null } & (
   | { op: "sign_in"; url: string }
   | { op: "resize"; args: { width?: number; height?: number; preset?: string } }
   | { op: "console"; args: { pattern?: string; only_errors?: boolean; clear?: boolean; limit?: number } }
-  /** Claude reading the project's bluprint (app/api/lookup); answered by the workspace, never a preview. */
-  | { op: "bluprint"; name: string; args: { query?: string; name?: string; file?: string; line?: number } }
+  /** Claude reading the project's blueprint (app/api/lookup); answered by the workspace, never a preview. */
+  | { op: "blueprint"; name: string; args: { query?: string; name?: string; file?: string; line?: number } }
   /** An agent reading a terminal of its project, the dev server's by default; answered by the workspace. */
   | { op: "terminal"; args: { name?: string; lines?: number } }
 );

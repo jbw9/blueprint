@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
 import { openPalette } from "@/components/chrome/palette";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openProjects } from "@/components/projects/projects";
 import { keys } from "@/components/ui/button";
 import { openDiff, useDiff } from "@/components/review/diff";
@@ -19,8 +19,8 @@ import { useDesktop } from "@/lib/client/platform";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
- * tauri.conf.json), so this draws the bluprint's name, which switches bluprints, the tools, and the window
- * buttons, in the page's palette rather than the desktop's. The bluprint below has no header of its
+ * tauri.conf.json), so this draws the blueprint's name, which switches blueprints, the tools, and the window
+ * buttons, in the page's palette rather than the desktop's. The blueprint below has no header of its
  * own in the desktop app.
  *
  * Everything marked `data-tauri-drag-region` moves the window, and a double
@@ -36,7 +36,7 @@ import { useDesktop } from "@/lib/client/platform";
 
 
 /**
- * `bare` is the window with no bluprint open (components/chrome/welcome.tsx): the frame,
+ * `bare` is the window with no blueprint open (components/chrome/welcome.tsx): the frame,
  * settings and the window buttons, so it can still be moved and closed. The
  * page itself offers Open Folder there, as VS Code's welcome does.
  */
@@ -63,7 +63,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
   const win = getCurrentWindow();
   return (
     // Two columns: the right one never gives up its buttons; when the window
-    // is too narrow for both, the bluprint's name truncates first.
+    // is too narrow for both, the blueprint's name truncates first.
     <header
       data-tauri-drag-region
       data-chrome="bar"
@@ -80,7 +80,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         )}
       </div>
       <div data-tauri-drag-region className="flex h-full items-center justify-end">
-        {bare ? null : <BluprintTools />}
+        {bare ? null : <BlueprintTools />}
         <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
         {bare ? null : (
           <Control
@@ -130,22 +130,22 @@ export function Titlebar({ bare }: { bare?: boolean }) {
  * Claude among its workspace tabs (components/agent/workspace.tsx); + opens another,
  * imports one, or manages them. Switching keeps every terminal running, and
  * the workspace shows the tabs of the project switched to. Cmd+1–9 (Ctrl+1–9
- * off a Mac) picks one, Ctrl+Tab the last. Where you are inside the bluprint is
- * the bluprint tabs' to say (components/chrome/tabs.tsx).
+ * off a Mac) picks one, Ctrl+Tab the last. Where you are inside the blueprint is
+ * the blueprint tabs' to say (components/chrome/tabs.tsx).
  */
 function Where({ mac }: { mac: boolean }) {
-  const { name, bluprints } = useBluprint();
+  const { name, blueprints } = useBlueprint();
   const router = useRouter();
   const { open, last, status } = useOpenProjects();
-  const shown = open.flatMap((id) => bluprints.filter((m) => m.id === id));
-  const go = useCallback((id: string | null | undefined) => id && id !== name && router.push(`/?bluprint=${encodeURIComponent(id)}`), [name, router]);
+  const shown = open.flatMap((id) => blueprints.filter((m) => m.id === id));
+  const go = useCallback((id: string | null | undefined) => id && id !== name && router.push(`/?blueprint=${encodeURIComponent(id)}`), [name, router]);
 
   const was = useRef<string | null>(null);
   useEffect(() => {
     arrived(name, was.current);
     was.current = name;
   }, [name]);
-  useEffect(() => keepOnly(bluprints.map((m) => m.id)), [bluprints]);
+  useEffect(() => keepOnly(blueprints.map((m) => m.id)), [blueprints]);
 
   // Off a Mac here; on one the menu bar takes the keys (src-tauri/src/lib.rs),
   // so they work from inside a Preview's page too.
@@ -162,7 +162,7 @@ function Where({ mac }: { mac: boolean }) {
       pick(n);
     };
     if (!mac) window.addEventListener("keydown", onKey, true);
-    const fromMenu = mac ? listen<string>("bluprint:project", (e) => pick(e.payload)) : undefined;
+    const fromMenu = mac ? listen<string>("blueprint:project", (e) => pick(e.payload)) : undefined;
     return () => {
       window.removeEventListener("keydown", onKey, true);
       void fromMenu?.then((f) => f());
@@ -220,8 +220,8 @@ function Where({ mac }: { mac: boolean }) {
   );
 }
 
-/** The tools that act on the open bluprint. */
-function BluprintTools() {
+/** The tools that act on the open blueprint. */
+function BlueprintTools() {
   const diff = useDiff();
   return (
     <>

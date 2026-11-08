@@ -1,6 +1,6 @@
 /**
  * A section written in full where code builds the structure and a model only
- * writes the words: the deepen stage of a --fast bluprint, in place of an agent
+ * writes the words: the deepen stage of a --fast blueprint, in place of an agent
  * per section that read the code with tools and was sent back by the checker
  * until its tree came back clean.
  *
@@ -23,11 +23,11 @@
  * the entry points through the sections, the model picks the walkthroughs
  * among them and writes them.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any -- model answers and bluprint JSON */
+/* eslint-disable @typescript-eslint/no-explicit-any -- model answers and blueprint JSON */
 import { basename } from "node:path";
-import type { Node } from "@/lib/bluprint/schema";
-import type { Overview } from "@/lib/bluprint/build";
-import { citations, nodesAt } from "@/lib/bluprint/coverage";
+import type { Node } from "@/lib/blueprint/schema";
+import type { Overview } from "@/lib/blueprint/build";
+import { citations, nodesAt } from "@/lib/blueprint/coverage";
 import type { Authored } from "./author";
 import { ask, UsageLimitError, type Tool } from "./bedrock";
 import { autofix, bareLines, BOUNDS, check, fileReader, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";
@@ -61,7 +61,7 @@ const NAMED = {
   detail: { type: "string", description: "At most two sentences and 40 words: what it does and how, naming the functions that do it in `backticks`." },
 };
 
-/** What a model's words break of the bluprint's limits: the check's rules on titles, subs, details and explainers. */
+/** What a model's words break of the blueprint's limits: the check's rules on titles, subs, details and explainers. */
 function nodeWordProblems(id: string, x: any, withExplain: boolean, explainMax = ex?.max ?? 0): string[] {
   const out = wordProblems([
     [`${id}'s title`, x?.title, 4],
@@ -78,7 +78,7 @@ function nodeWordProblems(id: string, x: any, withExplain: boolean, explainMax =
 
 /** Words cut to fit what the model still had over its limits after the retry: whole words from the front. */
 const cutWords = (s: string, n: number) => s.split(/\s+/).filter(Boolean).slice(0, n).join(" ");
-/** A detail within the bluprint's 40 words: its sentences while they fit, else its first 39 words. */
+/** A detail within the blueprint's 40 words: its sentences while they fit, else its first 39 words. */
 const fit40 = (d: string) => (words(within40(d)) <= 40 ? within40(d) : `${cutWords(d, 39).replace(/[,;:.]$/, "")}…`);
 function fitted(x: any, fallback: { title: string; sub: string; detail: string }, explainMax = ex?.max ?? 0) {
   const ok = (s: unknown): s is string => typeof s === "string" && s.trim().length > 0 && !looksLikePath(s);
@@ -262,7 +262,7 @@ function chunksOf(p: string, n: number, sums: Record<string, FileSummary>, g: Gr
   return out.map(({ ranges, names }) => ({ ranges, names }));
 }
 
-/** A file's name as an id, its directory's for a name every directory has: `api/bluprint/route.ts` → bluprint. */
+/** A file's name as an id, its directory's for a name every directory has: `api/blueprint/route.ts` → blueprint. */
 const GENERIC = /^(route|page|layout|index|main|mod|lib|__init__|init|handler|server|client|types?|utils?)$/;
 function fileSlug(p: string): string {
   const name = slug(basename(p));
@@ -426,7 +426,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
   const files = root.files.filter((p) => lines.has(p));
   const draw = diagramOf(g);
   let calls = 0;
-  // Parts whose words came back, and those left with the quick bluprint's: a section written by nothing is no section in full.
+  // Parts whose words came back, and those left with the quick blueprint's: a section written by nothing is no section in full.
   let wrote = 0;
   const fellBack: string[] = [];
   const keptQuick = (n: Node) => {
@@ -434,7 +434,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
     Object.assign(n, { state: "partial", unsure: "Its words could not be written from the code in this run, so it keeps the quick blueprint's, which may be thin." });
   };
 
-  // The quick bluprint's words for each file: what a part keeps when its words call fails.
+  // The quick blueprint's words for each file: what a part keeps when its words call fails.
   const quickByFile = new Map<string, Node>();
   const index = (n: Node) => {
     if (!n.children?.length && n.code?.[0]) quickByFile.set(n.code[0].file, n);
@@ -454,7 +454,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       calls++;
     } catch (e) {
       if (e instanceof UsageLimitError) throw e;
-      // No groups from the model: along imports, as the quick bluprint splits a flat directory.
+      // No groups from the model: along imports, as the quick blueprint splits a flat directory.
       say(`${root.id}: grouping failed, split along imports — ${(e as Error).message.slice(0, 120)}`);
       if (files.length > MAX_FILES) groups = splitFlat("", files, inv).map((x, i) => ({ title: `${cutWords(quick.title, 3)} ${i + 1}`, sub: quick.sub, detail: "", files: x.files }));
     }

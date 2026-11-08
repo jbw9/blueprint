@@ -25,12 +25,12 @@ const display = Zilla_Slab({
 });
 
 export const metadata: Metadata = {
-  // A published export is one bluprint, and its tab says which.
-  title: process.env.NEXT_PUBLIC_STATIC_BLUPRINT ?? "Blueprint",
+  // A published export is one blueprint, and its tab says which.
+  title: process.env.NEXT_PUBLIC_STATIC_BLUEPRINT ?? "Blueprint",
   description:
     "See what an agent actually changed in your codebase — and what the analysis could not prove.",
   // A published export is the landing page's framed demo, so search sends people to the landing page instead.
-  ...(process.env.NEXT_PUBLIC_STATIC_BLUPRINT && { robots: { index: false, follow: false } }),
+  ...(process.env.NEXT_PUBLIC_STATIC_BLUEPRINT && { robots: { index: false, follow: false } }),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

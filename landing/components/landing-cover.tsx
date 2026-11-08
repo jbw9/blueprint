@@ -2,7 +2,7 @@
 import { LandingInstall } from "./landing-install";
 import s from "./landing.module.css";
 
-// Published under the site's base path, like the demo bluprints beside it.
+// Published under the site's base path, like the demo blueprints beside it.
 const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/${name}.png`;
 
 /**
@@ -76,7 +76,7 @@ function Spark() {
   );
 }
 
-/** A bluprint's steps, small: one picked. */
+/** A blueprint's steps, small: one picked. */
 function Rows() {
   return (
     <svg className={s.rows} viewBox="0 0 104 22" aria-hidden>

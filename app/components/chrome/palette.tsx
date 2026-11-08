@@ -3,22 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
-import { openFileInTab } from "@/components/bluprint/code";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { openFileInTab } from "@/components/blueprint/code";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { Kbd, keys } from "@/components/ui/button";
 import { StateChip } from "@/components/ui/state";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
-import { openAudit } from "@/components/bluprint/audit";
+import { openAudit } from "@/components/blueprint/audit";
 import { openHistory } from "@/components/review/additions";
 import { openDiff } from "@/components/review/diff";
 import { openTimeline } from "@/components/review/timeline";
-import { openFiles, useCitations, useFiles, useTrail } from "@/components/bluprint/files";
+import { openFiles, useCitations, useFiles, useTrail } from "@/components/blueprint/files";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
-import { DocIcon, openDoc, useDocList } from "@/components/bluprint/docs";
+import { DocIcon, openDoc, useDocList } from "@/components/blueprint/docs";
 import { openSettings, readSettings, saveSettings } from "@/lib/client/settings";
 import type { Theme } from "@/lib/client/theme";
 import { startDictation } from "@/lib/agent/dictate";
-import type { Node } from "@/lib/bluprint/schema";
+import type { Node } from "@/lib/blueprint/schema";
 import { cn } from "@/lib/client/utils";
 import { useMac } from "@/lib/client/platform";
 
@@ -27,15 +27,15 @@ import { useMac } from "@/lib/client/platform";
  * Enter opens it however deep it is, and a doc of the project's opens the
  * same way; start with `>` for the app's actions; Cmd+K finds a file or
  * symbol instead and opens it in the editor;
- * the bluprint name in the title bar opens it on the bluprints, and the status bar's
+ * the blueprint name in the title bar opens it on the blueprints, and the status bar's
  * counts open it on the levels that are not certain or the problems found.
  *
  * It is what a sidebar tree would have been for — reaching a level without
  * walking down to it — without spending a column on it (D35, D62).
  */
 
-const OPEN = "bluprint:palette";
-export type PaletteMode = "all" | "code" | "actions" | "bluprints" | "unsure" | "problems" | "docs";
+const OPEN = "blueprint:palette";
+export type PaletteMode = "all" | "code" | "actions" | "blueprints" | "unsure" | "problems" | "docs";
 export const openPalette = (mode: PaletteMode = "all") =>
   window.dispatchEvent(new CustomEvent<PaletteMode>(OPEN, { detail: mode }));
 
@@ -46,7 +46,7 @@ interface Item {
   hint?: string;
   /** A second line: why a level is not certain, or what goes wrong. */
   detail?: string;
-  kind: "level" | "action" | "bluprint" | "unsure" | "problem" | "doc" | "file" | "folder" | "symbol";
+  kind: "level" | "action" | "blueprint" | "unsure" | "problem" | "doc" | "file" | "folder" | "symbol";
   node?: Node;
   /** Words it is about, matched last and weakest: a level's sub, detail and plain-words layer. */
   body?: string;
@@ -78,7 +78,7 @@ function score(q: string, text: string): number | null {
 }
 
 export function Palette() {
-  const bluprint = useBluprint();
+  const blueprint = useBlueprint();
   const router = useRouter();
   const { path } = useLocation();
   const [mode, setMode] = useState<PaletteMode | null>(null);
@@ -131,7 +131,7 @@ export function Palette() {
         out.push({
           key: `level:${p.join("/")}`,
           label: n.title,
-          hint: trail.join(" › ") || bluprint.RUN.repo,
+          hint: trail.join(" › ") || blueprint.RUN.repo,
           kind: "level",
           node: n,
           body: [n.sub, n.detail, n.explain?.body].filter(Boolean).join(" ").toLowerCase(),
@@ -140,14 +140,14 @@ export function Palette() {
         walk(n.children ?? [], p, [...trail, n.title]);
       }
     };
-    out.push({ key: "level:", label: bluprint.RUN.repo, hint: "The top of the blueprint", kind: "level", kbd: "0", run: () => goTo([]) });
-    walk(bluprint.L0, [], []);
+    out.push({ key: "level:", label: blueprint.RUN.repo, hint: "The top of the blueprint", kind: "level", kbd: "0", run: () => goTo([]) });
+    walk(blueprint.L0, [], []);
     return out;
-  }, [bluprint]);
+  }, [blueprint]);
 
   // The checkout's own names — paths and top-level symbols — each opening in
   // the editor over the deepest level that explains it, so closing the file
-  // lands where it sits on a bluprint cut by features.
+  // lands where it sits on a blueprint cut by features.
   const files = useFiles();
   const cited = useCitations();
   const trailOf = useTrail();
@@ -162,7 +162,7 @@ export function Palette() {
         label: file,
         hint: at ? trailOf(at) : f.status === "excluded" ? "left out of the blueprint · opens the file" : "not on any level · opens the file",
         kind: "file",
-        run: () => openFileInTab(bluprint.name, at ?? path, file),
+        run: () => openFileInTab(blueprint.name, at ?? path, file),
       });
       for (const sym of f.symbols) {
         const by = deepest(file, sym.start, sym.end);
@@ -171,18 +171,18 @@ export function Palette() {
           label: sym.name,
           hint: `${file} → ${by ? trailOf(by) : at ? `not explained; nearest ${trailOf(at)}` : "not explained"}`,
           kind: "symbol",
-          run: () => openFileInTab(bluprint.name, by ?? at ?? path, file, sym.start),
+          run: () => openFileInTab(blueprint.name, by ?? at ?? path, file, sym.start),
         });
       }
     }
-    // Files the bluprint has not seen: new since it was made, or ignored by git
+    // Files the blueprint has not seen: new since it was made, or ignored by git
     // and kept by hand, like the .env an API key goes in.
     for (const file of files?.added ?? [])
-      out.push({ key: `file:${file}`, label: file, hint: "new since the blueprint was made · opens the file", kind: "file", run: () => openFileInTab(bluprint.name, path, file) });
+      out.push({ key: `file:${file}`, label: file, hint: "new since the blueprint was made · opens the file", kind: "file", run: () => openFileInTab(blueprint.name, path, file) });
     for (const file of files?.local ?? [])
-      out.push({ key: `file:${file}`, label: file, hint: "not in git · opens the file", kind: "file", run: () => openFileInTab(bluprint.name, path, file) });
-    // The rest of the checkout: everything, while a bluprint is still being made
-    // and has no index; after, files the bluprint would not explain, like a README.
+      out.push({ key: `file:${file}`, label: file, hint: "not in git · opens the file", kind: "file", run: () => openFileInTab(blueprint.name, path, file) });
+    // The rest of the checkout: everything, while a blueprint is still being made
+    // and has no index; after, files the blueprint would not explain, like a README.
     const seen = new Set(out.map((it) => it.key));
     for (const file of files?.present ?? []) {
       if (seen.has(`file:${file}`)) continue;
@@ -191,7 +191,7 @@ export function Palette() {
         label: file,
         hint: files?.index ? "not on the blueprint · opens the file" : "the blueprint is still being made · opens the file",
         kind: "file",
-        run: () => openFileInTab(bluprint.name, path, file),
+        run: () => openFileInTab(blueprint.name, path, file),
       });
     }
     // Folders, each opening as a listing of what is directly inside it, so the
@@ -225,8 +225,8 @@ export function Palette() {
       if (dir) items.unshift({ key: "dir:..", label: "../", hint: dir.split("/").slice(0, -1).join("/") || "the top", kind: "folder", run: browse(dir.split("/").slice(0, -1).join("/")) });
     }
     return { all: out, tree };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- trailOf reads the same bluprint as cited
-  }, [files, cited, path, bluprint.name]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- trailOf reads the same blueprint as cited
+  }, [files, cited, path, blueprint.name]);
 
   const docList = useDocList();
   const docs = useMemo<Item[]>(
@@ -250,13 +250,13 @@ export function Palette() {
       { key: "a:diff", label: "What changed in the code", hint: "Diff two commits over the blueprint", kind: "action", run: openDiff },
       { key: "a:files", label: "Every file", hint: "Where each part of the code is explained", kind: "action", run: () => openFiles() },
       { key: "a:timeline", label: "How the code got here", hint: "Its commits over time, on the blueprint's sections", kind: "action", run: openTimeline },
-      { key: "a:audit", label: "How sure is this blueprint", hint: "What was checked, and what to double-check", kind: "action", run: () => openAudit(bluprint.name) },
+      { key: "a:audit", label: "How sure is this blueprint", hint: "What was checked, and what to double-check", kind: "action", run: () => openAudit(blueprint.name) },
       { key: "a:history", label: "What you added to this blueprint", kind: "action", run: openHistory },
       { key: "a:docs", label: "Read the docs…", hint: "The project's Markdown: design notes, decisions", kind: "action", run: () => setTimeout(() => openPalette("docs")) },
       { key: "a:open", label: "Open Folder…", hint: "Make a blueprint of a folder on this machine", kind: "action", run: () => void openFolder() },
       { key: "a:new", label: "New Project…", hint: "Start an empty folder", kind: "action", run: newProject },
-      { key: "a:projects", label: "Projects", hint: "Your bluprints: open, regenerate, remove", kind: "action", run: () => openProjects() },
-      { key: "a:bluprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("bluprints")) },
+      { key: "a:projects", label: "Projects", hint: "Your blueprints: open, regenerate, remove", kind: "action", run: () => openProjects() },
+      { key: "a:blueprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("blueprints")) },
       { key: "a:settings", label: "Settings", kind: "action", run: openSettings },
       // After the palette has closed, so the words go to Claude's prompt rather than the palette's field.
       { key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the key", kind: "action", kbd: "Hold ⌃⌥", run: () => setTimeout(startDictation) },
@@ -264,27 +264,27 @@ export function Palette() {
       { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
       { key: "a:dark", label: "Theme: dark", kind: "action", run: theme("dark") },
     ];
-  }, [bluprint.name, path, mac]);
+  }, [blueprint.name, path, mac]);
 
-  const bluprints = useMemo<Item[]>(
+  const blueprints = useMemo<Item[]>(
     () =>
-      bluprint.bluprints.map((m) => ({
-        key: `bluprint:${m.id}`,
+      blueprint.blueprints.map((m) => ({
+        key: `blueprint:${m.id}`,
         label: m.label,
-        hint: m.id === bluprint.name ? "open now" : undefined,
-        kind: "bluprint" as const,
-        run: () => router.push(`?bluprint=${encodeURIComponent(m.id)}`),
+        hint: m.id === blueprint.name ? "open now" : undefined,
+        kind: "blueprint" as const,
+        run: () => router.push(`?blueprint=${encodeURIComponent(m.id)}`),
       })),
-    [bluprint.bluprints, bluprint.name, router],
+    [blueprint.blueprints, blueprint.name, router],
   );
 
   // What the status bar counts, each a way to the level it is on. Walked in
-  // bluprint order, so the list reads top to bottom the way the bluprint does.
+  // blueprint order, so the list reads top to bottom the way the blueprint does.
   const findings = useMemo(() => {
     const unsure: Item[] = [];
     const problems: Item[] = [];
     const walk = (n: Node, p: string[], trail: string[]) => {
-      const where = trail.join(" › ") || bluprint.RUN.repo;
+      const where = trail.join(" › ") || blueprint.RUN.repo;
       const run = () => goTo(p);
       if (n.state !== "derived") {
         unsure.push({ key: `u:${p.join("/")}`, label: n.title, hint: where, detail: n.unsure, kind: "unsure", node: n, run });
@@ -302,9 +302,9 @@ export function Palette() {
       for (const c of n.children ?? []) walk(c, [...p, c.id], p.length ? [...trail, n.title] : []);
     };
     // The repository itself is a level too (D60), and can carry both.
-    walk(bluprint.TOP, [], []);
+    walk(blueprint.TOP, [], []);
     return { unsure, problems };
-  }, [bluprint]);
+  }, [blueprint]);
 
   const shown = useMemo(() => {
     const actionsOnly = query.startsWith(">");
@@ -315,7 +315,7 @@ export function Palette() {
       if (listing) return listing;
     }
     const pool =
-      mode === "bluprints" ? bluprints
+      mode === "blueprints" ? blueprints
       : mode === "unsure" ? findings.unsure
       : mode === "problems" ? findings.problems
       : mode === "docs" ? docs
@@ -331,7 +331,7 @@ export function Palette() {
       .sort((a, b) => b.s - a.s)
       .slice(0, 60)
       .map((x) => x.it);
-  }, [mode, query, levels, code, docs, actions, bluprints, findings]);
+  }, [mode, query, levels, code, docs, actions, blueprints, findings]);
 
   useEffect(() => {
     list.current?.querySelector(`[data-i="${sel}"]`)?.scrollIntoView({ block: "nearest" });
@@ -379,7 +379,7 @@ export function Palette() {
             }
           }}
           placeholder={
-            mode === "bluprints" ? "Switch to a blueprint…"
+            mode === "blueprints" ? "Switch to a blueprint…"
             : mode === "unsure" ? `${findings.unsure.length} levels the blueprint is not certain about — filter…`
             : mode === "problems" ? `${findings.problems.length} problems found in the code — filter…`
             : mode === "docs" ? (docList === null ? "Finding the docs…" : `${docList.length} docs in this project — filter…`)
@@ -478,7 +478,7 @@ function KindIcon({ kind }: { kind: Item["kind"] }) {
         <path d="M4 1.5h5l3 3v10H4zM9 1.5v3h3" />
       ) : kind === "symbol" ? (
         <path d="M6 3.5c-1.5 0-2 .7-2 2v1c0 .8-.5 1.5-1.5 1.5 1 0 1.5.7 1.5 1.5v1c0 1.3.5 2 2 2M10 3.5c1.5 0 2 .7 2 2v1c0 .8.5 1.5 1.5 1.5-1 0-1.5.7-1.5 1.5v1c0 1.3-.5 2-2 2" />
-      ) : kind === "bluprint" || kind === "folder" ? (
+      ) : kind === "blueprint" || kind === "folder" ? (
         <path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.5 1.5h5.9a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
       ) : (
         <path d="m5 4 4 4-4 4M9 12h3" />

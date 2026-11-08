@@ -1,7 +1,7 @@
-import type { Diagram } from "@/lib/bluprints";
+import type { Diagram } from "@/lib/blueprints";
 import s from "./landing.module.css";
 
-/** The agents the app opens beside the bluprint (app/components/agent/agents.tsx), with their Simple Icons marks. */
+/** The agents the app opens beside the blueprint (app/components/agent/agents.tsx), with their Simple Icons marks. */
 const AGENTS = [
   {
     name: "Claude Code",
@@ -27,7 +27,7 @@ const at = (b: { col: number; row: number }) => ({ x: 1 + b.col * 204, y: 34 + b
 
 /**
  * The app beside the agent writing the code: the agent's terminal, with the
- * part picked on the bluprint as its context, and the bluprint's top-level picture
+ * part picked on the blueprint as its context, and the blueprint's top-level picture
  * after the edit, drawn as diff mode draws it: the box whose code changed
  * filled, the box that calls into it dashed, the rest receding. Drawn, not
  * live: the frame above has Claude, not the agents.
@@ -110,8 +110,8 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
               ))}
             </div>
             <pre>
-              <span className={s.prompt}>&gt;</span> send only the version when the bluprint is unchanged{"\n\n"}
-              <span className={s.prompt}>⏺</span> Update(app/app/api/bluprint/route.ts){"\n"}
+              <span className={s.prompt}>&gt;</span> send only the version when the blueprint is unchanged{"\n\n"}
+              <span className={s.prompt}>⏺</span> Update(app/app/api/blueprint/route.ts){"\n"}
               <span className={s.faintText}>{"  "}⎿ Updated with 4 additions and 2 removals</span>
             </pre>
             <p className={s.context}>

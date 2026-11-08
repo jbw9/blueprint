@@ -1,25 +1,25 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadBluprint, rootOf } from "@/lib/server/bluprints";
+import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
 import { restoreFiles } from "@/lib/server/repo";
 import { projectDir } from "@/lib/server/vault";
 import { notJson } from "@/lib/server/route";
 
 /**
- * Undoes one agent turn's edits: `POST {bluprint, turn}`, `turn` an id from the
- * bluprint's changes.json or `latest`. Every file goes back to what it was before
+ * Undoes one agent turn's edits: `POST {blueprint, turn}`, `turn` an id from the
+ * blueprint's changes.json or `latest`. Every file goes back to what it was before
  * the turn, from the snapshot the updater kept (scripts/generate/update.ts),
  * unless any has changed since the turn, which refuses the whole undo
- * (lib/server/repo.ts restoreFiles). The checkout is the bluprint's, as app/api/diff does;
+ * (lib/server/repo.ts restoreFiles). The checkout is the blueprint's, as app/api/diff does;
  * a caller names a turn, never a path.
  */
 export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
-  const body = (await request.json().catch(() => null)) as { bluprint?: string; turn?: string } | null;
-  let open: ReturnType<typeof loadBluprint> = null;
+  const body = (await request.json().catch(() => null)) as { blueprint?: string; turn?: string } | null;
+  let open: ReturnType<typeof loadBlueprint> = null;
   try {
-    open = loadBluprint(body?.bluprint ?? undefined);
+    open = loadBlueprint(body?.blueprint ?? undefined);
   } catch {}
   if (!open || typeof body?.turn !== "string") return Response.json({ error: "No such blueprint or turn." }, { status: 400 });
   const dir = projectDir(open.name);

@@ -1,8 +1,8 @@
 #!/bin/sh
-# Installs Bluprint on macOS or Linux, built from source:
+# Installs Blueprint on macOS, Linux or Windows (in Git Bash), built from source:
 #   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
-# The source is kept in ~/.bluprint/src (BLUPRINT_DIR moves it); running this again updates and rebuilds.
-# When it ends it tells us the OS and whether it worked, nothing else; BLUPRINT_NO_TELEMETRY=1 skips that.
+# The source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it); running this again updates and rebuilds.
+# When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
 set -e
 
 # The admin dashboard's backend (app/scripts/api).
@@ -11,13 +11,19 @@ API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
   trap report EXIT
-  repo=${BLUPRINT_REPO:-https://github.com/jbw9/blueprint.git}
-  ref=${BLUPRINT_REF:-main}
-  dir=${BLUPRINT_DIR:-$HOME/.bluprint}/src
+  # Their names while the app was called Bluprint.
+  BLUEPRINT_DIR=${BLUEPRINT_DIR:-$BLUPRINT_DIR}
+  BLUEPRINT_NO_TELEMETRY=${BLUEPRINT_NO_TELEMETRY:-$BLUPRINT_NO_TELEMETRY}
+  repo=${BLUEPRINT_REPO:-https://github.com/jbw9/blueprint.git}
+  ref=${BLUEPRINT_REF:-main}
+  dir=${BLUEPRINT_DIR:-$HOME/.blueprint}/src
+  # Kept in ~/.bluprint while the app had that name.
+  if [ -z "$BLUEPRINT_DIR" ] && [ -d "$HOME/.bluprint" ] && [ ! -e "$HOME/.blueprint" ]; then mv "$HOME/.bluprint" "$HOME/.blueprint"; fi
   os=$(uname)
   case $os in
   Darwin | Linux) ;;
-  *) die "Blueprint installs on macOS and Linux." ;;
+  MINGW* | MSYS* | CYGWIN*) os=Windows ;;
+  *) die "Blueprint installs on macOS, Linux and Windows (in Git Bash: https://git-scm.com/downloads/win)." ;;
   esac
   # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
@@ -27,12 +33,18 @@ main() {
     need git "xcode-select --install"
     need c++ "xcode-select --install"
     need node "Node 20 or newer: https://nodejs.org (or: brew install node)"
-    need cargo "Rust: https://rustup.rs"
     need cmake "brew install cmake (or https://cmake.org/download)"
+  elif [ "$os" = Windows ]; then
+    need node "Node 20 or newer: winget install OpenJS.NodeJS.LTS (or https://nodejs.org)"
+    need cmake "winget install Kitware.CMake (or https://cmake.org/download)"
+    # Rust links with MSVC's C++ tools, which only vswhere can find from here.
+    vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+    [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ] ||
+      missing="$missing
+  - the Visual Studio C++ build tools: winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
     need git "your package manager's git"
     need node "Node 20 or newer: https://nodejs.org/en/download/package-manager"
-    need cargo "Rust: https://rustup.rs"
     if command -v apt-get >/dev/null; then
       sys="sudo apt-get install -y build-essential cmake pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev libasound2-dev libpulse-dev"
     elif command -v dnf >/dev/null; then
@@ -54,6 +66,18 @@ main() {
 Install those, then run this again."
   command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] ||
     die "Blueprint needs Node 20 or newer; this is $(node -v)."
+  if ! command -v cargo >/dev/null; then
+    say "Installing Rust (rustup)"
+    if [ "$os" = Windows ]; then
+      init="$(mktemp -d)/rustup-init.exe"
+      case $(uname -m) in aarch64 | arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac
+      curl -fsSLo "$init" "https://win.rustup.rs/$arch"
+      "$init" -y --profile minimal
+    else
+      curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+    fi
+    PATH="$HOME/.cargo/bin:$PATH"
+  fi
 
   say "Getting the source into $dir"
   mkdir -p "$dir"
@@ -75,7 +99,7 @@ Install those, then run this again."
 report() {
   status=$?
   ok=$([ "$status" = 0 ] && echo true || echo false)
-  [ -z "$BLUPRINT_NO_TELEMETRY" ] || return 0
+  [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
     -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$ok}" 2>/dev/null || true

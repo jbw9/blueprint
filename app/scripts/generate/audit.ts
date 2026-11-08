@@ -1,13 +1,13 @@
 /**
- * The run's audit: how the bluprint was reached, as a reader can follow it. The
+ * The run's audit: how the blueprint was reached, as a reader can follow it. The
  * cut's reasons for each root and for what it left out, each author's reads,
  * searches and rejected submits in order, and what the final check still
- * found. Written beside bluprint.json and report.json; the
+ * found. Written beside blueprint.json and report.json; the
  * report keeps the numbers, this keeps the reasoning they came from.
  */
-import type { Node } from "@/lib/bluprint/schema";
+import type { Node } from "@/lib/blueprint/schema";
 import type { Authored } from "./author";
-import type { Overview } from "@/lib/bluprint/build";
+import type { Overview } from "@/lib/blueprint/build";
 import type { Cut } from "./cut";
 import type { Inventory } from "./inventory";
 import type { Overviewed } from "./overview";

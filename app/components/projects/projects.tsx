@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DIALOG, INPUT, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
-import { useMaybeBluprint } from "@/components/bluprint/bluprint-context";
+import { useMaybeBlueprint } from "@/components/blueprint/blueprint-context";
 import { Menu, type MenuItem } from "@/components/ui/menu";
 import { cloneUrl, repoName } from "@/lib/client/clone";
 import type { Explain, Progress, Project } from "@/lib/server/vault";
@@ -16,13 +16,13 @@ import { claudePath } from "@/lib/client/claude";
  * The project list: the reader's own projects, imported from this machine and
  * kept in the app's vault (lib/server/vault.ts). Starting one works as VS Code's Open
  * Folder does: the system's folder picker first, then one screen to confirm
- * before the bluprint is made through the reader's Claude Code. New Project makes
+ * before the blueprint is made through the reader's Claude Code. New Project makes
  * an empty folder instead, or clones one from GitHub when given a repository.
- * The list follows the run, and the bluprint opens from here or the picker once it
+ * The list follows the run, and the blueprint opens from here or the picker once it
  * is made.
  */
 
-const OPEN = "bluprint:projects";
+const OPEN = "blueprint:projects";
 type Mode = "open" | "new";
 interface Asked {
   mode?: Mode;
@@ -52,7 +52,7 @@ export async function openFolder() {
 
 export const newProject = () => show({ mode: "new" });
 
-type Listed = Project & { hasBluprint: boolean; stale: boolean; progress?: Progress };
+type Listed = Project & { hasBlueprint: boolean; stale: boolean; progress?: Progress };
 interface List {
   vault: string;
   projects: Listed[];
@@ -60,7 +60,7 @@ interface List {
 
 export function ProjectsDialog() {
   const router = useRouter();
-  const current = useMaybeBluprint()?.name;
+  const current = useMaybeBlueprint()?.name;
   const [open, setOpen] = useState(false);
   const [list, setList] = useState<List | null>(null);
   const [root, setRoot] = useState("");
@@ -72,11 +72,11 @@ export function ProjectsDialog() {
   const [mode, setMode] = useState<Mode | null>(null);
   const close = useCallback(() => setOpen(false), []);
 
-  // Which bluprints were ready last time, so a run finishing refreshes the picker.
+  // Which blueprints were ready last time, so a run finishing refreshes the picker.
   const ready = useRef<Set<string>>(new Set());
   const refresh = useCallback(async () => {
     const next: List = await fetch("/api/projects").then((r) => r.json());
-    const now = new Set(next.projects.filter((p) => p.bluprint.status === "ready").map((p) => p.id));
+    const now = new Set(next.projects.filter((p) => p.blueprint.status === "ready").map((p) => p.id));
     if ([...now].some((id) => !ready.current.has(id))) router.refresh();
     ready.current = now;
     setList(next);
@@ -98,7 +98,7 @@ export function ProjectsDialog() {
   }, [refresh]);
 
   // Follow a run while the list is open.
-  const running = list?.projects.some((p) => p.bluprint.status === "generating");
+  const running = list?.projects.some((p) => p.blueprint.status === "generating");
   useEffect(() => {
     if (!open || !running) return;
     const t = setInterval(() => void refresh(), 3000);
@@ -156,19 +156,19 @@ export function ProjectsDialog() {
         setLabel("");
         setUrl("");
         setMode(null);
-        // A bluprint being made opens to watch it build (D69); one without a bluprint opens for its tabs.
-        if (made.id) openBluprint(made.id);
+        // A blueprint being made opens to watch it build (D69); one without a blueprint opens for its tabs.
+        if (made.id) openBlueprint(made.id);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  // `full` makes the whole bluprint again; without it a finished bluprint at the same
+  // `full` makes the whole blueprint again; without it a finished blueprint at the same
   // depth is only brought up to its code (lib/server/vault.ts, generate).
   const regenerate = async (id: string, explain?: Explain, full?: boolean) => {
     try {
-      if (await act({ action: "regenerate", id, claude: await claudePath(), explain, ...(full ? { full: true } : {}) })) openBluprint(id);
+      if (await act({ action: "regenerate", id, claude: await claudePath(), explain, ...(full ? { full: true } : {}) })) openBlueprint(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -184,8 +184,8 @@ export function ProjectsDialog() {
 
   // `at` is the level to open at, as chrome.tsx's goTo spells it: a finished
   // root is explorable from the list while the rest are still being made.
-  const openBluprint = (id: string, at?: string) => {
-    router.push(`/?bluprint=${encodeURIComponent(id)}${at ? `&at=${encodeURIComponent(at)}` : ""}`);
+  const openBlueprint = (id: string, at?: string) => {
+    router.push(`/?blueprint=${encodeURIComponent(id)}${at ? `&at=${encodeURIComponent(at)}` : ""}`);
     close();
   };
 
@@ -236,7 +236,7 @@ export function ProjectsDialog() {
                       home={home}
                       current={p.id === current}
                       busy={busy}
-                      onOpen={(at) => openBluprint(p.id, at)}
+                      onOpen={(at) => openBlueprint(p.id, at)}
                       onRegenerate={(explain, full) => void regenerate(p.id, explain, full)}
                       onCancel={() => void act({ action: "cancel", id: p.id })}
                       onPause={(paused) => void act({ action: "pause", id: p.id, paused })}
@@ -269,7 +269,7 @@ const homeOf = (vault: string) => vault.match(/^(\/Users\/[^/]+|\/home\/[^/]+|[A
 const tilde = (path: string, home?: string) => (home && path.startsWith(home) ? `~${path.slice(home.length)}` : path);
 
 /**
- * How much the bluprint explains (D70), from how well the reader says they
+ * How much the blueprint explains (D70), from how well the reader says they
  * understand the repo: each stop of the slider is one level, the less they
  * know the more it says.
  */
@@ -386,8 +386,8 @@ const joinPath = (parent: string, name: string) => `${parent.trim().replace(/[\\
 /**
  * Confirming a project, on one screen: for a new one the repository to clone,
  * if any, and where it goes; for an existing one the folder (already picked
- * when the picker was there to pick it); its name; and for code to bluprint how
- * much the bluprint explains and what making it costs. Folders and repositories
+ * when the picker was there to pick it); its name; and for code to blueprint how
+ * much the blueprint explains and what making it costs. Folders and repositories
  * are checked by the server, so a bad one comes back here to fix.
  */
 function StartProject({
@@ -420,8 +420,8 @@ function StartProject({
   const fresh = mode === "new";
   const clone = fresh && Boolean(url.trim());
   const known = Boolean(cloneUrl(url));
-  // A new empty folder has nothing to make a bluprint of yet: it gets one from Projects once it has code.
-  const canBluprint = !fresh || clone;
+  // A new empty folder has nothing to make a blueprint of yet: it gets one from Projects once it has code.
+  const canBlueprint = !fresh || clone;
   const [making, setMaking] = useState(true);
   const [understand, setUnderstand] = useState(2);
   const explain = UNDERSTAND[understand].explain;
@@ -432,7 +432,7 @@ function StartProject({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) onStart(canBluprint && making ? explain : undefined, canBluprint && !making);
+        if (ready) onStart(canBlueprint && making ? explain : undefined, canBlueprint && !making);
       }}
       className="flex min-h-0 flex-col"
     >
@@ -506,7 +506,7 @@ function StartProject({
           ) : null}
         </label>
 
-        {canBluprint ? (
+        {canBlueprint ? (
           <div className="flex items-start gap-4 border-t border-border-gray pt-5">
             <div className="min-w-0 flex-1">
               <span className="block text-[13px] font-semibold text-ink">Make a blueprint</span>
@@ -520,7 +520,7 @@ function StartProject({
           </div>
         ) : null}
 
-        {canBluprint && making ? <Understanding value={understand} onChange={setUnderstand} /> : null}
+        {canBlueprint && making ? <Understanding value={understand} onChange={setUnderstand} /> : null}
       </div>
 
       <footer className="flex items-center justify-end gap-2 border-t border-border-gray bg-surface px-5 py-3">
@@ -575,9 +575,9 @@ function stageLine(g?: Progress) {
 const GLYPH = { done: "✓", drafting: "◷", failed: "✗", queued: "○" } as const;
 
 /**
- * The parts of a bluprint being made, in the order the cut put them. A finished one
+ * The parts of a blueprint being made, in the order the cut put them. A finished one
  * opens straight away: it passed the same check inside the author's submit that
- * a root of a finished bluprint passes, so there is nothing provisional about it.
+ * a root of a finished blueprint passes, so there is nothing provisional about it.
  */
 function Roots({ roots, onOpen }: { roots: Progress["roots"]; onOpen: (at: string) => void }) {
   return (
@@ -603,10 +603,10 @@ function Roots({ roots, onOpen }: { roots: Progress["roots"]; onOpen: (at: strin
 
 /** The row's one-word state, and its tone; the detail is in the title. */
 function statusOf(p: Listed): { text: string; title?: string; tone: string } {
-  const { status, commit, seconds } = p.bluprint;
-  if (status === "generating") return { text: `Mapping · ${minutes(p.bluprint.startedAt)} min`, tone: "text-amber-ink" };
+  const { status, commit, seconds } = p.blueprint;
+  if (status === "generating") return { text: `Mapping · ${minutes(p.blueprint.startedAt)} min`, tone: "text-amber-ink" };
   if (status === "failed" && !p.paused) return { text: "Mapping failed", tone: "text-clay-ink" };
-  if (p.paused) return p.hasBluprint ? { text: "Updates off", title: `The blueprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No blueprint", tone: "text-faint" };
+  if (p.paused) return p.hasBlueprint ? { text: "Updates off", title: `The blueprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No blueprint", tone: "text-faint" };
   if (status === "ready")
     return p.stale
       ? { text: "Out of date", title: `Blueprint made at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
@@ -636,14 +636,14 @@ function ProjectRow({
   onPause: (paused: boolean) => void;
   onRemove: () => void;
 }) {
-  // What opens under the row: making the bluprint (again), or confirming removal,
-  // which deletes the bluprint but never the code.
+  // What opens under the row: making the blueprint (again), or confirming removal,
+  // which deletes the blueprint but never the code.
   const [panel, setPanel] = useState<"make" | "remove" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [understand, setUnderstand] = useState(() => Math.max(0, UNDERSTAND.findIndex((u) => u.explain === (p.explain ?? "brief"))));
-  const { status } = p.bluprint;
+  const { status } = p.blueprint;
   const generating = status === "generating";
-  const openable = p.hasBluprint || p.paused || status === "empty";
+  const openable = p.hasBlueprint || p.paused || status === "empty";
   const s = statusOf(p);
 
   const items: MenuItem[] = [];
@@ -652,8 +652,8 @@ function ProjectRow({
   else {
     if (status === "ready") items.push({ label: "Update blueprint to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
     if (status === "failed" || status === "cancelled") items.push({ label: "Retry blueprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    items.push({ label: p.hasBluprint ? "Remake blueprint…" : "Make a blueprint…", onClick: () => setPanel("make") });
-    if (p.hasBluprint) items.push({ label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint", onClick: () => onPause(!p.paused), disabled: busy });
+    items.push({ label: p.hasBlueprint ? "Remake blueprint…" : "Make a blueprint…", onClick: () => setPanel("make") });
+    if (p.hasBlueprint) items.push({ label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint", onClick: () => onPause(!p.paused), disabled: busy });
   }
   items.push({ label: "Remove from Projects…", onClick: () => setPanel("remove"), separated: true });
 
@@ -708,9 +708,9 @@ function ProjectRow({
         </div>
       ) : null}
 
-      {status === "failed" && !p.paused && p.bluprint.error ? (
+      {status === "failed" && !p.paused && p.blueprint.error ? (
         <pre className="mx-3 mb-2 max-h-28 overflow-auto whitespace-pre-wrap bg-clay-surface/60 px-2.5 py-2 font-mono text-[11px] text-clay-ink">
-          {p.bluprint.error}
+          {p.blueprint.error}
         </pre>
       ) : null}
 
@@ -727,11 +727,11 @@ function ProjectRow({
               disabled={busy}
               onClick={() => {
                 setPanel(null);
-                onRegenerate(UNDERSTAND[understand].explain, p.hasBluprint);
+                onRegenerate(UNDERSTAND[understand].explain, p.hasBlueprint);
               }}
               className={PRIMARY}
             >
-              {p.hasBluprint ? "Remake blueprint" : "Make blueprint"}
+              {p.hasBlueprint ? "Remake blueprint" : "Make blueprint"}
             </button>
           </div>
         </div>

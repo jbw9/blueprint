@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { cn } from "@/lib/client/utils";
-import type { Origin, State, Term } from "@/lib/bluprint/schema";
+import type { Origin, State, Term } from "@/lib/blueprint/schema";
 
 /**
  * The three states, rendered as a material property rather than a badge.
@@ -75,13 +75,13 @@ export function Ident({ children }: { children: React.ReactNode }) {
  * columns and functions in backticks; printed raw they read as stray marks.
  */
 /**
- * The bluprint's glossary while the Explain layer is on, empty while it is off:
+ * The blueprint's glossary while the Explain layer is on, empty while it is off:
  * prose marks the words a newcomer would trip on, and a reader who switched
  * the layer off sees plain text.
  */
 export const Glossary = createContext<Term[]>([]);
 
-/** What opens the section explaining a backticked name, when one does: a symbol the bluprint's index lists, cited by a level. */
+/** What opens the section explaining a backticked name, when one does: a symbol the blueprint's index lists, cited by a level. */
 export const SymbolLinks = createContext<(name: string) => (() => void) | undefined>(() => undefined);
 
 export function Prose({ text }: { text: string }) {
@@ -148,7 +148,7 @@ function TermMark({ term, children }: { term: Term; children: string }) {
 }
 
 /**
- * Where a thing on the bluprint came from, when it did not come from the code.
+ * Where a thing on the blueprint came from, when it did not come from the code.
  *
  * A line, not a chip. The three states already own the chip shape beside a
  * title, and provenance is a different axis (see `Origin`) — given the same
@@ -160,7 +160,7 @@ export function OriginMark({ origin, stale, className }: { origin: Origin; stale
   return (
     <span
       // The reader's own question, where they asked one: hovering says why
-      // this is on the bluprint at all.
+      // this is on the blueprint at all.
       title={origin.note}
       className={cn("font-mono text-[10px] leading-none text-faint", className)}
     >

@@ -373,7 +373,7 @@ export function Preview({
     onScreen.set(id, me);
     // Just brought to the front, with nothing else of the app's in use.
     if (touched === null) touch(id);
-    const off = isTauri() ? listen<string>("bluprint:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
+    const off = isTauri() ? listen<string>("blueprint:preview-key", (e) => focused() === id && keyed.current(e.payload)) : undefined;
     return () => {
       if (onScreen.get(id) === me) onScreen.delete(id);
       void off?.then((f) => f());
@@ -500,7 +500,7 @@ export function Preview({
       ref={whole}
       className={cn("absolute inset-0 flex flex-col", !visible && "pointer-events-none", !visible && !staged && "invisible")}
       // In the main view, clear of the window floating over its right, as the
-      // bluprint is (components/agent/workspace.tsx): a page from the web would hide
+      // blueprint is (components/agent/workspace.tsx): a page from the web would hide
       // wherever the window covers it, and a screenshot would take the window in.
       // Staged, past the right edge: WebKit's snapshot paints the area asked
       // for, on screen or not, and nobody sees it there.

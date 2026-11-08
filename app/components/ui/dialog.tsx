@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 /**
- * The pieces the app's dialogs share: a dimmed layer over the bluprint that closes
+ * The pieces the app's dialogs share: a dimmed layer over the blueprint that closes
  * on Escape or a click outside (Escape stops here rather than also leaving the
  * level), and the form parts inside one.
  */
@@ -14,7 +14,7 @@ export function Overlay({
   children,
 }: {
   onClose: () => void;
-  /** A darker layer, for a popup that should read as lifted off the bluprint. */
+  /** A darker layer, for a popup that should read as lifted off the blueprint. */
   dim?: boolean;
   style?: React.CSSProperties;
   children: React.ReactNode;

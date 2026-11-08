@@ -81,7 +81,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.sql"), "select 1").unwrap();
         let cwd = dir.path().to_string_lossy().into_owned();
-        assert!(file_resolve("a.sql".into(), cwd.clone(), None).unwrap().ends_with("/a.sql"));
+        assert!(Path::new(&file_resolve("a.sql".into(), cwd.clone(), None).unwrap()).ends_with("a.sql"));
         assert_eq!(file_resolve("missing.sql".into(), cwd.clone(), None), None);
         assert_eq!(image_number("[Image #4]"), Some(4));
         assert_eq!(image_number("[Image #x]"), None);

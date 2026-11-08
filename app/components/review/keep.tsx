@@ -3,18 +3,18 @@
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentIcon, CLAUDE } from "@/components/agent/agents";
-import { ExplainedBlock, isExplained } from "@/components/bluprint/blocks";
+import { ExplainedBlock, isExplained } from "@/components/blueprint/blocks";
 import { DIALOG, Field, INPUT, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { Prose } from "@/components/ui/state";
 import { ask, section } from "@/lib/agent/context";
 import { draftPrompt, parseBlock, revisePrompt, type Exchange } from "@/lib/agent/keep";
 import { cn } from "@/lib/client/utils";
-import type { Anatomy, Origin } from "@/lib/bluprint/schema";
+import type { Anatomy, Origin } from "@/lib/blueprint/schema";
 import { useDesktop } from "@/lib/client/platform";
 
 /**
- * Keeping an answer: it adds something the bluprint never knew, marked as the
+ * Keeping an answer: it adds something the blueprint never knew, marked as the
  * reader's (lib/server/overlay.ts).
  *
  * Desktop only. It needs a Claude tab, and the tabs are the desktop app's.
@@ -24,7 +24,7 @@ import { useDesktop } from "@/lib/client/platform";
 /* ── the turn just finished ───────────────────────────────────── */
 
 /** The last answer Claude gave in any tab, offered once (src-tauri/src/pty.rs). */
-const ANSWERED = "bluprint:answered";
+const ANSWERED = "blueprint:answered";
 
 export const announceAnswer = (e: Exchange) =>
   window.dispatchEvent(new CustomEvent<Exchange>(ANSWERED, { detail: e }));
@@ -39,7 +39,7 @@ export function onAnswer(f: (e: Exchange) => void) {
  * The reply Claude gave to a drafting prompt, from the same place. True when a
  * waiting dialog took it — it cancels the event — so it is not also an answer.
  */
-const DRAFTED = "bluprint:drafted";
+const DRAFTED = "blueprint:drafted";
 export const announceDraft = (said: string) =>
   !window.dispatchEvent(new CustomEvent<string>(DRAFTED, { detail: said, cancelable: true }));
 const onDraft = (f: (said: string) => boolean) => {
@@ -72,8 +72,8 @@ function KeepAnswer({
   path: string[];
   onClose: () => void;
 }) {
-  const bluprint = useBluprint();
-  const where = path.length ? (bluprint.nodeAt(path)?.title ?? bluprint.RUN.repo) : bluprint.RUN.repo;
+  const blueprint = useBlueprint();
+  const where = path.length ? (blueprint.nodeAt(path)?.title ?? blueprint.RUN.repo) : blueprint.RUN.repo;
   const [stage, setStage] = useState<Stage>({ at: "asking" });
   const [changes, setChanges] = useState("");
   const [saving, setSaving] = useState(false);
@@ -96,8 +96,8 @@ function KeepAnswer({
   const send = useCallback((text: string) => {
     waiting.current = true;
     setStage({ at: "drafting" });
-    ask(section(bluprint, path), text);
-  }, [bluprint, path]);
+    ask(section(blueprint, path), text);
+  }, [blueprint, path]);
 
   async function keep() {
     if (stage.at !== "preview") return;
@@ -108,7 +108,7 @@ function KeepAnswer({
     const res = await fetch("/api/overlay", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "add", bluprint: bluprint.name, kind: "block", path, block, origin }),
+      body: JSON.stringify({ action: "add", blueprint: blueprint.name, kind: "block", path, block, origin }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) {
@@ -116,7 +116,7 @@ function KeepAnswer({
       return;
     }
     onClose();
-    // The bluprint is read on the server, so the level redraws from the overlay.
+    // The blueprint is read on the server, so the level redraws from the overlay.
     window.location.reload();
   }
 

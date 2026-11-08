@@ -1,10 +1,10 @@
 /**
- * Server-side: what the reader added to a bluprint, and every version of it.
+ * Server-side: what the reader added to a blueprint, and every version of it.
  *
- * A generated bluprint is the generator's to rewrite — a regenerate replaces it
+ * A generated blueprint is the generator's to rewrite — a regenerate replaces it
  * wholesale, and every update redoes the sections the code touched
  * (scripts/generate/update.ts). So the reader's own additions cannot live in
- * `bluprint.json`: the two writers would share one file and the generator would
+ * `blueprint.json`: the two writers would share one file and the generator would
  * win, silently, exactly when the reader had most invested in it.
  *
  * They live beside it instead, and are composed in at read time:
@@ -12,8 +12,8 @@
  *   <vault>/projects/<id>/overlay.json   additions and edits, current
  *   <vault>/projects/<id>/history.json   every version before this one
  *
- * `apply` is the whole integration: `lib/server/bluprints.ts` calls it inside `loadBluprint`,
- * which every reader of a bluprint already goes through, so the canvas, the title
+ * `apply` is the whole integration: `lib/server/blueprints.ts` calls it inside `loadBlueprint`,
+ * which every reader of a blueprint already goes through, so the canvas, the title
  * bar and the text handed to Claude all see composed content without knowing
  * this file exists.
  *
@@ -24,8 +24,8 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Anatomy, Node, Origin } from "@/lib/bluprint/schema";
-import type { BluprintFile } from "@/lib/bluprint/build";
+import type { Anatomy, Node, Origin } from "@/lib/blueprint/schema";
+import type { BlueprintFile } from "@/lib/blueprint/build";
 import { projectDir } from "@/lib/server/vault";
 
 /** A block the reader added to a section. */
@@ -110,7 +110,7 @@ export function readOverlay(id: string): Overlay {
     const o = JSON.parse(readFileSync(overlayFile(id), "utf8")) as Overlay;
     if (o.version === 1 && Array.isArray(o.entries)) return o;
   } catch {
-    /* none yet, or unreadable: an empty overlay still shows the bluprint */
+    /* none yet, or unreadable: an empty overlay still shows the blueprint */
   }
   return EMPTY;
 }
@@ -213,11 +213,11 @@ function place(roots: Node[], e: Entry): boolean {
 }
 
 /**
- * The bluprint as the reader has it: the generator's tree with their additions in
+ * The blueprint as the reader has it: the generator's tree with their additions in
  * place. Pure — the file passed in is never mutated, so a caller holding the
  * generator's own copy keeps it.
  */
-export function apply(file: BluprintFile, o: Overlay): { file: BluprintFile; orphans: Orphan[] } {
+export function apply(file: BlueprintFile, o: Overlay): { file: BlueprintFile; orphans: Orphan[] } {
   if (!o.entries.length) return { file, orphans: [] };
   // A structured clone is enough and keeps this honest: every node the entries
   // touch is a fresh object, so nothing writes through to the caller's tree.

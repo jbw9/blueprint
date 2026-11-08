@@ -1,25 +1,25 @@
 /**
  * Server-side: the project vault — the reader's own projects, imported from
  * their machine. It lives in the app's data directory, never in this repo, so
- * an imported project and its bluprint stay local: no bluprint is ever committed.
+ * an imported project and its blueprint stay local: no blueprint is ever committed.
  *
  *   <vault>/projects.json             the list below
- *   <vault>/projects/<id>/bluprint.json    the bluprint, as the generator writes it
+ *   <vault>/projects/<id>/blueprint.json    the blueprint, as the generator writes it
  *   <vault>/projects/<id>/report.json what generating it took
  *   <vault>/projects/<id>/generate.log the generator's output, for progress and errors
  *   <vault>/projects/<id>/progress.json how far a run in flight has got, root by root
  *   <vault>/projects/<id>/.cache/     model replies, so a regenerate is cheap
  *   <vault>/projects/<id>/base.json   the code as the last update saw it (scripts/generate/update.ts)
- *   <vault>/projects/<id>/bluprint.base.json the bluprint as it was before its first update, for the diff's pictures
+ *   <vault>/projects/<id>/blueprint.base.json the blueprint as it was before its first update, for the diff's pictures
  *   <vault>/projects/<id>/update.json what the last update did
  *   <vault>/projects/<id>/update.log  its output
  *   <vault>/projects/<id>/turns.json  agents' turns waiting for the next update to take them
- *   <vault>/projects/<id>/timeline.json the history drawn over the bluprint's roots, cached by HEAD (lib/server/history.ts)
+ *   <vault>/projects/<id>/timeline.json the history drawn over the blueprint's roots, cached by HEAD (lib/server/history.ts)
  *   <vault>/projects/<id>/story.json  that history told in chapters, and story.log, story.pid while it is told
  *
  * The directory is the one Tauri names for this app (`app_data_dir`: the OS
  * data directory plus the bundle identifier), so the desktop app and this
- * server agree on it without being told. BLUPRINT_VAULT overrides it.
+ * server agree on it without being told. BLUEPRINT_VAULT overrides it.
  */
 
 import { execFileSync, spawn } from "node:child_process";
@@ -28,11 +28,11 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { cloneUrl, repoName } from "@/lib/client/clone";
-import type { Run } from "@/lib/bluprint/schema";
+import type { Run } from "@/lib/blueprint/schema";
 import { sendRun } from "@/lib/server/telemetry";
 import { creditEnv } from "@/lib/server/credit";
 
-const IDENTIFIER = "dev.bluprint.app";
+const IDENTIFIER = "dev.blueprint.app";
 
 function dataDir(): string {
   const home = homedir();
@@ -41,40 +41,40 @@ function dataDir(): string {
   return process.env.XDG_DATA_HOME || join(home, ".local", "share");
 }
 
-export const VAULT = process.env.BLUPRINT_VAULT ?? join(dataDir(), IDENTIFIER);
+export const VAULT = process.env.BLUEPRINT_VAULT ?? join(dataDir(), IDENTIFIER);
 const INDEX = join(VAULT, "projects.json");
 export const projectDir = (id: string) => join(VAULT, "projects", id);
 
-/** `empty`: a project started from scratch, with no code to bluprint yet. */
-export type BluprintStatus = "generating" | "ready" | "failed" | "cancelled" | "empty";
+/** `empty`: a project started from scratch, with no code to blueprint yet. */
+export type BlueprintStatus = "generating" | "ready" | "failed" | "cancelled" | "empty";
 
 export interface Project {
-  /** The `?bluprint=` key: unique across projects, safe as a directory name. */
+  /** The `?blueprint=` key: unique across projects, safe as a directory name. */
   id: string;
   /** What the reader called it. */
   name: string;
-  /** Absolute path of the checkout. Terminals open here; the bluprint's code is read from here. */
+  /** Absolute path of the checkout. Terminals open here; the blueprint's code is read from here. */
   root: string;
   addedAt: string;
-  /** Last time its bluprint was opened, for ordering the list. */
+  /** Last time its blueprint was opened, for ordering the list. */
   openedAt?: string;
   /** The checkout's git state when it was imported. */
   git?: { remote?: string; branch?: string };
-  /** How much its bluprint explains, from what the reader said they know when they imported it (D70). Absent means full. */
+  /** How much its blueprint explains, from what the reader said they know when they imported it (D70). Absent means full. */
   explain?: Explain;
   /**
-   * The reader uses the app on this project without a bluprint: none is made, and
+   * The reader uses the app on this project without a blueprint: none is made, and
    * one already made is kept but no longer kept up with the code. Making it
    * again by hand turns this off.
    */
   paused?: boolean;
-  bluprint: {
-    status: BluprintStatus;
+  blueprint: {
+    status: BlueprintStatus;
     startedAt: string;
     finishedAt?: string;
     /** The generator, while it runs. */
     pid?: number;
-    /** The commit the bluprint describes; differs from the checkout's HEAD once the code moves on. */
+    /** The commit the blueprint describes; differs from the checkout's HEAD once the code moves on. */
     commit?: string;
     /** Through Claude Code this is the API list price of the same tokens, not a bill. */
     usd?: number;
@@ -83,7 +83,7 @@ export interface Project {
     error?: string;
   };
   /**
-   * Keeping the bluprint up with the code: after an agent's turn edits it, only
+   * Keeping the blueprint up with the code: after an agent's turn edits it, only
    * the sections the edits touched are redone (scripts/generate/update.ts).
    */
   update?: {
@@ -108,33 +108,60 @@ interface Index {
 }
 
 function readVault(): Index {
+  let v: Index;
   try {
-    const v = JSON.parse(readFileSync(INDEX, "utf8")) as Index;
-    if (v.version === 1 && Array.isArray(v.projects)) return migrate(v);
+    v = JSON.parse(readFileSync(INDEX, "utf8")) as Index;
   } catch {
     /* none yet, or unreadable: start empty rather than refuse to load */
+    return { version: 1, projects: [] };
   }
-  return { version: 1, projects: [] };
+  return v.version === 1 && Array.isArray(v.projects) ? migrate(v) : { version: 1, projects: [] };
 }
 
-/** Vaults written while a bluprint was called a map: its field and files take the new name, once. */
+/**
+ * Vaults written while a blueprint was called a map, or a bluprint: its field and
+ * files take the new name, once. A project whose files cannot move yet (one held
+ * open) keeps its old field and is tried again on the next read.
+ */
 function migrate(v: Index): Index {
-  const old = v.projects.filter((p) => "map" in p);
+  type Legacy = Project & { map?: Project["blueprint"]; bluprint?: Project["blueprint"] };
+  const old = (v.projects as Legacy[]).filter((p) => "map" in p || "bluprint" in p);
   if (!old.length) return v;
   const rename = (dir: string) => {
-    for (const [a, b] of [["map.json", "bluprint.json"], ["map.base.json", "bluprint.base.json"]])
-      if (existsSync(join(dir, a)) && !existsSync(join(dir, b))) renameSync(join(dir, a), join(dir, b));
+    for (const was of ["map", "bluprint"])
+      for (const [a, b] of [[`${was}.json`, "blueprint.json"], [`${was}.base.json`, "blueprint.base.json"]])
+        if (existsSync(join(dir, a)) && !existsSync(join(dir, b))) renameSync(join(dir, a), join(dir, b));
   };
+  const resnap = (file: string) => {
+    let snap: Record<string, unknown>;
+    try {
+      snap = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      return;
+    }
+    if (!("bluprint" in snap) || "blueprint" in snap) return;
+    const { bluprint, ...rest } = snap;
+    writeFileSync(`${file}.tmp`, JSON.stringify({ ...rest, blueprint: bluprint }));
+    renameSync(`${file}.tmp`, file);
+  };
+  let moved = false;
   for (const p of old) {
-    const legacy = p as Project & { map?: Project["bluprint"] };
-    legacy.bluprint ??= legacy.map!;
-    delete legacy.map;
+    p.blueprint ??= (p.bluprint ?? p.map)!;
     const dir = projectDir(p.id);
-    rename(dir);
-    const reviews = join(dir, "reviews");
-    if (existsSync(reviews)) for (const r of readdirSync(reviews)) rename(join(reviews, r));
+    try {
+      rename(dir);
+      const reviews = join(dir, "reviews");
+      if (existsSync(reviews)) for (const r of readdirSync(reviews)) rename(join(reviews, r));
+      const snaps = join(dir, "snapshots");
+      if (existsSync(snaps)) for (const f of readdirSync(snaps)) if (f.endsWith(".json")) resnap(join(snaps, f));
+    } catch {
+      continue;
+    }
+    delete p.map;
+    delete p.bluprint;
+    moved = true;
   }
-  writeVault(v);
+  if (moved) writeVault(v);
   return v;
 }
 
@@ -162,7 +189,7 @@ export function markOpened(id: string) {
   try {
     update(id, (p) => (p.openedAt = new Date().toISOString()));
   } catch {
-    /* a read-only vault still shows the bluprint */
+    /* a read-only vault still shows the blueprint */
   }
 }
 
@@ -174,7 +201,7 @@ const git = (root: string, ...args: string[]) => {
   }
 };
 
-/** Where the checkout's code is now, to tell a bluprint that has fallen behind. */
+/** Where the checkout's code is now, to tell a blueprint that has fallen behind. */
 export const headOf = (root: string) => git(root, "rev-parse", "--short", "HEAD");
 
 const TSX = ["--import", pathToFileURL(join(process.cwd(), "node_modules", "tsx", "dist", "loader.mjs")).href];
@@ -196,33 +223,33 @@ function logTail(id: string, lines = 12): string {
   }
 }
 
-/** What a finished run left behind: the bluprint's commit and the report's time and price. */
+/** What a finished run left behind: the blueprint's commit and the report's time and price. */
 function finished(p: Project, ok: boolean) {
   const dir = projectDir(p.id);
-  p.bluprint.pid = undefined;
-  p.bluprint.finishedAt = new Date().toISOString();
-  if (ok && existsSync(join(dir, "bluprint.json"))) {
-    p.bluprint.status = "ready";
-    p.bluprint.error = undefined;
+  p.blueprint.pid = undefined;
+  p.blueprint.finishedAt = new Date().toISOString();
+  if (ok && existsSync(join(dir, "blueprint.json"))) {
+    p.blueprint.status = "ready";
+    p.blueprint.error = undefined;
     try {
       const r = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
-      p.bluprint.commit = r.commit;
-      p.bluprint.usd = r.usd;
-      p.bluprint.seconds = r.elapsed?.total;
+      p.blueprint.commit = r.commit;
+      p.blueprint.usd = r.usd;
+      p.blueprint.seconds = r.elapsed?.total;
     } catch {
-      /* the bluprint stands without its report */
+      /* the blueprint stands without its report */
     }
-  } else if (p.bluprint.status !== "cancelled") {
-    p.bluprint.status = "failed";
-    p.bluprint.error = logTail(p.id) || "The generator stopped without saying why.";
+  } else if (p.blueprint.status !== "cancelled") {
+    p.blueprint.status = "failed";
+    p.blueprint.error = logTail(p.id) || "The generator stopped without saying why.";
   }
-  void sendRun(dir, "generate", p.bluprint.status === "ready" ? "ok" : p.bluprint.status);
+  void sendRun(dir, "generate", p.blueprint.status === "ready" ? "ok" : p.blueprint.status);
 }
 
 /**
  * The list, squared with reality. A generator outlives the server that
  * started it (it runs detached), so one that is gone without being heard from
- * is judged by what it left: a bluprint newer than the run means it finished.
+ * is judged by what it left: a blueprint newer than the run means it finished.
  */
 export function listProjects(): Project[] {
   const v = readVault();
@@ -232,9 +259,9 @@ export function listProjects(): Project[] {
       updated(p);
       changed = true;
     }
-    if (p.bluprint.status !== "generating" || (p.bluprint.pid && alive(p.bluprint.pid))) continue;
-    const bluprint = join(projectDir(p.id), "bluprint.json");
-    const ok = existsSync(bluprint) && statSync(bluprint).mtimeMs > Date.parse(p.bluprint.startedAt);
+    if (p.blueprint.status !== "generating" || (p.blueprint.pid && alive(p.blueprint.pid))) continue;
+    const blueprint = join(projectDir(p.id), "blueprint.json");
+    const ok = existsSync(blueprint) && statSync(blueprint).mtimeMs > Date.parse(p.blueprint.startedAt);
     finished(p, ok);
     changed = true;
   }
@@ -255,7 +282,7 @@ function freeId(name: string, taken: Set<string>) {
 
 export class ImportError extends Error {}
 
-/** Register a checkout and start making its bluprint. */
+/** Register a checkout and start making its blueprint. */
 export type Explain = NonNullable<Run["explain"]>;
 
 export function importProject(rootIn: string, nameIn: string | undefined, claude?: string, explain?: Explain, paused?: boolean): Project {
@@ -275,7 +302,7 @@ export function importProject(rootIn: string, nameIn: string | undefined, claude
     git: { remote: git(root, "remote", "get-url", "origin"), branch: git(root, "rev-parse", "--abbrev-ref", "HEAD") },
     explain,
     ...(paused ? { paused } : {}),
-    bluprint: { status: paused ? "empty" : "generating", startedAt: now },
+    blueprint: { status: paused ? "empty" : "generating", startedAt: now },
   };
   v.projects.push(project);
   writeVault(v);
@@ -284,8 +311,8 @@ export function importProject(rootIn: string, nameIn: string | undefined, claude
 
 /**
  * Start a project from scratch: make `<parent>/<name>` as an empty git
- * checkout and register it. There is no code to bluprint yet, so nothing runs;
- * the reader bluprints it from the list once there is.
+ * checkout and register it. There is no code to blueprint yet, so nothing runs;
+ * the reader blueprints it from the list once there is.
  */
 export function createProject(parentIn: string, nameIn: string, paused?: boolean): Project {
   const name = nameIn.trim();
@@ -305,10 +332,10 @@ export function createProject(parentIn: string, nameIn: string, paused?: boolean
     name,
     root,
     addedAt: now,
-    // Its reader is the one writing it: a bluprint of their own code needs no explaining.
+    // Its reader is the one writing it: a blueprint of their own code needs no explaining.
     explain: "none",
     ...(paused ? { paused } : {}),
-    bluprint: { status: "empty", startedAt: now },
+    blueprint: { status: "empty", startedAt: now },
   };
   v.projects.push(project);
   writeVault(v);
@@ -357,33 +384,33 @@ export async function cloneProject(input: string, parentIn: string, nameIn: stri
  * this server and Cancel can end it and every `claude` it started at once.
  */
 export function generate(id: string, claude?: string, explain?: Explain, full?: boolean): Project | undefined {
-  // Asking for the bluprint by hand is asking for it to be kept up again.
+  // Asking for the blueprint by hand is asking for it to be kept up again.
   if (getProject(id)?.paused) update(id, (q) => (q.paused = undefined));
   const was = getProject(id);
-  // A finished bluprint asked again at the same depth only needs bringing up to
+  // A finished blueprint asked again at the same depth only needs bringing up to
   // its code: an update redoes what changed and places what is new
   // (scripts/generate/update.ts). A new depth rewrites every level, and
   // `full` asks for the whole run whatever it costs.
-  if (was && !full && was.bluprint.status === "ready" && (explain ?? was.explain ?? "full") === (was.explain ?? "full") && existsSync(join(projectDir(id), ".cache", "cut.json")))
-    return updateBluprint(was.root, claude, undefined, true);
+  if (was && !full && was.blueprint.status === "ready" && (explain ?? was.explain ?? "full") === (was.explain ?? "full") && existsSync(join(projectDir(id), ".cache", "cut.json")))
+    return updateBlueprint(was.root, claude, undefined, true);
   if (explain) update(id, (q) => (q.explain = explain));
   const p = getProject(id);
   if (!p) return undefined;
-  if (p.bluprint.status === "generating" && p.bluprint.pid && alive(p.bluprint.pid)) return p;
-  // An update still running would write its bluprint over this one when it ends,
-  // and it reads the files cleared below: the new bluprint replaces it, so it stops.
+  if (p.blueprint.status === "generating" && p.blueprint.pid && alive(p.blueprint.pid)) return p;
+  // An update still running would write its blueprint over this one when it ends,
+  // and it reads the files cleared below: the new blueprint replaces it, so it stops.
   if (p.update?.status === "running" && p.update.pid && alive(p.update.pid)) stop(p.update.pid);
   // So do review runs, whose folders are cleared below.
   reviewPids(id).forEach(stop);
   const dir = projectDir(id);
   mkdirSync(dir, { recursive: true });
-  // A fresh bluprint starts from the code as it is; what earlier updates saw goes.
+  // A fresh blueprint starts from the code as it is; what earlier updates saw goes.
   rmSync(join(dir, "base.json"), { force: true });
-  rmSync(join(dir, "bluprint.base.json"), { force: true });
+  rmSync(join(dir, "blueprint.base.json"), { force: true });
   rmSync(join(dir, "update.json"), { force: true });
-  // A remake asks the model again: replayed replies and the old cut would give back the same bluprint.
+  // A remake asks the model again: replayed replies and the old cut would give back the same blueprint.
   if (full) rmSync(join(dir, ".cache"), { recursive: true, force: true });
-  // Turns and reviews are diffs against the old bluprint, which would read as nonsense against the new one.
+  // Turns and reviews are diffs against the old blueprint, which would read as nonsense against the new one.
   for (const f of ["changes.json", "snapshots", "reviews"]) rmSync(join(dir, f), { recursive: true, force: true });
   // The last run's progress would otherwise read as this one's until the
   // first stage overwrites it.
@@ -392,7 +419,7 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
   const log = openSync(join(dir, "generate.log"), "w");
   const child = spawn(
     process.execPath,
-    // A quick bluprint in a few minutes, then each section written in full in its place (pipeline.ts, --fast).
+    // A quick blueprint in a few minutes, then each section written in full in its place (pipeline.ts, --fast).
     [...TSX, "scripts/generate/run.mts", p.root, "--name", id, "--out", dir, "--fast"],
     {
       cwd: process.cwd(),
@@ -406,50 +433,50 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
   child.unref();
   const startedAt = new Date().toISOString();
   update(id, (q) => {
-    q.bluprint = { ...q.bluprint, status: "generating", startedAt, pid: child.pid, finishedAt: undefined, error: undefined };
+    q.blueprint = { ...q.blueprint, status: "generating", startedAt, pid: child.pid, finishedAt: undefined, error: undefined };
     q.update = undefined;
   });
   child.on("exit", (code) => update(id, (q) => finished(q, code === 0)));
   child.on("error", (e) =>
     update(id, (q) => {
-      q.bluprint.status = "failed";
-      q.bluprint.pid = undefined;
-      q.bluprint.error = String(e);
+      q.blueprint.status = "failed";
+      q.blueprint.pid = undefined;
+      q.blueprint.error = String(e);
     }),
   );
   return getProject(id);
 }
 
 /**
- * The section the reader has open in a bluprint whose sections are still being
+ * The section the reader has open in a blueprint whose sections are still being
  * written in full: the generator writes it next (pipeline.ts reads focus.json
  * before each section it starts). Only while that run is going.
  */
 export function focus(id: string, section: string): boolean {
   const p = getProject(id);
-  if (!p || p.bluprint.status !== "generating" || !/^[a-z0-9][a-z0-9-]*$/.test(section)) return false;
+  if (!p || p.blueprint.status !== "generating" || !/^[a-z0-9][a-z0-9-]*$/.test(section)) return false;
   writeFileSync(join(projectDir(id), "focus.json"), JSON.stringify({ id: section, at: new Date().toISOString() }) + "\n");
   return true;
 }
 
 export function cancel(id: string) {
   const p = getProject(id);
-  if (!p?.bluprint.pid) return;
-  update(id, (q) => (q.bluprint.status = "cancelled"));
-  stop(p.bluprint.pid);
+  if (!p?.blueprint.pid) return;
+  update(id, (q) => (q.blueprint.status = "cancelled"));
+  stop(p.blueprint.pid);
 }
 
 /**
- * End every run on a project: the bluprint, an update, the story and any reviews.
+ * End every run on a project: the blueprint, an update, the story and any reviews.
  * Returns their pids, to wait on before removing what they write into.
  */
 function stopAll(id: string): number[] {
   const p = getProject(id);
   if (!p) return [];
   const pids: number[] = [];
-  if (p.bluprint.pid) {
+  if (p.blueprint.pid) {
     cancel(id);
-    pids.push(p.bluprint.pid);
+    pids.push(p.blueprint.pid);
   }
   // Forgotten before it is stopped, so its exit does not record it as failed.
   if (p.update?.status === "running" && p.update.pid) {
@@ -477,7 +504,7 @@ const pidIn = (file: string) => {
   }
 };
 
-/** Review runs still going (bluprintReview). */
+/** Review runs still going (blueprintReview). */
 function reviewPids(id: string): number[] {
   const dir = join(projectDir(id), "reviews");
   if (!existsSync(dir)) return [];
@@ -487,8 +514,8 @@ function reviewPids(id: string): number[] {
 }
 
 /**
- * Turn a project's bluprint on or off. Off ends any run, update, story or review
- * in flight, so nothing more is spent on it, and keeps whatever bluprint is
+ * Turn a project's blueprint on or off. Off ends any run, update, story or review
+ * in flight, so nothing more is spent on it, and keeps whatever blueprint is
  * already there.
  */
 export function setPaused(id: string, paused: boolean) {
@@ -508,7 +535,7 @@ function stop(pid: number) {
 }
 
 /**
- * Forget a project and its bluprint. The checkout itself is never touched, except
+ * Forget a project and its blueprint. The checkout itself is never touched, except
  * to unregister the review worktrees made in it. Its runs are stopped and
  * waited on first: one still ending would recreate the folder it writes into.
  */
@@ -565,34 +592,34 @@ function updated(p: Project) {
   void sendRun(projectDir(p.id), "update", u.status === "done" ? "ok" : "failed");
 }
 
-/** An agent's turn the bluprint follows: what it did and why (its transcript), and where it found the bluprint wrong. */
+/** An agent's turn the blueprint follows: what it did and why (its transcript), and where it found the blueprint wrong. */
 export interface Turn {
   transcript?: string;
   corrections: { section: string; note: string }[];
 }
 
 /**
- * A bluprint that follows its code: one exists, with the cut an update starts
+ * A blueprint that follows its code: one exists, with the cut an update starts
  * from (scripts/generate/update.ts), no run is writing it, and its updates are
  * not turned off. A first run stopped after writing it still counts; a project
  * the reader chose not to map has none, and is left alone.
  */
 export const follows = (p: Project) =>
-  !p.paused && p.bluprint.status !== "generating" && !!bluprintFileOf(p.id) && existsSync(join(projectDir(p.id), ".cache", "cut.json"));
+  !p.paused && p.blueprint.status !== "generating" && !!blueprintFileOf(p.id) && existsSync(join(projectDir(p.id), ".cache", "cut.json"));
 
 /**
- * Bring a project's bluprint up to the code in its checkout, redoing only what
+ * Bring a project's blueprint up to the code in its checkout, redoing only what
  * changed or what an agent found wrong (scripts/generate/update.ts). Runs once
  * per commit: asked for when the checkout's HEAD moves, an agent's turn ends,
- * or the bluprint opens, it starts only if HEAD is not the commit the last
- * update ran at (or, before any, the bluprint's own). `force` (the reader
+ * or the blueprint opens, it starts only if HEAD is not the commit the last
+ * update ran at (or, before any, the blueprint's own). `force` (the reader
  * asking by hand) runs whatever HEAD is. A turn waits in turns.json for the
- * update that takes it. A bluprint still being made, or not made, is left
+ * update that takes it. A blueprint still being made, or not made, is left
  * alone; one already updating runs again after. `opened`: asked by opening the
- * bluprint, not by anyone, so it runs with fewer Claudes at once and leaves one
+ * blueprint, not by anyone, so it runs with fewer Claudes at once and leaves one
  * far behind its code alone (--opened).
  */
-export function updateBluprint(root: string, claude?: string, turn?: Turn, force = false, opened = false): Project | undefined {
+export function updateBlueprint(root: string, claude?: string, turn?: Turn, force = false, opened = false): Project | undefined {
   const p = listProjects().find((x) => x.root === root);
   if (!p || !follows(p)) return p;
   if (turn) {
@@ -614,7 +641,7 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn, force
   if (!force) {
     let last = p.update?.head;
     if (!last) {
-      const made = (JSON.parse(readFileSync(bluprintFileOf(p.id)!, "utf8")) as { RUN?: { commit?: string } }).RUN?.commit;
+      const made = (JSON.parse(readFileSync(blueprintFileOf(p.id)!, "utf8")) as { RUN?: { commit?: string } }).RUN?.commit;
       last = made ? git(root, "rev-parse", "--verify", "--quiet", `${made}^{commit}`) : undefined;
     }
     if (head === last) return p;
@@ -645,12 +672,12 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn, force
   child.on("exit", () => {
     let again = false;
     update(p.id, (q) => {
-      // Stopped by a fresh bluprint (generate), which forgot it.
+      // Stopped by a fresh blueprint (generate), which forgot it.
       if (!q.update) return;
       again = Boolean(q.update.again);
       updated(q);
     });
-    if (again) updateBluprint(root, claude, undefined, true);
+    if (again) updateBlueprint(root, claude, undefined, true);
   });
   child.on("error", (e) =>
     update(p.id, (q) => {
@@ -667,7 +694,7 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn, force
  */
 export function tellStory(id: string, claude?: string): boolean {
   const p = getProject(id);
-  if (!p || !bluprintFileOf(id) || telling(id)) return false;
+  if (!p || !blueprintFileOf(id) || telling(id)) return false;
   const dir = projectDir(id);
   const log = openSync(join(dir, "story.log"), "w");
   const child = spawn(process.execPath, [...TSX, "scripts/generate/run.mts", p.root, "--story", "--out", dir], {
@@ -686,18 +713,18 @@ export function tellStory(id: string, claude?: string): boolean {
 
 /** Whether a story run is still going. */
 /**
- * The bluprint as it would be after a branch or pull request: a copy of the
- * project's bluprint, updated against a checkout of the head commit, kept under
+ * The blueprint as it would be after a branch or pull request: a copy of the
+ * project's blueprint, updated against a checkout of the head commit, kept under
  * `reviews/<commit>/` for the diff to draw against (app/api/diff). The
  * checkout is a detached `git worktree` in the vault, removed when the run
  * ends, so the reader's own checkout and branches are never touched.
  *
  * Costs an update run, so only when the reader asks for it.
  */
-export function bluprintReview(id: string, commit: string, claude?: string): ReviewBluprint {
+export function blueprintReview(id: string, commit: string, claude?: string): ReviewBlueprint {
   const p = getProject(id);
-  if (!p || !/^[0-9a-f]{40}$/.test(commit) || !bluprintFileOf(id)) return { status: "failed", error: "This blueprint cannot be updated." };
-  const now = reviewBluprint(id, commit);
+  if (!p || !/^[0-9a-f]{40}$/.test(commit) || !blueprintFileOf(id)) return { status: "failed", error: "This blueprint cannot be updated." };
+  const now = reviewBlueprint(id, commit);
   if (now.status === "running" || now.status === "done") return now;
   const out = join(projectDir(id), "reviews", commit);
   const tree = join(projectDir(id), "worktrees", commit);
@@ -717,9 +744,9 @@ export function bluprintReview(id: string, commit: string, claude?: string): Rev
   } catch {
     return { status: "failed", error: "Could not check out that commit." };
   }
-  // What the updater starts from: the bluprint, the cut and summaries it reuses,
-  // and the code as the bluprint last saw it.
-  for (const f of ["bluprint.json", "base.json", "index.json", ".cache"])
+  // What the updater starts from: the blueprint, the cut and summaries it reuses,
+  // and the code as the blueprint last saw it.
+  for (const f of ["blueprint.json", "base.json", "index.json", ".cache"])
     if (existsSync(join(projectDir(id), f))) cpSync(join(projectDir(id), f), join(out, f), { recursive: true });
   // The worktree is the whole repository; the project may be a folder in it.
   const sub = execFileSync("git", ["-C", p.root, "rev-parse", "--show-prefix"], { encoding: "utf8", windowsHide: true }).trim();
@@ -739,13 +766,13 @@ export function bluprintReview(id: string, commit: string, claude?: string): Rev
   return { status: "running" };
 }
 
-export interface ReviewBluprint {
+export interface ReviewBlueprint {
   status: "none" | "running" | "done" | "failed";
   error?: string;
 }
 
-/** Whether the bluprint after `commit` exists, is being made, or failed. */
-export function reviewBluprint(id: string, commit: string): ReviewBluprint {
+/** Whether the blueprint after `commit` exists, is being made, or failed. */
+export function reviewBlueprint(id: string, commit: string): ReviewBlueprint {
   if (!/^[0-9a-f]{40}$/.test(commit)) return { status: "none" };
   const out = join(projectDir(id), "reviews", commit);
   try {
@@ -770,20 +797,20 @@ export function telling(id: string): boolean {
   }
 }
 
-/** The project's bluprint file, if one has been made. */
-export function bluprintFileOf(id: string): string | undefined {
-  const f = join(projectDir(id), "bluprint.json");
+/** The project's blueprint file, if one has been made. */
+export function blueprintFileOf(id: string): string | undefined {
+  const f = join(projectDir(id), "blueprint.json");
   return existsSync(f) ? f : undefined;
 }
 
-/** How far a bluprint still being made has got (scripts/generate/pipeline.ts writes it). */
+/** How far a blueprint still being made has got (scripts/generate/pipeline.ts writes it). */
 export interface Progress {
   startedAt: string;
   stage: string;
   /** When the run entered its current stage. */
   stageAt?: string;
   roots: { id: string; title: string; sub?: string; status: "queued" | "drafting" | "done" | "failed"; detail?: string }[];
-  /** A quick bluprint first, then each section written in full in its place (pipeline.ts, --fast): stage "deepen" is the second part. */
+  /** A quick blueprint first, then each section written in full in its place (pipeline.ts, --fast): stage "deepen" is the second part. */
   fast?: boolean;
   /** While the code is read: every file to read, those read so far in the order they were, and what the last few are for. */
   reading?: { files: string[]; read: string[]; recent: { path: string; purpose: string }[] };
@@ -792,7 +819,7 @@ export interface Progress {
 }
 
 /**
- * What the list shows while a bluprint is being made. The generator's own
+ * What the list shows while a blueprint is being made. The generator's own
  * progress.json where there is one; until the first stage writes it — and for
  * a run started before this file existed — the log's last line.
  */

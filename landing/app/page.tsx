@@ -3,7 +3,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
 import { LandingAgent } from "@/components/landing-agent";
 import { LandingCover } from "@/components/landing-cover";
 import { LandingEvolution } from "@/components/landing-evolution";
-import { LandingDemo, StarCount, type DemoBluprint } from "@/components/landing-demo";
+import { LandingDemo, StarCount, type DemoBlueprint } from "@/components/landing-demo";
 import { LandingHow } from "@/components/landing-how";
 import { LandingInstall } from "@/components/landing-install";
 import { LandingNav } from "@/components/landing-nav";
@@ -11,7 +11,7 @@ import { LandingStart } from "@/components/landing-start";
 import { LandingVisit } from "@/components/landing-visit";
 import { LandingVoices, type Voice } from "@/components/landing-voices";
 import s from "@/components/landing.module.css";
-import { loadBluprint } from "@/lib/bluprints";
+import { loadBlueprint } from "@/lib/blueprints";
 
 const TITLE = "Blueprint: understand the code you didn't write";
 const DESCRIPTION =
@@ -47,7 +47,7 @@ const REPO = "jbw9/blueprint";
 const GITHUB = `https://github.com/${REPO}`;
 
 // This repo first: the demo opens on the project explaining itself.
-const DEMOS = [{ id: "bluprint", label: "Blueprint itself" }];
+const DEMOS = [{ id: "blueprint", label: "Blueprint itself" }];
 
 // The same problem at every size. John Doe is the page's own voice; the other two are people the team spoke with, by role.
 const VOICES: Voice[] = [
@@ -67,17 +67,17 @@ const VISIT = [
   'const geo = stored("bp-geo");',
 ];
 
-/** A bluprint's subtitle up to its first aside, as one sentence. */
+/** A blueprint's subtitle up to its first aside, as one sentence. */
 const sentence = (sub: string) => `${sub.split(" — ")[0].replace(/\.$/, "")}.`;
 
 export default function Landing() {
-  const bluprints: DemoBluprint[] = DEMOS.map(({ id, label }) => {
-    const file = loadBluprint(id);
+  const blueprints: DemoBlueprint[] = DEMOS.map(({ id, label }) => {
+    const file = loadBlueprint(id);
     return { id, label, files: file.RUN.files ?? 0, commit: file.RUN.commit ?? "" };
   });
 
-  const bluprint = loadBluprint("bluprint");
-  const first = bluprint.AUTHORED[0];
+  const blueprint = loadBlueprint("blueprint");
+  const first = blueprint.AUTHORED[0];
   const config = first.children!.find((c) => c.id === "la-analytics")!;
 
   const ctas = (
@@ -112,7 +112,7 @@ export default function Landing() {
               <h2>And now there&rsquo;s you.</h2>
             </header>
             <section aria-label="Live demo" className={s.demo}>
-              <LandingDemo bluprints={bluprints} />
+              <LandingDemo blueprints={blueprints} />
             </section>
           </div>
         </div>
@@ -120,8 +120,8 @@ export default function Landing() {
         <div className={s.wrap}>
           <LandingVoices voices={VOICES} />
           <LandingHow
-            name="bluprint"
-            roots={bluprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!}
+            name="blueprint"
+            roots={blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!}
             opened={{
               id: first.id,
               title: first.title,
@@ -137,7 +137,7 @@ export default function Landing() {
             }}
           />
         </div>
-        <LandingAgent name="bluprint" diagram={bluprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!} changed="bx-app-app" />
+        <LandingAgent name="blueprint" diagram={blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!} changed="bx-app-app" />
         <div className={s.wrap}>
           <LandingStart />
           <section className={`${s.close} ${s.reveal}`} aria-labelledby="close-title">

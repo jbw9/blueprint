@@ -30,12 +30,12 @@ export const agent = (
     const id = nextCall++;
     pending.current.set(id, { resolve, reject });
     if (label)
-      void invoke<boolean>("browser_eval", { label, js: `window.__bluprint ? (window.__bluprint.run(${id}, ${JSON.stringify(name)}, ${JSON.stringify(args)}), true) : false` })
+      void invoke<boolean>("browser_eval", { label, js: `window.__blueprint ? (window.__blueprint.run(${id}, ${JSON.stringify(name)}, ${JSON.stringify(args)}), true) : false` })
         .then((ok) => {
           if (!ok && pending.current.delete(id)) reject(new Error("This page cannot be read or used yet: it may still be loading."));
         })
         .catch((e) => pending.current.delete(id) && reject(new Error(String(e))));
-    else w!.postMessage({ __bluprintCmd: true, id, name, args }, `http://localhost:${p!.port}`);
+    else w!.postMessage({ __blueprintCmd: true, id, name, args }, `http://localhost:${p!.port}`);
     const wait = args.action === "wait" ? 15000 : 10000;
     setTimeout(() => {
       if (pending.current.delete(id))

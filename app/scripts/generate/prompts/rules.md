@@ -57,7 +57,7 @@ The level itself, `node` open:
    - `table`: real values, such as the categories, the env vars, the fields a form sends, the routes. Every row must have exactly as many cells as `columns`.
    - `screen`: what a user sees on one page, panel or dialog, as `items` top to bottom, read from the JSX or template and quoted from it, never described. `device` is the one the brief names; never default to `phone`. Its item rules are on `ScreenItem` in the types.
    - `example`: what a stored value or payload looks like. It is labelled as an example, synthesized from the code.
-   - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`bluprint.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
+   - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`blueprint.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
    - `flow` (numbered steps), `facts` (label/value pairs), `chips` (a closed set), `map` (in → out rules), `schema` (table columns), `routes` (HTTP routes).
 5. `issues`: real problems a developer should know before touching this, shown as "Watch out".
    - Each is a few-word title, then 1–3 sentences on what goes wrong, for whom, and when, with `where` as `file:line`.

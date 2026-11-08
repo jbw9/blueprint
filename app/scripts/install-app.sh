@@ -1,17 +1,17 @@
 #!/bin/sh
 # usage (from app/): npm run app:install
-#   builds the checkout as it is now (uncommitted changes too) into the installed Bluprint and the
+#   builds the checkout as it is now (uncommitted changes too) into the installed Blueprint and the
 #   server it starts (src-tauri/src/server.rs), so `npm run app:dev` can rebuild and restart freely
-#   beside it. The snapshot is built next to the running one and swapped in at the end, so a Bluprint
+#   beside it. The snapshot is built next to the running one and swapped in at the end, so a Blueprint
 #   open while this runs keeps working until then. macOS, Linux, and Windows (Git Bash).
 set -e
 os=$(uname)
 case $os in
-Darwin) data="$HOME/Library/Application Support/dev.bluprint.app" ;;
+Darwin) data="$HOME/Library/Application Support/dev.blueprint.app" ;;
 # Tauri's app_data_dir on Linux.
-Linux) data="${XDG_DATA_HOME:-$HOME/.local/share}/dev.bluprint.app" ;;
+Linux) data="${XDG_DATA_HOME:-$HOME/.local/share}/dev.blueprint.app" ;;
 # Tauri's app_data_dir on Windows: %APPDATA%.
-MINGW* | MSYS* | CYGWIN*) os=Windows; data="$(cygpath -u "$APPDATA")/dev.bluprint.app" ;;
+MINGW* | MSYS* | CYGWIN*) os=Windows; data="$(cygpath -u "$APPDATA")/dev.blueprint.app" ;;
 *) echo "app:install is for macOS, Linux and Windows." >&2; exit 1 ;;
 esac
 
@@ -48,7 +48,7 @@ if (fs.existsSync(dir)) for (const name of fs.readdirSync(dir)) {
   fs.symlinkSync(path.join(snap, rel), link, "junction");
 }
 ' "$next" "$snap"
-# The Node and PATH of this shell, minus the node_modules folders npm puts first, for a Bluprint
+# The Node and PATH of this shell, minus the node_modules folders npm puts first, for a Blueprint
 # opened from Finder. `command -v`, not process.execPath: Homebrew's resolves to a versioned
 # Cellar path that its next upgrade deletes.
 # On Windows, node sees PATH in its own form (C:\..., split by ;), and Git Bash's `command -v`
@@ -84,14 +84,14 @@ elif [ "$os" = Windows ]; then
   bin="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint"
   start="$(cygpath -u "$APPDATA")/Microsoft/Windows/Start Menu/Programs"
   # The app under its old name; its exe stays if that copy is still running.
-  rm -rf "$(cygpath -u "$LOCALAPPDATA")/Programs/Bluprint" "$start/Bluprint.lnk" 2>/dev/null || true
+  rm -rf "$(cygpath -u "$LOCALAPPDATA")/Programs/Bluprint" "$start/Bluprint.lnk" "$bin/bluprint.exe" "$bin/bluprint.old.exe" 2>/dev/null || true
   mkdir -p "$bin"
   # A running exe can't be written over, but it can be moved aside.
-  rm -f "$bin/bluprint.old.exe" 2>/dev/null || true
-  if [ -e "$bin/bluprint.exe" ]; then mv "$bin/bluprint.exe" "$bin/bluprint.old.exe"; fi
-  cp src-tauri/target/release/bluprint.exe "$bin/bluprint.exe"
-  rm -f "$bin/bluprint.old.exe" 2>/dev/null || true
-  exe=$(cygpath -w "$bin/bluprint.exe")
+  rm -f "$bin/blueprint.old.exe" 2>/dev/null || true
+  if [ -e "$bin/blueprint.exe" ]; then mv "$bin/blueprint.exe" "$bin/blueprint.old.exe"; fi
+  cp src-tauri/target/release/blueprint.exe "$bin/blueprint.exe"
+  rm -f "$bin/blueprint.old.exe" 2>/dev/null || true
+  exe=$(cygpath -w "$bin/blueprint.exe")
   lnk=$(cygpath -w "$start/Blueprint.lnk")
   powershell -NoProfile -Command "\$s = (New-Object -ComObject WScript.Shell).CreateShortcut('$lnk'); \$s.TargetPath = '$exe'; \$s.WorkingDirectory = '$(cygpath -w "$bin")'; \$s.Save()"
   echo "Installed $exe, with Blueprint in your Start menu. Quit Blueprint if it's open, then open it again."
@@ -100,11 +100,13 @@ else
   icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/128x128/apps"
   apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
   mkdir -p "$bin" "$icons" "$apps"
+  # The app under its old name.
+  rm -f "$bin/bluprint" "$icons/bluprint.png" "$apps/bluprint.desktop"
   # Beside the running binary, then over it: a running executable can't be written in place.
-  cp src-tauri/target/release/bluprint "$bin/.bluprint.new"
-  mv "$bin/.bluprint.new" "$bin/bluprint"
-  cp src-tauri/icons/128x128.png "$icons/bluprint.png"
-  printf '[Desktop Entry]\nType=Application\nName=Blueprint\nComment=A visual blueprint of a codebase\nExec=%s\nIcon=bluprint\nCategories=Development;\n' \
-    "$bin/bluprint" >"$apps/bluprint.desktop"
-  echo "Installed $bin/bluprint, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
+  cp src-tauri/target/release/blueprint "$bin/.blueprint.new"
+  mv "$bin/.blueprint.new" "$bin/blueprint"
+  cp src-tauri/icons/128x128.png "$icons/blueprint.png"
+  printf '[Desktop Entry]\nType=Application\nName=Blueprint\nComment=A visual blueprint of a codebase\nExec=%s\nIcon=blueprint\nCategories=Development;\n' \
+    "$bin/blueprint" >"$apps/blueprint.desktop"
+  echo "Installed $bin/blueprint, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
 fi

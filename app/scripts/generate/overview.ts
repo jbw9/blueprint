@@ -12,8 +12,8 @@
  * an author; only the brief and what a submit must hold differ.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
-import type { Node } from "@/lib/bluprint/schema";
-import type { Overview } from "@/lib/bluprint/build";
+import type { Node } from "@/lib/blueprint/schema";
+import type { Overview } from "@/lib/blueprint/build";
 import { authorTool, converse } from "./author";
 import { type Handled } from "./claude-code";
 import { INFERRED_RULE } from "./graph-tools";
@@ -121,7 +121,7 @@ ${WAY_IN[EXPLAIN_LEVEL]}Budget: about 10 tool calls before you submit.`,
   ].filter(Boolean).join("\n\n");
 }
 
-/** What the top level adds for a newcomer, at the bluprint's explain level (D70). The full text is D68's, unchanged. */
+/** What the top level adds for a newcomer, at the blueprint's explain level (D70). The full text is D68's, unchanged. */
 const WAY_IN = {
   full: `Then the way in for a reader who has never seen this project or its field — shown under an Explain toggle, so it can say more than the rest of the blueprint:
 - \`explain\`: \`body\` is 2-4 short paragraphs (blank line between, at most 200 words): what this system is for and who uses it, the problem it solves, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds 0-2 pictures only where they teach more than the prose — usually one \`diagram\` of the system in its world (the users, the machines, the outside services, and what flows between them), its boxes opening nothing and its arrows needing no \`at\`.

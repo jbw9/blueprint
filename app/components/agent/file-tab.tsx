@@ -13,7 +13,7 @@ import { cn } from "@/lib/client/utils";
  * A file a terminal named (components/agent/shell.tsx), open in the main view as an
  * editor tab in the shared FileFrame (components/ui/file-frame.tsx), a
  * Markdown one in the Markdown editor's views. Any file on disk, read and written through the
- * desktop app (src-tauri/src/files.rs) rather than the bluprint's `/api/source`,
+ * desktop app (src-tauri/src/files.rs) rather than the blueprint's `/api/source`,
  * since agents name files outside the project and Claude's pasted images.
  */
 

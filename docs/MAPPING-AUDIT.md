@@ -131,7 +131,7 @@ Roughly **1,000–1,400 lines** go once both are done.
 **Stale comments**
 - `update.ts:22`: "then verified" (nothing verifies anymore).
 - `update.ts:28`: `lib/vault.ts` (moved to `lib/server/vault.ts`).
-- `update.ts:30`: `slop-map-fix` (now `bluprint-map-fix`).
+- `update.ts:30`: `slop-map-fix` (now `blueprint-map-fix`).
 - `bedrock.ts:283`: the "5.5 models" note doesn't match `MODELS`.
 
 ---

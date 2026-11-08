@@ -305,7 +305,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
       keys.map(function (k) { return row(esc(k), bill[k], bill[k].usd); }).join("") + row("<b>Total</b>", t, cost) + "</tbody></table></div>";
   }
 
-  // The updates this bluprint went on to get, newest first; one opens to its files, sections, tokens and (when it failed) its log.
+  // The updates this blueprint went on to get, newest first; one opens to its files, sections, tokens and (when it failed) its log.
   function updatesTable(list) {
     if (!list.length) return '<p class="empty">Not updated since</p>';
     return '<div class="scroll"><table><thead><tr><th>When</th><th>Status</th><th>Version</th><th class="num">Files changed</th><th class="num">Sections redone</th><th class="num">Tokens</th><th class="num">Time</th><th class="num">Cost</th></tr></thead><tbody>' +
@@ -428,7 +428,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
       "</div>";
   }
 
-  // Bluprint credit (app/scripts/api/credit.mjs): what it costs, and who uses it. Its settings are changed in the DynamoDB console.
+  // Blueprint credit (app/scripts/api/credit.mjs): what it costs, and who uses it. Its settings are changed in the DynamoDB console.
   function creditSection(c) {
     if (!c) return "";
     var cfg = c.config || {};

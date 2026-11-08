@@ -1,20 +1,20 @@
 /**
  * The shape a generated node must have, checked field by field so the author
  * gets a precise list back instead of a renderer crash. The types themselves
- * stay in lib/bluprint/schema.ts — `typeReference` hands the model that file's own text,
+ * stay in lib/blueprint/schema.ts — `typeReference` hands the model that file's own text,
  * comments included, because those comments ARE the standard each field is
  * held to.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- validates untrusted model output */
 import { readFileSync } from "node:fs";
-import type { Node } from "@/lib/bluprint/schema";
+import type { Node } from "@/lib/blueprint/schema";
 import { autofix, check } from "./check";
 import { fillFromGraph } from "./fill";
 import { activeGraph } from "./graph";
 
-/** lib/bluprint/schema.ts from `State` to its end. */
+/** lib/blueprint/schema.ts from `State` to its end. */
 export function typeReference(): string {
-  const src = readFileSync("lib/bluprint/schema.ts", "utf8");
+  const src = readFileSync("lib/blueprint/schema.ts", "utf8");
   return src.slice(src.indexOf("export type State"));
 }
 
@@ -32,7 +32,7 @@ const KINDS: Record<string, string[]> = {
   bars: ["unit", "rows"],
   parts: ["total", "rows"],
   chips: ["rows"],
-  bluprint: ["rows"],
+  blueprint: ["rows"],
 };
 
 const isStr = (v: unknown) => typeof v === "string" && v.trim().length > 0;
@@ -109,7 +109,7 @@ export function idsOf(n: Node, out = new Set<string>()): Set<string> {
 /**
  * Everything wrong with a submitted node, as the agent gets it back: its
  * shape first (a malformed node would crash the checker), then ids already
- * `taken` elsewhere in the bluprint, then the checks the finished bluprint is held to.
+ * `taken` elsewhere in the blueprint, then the checks the finished blueprint is held to.
  * A section is checked inside its root (`within` puts it there), and only the
  * problems with its own ids, or duplicate ids, are its to fix.
  */

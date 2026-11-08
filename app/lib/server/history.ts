@@ -1,10 +1,10 @@
 /**
- * How the code got here: every commit, placed on the bluprint's own top-level
+ * How the code got here: every commit, placed on the blueprint's own top-level
  * sections (D73).
  *
  * A commit is drawn on the roots that own the files it touched, by the cut the
- * bluprint was made from (`owners`, scripts/generate/cut.ts) — the same answer the
- * updater gives when it decides which root a new file belongs to. A bluprint with
+ * blueprint was made from (`owners`, scripts/generate/cut.ts) — the same answer the
+ * updater gives when it decides which root a new file belongs to. A blueprint with
  * no cut on disk falls back to the files each root's sections cite. A file no
  * root owns lands on "Elsewhere": a timeline that dropped it would draw a
  * quieter history than the one that happened.
@@ -20,8 +20,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { commitLog } from "@/lib/server/diff";
-import type { Node } from "@/lib/bluprint/schema";
-import type { BluprintFile } from "@/lib/bluprint/build";
+import type { Node } from "@/lib/blueprint/schema";
+import type { BlueprintFile } from "@/lib/blueprint/build";
 import { owners, type Cut } from "@/scripts/generate/cut";
 import { git, refs } from "@/scripts/generate/gitdiff";
 
@@ -62,14 +62,14 @@ export interface Story {
 
 export interface Timeline {
   head: string;
-  /** The bluprint's roots in its order, then Elsewhere when anything lands there. */
+  /** The blueprint's roots in its order, then Elsewhere when anything lands there. */
   roots: { id: string; title: string }[];
   /** Oldest first. */
   commits: TimelineCommit[];
   capped: boolean;
 }
 
-/** Every file cited anywhere under each root, for a bluprint with no cut on disk. */
+/** Every file cited anywhere under each root, for a blueprint with no cut on disk. */
 function citedBy(roots: Node[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
   const walk = (root: Node, n: Node) => {
@@ -81,10 +81,10 @@ function citedBy(roots: Node[]): Map<string, string[]> {
 }
 
 /** The timeline, from git, with no cache: what the route caches and the story run reads. */
-export function timelineOf(root: string, bluprint: BluprintFile, cut: Cut | null): Timeline {
+export function timelineOf(root: string, blueprint: BlueprintFile, cut: Cut | null): Timeline {
   const head = git(root, "rev-parse", "--short", "HEAD").trim();
-  const ids = new Set(bluprint.AUTHORED.map((r) => r.id));
-  const cited = cut ? null : citedBy(bluprint.AUTHORED);
+  const ids = new Set(blueprint.AUTHORED.map((r) => r.id));
+  const cited = cut ? null : citedBy(blueprint.AUTHORED);
   const ownersOf = (path: string) => (cut ? owners(cut, path) : (cited!.get(path) ?? [])).filter((id) => ids.has(id));
 
   const log = commitLog(root, MOST);
@@ -102,7 +102,7 @@ export function timelineOf(root: string, bluprint: BluprintFile, cut: Cut | null
     commits.push({ sha: c.sha, short: c.short, at: c.at, author: c.author, subject: c.subject, added: c.added, removed: c.removed, roots: [...roots] });
   }
   commits.reverse();
-  const rows = bluprint.AUTHORED.map((r) => ({ id: r.id, title: r.title }));
+  const rows = blueprint.AUTHORED.map((r) => ({ id: r.id, title: r.title }));
   if (commits.some((c) => c.roots.includes(ELSEWHERE))) rows.push({ id: ELSEWHERE, title: "Elsewhere" });
   return { head, roots: rows, commits, capped: log.length === MOST };
 }
@@ -115,13 +115,13 @@ export function cutOf(dir: string): Cut | null {
 
 /**
  * The timeline for a project, cached in its vault directory as timeline.json.
- * The key is HEAD and the bluprint's roots: a new commit, or a remake that cut the
+ * The key is HEAD and the blueprint's roots: a new commit, or a remake that cut the
  * code differently, reads git again; opening it twice does not.
  */
-export function cachedTimeline(root: string, dir: string, bluprint: BluprintFile): Timeline {
+export function cachedTimeline(root: string, dir: string, blueprint: BlueprintFile): Timeline {
   const cut = cutOf(dir);
   const head = git(root, "rev-parse", "--short", "HEAD").trim();
-  const key = [head, ...bluprint.AUTHORED.map((r) => r.id), cut ? "cut" : "cited"].join(" ");
+  const key = [head, ...blueprint.AUTHORED.map((r) => r.id), cut ? "cut" : "cited"].join(" ");
   const file = join(dir, "timeline.json");
   try {
     const hit = JSON.parse(readFileSync(file, "utf8"));
@@ -129,7 +129,7 @@ export function cachedTimeline(root: string, dir: string, bluprint: BluprintFile
   } catch {
     /* none yet */
   }
-  const timeline = timelineOf(root, bluprint, cut);
+  const timeline = timelineOf(root, blueprint, cut);
   writeFileSync(file, JSON.stringify({ key, timeline }) + "\n");
   return timeline;
 }
@@ -144,7 +144,7 @@ export function storyOf(dir: string): Story | null {
  * What is wrong with a set of chapters, against the timeline they tell:
  * every end a real commit, each chapter's ends in order, the chapters in
  * order without overlapping, and roots that exist. The words are held to the
- * bluprint's own rules (D38): a title of a few words, a detail of two sentences.
+ * blueprint's own rules (D38): a title of a few words, a detail of two sentences.
  */
 export function chapterProblems(chapters: Chapter[], t: Timeline): string[] {
   const at = new Map(t.commits.map((c, i) => [c.short, i]));
@@ -241,7 +241,7 @@ export function summarize(root: string, dir: string, sha: string, claude?: strin
     const { bill, MODELS } = await import("@/scripts/generate/bedrock");
     const before = bill.summary?.usd ?? 0;
     const r = await ccAsk<{ summary: string }>({
-      model: MODELS[(process.env.BLUPRINT_SUMMARY ?? "sonnet") as keyof typeof MODELS] ?? MODELS.sonnet,
+      model: MODELS[(process.env.BLUEPRINT_SUMMARY ?? "sonnet") as keyof typeof MODELS] ?? MODELS.sonnet,
       system: "You read one git commit and say plainly what it did.",
       messages: [{ role: "user", content: prompt }],
       tool: SUMMARY_TOOL,

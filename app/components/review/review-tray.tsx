@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { addNote, clearSent, dropNote, editNote, reviewFor, sendNow, sendReview, stopEditing, useEditing, useNotes, type Editing, type Note } from "@/lib/agent/notes";
 import { keys } from "@/components/ui/button";
 import { PRIMARY, QUIET } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { useDesktop, useMac } from "@/lib/client/platform";
 import { GAP, STATUSBAR } from "@/lib/client/layout";
 
 /**
- * The review: notes left on the bluprint, in a diff or in the code (lib/agent/notes.ts),
+ * The review: notes left on the blueprint, in a diff or in the code (lib/agent/notes.ts),
  * gathered in a tray in the corner until they go to Claude as one turn. Also
  * the editor a note is written in, opened at the pointer from any right-click
  * menu. Above the history panel, so a hunk can be commented on while it is in
@@ -21,7 +21,7 @@ import { GAP, STATUSBAR } from "@/lib/client/layout";
 const FIELD = "w-full border border-border-gray bg-card px-2 py-1.5 text-[12.5px] text-ink outline-none placeholder:text-faint focus:border-accent";
 
 export function ReviewTray() {
-  const { name } = useBluprint();
+  const { name } = useBlueprint();
   const desktop = useDesktop();
   useEffect(() => reviewFor(name), [name]);
   const notes = useNotes();

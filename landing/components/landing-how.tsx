@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Diagram } from "@/lib/bluprints";
+import type { Diagram } from "@/lib/blueprints";
 import s from "./landing.module.css";
 
 interface HowProps {
-  /** The bluprint the little windows show. */
+  /** The blueprint the little windows show. */
   name: string;
-  /** The bluprint's first level: its steps, as the app draws them. */
+  /** The blueprint's first level: its steps, as the app draws them. */
   roots: Diagram;
   /** The step the cursor opens, and the diagram it opens onto. */
   opened: { id: string; title: string; sub: string; diagram: Diagram };
@@ -24,7 +24,7 @@ const TABS = [
 const KEYWORDS = /\b(if|else|return|def|for|in|not|None|True|False)\b/;
 
 /**
- * Three tabs, each a small window that plays one move through a real bluprint:
+ * Three tabs, each a small window that plays one move through a real blueprint:
  * the steps appear, a cursor opens one, then follows a part to its code. The
  * tabs advance on their own while the box is on screen.
  */
@@ -134,7 +134,7 @@ export function LandingHow({ name, roots, opened, cited }: HowProps) {
 const GY = 46;
 
 /**
- * A diagram as the app's bluprint draws it: boxes on a grid, joined by labelled
+ * A diagram as the app's blueprint draws it: boxes on a grid, joined by labelled
  * arrows, in the page's one ink. Boxes and arrows fade in one by one unless
  * `still`; `target` marks the box the cursor clicks.
  */

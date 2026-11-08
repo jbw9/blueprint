@@ -2,7 +2,7 @@ import { creditStatus, relaySecret, setCreditOn } from "@/lib/server/credit";
 import { notJson } from "@/lib/server/route";
 
 /**
- * Bluprint credit on this machine: `GET` → its status, and with the credit on, where a Claude tab
+ * Blueprint credit on this machine: `GET` → its status, and with the credit on, where a Claude tab
  * sends its calls (`relay`); `POST {on}` turns it on or off.
  */
 export async function GET(request: Request) {

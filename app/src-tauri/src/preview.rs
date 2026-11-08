@@ -452,7 +452,7 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
 /// hydrates a server-rendered head in order, and would read a script left
 /// there as the page's own first one, and call the page mismatched.
 fn with_agent(page: &[u8]) -> Vec<u8> {
-    let script = format!("<script data-bluprint-agent>document.currentScript.remove();\n{AGENT}</script>");
+    let script = format!("<script data-blueprint-agent>document.currentScript.remove();\n{AGENT}</script>");
     let lower = page.to_ascii_lowercase();
     let at = after_tag(&lower, b"<head").or_else(|| after_tag(&lower, b"<html")).or_else(|| after_tag(&lower, b"<!doctype")).unwrap_or(0);
     let mut out = Vec::with_capacity(page.len() + script.len());
@@ -479,7 +479,7 @@ fn after_tag(lower: &[u8], tag: &[u8]) -> Option<usize> {
 fn waiting(origin: &str) -> String {
     format!(
         // A server that stopped never answers, so the page says where to see why.
-        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><script>parent.postMessage({{__bluprint:true,type:"down"}},"*")</script><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
+        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><script>parent.postMessage({{__blueprint:true,type:"down"}},"*")</script><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
     )
 }
 
@@ -500,7 +500,7 @@ mod tests {
     fn the_agent_goes_first_in_the_head() {
         let page = with_agent(b"<!DOCTYPE html><html lang=en><HEAD><title>x</title></head></html>");
         let page = String::from_utf8(page).unwrap();
-        assert!(page.starts_with("<!DOCTYPE html><html lang=en><HEAD><script data-bluprint-agent>"));
+        assert!(page.starts_with("<!DOCTYPE html><html lang=en><HEAD><script data-blueprint-agent>"));
         assert!(page.ends_with("<title>x</title></head></html>"));
         // A fragment with no head still gets it.
         assert!(String::from_utf8(with_agent(b"<p>hi")).unwrap().starts_with("<script"));
@@ -541,7 +541,7 @@ mod tests {
             b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nX-Frame-Options: DENY\r\nTransfer-Encoding: chunked\r\n\r\n6\r\n<head>\r\n7\r\n</head>\r\n0\r\n\r\n",
         );
         let out = through(port, "GET / HTTP/1.1\r\nHost: localhost:{me}\r\nOrigin: http://localhost:{me}\r\nAccept-Encoding: gzip\r\n\r\n");
-        assert!(out.contains("<head><script data-bluprint-agent>"));
+        assert!(out.contains("<head><script data-blueprint-agent>"));
         assert!(out.ends_with("</head>"));
         assert!(!out.to_ascii_lowercase().contains("x-frame-options"));
         assert!(!out.to_ascii_lowercase().contains("chunked"));
@@ -584,7 +584,7 @@ mod tests {
             first.push_str(&String::from_utf8_lossy(&buf[..n]));
         }
         assert!(t0.elapsed().as_millis() < 1000, "the page's start waited {} ms for its end", t0.elapsed().as_millis());
-        assert!(first.contains("<head><script data-bluprint-agent>"));
+        assert!(first.contains("<head><script data-blueprint-agent>"));
         let mut rest = String::new();
         r.read_to_string(&mut rest).unwrap();
         h.join().unwrap();
@@ -597,7 +597,7 @@ mod tests {
         let out = through(port, "GET /a.js HTTP/1.1\r\nHost: x\r\n\r\n");
         assert!(out.starts_with("HTTP/1.1 302 Found"));
         assert!(out.ends_with("\r\n\r\nok"));
-        assert!(!out.contains("bluprint-agent"));
+        assert!(!out.contains("blueprint-agent"));
     }
 
     #[test]

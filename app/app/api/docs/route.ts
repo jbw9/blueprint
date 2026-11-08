@@ -1,14 +1,14 @@
 import { demoDocs, listDocs } from "@/lib/server/docs";
-import { demoSource, loadBluprint, rootOf } from "@/lib/server/bluprints";
+import { demoSource, loadBlueprint, rootOf } from "@/lib/server/blueprints";
 
 /**
- * The Markdown beside the open bluprint's code (`?bluprint=`), for the docs reader. Only
+ * The Markdown beside the open blueprint's code (`?blueprint=`), for the docs reader. Only
  * the list: each doc's text comes through `/api/source`, like the code's.
  */
 export async function GET(request: Request) {
-  const bluprint = new URL(request.url).searchParams.get("bluprint") ?? undefined;
-  const demo = demoSource(bluprint);
+  const blueprint = new URL(request.url).searchParams.get("blueprint") ?? undefined;
+  const demo = demoSource(blueprint);
   if (demo) return Response.json({ docs: demoDocs(demo) });
-  const open = loadBluprint(bluprint);
+  const open = loadBlueprint(blueprint);
   return Response.json({ docs: open ? listDocs(rootOf(open.file.RUN)) : [] });
 }

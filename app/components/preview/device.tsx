@@ -132,7 +132,7 @@ export function Device({
   const ring = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let fade: ReturnType<typeof setTimeout> | undefined;
-    const off = listen<{ platform: string; x: number; y: number; x2: number; y2: number; swipe: boolean }>("bluprint:device-touch", (e) =>
+    const off = listen<{ platform: string; x: number; y: number; x2: number; y2: number; swipe: boolean }>("blueprint:device-touch", (e) =>
       // A frame on, once the tab has come forward (components/agent/workspace.tsx) and the screen has a size.
       void setTimeout(() => glide(e.payload), 50),
     );
@@ -328,7 +328,7 @@ export function Device({
               if (Math.hypot(to.x - from.x, to.y - from.y) < 0.015) send({ kind: "tap", x: from.x, y: from.y });
               else send({ kind: "swipe", x: from.x, y: from.y, x2: to.x, y2: to.y, ms: Math.min(1000, Math.max(100, Date.now() - from.t)) });
             }}
-            // Right-click hands Claude the element there, as on the bluprint and a page.
+            // Right-click hands Claude the element there, as on the blueprint and a page.
             onContextMenu={(e) => {
               e.preventDefault();
               const { x, y } = at(e);

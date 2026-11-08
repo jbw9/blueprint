@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Hunks, TINT, WORD, openDiff, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { hunksOf, type HunkLines } from "@/lib/client/hunks";
-import type { FileChange, BluprintDiff, SectionDiff, Verdict } from "@/lib/server/diff";
+import type { FileChange, BlueprintDiff, SectionDiff, Verdict } from "@/lib/server/diff";
 import { cn } from "@/lib/client/utils";
 
 /**
@@ -32,7 +32,7 @@ export interface Changed {
  * lines its sections cite. A box on an overview is the way down to every
  * change beneath it, so it counts them all.
  */
-export function changesUnder(diff: BluprintDiff, id: string): Changed | null {
+export function changesUnder(diff: BlueprintDiff, id: string): Changed | null {
   const own = diff.sections.find((s) => s.id === id);
   if (!own) return null;
   const verdict = own.verdict !== "untouched" ? own.verdict : own.inside ? "changed" : null;
@@ -49,7 +49,7 @@ export function changesUnder(diff: BluprintDiff, id: string): Changed | null {
     const change = diff.files.find((c) => (c.mapped ?? c.path) === path);
     if (!change) continue;
     // A hunk counts where its old side meets a cited span — the test the
-    // code popup's "What changed here" makes (components/bluprint/explain.tsx).
+    // code popup's "What changed here" makes (components/blueprint/explain.tsx).
     const only = (h: HunkLines) => {
       const old = h.lines.map((l) => l.old ?? h.oldStart);
       const lo = Math.min(...old);
@@ -167,11 +167,11 @@ export function DiagramChanges({
 /**
  * Across the top of a level while a change is shown: what change, what the
  * colours mean, and the way to every place it touched — so the reader never
- * has to hunt the bluprint for it.
+ * has to hunt the blueprint for it.
  */
 export function DiffBar({ path }: { path: string[] }) {
   const d = useDiff();
-  const { nodeAt } = useBluprint();
+  const { nodeAt } = useBlueprint();
   if (!d || (!d.diff && !d.loading && !d.error)) return null;
   const all = d.diff?.sections.filter((s) => s.verdict !== "untouched") ?? [];
   const here = path.join("/");

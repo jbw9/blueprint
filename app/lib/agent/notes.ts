@@ -3,16 +3,16 @@ import { hurry, sendBatch, type Target } from "@/lib/agent/context";
 import { signal } from "@/lib/client/signal";
 
 /**
- * A review of what is on screen: notes pinned to things on the bluprint, in a diff
+ * A review of what is on screen: notes pinned to things on the blueprint, in a diff
  * or in the code, collected in the review tray (components/review/review-tray.tsx) and
  * sent to Claude together as one turn.
  *
- * A note is a comment ("this should retry") or a suggested edit: the bluprint's own
- * words for something, rewritten into what they should say. The bluprint is never
+ * A note is a comment ("this should retry") or a suggested edit: the blueprint's own
+ * words for something, rewritten into what they should say. The blueprint is never
  * edited by it — it stays generated from the code — so a suggestion is the
- * code's spec for one turn, and the bluprint after the turn shows whether it took.
+ * code's spec for one turn, and the blueprint after the turn shows whether it took.
  *
- * Kept per bluprint in localStorage, so a review half written survives a reload.
+ * Kept per blueprint in localStorage, so a review half written survives a reload.
  */
 
 export interface Note {
@@ -38,32 +38,32 @@ export interface Editing {
 }
 
 interface State {
-  bluprint: string | null;
+  blueprint: string | null;
   notes: Note[];
   editing: Editing | null;
 }
 
-let state: State = { bluprint: null, notes: [], editing: null };
+let state: State = { blueprint: null, notes: [], editing: null };
 const { subscribe, emit } = signal();
 const set = (next: State) => {
   state = next;
-  if (next.bluprint) {
+  if (next.blueprint) {
     try {
-      localStorage.setItem(KEY + next.bluprint, JSON.stringify(next.notes.filter((n) => n.status !== "sent")));
+      localStorage.setItem(KEY + next.blueprint, JSON.stringify(next.notes.filter((n) => n.status !== "sent")));
     } catch {}
   }
   emit();
 };
-const KEY = "bluprint.review.";
+const KEY = "blueprint.review.";
 
-/** The open bluprint: its notes are loaded, and the next ones are kept with it. */
-export function reviewFor(bluprint: string) {
-  if (state.bluprint === bluprint) return;
+/** The open blueprint: its notes are loaded, and the next ones are kept with it. */
+export function reviewFor(blueprint: string) {
+  if (state.blueprint === blueprint) return;
   let notes: Note[] = [];
   try {
-    notes = (JSON.parse(localStorage.getItem(KEY + bluprint) ?? "[]") as Note[]).map((n) => ({ ...n, status: "draft" as const }));
+    notes = (JSON.parse(localStorage.getItem(KEY + blueprint) ?? "[]") as Note[]).map((n) => ({ ...n, status: "draft" as const }));
   } catch {}
-  set({ bluprint, notes, editing: null });
+  set({ blueprint, notes, editing: null });
 }
 
 export function startNote(e: Editing) {
@@ -91,7 +91,7 @@ export function clearSent() {
   set({ ...state, notes: state.notes.filter((n) => n.status !== "sent") });
 }
 
-/** What Claude reads for one note: the thing as the bluprint describes it, then the note. */
+/** What Claude reads for one note: the thing as the blueprint describes it, then the note. */
 function describeNote(n: Note): string {
   if (n.kind === "suggest")
     return [

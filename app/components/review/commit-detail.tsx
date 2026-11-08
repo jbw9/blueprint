@@ -91,7 +91,7 @@ function Sha({ sha }: { sha: string }) {
 const longDate = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /** One commit as an editor's commit details give it: who, when, where it sits, and the whole message. */
-export function Details({ bluprint, commit, all, onPick }: { bluprint: string; commit: Commit; all: Commit[]; onPick: (c: Commit) => void }) {
+export function Details({ blueprint, commit, all, onPick }: { blueprint: string; commit: Commit; all: Commit[]; onPick: (c: Commit) => void }) {
   // A checkpoint hook writes the commit's paths into its message; the files are listed below already.
   const body = commit.body
     ?.split("\n")
@@ -121,7 +121,7 @@ export function Details({ bluprint, commit, all, onPick }: { bluprint: string; c
       ) : null}
       <h3 className="mt-3 text-[17px] font-semibold leading-snug text-ink">{commit.subject}</h3>
       {body ? <p className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-on-surface-variant">{body}</p> : null}
-      <InShort bluprint={bluprint} sha={commit.sha} />
+      <InShort blueprint={blueprint} sha={commit.sha} />
       <div className="mt-4 border-t border-border-gray pt-2">
         <div className={row}>
           <span className="text-muted-slate">Commit</span>
@@ -169,22 +169,22 @@ export function Details({ bluprint, commit, all, onPick }: { bluprint: string; c
  * the answer a "wip: checkpoint" message does not give. Paid, so asked for
  * with a click; kept by sha, so a commit already told shows at once.
  */
-function InShort({ bluprint, sha }: { bluprint: string; sha: string }) {
+function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
   const [got, setGot] = useState<{ summary?: Summary; error?: string; asking?: boolean } | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint)}&summary=${sha}`)
+    fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}&summary=${sha}`)
       .then((r) => r.json())
       .then((j: { summary?: Summary }) => live && setGot({ summary: j.summary }))
       .catch(() => live && setGot({}));
     return () => {
       live = false;
     };
-  }, [bluprint, sha]);
+  }, [blueprint, sha]);
 
   async function ask() {
     setGot({ asking: true });
-    const r = await fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint)}`, {
+    const r = await fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sha, claude: await claudePath() }),
@@ -267,7 +267,7 @@ export function Comparing({ base, other, between, onSwap, onDone }: { base: Comm
 }
 
 /** The sections the change moved, each opening its level. */
-export function OnTheBluprint({ sections, trail, onOpen }: { sections: SectionDiff[]; trail: (s: SectionDiff) => string; onOpen: (s: SectionDiff) => void }) {
+export function OnTheBlueprint({ sections, trail, onOpen }: { sections: SectionDiff[]; trail: (s: SectionDiff) => string; onOpen: (s: SectionDiff) => void }) {
   const moved = sections.filter((s) => s.verdict !== "untouched");
   return (
     <>

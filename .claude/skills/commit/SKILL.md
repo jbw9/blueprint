@@ -16,7 +16,7 @@ A commit is a title only, in the form `area: summary`.
 ## Examples
 
 - `terminal: click a file to open it in an editor tab`
-- `app: bluprints of large repos generate on Windows; the author's system prompt no longer overflows the command line`
+- `app: blueprints of large repos generate on Windows; the author's system prompt no longer overflows the command line`
 - `repo: every checkout and worktree gets the commit rules`
 
 Not like this:

@@ -1,4 +1,4 @@
-// Bluprint's one backend: a Lambda behind a streaming function URL, keeping its state in DynamoDB
+// Blueprint's one backend: a Lambda behind a streaming function URL, keeping its state in DynamoDB
 // (db.mjs). Packed as this folder's .mjs files (scripts/api/pack.sh).
 //
 //   POST /rpc/<name>                    the dashboard and its writers (admin.mjs), JSON in and out

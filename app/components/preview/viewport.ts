@@ -4,7 +4,7 @@ export type Size = { w: number; h: number };
 export const PAD = 20;
 const MIN = 200;
 const MAX = 3840;
-const SIZE_KEY = "bluprint.preview.size:";
+const SIZE_KEY = "blueprint.preview.size:";
 
 export const clamp = (n: number) => Math.max(MIN, Math.min(MAX, Math.round(n)));
 

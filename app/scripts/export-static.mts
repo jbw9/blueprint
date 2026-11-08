@@ -1,23 +1,23 @@
-// usage (from app/): npx -y tsx --tsconfig tsconfig.json scripts/export-static.mts <bluprint> --base-path /repo/bluprint --source-url https://github.com/o/r/blob/<sha> [--root <checkout>]
-//   builds one bluprint as a static site in out/<bluprint>/, ready for GitHub Pages. The files the bluprint
+// usage (from app/): npx -y tsx --tsconfig tsconfig.json scripts/export-static.mts <blueprint> --base-path /repo/blueprint --source-url https://github.com/o/r/blob/<sha> [--root <checkout>]
+//   builds one blueprint as a static site in out/<blueprint>/, ready for GitHub Pages. The files the blueprint
 //   cites are baked into source.json, so the drawer reads code with no server; each code card
 //   links to --source-url instead of offering an edit.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { Node } from "@/lib/bluprint/schema";
-import { demoSource, loadDemo, loadBluprint, rootOf } from "@/lib/server/bluprints";
+import type { Node } from "@/lib/blueprint/schema";
+import { demoSource, loadDemo, loadBlueprint, rootOf } from "@/lib/server/blueprints";
 
 const args = process.argv.slice(2);
 const opt = (k: string) => { const i = args.indexOf(k); return i === -1 ? undefined : args[i + 1]; };
 const name = args[0];
 // One of the landing's demos (landing/demo, D63), or one of this machine's projects.
-const open = loadDemo(name) ?? loadBluprint(name);
+const open = loadDemo(name) ?? loadBlueprint(name);
 if (!open || open.name !== name) throw new Error(`no demo or project named ${name}`);
 const { file } = open;
 const baked = demoSource(name);
 
-// --root: the checkout to read, when it is not where the bluprint was made.
+// --root: the checkout to read, when it is not where the blueprint was made.
 const root = opt("--root") ?? rootOf(file.RUN);
 const cited = new Set<string>();
 const walk = (n: Node) => {
@@ -42,10 +42,10 @@ try {
     shell: true,
     env: {
       ...process.env,
-      NEXT_PUBLIC_STATIC_BLUPRINT: name,
+      NEXT_PUBLIC_STATIC_BLUEPRINT: name,
       NEXT_PUBLIC_BASE_PATH: opt("--base-path") ?? "",
       NEXT_PUBLIC_SOURCE_URL: opt("--source-url") ?? "",
-      BLUPRINT_EXPORT_DIR: `out/${name}`,
+      BLUEPRINT_EXPORT_DIR: `out/${name}`,
     },
   });
   if (build.error) throw build.error;

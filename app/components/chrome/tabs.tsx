@@ -2,18 +2,18 @@
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { goTo } from "@/components/chrome/crumbs";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
-import { openFile, useOpenFile } from "@/components/bluprint/code";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
+import { openFile, useOpenFile } from "@/components/blueprint/code";
 import { closeTab, follow, insertTab, justOpened, openTab, readTabs, replaceTab, selectTab, useTabs, type Tab } from "@/lib/client/tabs";
 import { Menu } from "@/components/ui/menu";
 import { cn } from "@/lib/client/utils";
 
 /** What a tab holds, opened: its level, and its file over it. */
-/** A tab's name: its file, else its level's title. The top level is "Bluprint": the project's own tab above already names the repository. */
+/** A tab's name: its file, else its level's title. The top level is "Blueprint": the project's own tab above already names the repository. */
 export const tabTitle = (nodeAt: (path: string[]) => { title: string } | null | undefined, path: string[], file?: string) =>
   file ? file.split("/").pop()! : path.length ? (nodeAt(path)?.title ?? "Blueprint") : "Blueprint";
 
-/** A floor plan: the Bluprint tab, the top of the bluprint. Drawn like the workspace's tab glyphs. */
+/** A floor plan: the Blueprint tab, the top of the blueprint. Drawn like the workspace's tab glyphs. */
 export function BlueprintIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mr-0.5 size-3 shrink-0">
@@ -26,17 +26,17 @@ export function BlueprintIcon() {
 
 export const show = (t: Tab) => (t.file ? openFile(t.path, t.file) : goTo(t.path));
 
-/** Opens a level of the open bluprint in a new tab, in front. */
-export function openInTab(bluprint: string, path: string[]) {
-  openTab(bluprint, path);
+/** Opens a level of the open blueprint in a new tab, in front. */
+export function openInTab(blueprint: string, path: string[]) {
+  openTab(blueprint, path);
   goTo(path);
 }
 
 /**
- * Where a part dragged off the bluprint (components/bluprint/canvas.tsx) goes on a strip of
- * the bluprint's tabs, as Chrome takes a dragged link: between two tabs, a new tab
+ * Where a part dragged off the blueprint (components/blueprint/canvas.tsx) goes on a strip of
+ * the blueprint's tabs, as Chrome takes a dragged link: between two tabs, a new tab
  * there (`at`, with `x` the gap's place on the strip); over a tab's middle,
- * that tab. `strip` says which strip: the bluprint's own, or the main view's
+ * that tab. `strip` says which strip: the blueprint's own, or the main view's
  * (components/agent/workspace.tsx), drawn over it while a workspace tab is there.
  */
 export type Drop = { strip: string } & ({ at: number; x: number } | { on: number });
@@ -105,9 +105,9 @@ export function DropMarker({ drop }: { drop: Drop | null }) {
 }
 
 /** A part let go on the strip: into a new tab between two, or into the tab it was dropped on. */
-export function dropInTab(bluprint: string, path: string[], drop: Drop) {
-  if ("on" in drop) replaceTab(bluprint, drop.on, path);
-  else insertTab(bluprint, path, drop.at);
+export function dropInTab(blueprint: string, path: string[], drop: Drop) {
+  if ("on" in drop) replaceTab(blueprint, drop.on, path);
+  else insertTab(blueprint, path, drop.at);
   goTo(path);
 }
 
@@ -129,12 +129,12 @@ export function DragChip() {
 }
 
 /** A Preview tab asked for from the main view's `+`; the workspace (components/agent/workspace.tsx) opens it. */
-export const OPEN_PREVIEW = "bluprint:new-preview";
+export const OPEN_PREVIEW = "blueprint:new-preview";
 /** An empty tab asked for from the main view's `+`; the workspace opens it too. */
-export const OPEN_BLANK = "bluprint:new-blank";
+export const OPEN_BLANK = "blueprint:new-blank";
 
-/** The main view's `+`: another tab of the bluprint, a Preview, or an empty tab. */
-export function NewTab({ onBluprint }: { onBluprint: () => void }) {
+/** The main view's `+`: another tab of the blueprint, a Preview, or an empty tab. */
+export function NewTab({ onBlueprint }: { onBlueprint: () => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   return (
     <>
@@ -159,7 +159,7 @@ export function NewTab({ onBluprint }: { onBluprint: () => void }) {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Blueprint", onClick: onBluprint },
+            { label: "Blueprint", onClick: onBlueprint },
             { label: "Preview", onClick: () => window.dispatchEvent(new Event(OPEN_PREVIEW)) },
             { label: "Empty tab", onClick: () => window.dispatchEvent(new Event(OPEN_BLANK)) },
           ]}
@@ -170,9 +170,9 @@ export function NewTab({ onBluprint }: { onBluprint: () => void }) {
 }
 
 /**
- * The landing page's demo repositories, when it frames this bluprint
+ * The landing page's demo repositories, when it frames this blueprint
  * (landing/components/landing-demo.tsx): it posts them in, and the strip
- * shows one tab per repository, as if each were open, instead of the bluprint's
+ * shows one tab per repository, as if each were open, instead of the blueprint's
  * own. Picking one posts back, and the landing points the frame at it.
  */
 type Demos = { repos: { id: string; label: string }[]; open: string };
@@ -180,12 +180,12 @@ let demos: Demos | null = null;
 const demoWatchers = new Set<() => void>();
 if (typeof window !== "undefined" && window.parent !== window) {
   window.addEventListener("message", (e) => {
-    if (e.origin !== location.origin || e.data?.type !== "bluprint:repos") return;
+    if (e.origin !== location.origin || e.data?.type !== "blueprint:repos") return;
     demos = { repos: e.data.repos, open: e.data.open };
     for (const f of demoWatchers) f();
   });
   // The landing's own post on load can come before this listens, so ask too.
-  window.parent.postMessage({ type: "bluprint:ready" }, location.origin);
+  window.parent.postMessage({ type: "blueprint:ready" }, location.origin);
 }
 const watchDemos = (f: () => void) => {
   demoWatchers.add(f);
@@ -194,15 +194,15 @@ const watchDemos = (f: () => void) => {
 const useDemos = () => useSyncExternalStore(watchDemos, () => demos, () => null);
 
 /**
- * The open bluprint's tabs, across the top of the bluprint: one per level the reader
+ * The open blueprint's tabs, across the top of the blueprint: one per level the reader
  * has open, named by that level's title, and `+` for another at the top. A
  * part opens in a new tab with a middle click, ⌘/Ctrl-click, or "Open in new
- * tab" on its right-click menu (components/bluprint/canvas.tsx). Ctrl+Tab and
+ * tab" on its right-click menu (components/blueprint/canvas.tsx). Ctrl+Tab and
  * Ctrl+Shift+Tab (⌘⇧] and ⌘⇧[ on a Mac) step through them; Ctrl+W (⌘W on a
  * Mac) closes the one in front.
  */
 export function SectionTabs({ path }: { path: string[] }) {
-  const { name, nodeAt } = useBluprint();
+  const { name, nodeAt } = useBlueprint();
   const state = useTabs(name);
   const file = useOpenFile()?.file;
   const key = `${path.join("/")}|${file ?? ""}`;
@@ -215,7 +215,7 @@ export function SectionTabs({ path }: { path: string[] }) {
   const tabs = state?.tabs ?? [{ id: 0, path }];
   const active = state?.active ?? 0;
   const many = tabs.length > 1;
-  const drop = useDropOn("bluprint");
+  const drop = useDropOn("blueprint");
   const framed = useDemos();
   const titleOf = (t: Tab) => tabTitle(nodeAt, t.path, t.file);
 
@@ -272,7 +272,7 @@ export function SectionTabs({ path }: { path: string[] }) {
             home={false}
             active={r.id === framed.open}
             target={false}
-            onSelect={() => window.parent.postMessage({ type: "bluprint:open", id: r.id }, location.origin)}
+            onSelect={() => window.parent.postMessage({ type: "blueprint:open", id: r.id }, location.origin)}
           />
         ))}
       </div>
@@ -282,7 +282,7 @@ export function SectionTabs({ path }: { path: string[] }) {
     <div
       role="tablist"
       data-chrome="bar"
-      data-section-tabs="bluprint"
+      data-section-tabs="blueprint"
       aria-label={`Open sections of ${name}`}
       className={cn(TAB_STRIP, "relative")}
     >
@@ -298,7 +298,7 @@ export function SectionTabs({ path }: { path: string[] }) {
           onClose={many ? () => close(t.id) : undefined}
         />
       ))}
-      <NewTab onBluprint={() => openInTab(name, [])} />
+      <NewTab onBlueprint={() => openInTab(name, [])} />
       <DropMarker drop={drop} />
     </div>
   );
@@ -316,7 +316,7 @@ function SectionTab({
 }: {
   id: number;
   label: string;
-  /** The top of the bluprint, marked with a floor plan. */
+  /** The top of the blueprint, marked with a floor plan. */
   home: boolean;
   active: boolean;
   /** A part is dragged over it, to be let go into it. */
@@ -361,7 +361,7 @@ function SectionTab({
 /*
  * The look of a strip of tabs over the main view, shared with the main view's
  * strip when a workspace tab is dragged into it (components/agent/workspace.tsx),
- * so the bluprint's tabs read the same with or without one there.
+ * so the blueprint's tabs read the same with or without one there.
  */
 
 /** A tab just opened from inside the page: it rises in lit with the accent, so the eye finds it. */
@@ -372,7 +372,7 @@ export const TAB_OPENED = "animate-[tab-opened_1.4s_ease-out]";
 export const TAB_STRIP =
   "flex h-8 shrink-0 items-end gap-0.5 overflow-x-auto bg-surface-container-low px-1.5 shadow-[inset_0_-1px_0_var(--color-border-gray)]";
 
-/** A tab. The one in front is the bluprint's own ground, open at the bottom, so it
+/** A tab. The one in front is the blueprint's own ground, open at the bottom, so it
  * reads as the top of the page beneath rather than a button on the strip. */
 export function tabLook(active: boolean, closable: boolean) {
   return cn(

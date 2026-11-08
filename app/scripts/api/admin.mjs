@@ -98,7 +98,7 @@ const top = (rows, key, n = 15) => {
   return [...by].map(([k, s]) => ({ [key]: k, visitors: s.size })).sort((a, b) => b.visitors - a.visitors).slice(0, n);
 };
 
-/** The updates a new bluprint went on to get: same machine, same repo, until a new bluprint of that repo was made there. */
+/** The updates a new blueprint went on to get: same machine, same repo, until a new blueprint of that repo was made there. */
 function updatesOf(g, runs) {
   const next = runs.filter((n) => n.kind !== "update" && same(n.install_id, g.install_id) && same(n.repo, g.repo) && n.at > g.at).map((n) => n.at).sort()[0];
   return runs.filter((u) => u.kind === "update" && same(u.install_id, g.install_id) && same(u.repo, g.repo) && u.at > g.at && (!next || u.at < next));
@@ -178,7 +178,7 @@ export async function overview({ pw } = {}) {
   };
 }
 
-/** One bluprint's report and log, and its updates (with a log only for those that failed). */
+/** One blueprint's report and log, and its updates (with a log only for those that failed). */
 export async function run({ pw, run_id } = {}) {
   await allowed(pw);
   const runs = (await query("run")).map(summary);
@@ -199,7 +199,7 @@ export async function run({ pw, run_id } = {}) {
   };
 }
 
-/** Every new bluprint of one repo, oldest first, with what the dashboard compares across generator versions. */
+/** Every new blueprint of one repo, oldest first, with what the dashboard compares across generator versions. */
 export async function repo({ pw, repo_name } = {}) {
   await allowed(pw);
   const runs = (await query("run")).map(summary);

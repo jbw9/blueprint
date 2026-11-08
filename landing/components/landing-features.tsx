@@ -6,8 +6,8 @@ import f from "./landing-features.module.css";
 /**
  * The desktop app's other tools, drawn: the workspace, plans, diffs and the
  * running app need the desktop app, so the live frame (a static export of a
- * bluprint) can't show them. Each is drawn from the real components' markup and
- * the flask demo bluprint's own names, and plays once when its tab opens.
+ * blueprint) can't show them. Each is drawn from the real components' markup and
+ * the flask demo blueprint's own names, and plays once when its tab opens.
  */
 export type Drawing = "claude" | "plan" | "review" | "run";
 
@@ -49,7 +49,7 @@ export function Drawn({ drawing }: { drawing: Drawing }) {
   );
 }
 
-/* ── Claude Code beside the bluprint ─────────────────────────── */
+/* ── Claude Code beside the blueprint ─────────────────────────── */
 
 function ClaudeScene() {
   return (
@@ -143,7 +143,7 @@ function ClaudeScene() {
             <div className={`${f.msg} ${f.in}`} style={at(5.15)}>
               <span className={f.ok}>⏺</span>
               <span>
-                <b>Bash</b>(bluprint-show section &quot;Saving A Session&quot;)
+                <b>Bash</b>(blueprint-show section &quot;Saving A Session&quot;)
                 <br />
                 <span className={f.res}>⎿&nbsp;&nbsp;Showing Saving A Session</span>
               </span>
@@ -268,7 +268,7 @@ function PlanScene() {
           }
         >
           <div className={f.term}>
-            <Hello cwd="~/code/bluprint" />
+            <Hello cwd="~/code/blueprint" />
             <p className={f.you}>&gt; let me sign in to Instagram once and keep it for every project</p>
             <div className={`${f.msg} ${f.in}`} style={at(0.3)}>
               <span className={f.ok}>⏺</span>
@@ -466,7 +466,7 @@ const PLAN_FILES: [Change, string, string][] = [
   ["changed", "app/components/chrome/settings.tsx", "saved sign-ins, with Forget"],
 ];
 
-/* ── a change, on the bluprint ───────────────────────────────── */
+/* ── a change, on the blueprint ───────────────────────────────── */
 
 function ReviewScene() {
   return (
@@ -540,7 +540,7 @@ function ReviewScene() {
   );
 }
 
-/** flash() in src/flask/helpers.py at the demo bluprint's commit, with a change a reviewer might be handed. */
+/** flash() in src/flask/helpers.py at the demo blueprint's commit, with a change a reviewer might be handed. */
 const HUNK: [" " | "+" | "-", number | "", number | "", string][] = [
   ["-", 348, "", '    flashes = session.get("_flashes", [])'],
   ["+", "", 348, '    flashes = list(session.get("_flashes", []))'],
@@ -741,7 +741,7 @@ const SCENES: Record<Drawing, () => ReactNode> = {
 
 /* ── the app's own pieces ───────────────────────────────── */
 
-/** The bluprint's tabs, as the app draws them: dark in either theme. */
+/** The blueprint's tabs, as the app draws them: dark in either theme. */
 function Strip({ children }: { children: ReactNode }) {
   return (
     <div data-chrome className={f.strip}>
@@ -759,7 +759,7 @@ function Tab({ on, children }: { on?: boolean; children: ReactNode }) {
   );
 }
 
-/** The floating window of terminals, previews and phones, over the bluprint's right edge. */
+/** The floating window of terminals, previews and phones, over the blueprint's right edge. */
 function Workspace({ tabs, strip, children }: { tabs: ReactNode; strip?: ReactNode; children: ReactNode }) {
   return (
     <aside data-chrome className={f.ws}>
@@ -819,7 +819,7 @@ function Head({ trail, eyebrow, title, sub }: { trail: string[]; eyebrow: string
 const HANDLING_SUB = "Push contexts, access request and session globals, serve files, flash messages, and handle errors at runtime.";
 const HANDLING_CAPTION = "How a WSGI request flows through Flask's context and dispatch machinery";
 
-/* ── the Handling Requests picture, from the flask demo bluprint ── */
+/* ── the Handling Requests picture, from the flask demo blueprint ── */
 
 type BoxId = "wsgi" | "appctx" | "cv" | "session" | "wrappers" | "preprocess" | "dispatch" | "finalize" | "debug" | "helpers";
 
@@ -857,7 +857,7 @@ const BOX_H = 50;
 const boxAt = (b: { col: number; row: number }) => ({ x: 12 + b.col * 290, y: 14 + b.row * 120 });
 
 /**
- * `marks`: a change drawn as the bluprint draws one in diff mode — amber where the
+ * `marks`: a change drawn as the blueprint draws one in diff mode — amber where the
  * code changed, dashed where a box calls into it, the rest receding.
  * `tags`: the change's size, on the box's top edge. `lit`: the box a right
  * click is on. `view`: the part of the picture shown.

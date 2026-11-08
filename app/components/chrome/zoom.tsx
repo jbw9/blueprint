@@ -19,7 +19,7 @@ const MAX = 4;
 const STEPS = [1, 1.25, 1.5, 2, 2.5, 3, 4];
 
 /** A pinch the desktop shell took from WebKitGTK (src-tauri/src/lib.rs). */
-const PINCH = "bluprint:pinch";
+const PINCH = "blueprint:pinch";
 
 export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement | null>; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);

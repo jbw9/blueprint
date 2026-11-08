@@ -1,5 +1,5 @@
 /**
- * The fast bluprint (--fast): the same bluprint file, made in four phases where code
+ * The fast blueprint (--fast): the same blueprint file, made in four phases where code
  * does what code can and a model only names and describes.
  *
  * 1. Extraction, no model: the inventory, the fact graph, and from them the
@@ -14,9 +14,9 @@
  *    thinking: its title, sub, what it is responsible for, and a title for
  *    each of its groups and files.
  * 4. Synthesize: one short call over the components and the module graph for
- *    the bluprint's top line, their order and a label per arrow. Arrows are drawn
+ *    the blueprint's top line, their order and a label per arrow. Arrows are drawn
  *    from the graph, never from the model: an arrow it names that the graph
- *    lacks is listed as a discrepancy, not drawn. The bluprint is checked once and
+ *    lacks is listed as a discrepancy, not drawn. The blueprint is checked once and
  *    its problems listed, not sent back for repair.
  *
  * What it gives up against the full pipeline: levels follow directories, not
@@ -25,8 +25,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model answers */
 import { basename } from "node:path";
-import type { Node } from "@/lib/bluprint/schema";
-import type { BluprintFile, Overview } from "@/lib/bluprint/build";
+import type { Node } from "@/lib/blueprint/schema";
+import type { BlueprintFile, Overview } from "@/lib/blueprint/build";
 import { prefixFor } from "./author";
 import { ask, type Tool } from "./bedrock";
 import { check, LEAF, looksLikePath, SUB_WORDS, words } from "./check";
@@ -340,7 +340,7 @@ const SYNTH_TOOL: Tool = {
   },
 };
 
-/** What an answer breaks of the bluprint's limits on words, which the check holds every card to. */
+/** What an answer breaks of the blueprint's limits on words, which the check holds every card to. */
 export function wordProblems(fields: [what: string, text: unknown, max: number][]): string[] {
   const out: string[] = [];
   for (const [what, text, max] of fields) {
@@ -488,7 +488,7 @@ export function diagramOf(g: Graph) {
 }
 
 export interface FastResult {
-  bluprint: BluprintFile;
+  blueprint: BlueprintFile;
   arch: { files: Record<string, { component: string; lines: number; symbols: { name: string; kind: string; line: number }[]; imports: string[] }>; components: Component[]; module_graph: ModuleEdge[]; entrypoints: string[]; external_deps: string[] };
   /** What the model said that the graph does not hold: listed, not fixed. */
   discrepancies: string[];
@@ -498,7 +498,7 @@ export interface FastResult {
 }
 
 /** Phases 2-4 over an inventory, its summaries and its graph (phase 1 is the caller's: inventory, summarize, graph). */
-export async function fastBluprint(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: BluprintFile["RUN"], say: (s: string) => void): Promise<FastResult> {
+export async function fastBlueprint(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: BlueprintFile["RUN"], say: (s: string) => void): Promise<FastResult> {
   const timing: Record<string, number> = {};
   const lap = async <T,>(stage: string, fn: () => Promise<T> | T): Promise<T> => {
     const t = Date.now();
@@ -680,9 +680,9 @@ export async function fastBluprint(inv: Inventory, sums: Record<string, FileSumm
     anatomy: [top],
   } as unknown as Overview;
 
-  const bluprint: BluprintFile = { RUN: run, OVERVIEW, AUTHORED };
-  // Held to the quick bluprint's own standard: it writes no explainers, whatever the bluprint's level.
-  const checkProblems = await lap("check", () => check({ ...bluprint, RUN: { ...run, explain: "none" } }, inv.repo, { generated: true }).problems);
+  const blueprint: BlueprintFile = { RUN: run, OVERVIEW, AUTHORED };
+  // Held to the quick blueprint's own standard: it writes no explainers, whatever the blueprint's level.
+  const checkProblems = await lap("check", () => check({ ...blueprint, RUN: { ...run, explain: "none" } }, inv.repo, { generated: true }).problems);
 
   const arch: FastResult["arch"] = {
     files: Object.fromEntries(
@@ -695,5 +695,5 @@ export async function fastBluprint(inv: Inventory, sums: Record<string, FileSumm
     entrypoints: entries,
     external_deps: inv.deps,
   };
-  return { bluprint, arch, discrepancies, checkProblems, timing };
+  return { blueprint, arch, discrepancies, checkProblems, timing };
 }

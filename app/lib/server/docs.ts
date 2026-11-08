@@ -1,7 +1,7 @@
 /**
  * Server-side: the Markdown (and HTML pages) a project keeps beside its code —
  * its README, design notes, decision logs, agent instructions — for the docs reader
- * (components/bluprint/docs.tsx). Paths come from git, never from the caller, so this
+ * (components/blueprint/docs.tsx). Paths come from git, never from the caller, so this
  * lists only what the checkout tracks or would track; the text itself is read
  * through `/api/source`, behind the same containment check as the code.
  */
@@ -65,7 +65,7 @@ export function listDocs(root: string): Doc[] {
     .map((path) => ({ path, title: titleOf(join(root, path)) }));
 }
 
-/** A landing demo's docs: the Markdown among the files committed beside its bluprint. */
+/** A landing demo's docs: the Markdown among the files committed beside its blueprint. */
 export function demoDocs(source: Record<string, string>): Doc[] {
   return Object.keys(source)
     .filter((p) => /\.(mdx?|html?)$/i.test(p))
