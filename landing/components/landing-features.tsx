@@ -65,14 +65,14 @@ function ClaudeScene() {
               Blueprint
             </span>
             <span className={f.in} style={at(5.6)}>
-              Authoring Sections
+              Partitioning And Authoring
             </span>
           </span>
         </Tab>
       }
     >
       <div className={`${f.page} ${f.out}`} style={{ "--ws": "44%", ...at(0, 5.6) } as CSSProperties}>
-        <Head title="blueprint" sub="Visual, navigable map of any codebase" meta="222 files · commit c37b9ff" />
+        <Head title="blueprint" sub="Visual codebase explorer with AI-generated blueprints" meta="239 files · commit d542300" />
         <p className={f.cap}>
           How the parts connect<span>colours match the parts below</span>
         </p>
@@ -81,7 +81,7 @@ function ClaudeScene() {
             <path d="M2.5 1.5v12l3.2-3 2.2 4.7 2.1-1-2.2-4.6h4.4z" />
           </svg>
           <div className={`${f.menu} ${f.blip}`} style={{ left: "50%", top: "56%", ...at(1.35, 2.45) }}>
-            <p>Repository Mapping</p>
+            <p>Generating Blueprints</p>
             <span>Open in new tab</span>
             <span className={f.hot} style={at(2)}>
               Add to Claude
@@ -91,10 +91,10 @@ function ClaudeScene() {
       </div>
       <div className={`${f.page} ${f.in}`} style={{ "--ws": "44%", ...at(5.7) } as CSSProperties}>
         <Head
-          back={["Repository Mapping"]}
-          title="Authoring Sections"
-          eyebrow="Inside Repository Mapping"
-          sub="Cut the repository into four to ten roots, then write each one's sections in full."
+          back={["Generating Blueprints"]}
+          title="Partitioning And Authoring"
+          eyebrow="Inside Generating Blueprints"
+          sub="Groups files into roots and writes sections."
           action={
             <span className={`${f.btn} ${f.in}`} style={at(7.6)}>
               Keep the answer
@@ -125,22 +125,22 @@ function ClaudeScene() {
         <div className={f.term}>
           <Hello />
           <p className={`${f.you} ${f.in}`} style={at(4.6)}>
-            &gt; <span className={f.pick}>[Repository Mapping]</span> {QUESTION}
+            &gt; <span className={f.pick}>[Generating Blueprints]</span> {QUESTION}
           </p>
           <div className={`${f.msg} ${f.in}`} style={at(5)}>
             <span className={f.ok}>⏺</span>
             <span>
-              <b>blueprint - blueprint_section</b> (MCP)(id: &quot;Repository Mapping&quot;)
+              <b>blueprint - blueprint_section</b> (MCP)(id: &quot;Generating Blueprints&quot;)
               <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;3 parts: Entry Points, Repository Analysis, Authoring Sections</span>
+              <span className={f.res}>⎿&nbsp;&nbsp;6 parts: Credit Metering, Pipeline Orchestration, Repository Analysis, Partitioning And Authoring, …</span>
             </span>
           </div>
           <div className={`${f.msg} ${f.in}`} style={at(5.4)}>
             <span className={f.ok}>⏺</span>
             <span>
-              <b>Bash</b>(blueprint-show section &quot;Authoring Sections&quot;)
+              <b>Bash</b>(blueprint-show section &quot;Partitioning And Authoring&quot;)
               <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;Showing Authoring Sections</span>
+              <span className={f.res}>⎿&nbsp;&nbsp;Showing Partitioning And Authoring</span>
             </span>
           </div>
           <div className={`${f.msg} ${f.in}`} style={at(6.3)}>
@@ -152,12 +152,12 @@ function ClaudeScene() {
           </div>
           <div className={`${f.msg} ${f.in}`} style={at(7)}>
             <span />
-            <span>Each sentence is checked against the lines it cites before it&rsquo;s kept. Authoring Sections is open beside you.</span>
+            <span>Each sentence is checked against the lines it cites before it&rsquo;s kept. Partitioning And Authoring is open beside you.</span>
           </div>
           <span className={f.grow} />
           <Prompt>
             <span className={`${f.pick} ${f.blip}`} style={at(2.5, 4.6)}>
-              [Repository Mapping]{" "}
+              [Generating Blueprints]{" "}
             </span>
             <span className={f.typed} style={{ "--n": QUESTION.length, ...at(2.75, 4.6) } as CSSProperties}>
               {QUESTION}
@@ -171,26 +171,26 @@ function ClaudeScene() {
 
 /** The repo's top level, as its blueprint draws it. */
 const TOP: Box[] = [
-  { id: "read", label: "Reading And Editing Maps", col: 0, row: 0, sec: 1 },
-  { id: "tauri", label: "Tauri Backend", col: 1, row: 0, sec: 2 },
-  { id: "view", label: "Viewing Code Maps", col: 0, row: 1, sec: 3 },
-  { id: "map", label: "Repository Mapping", col: 1, row: 1, sec: 4 },
-  { id: "land", label: "Visiting the Landing Page", col: 0, row: 2, sec: 5 },
-  { id: "stats", label: "Analytics Schema", col: 1, row: 2, sec: 6 },
+  { id: "app", label: "Viewing a Blueprint", col: 0, row: 0, sec: 1 },
+  { id: "ui", label: "Building The App", col: 1, row: 0, sec: 2 },
+  { id: "lib", label: "Shared Libraries", col: 0, row: 1, sec: 3 },
+  { id: "gen", label: "Generating Blueprints", col: 1, row: 1, sec: 4 },
+  { id: "land", label: "Landing Site", col: 0, row: 2, sec: 5 },
+  { id: "tauri", label: "Running the Desktop App", col: 1, row: 2, sec: 6 },
 ];
 const TOP_LINKS: Link[] = [
-  { from: "read", to: "tauri", label: "invokes" },
-  { from: "read", to: "view", label: "loads blueprint data" },
-  { from: "view", to: "map", label: "spawns" },
-  { from: "land", to: "view", label: "frames an export" },
-  { from: "land", to: "stats", label: "records" },
+  { from: "app", to: "ui", label: "renders" },
+  { from: "app", to: "lib", label: "posts to API routes" },
+  { from: "lib", to: "gen", label: "runs git" },
+  { from: "gen", to: "tauri", label: "draws diagrams" },
+  { from: "ui", to: "gen", label: "invokes commands" },
 ];
 
 const AUTHOR_STEPS: [string, string, string][] = [
-  ["Root Cutting", "Partitions the codebase into four to ten roots, then checks the cut and repairs it.", "scripts/generate/cut.ts"],
-  ["Section Authoring", "An agent per root writes its sections and validates each against the code.", "scripts/generate/author.ts"],
-  ["Overview Authoring", "Drafts the top-level overview and checks it against the roots.", "scripts/generate/overview.ts"],
-  ["Deep Mapping", "Writes the full depth: structure, titles and walkthroughs in one pass.", "scripts/generate/deep.ts"],
+  ["Root Partitioning", "Splits the repository into user-facing roots and exclusions.", "app/scripts/generate/cut.ts"],
+  ["Agent Authoring", "An agent per root writes its sections in a loop, checking each against the code.", "app/scripts/generate/author.ts"],
+  ["Deep Sections", "Builds the detailed sections from the source code.", "app/scripts/generate/deep.ts"],
+  ["Overview Generator", "Builds the top-level repository overview.", "app/scripts/generate/overview.ts"],
 ];
 
 /* ── a plan, before it is built ─────────────────────────── */
@@ -389,13 +389,13 @@ const PLAN_FILES: [Change, string, string][] = [
 
 function ReviewScene() {
   return (
-    <Window projects={<Project on>blueprint</Project>} git tabs={<Tab on icon={<BlueprintIcon />}>Working With Agents</Tab>}>
+    <Window projects={<Project on>blueprint</Project>} git tabs={<Tab on icon={<BlueprintIcon />}>Building The App</Tab>}>
       <div className={f.diffBar}>
         <span className={f.showing}>
           <i />
           <b>Showing changes</b>
           <span>
-            <code>399291d</code> double-click a terminal or agent tab to rename it
+            <code>6398cf4</code> clearer blueprint menu
           </span>
         </span>
         <span className={f.legend}>
@@ -405,7 +405,7 @@ function ReviewScene() {
         </span>
         <span className={f.stepper}>
           <span>‹ Prev</span>
-          <span className={f.count}>1 of 2 changed</span>
+          <span className={f.count}>1 of 1 changed</span>
           <span>Next ›</span>
           <i />
           <span>History</span>
@@ -413,29 +413,29 @@ function ReviewScene() {
         </span>
       </div>
       <div className={f.page}>
-        <Head back={["Blueprint", "Reading And Editing Maps"]} title="Working With Agents" eyebrow="Inside Reading And Editing Maps" />
+        <Head back={["Blueprint"]} title="Building The App" eyebrow="Inside blueprint" sub="React components for the canvas, menus and dialogs." />
         <div className={`${f.narrow} ${f.in}`} style={at(0.1)}>
-          <Diagram boxes={AGENT_BOXES} links={AGENT_LINKS} w={196} gx={56} gy={46} recede />
+          <Diagram boxes={APP_BOXES} links={APP_LINKS} w={196} gx={56} gy={46} recede />
         </div>
         <div className={`${f.changes} ${f.in}`} style={at(0.35)}>
-          <p>2 parts of this picture changed — open one to read its lines</p>
+          <p>1 part of this picture changed — open it to read its lines</p>
           <div className={f.change}>
             <span className={f.caret}>▾</span>
             <b className={f.mark}>~</b>
-            <b>Workspace Window</b>
+            <b>StatusBar</b>
             <span className={f.word}>changed</span>
             <span className={f.faint}>1 file</span>
             <span className={f.stat}>
-              <span data-v="added">+63</span>
-              <span data-v="removed">−11</span>
-              <Blocks added={63} removed={11} />
+              <span data-v="added">+5</span>
+              <span data-v="removed">−5</span>
+              <Blocks added={5} removed={5} />
             </span>
             <span className={f.openLink}>Open ›</span>
           </div>
           <div className={f.hunkWrap}>
-            <p className={f.path}>app/components/agent/workspace.tsx</p>
+            <p className={f.path}>app/components/chrome/statusbar.tsx</p>
             <pre className={f.hunk}>
-              <span className={f.hunkHead}>line 995</span>
+              <span className={f.hunkHead}>line 178</span>
               {HUNK.map(([k, old, now, text], i) => (
                 <span key={i} className={`${f.line} ${f.in}`} data-k={k} style={at(0.55 + i * 0.07)}>
                   <span>{old}</span>
@@ -446,57 +446,41 @@ function ReviewScene() {
               ))}
             </pre>
           </div>
-          <div className={f.change}>
-            <span className={f.caret}>▸</span>
-            <b className={f.mark}>~</b>
-            <b>Tab Contracts</b>
-            <span className={f.word}>changed</span>
-            <span className={f.faint}>1 file</span>
-            <span className={f.stat}>
-              <span data-v="added">+2</span>
-              <span data-v="removed">−0</span>
-              <Blocks added={2} removed={0} />
-            </span>
-            <span className={f.openLink}>Open ›</span>
-          </div>
         </div>
       </div>
     </Window>
   );
 }
 
-const AGENT_BOXES: Box[] = [
-  { id: "start", label: "Start Agent", col: 0, row: 0, sec: 1 },
-  { id: "ws", label: "Workspace Window", col: 1, row: 0, v: "changed", tag: [63, 11] },
-  { id: "term", label: "Terminal", col: 2, row: 0, v: "near" },
-  { id: "follow", label: "Follow Turns", col: 3, row: 0, sec: 2 },
-  { id: "registry", label: "Agent Registry", col: 0, row: 1, sec: 3 },
-  { id: "contracts", label: "Tab Contracts", col: 1, row: 1, v: "changed", tag: [2, 0] },
-  { id: "plan", label: "Design Plan", col: 2, row: 1, sec: 4 },
-  { id: "persist", label: "Persist Workspace", col: 3, row: 1, v: "near" },
+const APP_BOXES: Box[] = [
+  { id: "home", label: "Home", col: 0, row: 0, v: "near" },
+  { id: "canvas", label: "Canvas", col: 1, row: 0, sec: 1 },
+  { id: "zoom", label: "Zoom", col: 2, row: 0, sec: 2 },
+  { id: "diagram", label: "Diagram", col: 3, row: 0, sec: 3 },
+  { id: "status", label: "StatusBar", col: 0, row: 1, v: "changed", tag: [5, 5] },
+  { id: "pick", label: "PickMenu", col: 1, row: 1, sec: 4 },
+  { id: "projects", label: "ProjectsDialog", col: 2, row: 1, sec: 5 },
+  { id: "ppick", label: "Preview Pick", col: 3, row: 1, sec: 6 },
 ];
-const AGENT_LINKS: Link[] = [
-  { from: "start", to: "ws", label: "opens" },
-  { from: "ws", to: "term", label: "mounts" },
-  { from: "term", to: "follow", label: "polls" },
-  { from: "start", to: "registry", label: "which agents" },
-  { from: "ws", to: "contracts", label: "typed by" },
-  { from: "term", to: "plan", label: "opens plans" },
-  { from: "follow", to: "persist", label: "saves sessions" },
+const APP_LINKS: Link[] = [
+  { from: "home", to: "canvas", label: "renders" },
+  { from: "canvas", to: "zoom", label: "wraps" },
+  { from: "home", to: "status", label: "renders" },
+  { from: "canvas", to: "pick", label: "context menu" },
 ];
 
-/** workspace.tsx in commit 399291d: the rename it added. */
+/** statusbar.tsx in commit 6398cf4: the blueprint menu's new words. */
 const HUNK: [" " | "+" | "-", number | "", number | "", string][] = [
-  [" ", 991, 995, "  };"],
-  [" ", 992, 996, ""],
-  ["+", "", 997, "  // Terminals and the agents in them can be renamed; their glyph stays."],
-  ["+", "", 998, "  const rename = (t: Tab) =>"],
-  ["+", "", 999, '    t.kind === "shell"'],
-  ["+", "", 1000, "      ? () => {"],
-  ["+", "", 1001, "          nameKept.current = true;"],
-  ["+", "", 1002, "          setNaming(t.key);"],
-  ["+", "", 1003, "        }"],
-  ["+", "", 1004, "      : undefined;"],
+  [" ", 179, 179, "  const items: MenuItem[] = ["],
+  [" ", 180, 180, "    {"],
+  ["-", 181, "", '      label: "Update blueprint to the code",'],
+  ["+", "", 181, '      label: "Update Blueprint",'],
+  [" ", 182, 182, '      disabled: generating || updating || p.status !== "ready",'],
+  ["-", 185, "", '    { label: "Remake blueprint…", disabled: generating, onClick: () => remakeBlueprint(id) },'],
+  ["+", "", 185, '    { label: "Remake Blueprint", disabled: generating, onClick: () => remakeBlueprint(id) },'],
+  [" ", 186, 186, "    {"],
+  ["-", 187, "", '      label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint",'],
+  ["+", "", 187, '      label: p.paused ? "Start Auto-Updates" : "Stop Auto-Updates",'],
 ];
 
 /** Strings, comments and keywords, in the app's code colours. */
