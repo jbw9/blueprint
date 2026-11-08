@@ -32,12 +32,10 @@ main() {
     need git "xcode-select --install"
     need c++ "xcode-select --install"
     need node "Node 20 or newer: https://nodejs.org (or: brew install node)"
-    need cargo "Rust: https://rustup.rs"
     need cmake "brew install cmake (or https://cmake.org/download)"
   else
     need git "your package manager's git"
     need node "Node 20 or newer: https://nodejs.org/en/download/package-manager"
-    need cargo "Rust: https://rustup.rs"
     if command -v apt-get >/dev/null; then
       sys="sudo apt-get install -y build-essential cmake pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev libasound2-dev libpulse-dev"
     elif command -v dnf >/dev/null; then
@@ -59,6 +57,11 @@ main() {
 Install those, then run this again."
   command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] ||
     die "Blueprint needs Node 20 or newer; this is $(node -v)."
+  if ! command -v cargo >/dev/null; then
+    say "Installing Rust (rustup)"
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+    PATH="$HOME/.cargo/bin:$PATH"
+  fi
 
   say "Getting the source into $dir"
   mkdir -p "$dir"
