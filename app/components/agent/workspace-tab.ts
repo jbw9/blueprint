@@ -27,6 +27,8 @@ export interface Tab {
   run?: string;
   /** What it is called instead of its shell's name, when the app opened it for something. */
   label?: string;
+  /** What the user renamed it to, over any name the app gives it. */
+  name?: string;
   /** It runs the dev server: its output is watched for the server's address,
    * and it is drawn in the project's Preview tab rather than in a tab of its own. */
   dev?: boolean;

@@ -132,6 +132,9 @@ export function Workspace() {
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
   const [mainSlot, setMainSlot] = useState<HTMLElement | null>(null);
   const mainPane = useRef<HTMLElement>(null);
+  /** The tab whose name is being typed over. */
+  const [naming, setNaming] = useState<number | null>(null);
+  const nameKept = useRef(true);
   const [dragging, setDragging] = useState<{ key: number; x: number; y: number; to: "main" | "panel" } | null>(null);
   const { agents, others, main: mainAgent } = useAgents();
   const main = mainAgent.id;
@@ -934,7 +937,7 @@ export function Workspace() {
   // anywhere else into the main view. A press that hardly moves is a click,
   // so the button's own click only selects from the keyboard.
   const grab = (t: Tab) => (e: React.PointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest("[data-close]")) return;
+    if (e.button !== 0 || (e.target as HTMLElement).closest("[data-close],input")) return;
     const handle = e.currentTarget;
     const x0 = e.clientX;
     const y0 = e.clientY;
@@ -969,6 +972,7 @@ export function Workspace() {
   };
 
   const nameOf = (t: Tab) => {
+    if (t.name) return t.name;
     // Numbered among the terminals alone, so a Preview or a plan before it never shifts it.
     const i = mine.filter((x) => x.kind === "shell" && !x.dev).indexOf(t);
     const front = inFront(t);
@@ -990,6 +994,40 @@ export function Workspace() {
           : (t.label ?? `${t.title} ${i + 1}`);
   };
 
+  // Terminals and the agents in them can be renamed; their glyph stays.
+  const rename = (t: Tab) =>
+    t.kind === "shell"
+      ? () => {
+          nameKept.current = true;
+          setNaming(t.key);
+        }
+      : undefined;
+  const nameField = (t: Tab) => {
+    const done = (value: string) => {
+      setNaming(null);
+      if (nameKept.current) patch(t.key, { name: value.trim() || undefined });
+    };
+    return (
+      <input
+        autoFocus
+        defaultValue={nameOf(t)}
+        aria-label="Tab name"
+        onFocus={(e) => e.currentTarget.select()}
+        onBlur={(e) => done(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            nameKept.current = false;
+            e.currentTarget.blur();
+          }
+        }}
+        size={Math.max(4, nameOf(t).length)}
+        className="min-w-0 border border-border-strong bg-card px-1 text-ink outline-none"
+      />
+    );
+  };
+
   /** A tab in either strip, drawn as an editor draws one. */
   // A tab in the window is drawn as an editor draws one; in the main view, as
   // the blueprint's own tabs are (components/chrome/tabs.tsx).
@@ -1003,11 +1041,18 @@ export function Workspace() {
         title="Drag onto the window to put it back"
         className={cn(tabLook(selected, true), "cursor-default", dragging?.key === t.key && "opacity-40")}
       >
-        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
-          {iconOf(t)}
-          <TabLabel>{nameOf(t)}</TabLabel>
-          {t.status && <StatusDot status={t.status} />}
-        </button>
+        {naming === t.key ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            {iconOf(t)}
+            {nameField(t)}
+          </span>
+        ) : (
+          <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
+            {iconOf(t)}
+            <TabLabel>{nameOf(t)}</TabLabel>
+            {t.status && <StatusDot status={t.status} />}
+          </button>
+        )}
         <TabClose label={nameOf(t)} active={selected} onClose={() => close(t.key)} />
       </div>
     ) : (
@@ -1023,11 +1068,18 @@ export function Workspace() {
         dragging?.key === t.key && "opacity-40",
       )}
     >
-      <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} className="flex cursor-pointer items-center gap-1.5">
-        {iconOf(t)}
-        {nameOf(t)}
-        {t.status && <StatusDot status={t.status} />}
-      </button>
+      {naming === t.key ? (
+        <span className="flex items-center gap-1.5">
+          {iconOf(t)}
+          {nameField(t)}
+        </span>
+      ) : (
+        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex cursor-pointer items-center gap-1.5">
+          {iconOf(t)}
+          {nameOf(t)}
+          {t.status && <StatusDot status={t.status} />}
+        </button>
+      )}
       <button
         type="button"
         data-close
