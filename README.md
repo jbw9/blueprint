@@ -27,7 +27,7 @@ npm run app:install
 
 - `app/` - the app: the Next.js UI and its local API (`app/`, `components/`, `lib/`), the desktop shell (`src-tauri/`), and the bluprint generator (`scripts/generate/`)
 - `landing/` - the landing page at blpr.dev (`npm run dev`, port 3001)
-- `admin/` - the admin dashboard at blpr.dev/admin: one static page and its Supabase schema
+- `admin/` - the admin dashboard at blpr.dev/admin: one static page; its data lives behind `app/scripts/api`
 - `scripts/build-site.sh` - builds blpr.dev (landing, demo bluprints, admin) for the deploy workflow
 - `install.sh` - the one-line install
 - `docs/` - design notes and the decision log

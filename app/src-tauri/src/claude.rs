@@ -310,7 +310,20 @@ pub struct Launch {
     voice: bool,
     #[serde(default)]
     research: bool,
+    /// Bluprint credit, when on: the local relay (app/api/credit/relay) and its secret.
+    credit: Option<Credit>,
 }
+
+#[derive(serde::Deserialize)]
+pub struct Credit {
+    url: String,
+    token: String,
+}
+
+/// What Claude Code on Bluprint credit asks for: model ids it knows on Bedrock. A tab gets Sonnet or
+/// Haiku whatever it is asked for; the proxy (scripts/credit/index.mjs) holds it to that too.
+const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+const CREDIT_HAIKU: &str = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 /// Runs Claude with the hook, and marks the tab live while it does. The marker,
 /// and the conversation the tab would be reopened into, go on any exit — a
@@ -869,6 +882,21 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
     }
     if let Some(m) = launch.model.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
         cmd.env("BLUPRINT_CLAUDE_MODEL", m);
+    }
+    // Bedrock mode against the relay, which signs nothing: Claude Code sends the relay's secret as a
+    // bearer token and leaves the user's own login, untouched, for tabs opened with the credit off.
+    if let Some(c) = &launch.credit {
+        cmd.env("CLAUDE_CODE_USE_BEDROCK", "1");
+        cmd.env("CLAUDE_CODE_SKIP_BEDROCK_AUTH", "1");
+        cmd.env("ANTHROPIC_BEDROCK_BASE_URL", &c.url);
+        cmd.env("ANTHROPIC_AUTH_TOKEN", &c.token);
+        cmd.env("AWS_REGION", "us-east-1");
+        cmd.env("ANTHROPIC_MODEL", CREDIT_SONNET);
+        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", CREDIT_SONNET);
+        cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDIT_SONNET);
+        cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", CREDIT_HAIKU);
+        // It would replace the relay's secret.
+        cmd.env_remove("AWS_BEARER_TOKEN_BEDROCK");
     }
     #[cfg(windows)]
     if let Some(bash) = git_bash() {

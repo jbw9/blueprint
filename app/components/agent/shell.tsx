@@ -15,6 +15,7 @@ import { themeOf, type Theme } from "@/lib/client/theme";
 import { cn } from "@/lib/client/utils";
 import { isMac } from "@/lib/client/platform";
 import { findClaude } from "@/lib/client/claude";
+import { creditRelay } from "@/lib/client/credit";
 
 /**
  * One tab's program: the user's shell, or their Claude Code, on a real pty in
@@ -305,7 +306,9 @@ export function Shell({
       const found = await findClaude(claudePath);
       if (gone) return;
       handlers.current.onClaude?.(!!found);
-      const launch = found ? { path: found.path, model: model || null, voice, research } : null;
+      const credit = found ? await creditRelay() : null;
+      if (gone) return;
+      const launch = found ? { path: found.path, model: model || null, voice, research, credit } : null;
       // xterm measures one glyph to size every cell, so it needs the face's
       // name (not a var()) and the face itself loaded: measured against the
       // fallback, the real font lands in cells of the wrong width once it

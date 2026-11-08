@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 
-// The admin dashboard's Supabase project (admin/supabase.sql); the key is the public one.
-const SUPABASE_URL = "https://jbvkjvdthuzofvmhwctv.supabase.co";
-const SUPABASE_KEY = "sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl";
+// The admin dashboard's backend (app/scripts/api).
+const API_URL = "https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws";
 
 /**
  * Counts a visit for the admin dashboard: one anonymous id per browser,
@@ -41,9 +40,9 @@ export function LandingVisit() {
             .catch(() => null);
     const referrer = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : null;
     void country.then((c) =>
-      fetch(`${SUPABASE_URL}/rest/v1/rpc/bp_track_visit`, {
+      fetch(`${API_URL}/rpc/bp_track_visit`, {
         method: "POST",
-        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vid, path: location.pathname, referrer, country: c }),
         keepalive: true,
       }).catch(() => {}),

@@ -1,18 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { API_URL } from "@/lib/server/api";
 
 /**
- * Run reports for the admin dashboard (blpr.dev/admin, admin/supabase.sql).
+ * Run reports for the admin dashboard (blpr.dev/admin, scripts/api/admin.mjs).
  * Each finished bluprint run sends what its report says, the end of its log and the
  * generator version, under an id that names this install and nothing else. On
  * unless turned off in Settings; the choice lives beside the vault so the
  * server, which sends them, can read it.
  */
-
-// The movies site's Supabase project, shared; the key is the public one, which can only call functions.
-const SUPABASE_URL = "https://jbvkjvdthuzofvmhwctv.supabase.co";
-const SUPABASE_KEY = "sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl";
 
 interface Telemetry {
   installId: string;
@@ -84,9 +81,9 @@ export async function sendRun(dir: string, kind: "generate" | "update", status: 
       report: kind === "update" ? last : report,
       log_tail: tail(join(dir, kind === "update" ? "update.log" : "generate.log")),
     };
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/bp_record_run`, {
+    await fetch(`${API_URL}/rpc/bp_record_run`, {
       method: "POST",
-      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ r }),
       signal: AbortSignal.timeout(10_000),
     });

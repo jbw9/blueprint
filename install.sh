@@ -5,9 +5,8 @@
 # When it ends it tells us the OS and whether it worked, nothing else; BLUPRINT_NO_TELEMETRY=1 skips that.
 set -e
 
-# The admin dashboard's Supabase project (admin/supabase.sql); the key is the public one.
-SUPABASE_URL=https://jbvkjvdthuzofvmhwctv.supabase.co
-SUPABASE_KEY=sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl
+# The admin dashboard's backend (app/scripts/api).
+API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
 
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
@@ -77,8 +76,8 @@ report() {
   status=$?
   ok=$([ "$status" = 0 ] && echo true || echo false)
   [ -z "$BLUPRINT_NO_TELEMETRY" ] || return 0
-  curl -fsS -m 5 -o /dev/null -X POST "$SUPABASE_URL/rest/v1/rpc/bp_track_install" \
-    -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" \
+  curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
+    -H "Content-Type: application/json" \
     -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$ok}" 2>/dev/null || true
 }
 need() { command -v "$1" >/dev/null 2>&1 || missing="$missing

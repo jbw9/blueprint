@@ -48,6 +48,47 @@ const priceOf = (model: string) => {
 
 const client = new BedrockRuntimeClient({ region: process.env.AWS_REGION || "us-east-1" });
 
+/**
+ * Bluprint credit (app/lib/server/credit.ts): a proxy that answers as Bedrock does, under this
+ * machine's token. Called with fetch, not the SDK, which speaks HTTP/2 and the proxy does not; the
+ * reply is Bedrock's own event stream, read here frame by frame.
+ */
+const CREDIT = process.env.SLOP_BEDROCK_URL;
+async function* viaCredit(model: string, body: string): AsyncIterable<StreamEvent> {
+  const res = await fetch(`${CREDIT}/model/${encodeURIComponent(model)}/invoke-with-response-stream`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${process.env.SLOP_BEDROCK_TOKEN}`, "content-type": "application/json", accept: "application/json" },
+    body,
+  });
+  if (!res.ok || !res.body) {
+    const j = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(`${res.headers.get("x-amzn-errortype") ?? res.status}: ${j?.message ?? res.statusText}`);
+  }
+  let buf = Buffer.alloc(0);
+  const reader = res.body.getReader();
+  for (let r = await reader.read(); !r.done; r = await reader.read()) {
+    buf = Buffer.concat([buf, r.value]);
+    while (buf.length >= 12 && buf.length >= buf.readUInt32BE(0)) {
+      const total = buf.readUInt32BE(0);
+      const end = 12 + buf.readUInt32BE(4);
+      // Headers are name, type 7 (string), length, value; only the message type and an exception's name are wanted.
+      const headers: Record<string, string> = {};
+      for (let i = 12; i < end; ) {
+        const name = buf.toString("utf8", i + 1, i + 1 + buf[i]);
+        i += 1 + buf[i];
+        const len = buf.readUInt16BE(i + 1);
+        headers[name] = buf.toString("utf8", i + 3, i + 3 + len);
+        i += 3 + len;
+      }
+      const payload = buf.toString("utf8", end, total - 4);
+      buf = buf.subarray(total);
+      if (headers[":message-type"] === "exception") throw new Error(`${headers[":exception-type"]}: ${(JSON.parse(payload) as { message?: string }).message ?? payload}`);
+      const bytes = (JSON.parse(payload) as { bytes?: string }).bytes;
+      if (bytes) yield { chunk: { bytes: Buffer.from(bytes, "base64") } };
+    }
+  }
+}
+
 export interface Tool {
   name: string;
   description: string;
@@ -200,6 +241,7 @@ export async function invoke(req: Request): Promise<Reply> {
         if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
         // Streamed, as VisuLearn does: a long author turn left a plain
         // request waiting minutes with nothing on the wire, and it timed out.
+        if (CREDIT) return await assemble(viaCredit(req.model, json));
         const res = await client.send(
           new InvokeModelWithResponseStreamCommand({ modelId: req.model, contentType: "application/json", accept: "application/json", body: json }),
         );

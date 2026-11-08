@@ -186,9 +186,8 @@ button.repo:hover { text-decoration-color: var(--ink); }
 </div>
 <script>
 (function () {
-  // The Supabase project from admin/supabase.sql. The key is the public one: it can only call functions.
-  var SUPABASE_URL = "https://jbvkjvdthuzofvmhwctv.supabase.co";
-  var SUPABASE_KEY = "sb_publishable_hbxcjbYF5H8py5gGLokxPg_tD9nGsNl";
+  // The dashboard's backend (app/scripts/api/admin.mjs): every read checks the password.
+  var API_URL = "https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws";
   var PW = "bp-admin-pw";
 
   var app = document.getElementById("app");
@@ -204,9 +203,9 @@ button.repo:hover { text-decoration-color: var(--ink); }
   function keep(v) { try { v ? sessionStorage.setItem(PW, v) : sessionStorage.removeItem(PW); } catch (e) {} }
 
   function rpc(fn, body) {
-    return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+    return fetch(API_URL + "/rpc/" + fn, {
       method: "POST",
-      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().then(function (j) {
@@ -249,7 +248,9 @@ button.repo:hover { text-decoration-color: var(--ink); }
 
   function load(pw) {
     bar.innerHTML = '<span class="stamp">Loading…</span>';
-    rpc("bp_admin_overview", { pw: pw }).then(function (d) {
+    Promise.all([rpc("bp_admin_overview", { pw: pw }), rpc("bp_admin_credit", { pw: pw })]).then(function (both) {
+      var d = both[0];
+      d.credit = both[1];
       keep(pw);
       data = d;
       details = {};
@@ -414,6 +415,8 @@ button.repo:hover { text-decoration-color: var(--ink); }
 
       '<section><p class="eyebrow">Runs</p><h2>Recent bluprints</h2><p class="lede">The latest 200 new bluprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p><div style="margin-top:14px" id="runs">' + runsTable() + "</div></section>" +
 
+      creditSection(d.credit) +
+
       '<section><div class="grid3">' +
       '<div class="card"><h3>Where visitors came from</h3>' + list(d.referrers, "referrer", "visitors") + "</div>" +
       '<div class="card"><h3>Countries</h3>' + list(d.countries, "country", "visitors") + "</div>" +
@@ -423,6 +426,32 @@ button.repo:hover { text-decoration-color: var(--ink); }
       '<dl class="end"><div class="title"><dt>Title</dt><dd>Bluprint admin</dd></div><div><dt>Drawn</dt><dd>' +
       new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) + '</dd></div><div><dt>Sheet</dt><dd>1 of 1</dd></div><div><dt>Site</dt><dd><a href="https://blpr.dev">blpr.dev</a></dd></div></dl>' +
       "</div>";
+  }
+
+  // Bluprint credit (app/scripts/api/credit.mjs): what it costs, and who uses it. Its settings are changed in the DynamoDB console.
+  function creditSection(c) {
+    if (!c) return "";
+    var cfg = c.config || {};
+    var spend = c.daily.reduce(function (a, d) { return a + Number(d.tab_usd || 0) + Number(d.gen_usd || 0); }, 0);
+    var days = [];
+    for (var i = 29; i >= 0; i--) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+    var byDay = {};
+    c.daily.forEach(function (d) { byDay[d.day] = d; });
+    var rows = days.map(function (day) { var d = byDay[day] || {}; return { day: day, tab: Math.round(100 * Number(d.tab_usd || 0)), gen: Math.round(100 * Number(d.gen_usd || 0)) }; });
+    return '<section><p class="eyebrow">Bluprint credit</p><h2>Claude on Bluprint\'s Bedrock</h2><p class="lede">' +
+      (cfg.enabled ? "Open to every machine. " : "Off for everyone but machines marked allowed. ") +
+      n(cfg.tab_tokens) + " tab tokens per " + n(cfg.window_hours) + " hours; generation " + (cfg.gen_tokens == null ? "uncapped" : n(cfg.gen_tokens)) +
+      "; at most " + usd(cfg.daily_usd_ceiling) + " a day for everyone. Change it on the <code>credit / config</code> item in the bluprint table.</p>" +
+      '<div class="grid3" style="margin-top:14px"><div class="card"><h3>Spend per day, in cents <span>' + usd(spend) + "</span></h3>" + bars(rows, "tab", "gen") +
+      '<div class="key"><span><i></i>Tabs</span><span><i class="b"></i>Generation</span></div></div></div>' +
+      '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>Machine</th><th>Note</th><th>Access</th><th class="num">Tab tokens</th><th class="num">Generation tokens</th><th class="num">Cost</th><th>Last used</th></tr></thead><tbody>' +
+      (c.devices.length ? c.devices.map(function (m) {
+        var access = m.blocked ? "blocked" : m.allowed ? "allowed" : cfg.enabled ? "open" : "waiting";
+        return '<tr><td title="' + esc(m.device) + '"><code>' + esc(m.device.slice(0, 12)) + "</code></td><td>" + esc(m.note || "") + "</td><td>" + access +
+          '</td><td class="num">' + n(m.tab_tokens_30) + '</td><td class="num">' + n(m.gen_tokens_30) + '</td><td class="num">' + usd(m.usd) +
+          "</td><td>" + (m.last_at ? when(m.last_at) : "—") + "</td></tr>";
+      }).join("") : '<tr><td colspan="7" class="empty">No machines yet</td></tr>') +
+      "</tbody></table></div></section>";
   }
 
   var median = function (xs) {

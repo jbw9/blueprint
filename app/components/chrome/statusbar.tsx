@@ -11,6 +11,9 @@ import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import type { Node } from "@/lib/bluprint/schema";
 import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
+import { onCreditChanged, readCredit, type Credit } from "@/lib/client/credit";
+import { tokens } from "@/components/chrome/settings";
+import { openSettings } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
 import { useMac } from "@/lib/client/platform";
 
@@ -62,6 +65,7 @@ export function StatusBar() {
       ) : null}
       <span className="min-w-0 flex-1" />
       <BluprintUpdates key={name} id={name} root={RUN.root} local={local} />
+      {STATIC_BLUPRINT ? null : <CreditLeft />}
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
       </Item>
@@ -75,6 +79,30 @@ export function StatusBar() {
         </Item>
       )}
     </footer>
+  );
+}
+
+/** What is left of this window's Bluprint credit, while tabs run on it (lib/server/credit.ts). */
+function CreditLeft() {
+  const [c, setC] = useState<Credit | null>(null);
+  useEffect(() => {
+    const read = () => void readCredit().then(setC);
+    read();
+    // The window fills as tabs work, and it is cheap to ask.
+    const t = setInterval(read, 60_000);
+    const off = onCreditChanged(read);
+    return () => {
+      clearInterval(t);
+      off();
+    };
+  }, []);
+  if (!c?.available || !c.on || c.limit == null) return null;
+  const left = Math.max(0, 1 - (c.used ?? 0) / c.limit);
+  const ends = c.resets ? new Date(c.resets).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
+  return (
+    <Item title={`Bluprint credit: ${tokens(c.used ?? 0)} of ${tokens(c.limit)} tokens used${ends ? `; the window ends at ${ends}` : ""}. Change it in Settings.`} onClick={openSettings}>
+      Credit {Math.round(left * 100)}%{ends ? ` · ${ends}` : ""}
+    </Item>
   );
 }
 

@@ -23,7 +23,7 @@ for d in $demos; do
   bluprint=${d%%:*}
   cp -R "out/$bluprint" "$site/$bluprint"
 done
-# The admin dashboard, at blpr.dev/admin: one static page, its data behind a password (admin/supabase.sql).
+# The admin dashboard, at blpr.dev/admin: one static page, its data behind a password (app/scripts/api/admin.mjs).
 mkdir -p "$site/admin"
 cp ../admin/index.html "$site/admin/index.html"
 touch "$site/.nojekyll"

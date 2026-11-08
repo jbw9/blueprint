@@ -9,6 +9,7 @@ import { PanelHead } from "@/components/ui/panel";
 import { cn } from "@/lib/client/utils";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
 import { useMac } from "@/lib/client/platform";
+import { onCreditChanged, readCredit, setCredit, type Credit } from "@/lib/client/credit";
 
 /**
  * Settings, as a dialog over the bluprint. There is little to set: the theme,
@@ -282,6 +283,7 @@ export function SettingsDialog() {
               ))}
             </div>
           </Field>
+          <BluprintCredit />
           <p className="text-[12px] text-faint">Claude Code changes apply to Claude tabs opened from now on.</p>
           <Field
             group
@@ -329,6 +331,55 @@ export function SettingsDialog() {
         </div>
       </form>
     </Overlay>
+  );
+}
+
+/** Tokens as people read them: 1.2M, 340k. */
+export const tokens = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+
+/**
+ * Bluprint credit (lib/server/credit.ts): Claude on Bluprint's own Bedrock in place of the user's
+ * Claude Code. Shown only on machines it is open to.
+ */
+function BluprintCredit() {
+  const [c, setC] = useState<Credit | null>(null);
+  useEffect(() => {
+    const read = () => void readCredit().then(setC);
+    read();
+    return onCreditChanged(read);
+  }, []);
+  if (!c?.available) return null;
+  const left =
+    c.limit != null && c.used != null
+      ? `${tokens(c.used)} of ${tokens(c.limit)} tokens used in this ${c.windowHours ?? 5}-hour window${c.resets ? `, which ends at ${new Date(c.resets).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
+      : "";
+  return (
+    <Field
+      group
+      label="Bluprint credit"
+      hint={`Claude tabs and new bluprints run on Bluprint's Claude instead of your own Claude Code, only inside Bluprint. Tabs have a token allowance every ${c.windowHours ?? 5} hours; making bluprints doesn't count against it. ${left}`}
+    >
+      <div role="radiogroup" aria-label="Bluprint credit" className="inline-flex border border-border-gray p-0.5">
+        {[
+          { value: true, label: "Use Bluprint credit" },
+          { value: false, label: "Use my Claude Code" },
+        ].map((o) => (
+          <button
+            key={o.label}
+            type="button"
+            role="radio"
+            aria-checked={c.on === o.value}
+            onClick={() => {
+              setC({ ...c, on: o.value });
+              void setCredit(o.value);
+            }}
+            className={cn(SEGMENT, c.on === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </Field>
   );
 }
 

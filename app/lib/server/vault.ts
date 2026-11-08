@@ -30,6 +30,7 @@ import { pathToFileURL } from "node:url";
 import { cloneUrl, repoName } from "@/lib/client/clone";
 import type { Run } from "@/lib/bluprint/schema";
 import { sendRun } from "@/lib/server/telemetry";
+import { creditEnv } from "@/lib/server/credit";
 
 const IDENTIFIER = "dev.bluprint.app";
 
@@ -394,7 +395,7 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
       detached: true,
       windowsHide: true,
       stdio: ["ignore", log, log],
-      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}) },
+      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
     },
   );
   closeSync(log);
@@ -601,7 +602,7 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn): Proj
       detached: true,
       windowsHide: true,
       stdio: ["ignore", log, log],
-      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}) },
+      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
     },
   );
   closeSync(log);
@@ -640,7 +641,7 @@ export function tellStory(id: string, claude?: string): boolean {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", log, log],
-    env: { ...process.env, SLOP_BACKEND: "claude-code", ...(claude ? { SLOP_CLAUDE: claude } : {}) },
+    env: { ...process.env, SLOP_BACKEND: "claude-code", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
   });
   closeSync(log);
   child.unref();
@@ -694,7 +695,7 @@ export function bluprintReview(id: string, commit: string, claude?: string): Rev
     detached: true,
     windowsHide: true,
     stdio: ["ignore", log, log],
-    env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}) },
+    env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
   });
   closeSync(log);
   child.unref();
