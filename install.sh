@@ -1,30 +1,17 @@
 #!/bin/sh
-# Installs Blueprint on macOS, Linux or Windows (in Git Bash):
-#   curl -fsSL https://blpr.dev/install.sh | sh
-# blpr.dev serves this file as main has it (scripts/build-site.sh).
-# It downloads the build of main that CI publishes for this system (.github/workflows/install.yml), and
-# builds from source where there is none, or with BLUEPRINT_FROM_SOURCE=1. Running this again updates.
-# A build from source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it).
-# When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
-# In a terminal each step is one line with a spinner, and what it runs goes to ~/.blueprint/install.log,
-# shown only when the step fails. Elsewhere (CI, a pipe into a file) it all streams as it happens.
 set -e
 
-# The admin dashboard's backend (app/scripts/api).
 API_URL=https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws
 
-# Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
   trap finish EXIT
   trap 'exit 130' INT TERM
-  # Their names while the app was called Bluprint.
   BLUEPRINT_DIR=${BLUEPRINT_DIR:-$BLUPRINT_DIR}
   BLUEPRINT_NO_TELEMETRY=${BLUEPRINT_NO_TELEMETRY:-$BLUPRINT_NO_TELEMETRY}
   repo=${BLUEPRINT_REPO:-https://github.com/jbw9/blueprint.git}
   ref=${BLUEPRINT_REF:-main}
   home=${BLUEPRINT_DIR:-$HOME/.blueprint}
   dir=$home/src
-  # Kept in ~/.bluprint while the app had that name.
   if [ -z "$BLUEPRINT_DIR" ] && [ -d "$HOME/.bluprint" ] && [ ! -e "$HOME/.blueprint" ]; then mv "$HOME/.bluprint" "$HOME/.blueprint"; fi
   mkdir -p "$home"
   log=$home/install.log
@@ -48,7 +35,7 @@ main() {
 
   case $os in
   Darwin) app=/Applications/Blueprint.app ;;
-  Linux) app=$HOME/.local/bin/blueprint ;;
+  Linux) app=$HOME/.local/bin/blpr ;;
   Windows) app="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint/blueprint.exe" ;;
   esac
   updating=$([ -e "$app" ] && echo 1 || true)
@@ -68,7 +55,6 @@ main() {
   summary
 }
 
-# The release for this system, and its size in $total. Fails when there's none; stops when GitHub can't be reached.
 find_release() {
   total=
   rc=0
@@ -89,7 +75,6 @@ download() {
 }
 
 install_release() {
-  # Releases packed before app/scripts/install.sh was renamed carry it as install-app.sh.
   place="$tmp/install.sh"
   [ -e "$place" ] || place="$tmp/install-app.sh"
   BLUEPRINT_PREBUILT="$tmp" sh "$place"
@@ -107,10 +92,9 @@ check_node() {
   [ "${v%%.*}" -ge 20 ] || fail "Blueprint needs Node 20 or newer" "You have Node $v." "$fix"
 }
 
-# The release is built against the system libraries a source build would install.
 check_libs() {
   [ "$os" = Linux ] || return 0
-  libs=$(ldd "$HOME/.local/bin/blueprint" | awk '/not found/ { print $1 }')
+  libs=$(ldd "$HOME/.local/bin/blpr" | awk '/not found/ { print $1 }')
   [ -n "$libs" ] || return 0
   list=$(printf '%s\n' "$libs" | sed 's/^/- /')
   if command -v dnf >/dev/null; then
@@ -127,7 +111,6 @@ check_libs() {
 }
 
 from_source() {
-  # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
 
   missing=""
@@ -138,12 +121,10 @@ from_source() {
     need cmake "brew install cmake"
   elif [ "$os" = Windows ]; then
     need cmake "winget install Kitware.CMake"
-    # Rust links with MSVC's C++ tools, which only vswhere can find from here.
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ] ||
       need_ "the Visual Studio C++ build tools" "winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
-    # Each thing the build needs, and its package under apt, dnf and pacman.
     pkgs=""
     for row in \
       "git git git git" \
@@ -159,7 +140,6 @@ from_source() {
       set -- $row
       case $1 in
       git | c++ | cmake | pkg-config) command -v "$1" >/dev/null && continue; what=$1 ;;
-      # Without pkg-config the libraries can't be checked, so all of them are asked for.
       *) command -v pkg-config >/dev/null && pkg-config --exists "$1" && continue; what="$1 (development files)" ;;
       esac
       missing="${missing:+$missing
@@ -229,14 +209,13 @@ summary() {
   Darwin) printf '  Open it from Applications, or run: %sopen -a Blueprint%s\n\n' "$cyan" "$off" ;;
   Windows) printf '  Open it from the Start menu.\n\n' ;;
   Linux)
-    run=blueprint
-    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) run="~/.local/bin/blueprint" ;; esac
+    run=blpr
+    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) run="~/.local/bin/blpr" ;; esac
     printf '  Open it from your applications menu, or run: %s%s%s\n\n' "$cyan" "$run" "$off"
     ;;
   esac
 }
 
-# The terminal's abilities: colour and a spinner in a terminal, plain lines anywhere else.
 ui() {
   tty=
   bold='' dim='' red='' green='' yellow='' cyan='' off=''
@@ -254,8 +233,6 @@ ui() {
   spid= note=
 }
 
-# step <doing> <done> <command...>: the command with a spinner, its output in the log; on failure, the
-# end of the log. It runs in a subshell, so what it sets doesn't outlive it.
 step() {
   doing=$1 did=$2
   shift 2
@@ -316,7 +293,6 @@ unspin() {
   printf '\r\033[K\033[?25h'
 }
 
-# Seconds since $1, as 12s or 3m 04s.
 since() {
   s=$(($(date +%s) - $1))
   if [ "$s" -lt 60 ]; then echo "${s}s"; else printf '%dm %02ds\n' $((s / 60)) $((s % 60)); fi
@@ -330,13 +306,11 @@ done_line() {
   fi
 }
 
-# warn <message> [more]
 warn() {
   printf '  %s! %s%s\n' "$yellow" "$1" "$off"
   [ -z "$2" ] || printf '    %s\n' "$2"
 }
 
-# fail <what> <details> <fix> [after]: what went wrong, and the command or step that fixes it.
 fail() {
   unspin
   printf '\n  %s%s %s%s\n' "$red$bold" "$bad" "$1" "$off"
@@ -353,7 +327,6 @@ fail() {
   exit 1
 }
 
-# need <command> <fix>: notes a missing command. need_ <what> <fix> notes something missing outright.
 need() { command -v "$1" >/dev/null 2>&1 || need_ "$1" "$2"; }
 need_() {
   missing="${missing:+$missing
