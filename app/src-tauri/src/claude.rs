@@ -36,6 +36,10 @@ const HOOK: &str = r#"f="$BLUEPRINT_CONTEXT"; w="$f.where"; if [ -s "$w" ]; then
 /// hook writes to `$CLAUDE_ENV_FILE` is what every command there starts with.
 const ON_PATH: &str = r#"[ -n "$CLAUDE_ENV_FILE" ] && [ -n "$BLUEPRINT_BIN" ] || exit 0; d="$BLUEPRINT_BIN"; command -v cygpath >/dev/null 2>&1 && d=$(cygpath -u "$d"); printf 'export PATH="%s:$PATH"\n' "$d" >> "$CLAUDE_ENV_FILE""#;
 
+/// Blueprint credit is for Claude alone (`credit`), and Claude's Bash tool would hand it to every
+/// command it runs, the user's own app among them: each of those starts with it unset.
+const NO_CREDIT: &str = r#"[ -n "$CLAUDE_ENV_FILE" ] && [ -f "$BLUEPRINT_CONTEXT.credit" ] || exit 0; sed -n 's/^export \([A-Z0-9_]*\)=.*/unset \1/p' "$BLUEPRINT_CONTEXT.credit" >> "$CLAUDE_ENV_FILE""#;
+
 /// The conversation Claude is having in this tab, from the hook's input, so
 /// the app can resume it in the tab it reopens after a restart. A `/clear`
 /// starts a new one, and this follows it.
@@ -312,8 +316,8 @@ pub struct Credit {
 }
 
 /// What Claude Code on Blueprint credit asks for: model ids it knows on Bedrock. A tab gets Sonnet or
-/// Haiku whatever it is asked for; the proxy (scripts/credit/index.mjs) holds it to that too.
-const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+/// Haiku whatever it is asked for; the proxy (scripts/api/credit.mjs) holds it to that too.
+const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-4-6";
 const CREDIT_HAIKU: &str = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 /// Runs Claude with the hook, and marks the tab live while it does. The marker,
@@ -328,6 +332,8 @@ r=$(cat "$BLUEPRINT_CONTEXT.resume" 2>/dev/null); rm -f "$BLUEPRINT_CONTEXT.resu
 # Claude Code keeps a conversation only once it has a message: one never
 # written to cannot be resumed, so that tab starts afresh rather than failing.
 [ -n "$r" ] && [ -z "$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" -maxdepth 2 -name "$r.jsonl" 2>/dev/null | head -n 1)" ] && r=
+# Blueprint credit, for this Claude alone: the tab's shell never has it.
+[ -f "$BLUEPRINT_CONTEXT.credit" ] && . "$BLUEPRINT_CONTEXT.credit"
 "$BLUEPRINT_CLAUDE_BIN" --settings "$BLUEPRINT_CLAUDE_SETTINGS" --append-system-prompt "$BLUEPRINT_CLAUDE_SYSTEM" ${BLUEPRINT_CLAUDE_MODEL:+--model "$BLUEPRINT_CLAUDE_MODEL"} ${BLUEPRINT_CLAUDE_MCP:+--mcp-config "$BLUEPRINT_CLAUDE_MCP"} ${r:+--resume "$r"} "$@"
 "#;
 
@@ -803,7 +809,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
     let mut settings = serde_json::json!({
         "hooks": {
             "SessionStart": [
-                { "hooks": [hook(ON_PATH), hook(SESSION)] },
+                { "hooks": [hook(ON_PATH), hook(NO_CREDIT), hook(SESSION)] },
                 { "matcher": "startup", "hooks": [hook(FRESH)] },
                 { "matcher": "clear", "hooks": [hook(CLEARED)] },
                 { "matcher": "compact", "hooks": [hook(REMIND)] }
@@ -861,21 +867,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
     if let Some(m) = launch.model.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
         cmd.env("BLUEPRINT_CLAUDE_MODEL", m);
     }
-    // Bedrock mode against the relay, which signs nothing: Claude Code sends the relay's secret as a
-    // bearer token and leaves the user's own login, untouched, for tabs opened with the credit off.
-    if let Some(c) = &launch.credit {
-        cmd.env("CLAUDE_CODE_USE_BEDROCK", "1");
-        cmd.env("CLAUDE_CODE_SKIP_BEDROCK_AUTH", "1");
-        cmd.env("ANTHROPIC_BEDROCK_BASE_URL", &c.url);
-        cmd.env("ANTHROPIC_AUTH_TOKEN", &c.token);
-        cmd.env("AWS_REGION", "us-east-1");
-        cmd.env("ANTHROPIC_MODEL", CREDIT_SONNET);
-        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", CREDIT_SONNET);
-        cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDIT_SONNET);
-        cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", CREDIT_HAIKU);
-        // It would replace the relay's secret.
-        cmd.env_remove("AWS_BEARER_TOKEN_BEDROCK");
-    }
+    credit(queue, launch.credit.as_ref())?;
     #[cfg(windows)]
     if let Some(bash) = git_bash() {
         cmd.env("BLUEPRINT_BASH", bash);
@@ -898,6 +890,52 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
         cmd.env("ZDOTDIR", zdotdir());
     }
     Ok(path)
+}
+
+/// Blueprint credit for this tab's Claude: Bedrock mode against the relay, which signs nothing, so
+/// Claude Code sends the relay's secret as a bearer token and leaves the user's own login, untouched,
+/// for tabs opened with the credit off. Kept in a file only this user can read, which the launcher
+/// reads for Claude alone: the tab's shell, and whatever it runs, never has the secret.
+fn credit(queue: &Path, credit: Option<&Credit>) -> std::io::Result<()> {
+    let file = queue.with_extension("md.credit");
+    let Some(c) = credit else {
+        return match std::fs::remove_file(&file) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+            _ => Ok(()),
+        };
+    };
+    let vars = [
+        ("CLAUDE_CODE_USE_BEDROCK", "1"),
+        ("CLAUDE_CODE_SKIP_BEDROCK_AUTH", "1"),
+        ("ANTHROPIC_BEDROCK_BASE_URL", c.url.as_str()),
+        ("ANTHROPIC_AUTH_TOKEN", c.token.as_str()),
+        ("AWS_REGION", "us-east-1"),
+        ("ANTHROPIC_MODEL", CREDIT_SONNET),
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL", CREDIT_SONNET),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDIT_SONNET),
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", CREDIT_HAIKU),
+        // The proxy holds every call to these too (scripts/api/policy.mjs); asking for more only fails.
+        ("CLAUDE_CODE_DISABLE_1M_CONTEXT", "1"),
+        ("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "32000"),
+        // Says which of Claude Code's calls each is (main, subagent, compaction), which the proxy logs.
+        ("CLAUDE_CODE_GATEWAY_HINT_HEADERS", "1"),
+    ];
+    // A Bedrock key of the user's own would replace the relay's secret.
+    let mut text = String::from("unset AWS_BEARER_TOKEN_BEDROCK\n");
+    for (k, v) in vars {
+        text.push_str(&format!("export {k}='{}'\n", v.replace('\'', r"'\''")));
+    }
+    if let Some(dir) = queue.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let mut open = std::fs::OpenOptions::new();
+    open.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        open.mode(0o600);
+    }
+    open.open(&file)?.write_all(text.as_bytes())
 }
 
 /// Adds one block to the queue, after anything not yet delivered.
@@ -1065,6 +1103,45 @@ mod tests {
         assert_eq!(t.transcript.as_deref(), Some("/t/s.jsonl"));
         assert!(t.corrections.is_empty());
         assert!(take_turn(&q).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_credit_reaches_claude_and_nothing_it_runs() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let q = dir.path().join("context-1.md");
+        let launch = |credit| Launch { path: "claude".into(), model: None, voice: false, research: false, credit };
+        let on = launch(Some(Credit { url: "http://127.0.0.1:1/api/credit/relay".into(), token: "s3cret".into() }));
+        let mut cmd = CommandBuilder::new("sh");
+        prepare(&mut cmd, &on, &q, None, 1).unwrap();
+        // The tab's shell has none of it, and only this user can read the file that does.
+        assert!(cmd.get_env("ANTHROPIC_AUTH_TOKEN").is_none() && cmd.get_env("CLAUDE_CODE_USE_BEDROCK").is_none());
+        let file = q.with_extension("md.credit");
+        assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+
+        // Claude, started by the launcher, has it.
+        let claude = dir.path().join("claude");
+        std::fs::write(&claude, "#!/bin/sh\necho \"$ANTHROPIC_AUTH_TOKEN $ANTHROPIC_MODEL $CLAUDE_CODE_MAX_OUTPUT_TOKENS\"\n").unwrap();
+        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let out = Command::new("sh").args(["-c", LAUNCHER]).env("BLUEPRINT_CONTEXT", &q).env("BLUEPRINT_CLAUDE_BIN", &claude).output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), format!("s3cret {CREDIT_SONNET} 32000"));
+
+        // A command from Claude's Bash tool starts with it unset.
+        let env = dir.path().join("env.sh");
+        let hook = Command::new("sh").args(["-c", NO_CREDIT]).env("BLUEPRINT_CONTEXT", &q).env("CLAUDE_ENV_FILE", &env).status().unwrap();
+        assert!(hook.success());
+        let bash = Command::new("sh")
+            .args(["-c", r#". "$BLUEPRINT_CONTEXT.credit"; . "$CLAUDE_ENV_FILE"; echo "[$ANTHROPIC_AUTH_TOKEN$ANTHROPIC_BEDROCK_BASE_URL$CLAUDE_CODE_USE_BEDROCK]""#])
+            .env("BLUEPRINT_CONTEXT", &q)
+            .env("CLAUDE_ENV_FILE", &env)
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&bash.stdout).trim(), "[]");
+
+        // A tab opened with the credit off leaves none behind.
+        prepare(&mut CommandBuilder::new("sh"), &launch(None), &q, None, 1).unwrap();
+        assert!(!file.exists());
     }
 
     #[cfg(unix)]
