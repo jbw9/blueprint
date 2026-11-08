@@ -1,6 +1,6 @@
 ---
 name: demo-gif
-description: After a commit to jbw9/bluprint that changes what a person sees in Bluprint (app/) or on the landing page (landing/) is pushed, record a short GIF of the change, add it to the `demos` prerelease, and post it as a comment on that commit. Use when a UI commit has been pushed, when the user asks for a demo or GIF of a change, or when they invoke /demo-gif. Skip commits that change only logic.
+description: Record a short GIF of a pushed jbw9/bluprint commit that changes what a person sees in Bluprint (app/) or on the landing page (landing/), add it to the `demos` prerelease, and post it as a comment on that commit. Use only when the user asks for a demo or GIF of a change, or invokes /demo-gif. Never run it on your own after a commit.
 ---
 
 # Demo GIF
