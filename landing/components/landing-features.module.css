@@ -273,6 +273,13 @@ button.project:hover {
   padding: 22px calc(var(--ws, 0px) + 60px) 0 48px;
   overflow: hidden;
 }
+/* A page longer than the frame scrolls under the reader's wheel, though the drawing takes no clicks. */
+.scrolls {
+  overflow-y: auto;
+  padding-bottom: 40px;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+}
 .head {
   margin-bottom: 22px;
   padding-bottom: 20px;
@@ -896,8 +903,9 @@ button.project:hover {
   opacity: 0;
   animation: on 0.3s var(--ease) var(--t) forwards;
 }
-.steps li[data-state="doing"] i {
-  animation: doing 0.3s var(--ease) var(--t) both;
+/* A step Claude works on from `--d`, then ticks at `--t`. */
+.steps li[data-state="done"] i {
+  animation: doing 0.3s var(--ease) var(--d, var(--t)) both;
 }
 @keyframes doing {
   to {
@@ -931,24 +939,28 @@ button.project:hover {
 /* The doc is read down to its steps, as a reader would scroll it. A set
    width keeps its height the same on any stage, so the scroll lands on the
    same place. */
-.scroll {
+/* The question, at the foot of the doc it is about. */
+/* Down through the plan to its steps, where it stays while they are built. */
+.planScroll {
   width: 780px;
-  animation: read 5.4s var(--ease) var(--t) forwards;
+  animation: plan 2.9s var(--ease) var(--t) forwards;
 }
-@keyframes read {
+@keyframes plan {
   0%,
-  8% {
+  10% {
     translate: 0 0;
   }
-  38%,
-  58% {
-    translate: 0 -300px;
+  45%,
+  55% {
+    translate: 0 -420px;
   }
   100% {
     translate: 0 -930px;
   }
 }
-/* The question, at the foot of the doc it is about. */
+.askQ[data-busy] i {
+  background: var(--color-amber-ink);
+}
 .ask {
   position: absolute;
   left: 0;

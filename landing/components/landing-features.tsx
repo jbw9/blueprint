@@ -197,8 +197,14 @@ const AUTHOR_STEPS: [string, string, string][] = [
 
 /**
  * The plan as Claude writes it in plan mode: Claude's window is open while it
- * writes, put away while you read, and opened again on "Show Claude" to show it building.
+ * writes and put away while you read. Once you accept, each step turns amber
+ * as Claude works on it and is ticked when it's built, and "Show Claude"
+ * brings the window back to say what it did.
  */
+// When Claude starts on each step; it is ticked a moment before the next starts.
+const STEP_AT = (i: number) => 5.6 + i * 1.15;
+const BUILT = STEP_AT(6) - 0.1;
+
 function PlanScene() {
   return (
     <Window
@@ -213,8 +219,8 @@ function PlanScene() {
       }
     >
       <div className={f.doc}>
-        <article className={f.scroll} style={at(3.8)}>
-          <header className={f.in} style={at(1.15)}>
+        <article className={f.planScroll} style={at(2.1)}>
+          <header className={f.in} style={at(0.6)}>
             <p className={f.planMeta}>
               <Eyebrow>Plan</Eyebrow>
               <span>
@@ -229,29 +235,29 @@ function PlanScene() {
               does and never stores your password.
             </p>
           </header>
-          <section className={f.in} style={at(1.3)}>
+          <section className={f.in} style={at(0.75)}>
             <Eyebrow>How it works</Eyebrow>
             <p className={f.figCap}>
               Where a sign-in is kept<span>green is new · amber changes</span>
             </p>
             <Diagram boxes={PLAN_BOXES} links={PLAN_LINKS} w={170} gx={44} gy={44} />
           </section>
-          <section className={f.in} style={at(1.45)}>
+          <section className={f.in} style={at(0.85)}>
             <Eyebrow>What you&rsquo;ll see</Eyebrow>
             <PlanScreen />
           </section>
-          <section className={f.in} style={at(1.6)}>
+          <section className={f.in} style={at(0.95)}>
             <Eyebrow>Steps</Eyebrow>
             <ol className={f.steps}>
               {PLAN_STEPS.map((s, i) => (
-                <li key={i} data-state={i === 0 ? "done" : i === 1 ? "doing" : undefined} style={at(i === 0 ? 9.6 : 9.9)}>
+                <li key={i} data-state="done" style={{ "--d": `${STEP_AT(i)}s`, ...at(STEP_AT(i + 1) - 0.1) } as CSSProperties}>
                   <i>{i + 1}</i>
                   <span>{s}</span>
                 </li>
               ))}
             </ol>
           </section>
-          <section className={f.in} style={at(1.7)}>
+          <section className={f.in} style={at(1.05)}>
             <Eyebrow>Files</Eyebrow>
             <ul className={f.files}>
               {PLAN_FILES.map(([v, path, why]) => (
@@ -264,15 +270,15 @@ function PlanScene() {
             </ul>
           </section>
         </article>
-        <footer className={`${f.ask} ${f.in}`} style={at(2.4)}>
-          <div className={f.out} style={at(0, 9)}>
+        <footer className={`${f.ask} ${f.in}`} style={at(1.9)}>
+          <div className={f.out} style={at(0, 5.4)}>
             <div>
               <span className={f.askQ}>
                 <i />
                 Build this plan?
               </span>
               <span className={f.btn}>Yes, manually approve edits</span>
-              <span className={`${f.btn} ${f.primary} ${f.press}`} style={at(8.6)}>
+              <span className={`${f.btn} ${f.primary} ${f.press}`} style={at(5.1)}>
                 Yes, and use auto mode
               </span>
             </div>
@@ -283,13 +289,29 @@ function PlanScene() {
               </span>
             </div>
           </div>
-          <div className={f.in} style={at(9)}>
+          <div className={f.blip} style={at(5.4, BUILT)}>
+            <div>
+              <span className={f.askQ} data-busy>
+                <i />
+                Claude is building it
+                <span className={f.swap}>
+                  {PLAN_STEPS.map((_, i) => (
+                    <span key={i} className={`${f.res} ${f.blip}`} style={at(STEP_AT(i), i === 5 ? BUILT : STEP_AT(i + 1))}>
+                      · step {i + 1} of 6
+                    </span>
+                  ))}
+                </span>
+              </span>
+              <span className={f.btn}>Show Claude</span>
+            </div>
+          </div>
+          <div className={f.in} style={at(BUILT)}>
             <div>
               <span className={f.askQ} data-ok>
                 <i />
-                Accepted. Claude is building it.
+                Built. All 6 steps are done.
               </span>
-              <span className={`${f.btn} ${f.press}`} style={at(10.3)}>
+              <span className={`${f.btn} ${f.press}`} style={at(BUILT + 0.6)}>
                 Show Claude
               </span>
             </div>
@@ -300,9 +322,9 @@ function PlanScene() {
       <Workspace
         width="40%"
         className={f.out}
-        style={at(0, 2.7)}
+        style={at(0, 1.9)}
         tabs={
-          <WsTab on icon={<ClaudeIcon />} dot={[0, 1.6]}>
+          <WsTab on icon={<ClaudeIcon />} dot={[0, 1.2]}>
             claude 1
           </WsTab>
         }
@@ -310,7 +332,7 @@ function PlanScene() {
         <div className={f.term}>
           <Hello />
           <p className={f.you}>&gt; when claude signs in to a site in the preview, keep it signed in next time</p>
-          <div className={`${f.msg} ${f.in}`} style={at(0.3)}>
+          <div className={`${f.msg} ${f.in}`} style={at(0.2)}>
             <span className={f.ok}>⏺</span>
             <span>
               <b>Read</b>(app/src-tauri/src/mcp.rs)
@@ -318,7 +340,7 @@ function PlanScene() {
               <span className={f.res}>⎿&nbsp;&nbsp;the Preview&rsquo;s tools: navigate, click, type</span>
             </span>
           </div>
-          <div className={`${f.msg} ${f.in}`} style={at(0.7)}>
+          <div className={`${f.msg} ${f.in}`} style={at(0.5)}>
             <span className={f.ok}>⏺</span>
             <span>
               <b>Write</b>(~/.claude/plans/saved-sign-ins.md)
@@ -326,7 +348,7 @@ function PlanScene() {
               <span className={f.res}>⎿&nbsp;&nbsp;Saved sign-ins for the Preview · 6 steps · 7 files</span>
             </span>
           </div>
-          <div className={`${f.msg} ${f.in}`} style={at(1.6)}>
+          <div className={`${f.msg} ${f.in}`} style={at(1.2)}>
             <span>⏺</span>
             <span>The plan is open beside you. Build it, or tell me what to change.</span>
           </div>
@@ -334,13 +356,13 @@ function PlanScene() {
           <Prompt />
         </div>
       </Workspace>
-      {/* Claude building it, once "Show Claude" brings its window back. */}
+      {/* What Claude did, once "Show Claude" brings its window back. */}
       <Workspace
         width="40%"
         className={f.in}
-        style={at(10.5)}
+        style={at(BUILT + 0.8)}
         tabs={
-          <WsTab on icon={<ClaudeIcon />} dot={[10.5, 99]}>
+          <WsTab on icon={<ClaudeIcon />} dot={[0, 0]}>
             claude 1
           </WsTab>
         }
@@ -349,37 +371,45 @@ function PlanScene() {
           <Hello />
           <div className={f.msg}>
             <span className={f.ok}>⏺</span>
-            <span>Plan accepted. Building it in auto mode.</span>
-          </div>
-          <div className={`${f.msg} ${f.in}`} style={at(10.8)}>
-            <span className={f.ok}>⏺</span>
             <span>
               <b>Update</b>(app/src-tauri/src/browser.rs)
               <br />
               <span className={f.res}>⎿&nbsp;&nbsp;each project gets its own cookie store</span>
             </span>
           </div>
-          <div className={`${f.msg} ${f.in}`} style={at(11.3)}>
+          <div className={f.msg}>
             <span className={f.ok}>⏺</span>
             <span>
-              <b>Update</b>(app/src-tauri/Cargo.toml)
+              <b>Write</b>(app/components/preview/sign-in-bar.tsx)
               <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;WebKit data-store features</span>
+              <span className={f.res}>⎿&nbsp;&nbsp;the bar, and where to keep the sign-in</span>
             </span>
           </div>
-          <p className={`${f.res} ${f.in}`} style={at(11.8)}>
-            ✻ Step 2 of 6…
-          </p>
+          <div className={f.msg}>
+            <span className={f.ok}>⏺</span>
+            <span>
+              <b>Update</b>(app/src-tauri/src/mcp.rs)
+              <br />
+              <span className={f.res}>⎿&nbsp;&nbsp;the sign_in tool</span>
+            </span>
+          </div>
+          <div className={`${f.msg} ${f.in}`} style={at(BUILT + 1.1)}>
+            <span>⏺</span>
+            <span>
+              All 6 steps are built. Sign in to a site once in the Preview, and I&rsquo;ll open it signed in from then on.
+            </span>
+          </div>
           <span className={f.grow} />
           <Prompt />
         </div>
       </Workspace>
-      {/* The window put away: its tabs' dots wait in the corner. */}
-      <div className={`${f.dots} ${f.blip}`} style={at(2.7, 10.5)}>
+      {/* The window put away: its tab's dot waits in the corner, then works, then is done. */}
+      <div className={`${f.dots} ${f.blip}`} style={at(1.9, BUILT + 0.8)}>
         <ClaudeIcon />
         <span className={f.swap}>
-          <Dot status="waiting" className={f.out} style={at(0, 9)} />
-          <Dot status="working" className={f.in} style={at(9)} />
+          <Dot status="waiting" className={f.blip} style={at(1.9, 5.4)} />
+          <Dot status="working" className={f.blip} style={at(5.4, BUILT)} />
+          <Dot status="done" className={f.in} style={at(BUILT)} />
         </span>
       </div>
     </Window>
@@ -495,7 +525,7 @@ function ReviewScene() {
           <span>Exit</span>
         </span>
       </div>
-      <div className={f.page}>
+      <div className={`${f.page} ${f.scrolls}`}>
         <Head back={["Blueprint"]} title="Building The App" eyebrow="Inside blueprint" sub="React components for the canvas, menus and dialogs." />
         <div className={`${f.narrow} ${f.in}`} style={at(0.1)}>
           <Diagram boxes={APP_BOXES} links={APP_LINKS} w={196} gx={56} gy={46} recede />

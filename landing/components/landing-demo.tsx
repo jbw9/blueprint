@@ -24,7 +24,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; cap?: string }[] = [
   { id: "explore", label: "Explore a codebase" },
   {
     id: "claude",
-    label: "Ask Claude Code",
+    label: "Ask your agent",
     cap: "In the desktop app, Claude Code runs in a tab beside the blueprint. Right-click any part to add it to Claude, and Claude moves your view to what it’s talking about.",
   },
   {
