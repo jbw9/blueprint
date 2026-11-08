@@ -70,9 +70,11 @@ elif command -v lsof >/dev/null; then
 else
   fuser -k -n tcp 3123 2>/dev/null || true
 fi
+# Windows frees a killed server's open files a moment after it ends, and until then its folder can't move.
+retry() { for _ in 1 2 3 4 5 6 7 8 9 10; do "$@" 2>/dev/null && return; sleep 1; done; "$@"; }
 rm -rf "$snap.old"
-if [ -d "$snap" ]; then mv "$snap" "$snap.old"; fi
-mv "$next" "$snap"
+if [ -d "$snap" ]; then retry mv "$snap" "$snap.old"; fi
+retry mv "$next" "$snap"
 rm -rf "$snap.old"
 
 if [ "$os" = Darwin ]; then
