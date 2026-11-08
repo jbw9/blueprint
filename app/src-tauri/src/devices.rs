@@ -399,7 +399,7 @@ fn idb_companion() -> Option<PathBuf> {
     installed("idb_companion", &["/opt/homebrew/bin".into(), "/usr/local/bin".into()])
 }
 
-const IDB_INSTALL: &str = "brew tap facebook/fb && brew install idb-companion && pipx install fb-idb";
+const IDB_INSTALL: &str = "brew tap facebook/fb && brew install facebook/fb/idb-companion && pipx install fb-idb";
 
 /// idb, told where its companion is.
 fn idb_command() -> Result<Command, String> {
@@ -441,7 +441,7 @@ fi
 echo
 if ! command -v idb >/dev/null 2>&1 || ! command -v idb_companion >/dev/null 2>&1; then
   echo "To tap and type in the simulator from the app, install Meta's idb as well:"
-  echo "  brew tap facebook/fb && brew install idb-companion && pipx install fb-idb"
+  echo "  brew tap facebook/fb && brew install facebook/fb/idb-companion && pipx install fb-idb"
   echo "Without it the iOS tab still shows the simulator's screen."
   echo
 fi
