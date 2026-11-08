@@ -1,28 +1,44 @@
 name: Install
 
-# The landing page's one-line install, run as a visitor runs it, on each system it names.
+# The landing page's one-line install, run as a visitor runs it, on each system it names: built from
+# source, then packed as a release and installed again from that. On main the release is published as
+# `latest`, which install.sh downloads instead of building.
 on:
   push:
     paths:
       - install.sh
-      - app/scripts/install-app.sh
-      - app/src-tauri/**
-      - app/package-lock.json
+      - app/**
       - .github/workflows/install.yml
+      - .github/scripts/**
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: install-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   install:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        # ubuntu-22.04: a binary built against an older glibc runs on more systems.
+        os: [macos-latest, macos-15-intel, ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
     env:
       RAW: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
       BLUEPRINT_REF: ${{ github.sha }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,27 +48,32 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev libasound2-dev libpulse-dev
 
-      - name: Install
-        run: curl -fsSL "$RAW/install.sh" | sh
+      - name: Install from source
+        run: curl -fsSL "$RAW/install.sh" | BLUEPRINT_FROM_SOURCE=1 sh
 
-      # The app's window needs a desktop; what it opens is this server, started as src-tauri/src/server.rs does.
       - name: Check
+        run: sh .github/scripts/check-install.sh
+
+      - name: Pack
+        run: echo "PACK=$(sh .github/scripts/pack-release.sh)" >> "$GITHUB_ENV"
+
+      - name: Install from the release
         run: |
-          case "$RUNNER_OS" in
-          macOS) test -x /Applications/Blueprint.app/Contents/MacOS/blueprint; data="$HOME/Library/Application Support/dev.blueprint.app" ;;
-          Linux) test -x "$HOME/.local/bin/blueprint"; test -f "$HOME/.local/share/applications/blueprint.desktop"; data="$HOME/.local/share/dev.blueprint.app" ;;
-          esac
-          node -e '
-          const { spawn } = require("child_process");
-          const dir = require("path").join(process.argv[1], "server");
-          const env = JSON.parse(require("fs").readFileSync(dir + "/env.json", "utf8"));
-          const server = spawn(env.node, [dir + "/node_modules/next/dist/bin/next", "start", "-p", "3123", "-H", "127.0.0.1"],
-            { cwd: dir, env: { ...process.env, PATH: env.path }, stdio: "inherit" });
-          const deadline = Date.now() + 60000;
-          (async function poll() {
-            const res = await fetch("http://127.0.0.1:3123/").catch(() => null);
-            if (res) { console.log("server answered", res.status); server.kill(); process.exit(res.ok ? 0 : 1); }
-            if (Date.now() > deadline) { console.log("server did not answer"); server.kill(); process.exit(1); }
-            setTimeout(poll, 500);
-          })();
-          ' "$data"
+          # A file URL as Windows' curl reads one: file:///D:/a/... there, file:///home/... elsewhere.
+          file=$(cygpath -m "$PACK" 2>/dev/null || echo "$PACK")
+          case $file in /*) url=file://$file ;; *) url=file:///$file ;; esac
+          curl -fsSL "$RAW/install.sh" | BLUEPRINT_RELEASE="$url" sh
+
+      - name: Check the release
+        run: sh .github/scripts/check-install.sh
+
+      - name: Publish
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Every system's job gets here; the first makes the release.
+          gh release view latest -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create latest -R "$GITHUB_REPOSITORY" --title Blueprint --notes "What install.sh downloads: main as it was built on its last push." ||
+            gh release view latest -R "$GITHUB_REPOSITORY" >/dev/null
+          gh release upload latest "$PACK" -R "$GITHUB_REPOSITORY" --clobber

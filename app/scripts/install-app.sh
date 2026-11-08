@@ -4,7 +4,10 @@
 #   server it starts (src-tauri/src/server.rs), so `npm run app:dev` can rebuild and restart freely
 #   beside it. The snapshot is built next to the running one and swapped in at the end, so a Blueprint
 #   open while this runs keeps working until then. macOS, Linux, and Windows (Git Bash).
+# BLUEPRINT_PREBUILT names an unpacked release (install.sh downloads one; .github/scripts/pack-release.sh
+#   makes it): its server/ and app are placed as this would place its own build, and nothing is built.
 set -e
+pre=$BLUEPRINT_PREBUILT
 os=$(uname)
 case $os in
 Darwin) data="$HOME/Library/Application Support/dev.blueprint.app" ;;
@@ -21,18 +24,36 @@ mkdir -p "$data"
 rm -rf "$next"
 # Copy-on-write where the disk allows it (APFS, btrfs, XFS), a plain copy elsewhere.
 clone() { if [ "$os" = Darwin ]; then cp -ca "$@"; else cp -a --reflink=auto "$@"; fi; }
-mkdir -p "$next"
-# The last snapshot's build caches, so next build only redoes what changed.
-if [ -d "$snap/.next/cache" ]; then mkdir -p "$next/.next" && clone "$snap/.next/cache" "$next/.next/"; fi
-for f in "$snap"/*.tsbuildinfo; do
-  if [ -e "$f" ]; then clone "$f" "$next/"; fi
-done
-# The checkout, minus the Rust side and its own build output.
-for f in ./* ./.[!.]*; do
-  case $f in ./src-tauri | ./.next | ./out | *.tsbuildinfo) continue ;; esac
-  if [ -e "$f" ]; then clone "$f" "$next/"; fi
-done
-(cd "$next" && node node_modules/next/dist/bin/next build)
+if [ -n "$pre" ]; then
+  mv "$pre/server" "$next"
+  # A release carries .next/node_modules's links as links.json, since a junction can't be packed. They
+  # point into server-next again, as a fresh build's do.
+  node -e '
+const fs = require("fs"), path = require("path");
+const next = path.resolve(process.argv[1]), dir = path.join(next, ".next", "node_modules");
+const list = path.join(dir, "links.json");
+for (const [name, to] of Object.entries(JSON.parse(fs.readFileSync(list, "utf8"))))
+  fs.symlinkSync(path.join(next, to), path.join(dir, name), "junction");
+fs.unlinkSync(list);
+' "$next"
+  built=$pre
+  art=$pre
+else
+  mkdir -p "$next"
+  # The last snapshot's build caches, so next build only redoes what changed.
+  if [ -d "$snap/.next/cache" ]; then mkdir -p "$next/.next" && clone "$snap/.next/cache" "$next/.next/"; fi
+  for f in "$snap"/*.tsbuildinfo; do
+    if [ -e "$f" ]; then clone "$f" "$next/"; fi
+  done
+  # The checkout, minus the Rust side and its own build output.
+  for f in ./* ./.[!.]*; do
+    case $f in ./src-tauri | ./.next | ./out | *.tsbuildinfo) continue ;; esac
+    if [ -e "$f" ]; then clone "$f" "$next/"; fi
+  done
+  (cd "$next" && node node_modules/next/dist/bin/next build)
+  built=src-tauri/target/release
+  art=src-tauri/icons
+fi
 # The build links .next/node_modules to packages by absolute path (junctions on Windows can be
 # nothing else), so they would point into server-next after the swap. They point into server now.
 node -e '
@@ -60,7 +81,9 @@ const node = process.platform === "win32" ? process.execPath : process.argv[2];
 require("fs").writeFileSync(process.argv[1], JSON.stringify({ node, path }) + "\n");
 ' "$next/env.json" "$(command -v node)"
 
-if [ "$os" = Darwin ]; then npx tauri build --bundles app; else npx tauri build --no-bundle; fi
+if [ -z "$pre" ]; then
+  if [ "$os" = Darwin ]; then npx tauri build --bundles app; else npx tauri build --no-bundle; fi
+fi
 
 if [ "$os" = Windows ]; then
   netstat -ano | awk '$2 ~ /:3123$/ && $4 == "LISTENING" { print $5 }' | sort -u |
@@ -80,7 +103,7 @@ rm -rf "$snap.old"
 if [ "$os" = Darwin ]; then
   # Bluprint.app is this app under its old name.
   rm -rf /Applications/Blueprint.app /Applications/Bluprint.app
-  ditto src-tauri/target/release/bundle/macos/Blueprint.app /Applications/Blueprint.app
+  ditto "$built/bundle/macos/Blueprint.app" /Applications/Blueprint.app
   echo "Installed /Applications/Blueprint.app. Quit Blueprint if it's open, then open it again."
 elif [ "$os" = Windows ]; then
   bin="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint"
@@ -91,7 +114,7 @@ elif [ "$os" = Windows ]; then
   # A running exe can't be written over, but it can be moved aside.
   rm -f "$bin/blueprint.old.exe" 2>/dev/null || true
   if [ -e "$bin/blueprint.exe" ]; then mv "$bin/blueprint.exe" "$bin/blueprint.old.exe"; fi
-  cp src-tauri/target/release/blueprint.exe "$bin/blueprint.exe"
+  cp "$built/blueprint.exe" "$bin/blueprint.exe"
   rm -f "$bin/blueprint.old.exe" 2>/dev/null || true
   exe=$(cygpath -w "$bin/blueprint.exe")
   lnk=$(cygpath -w "$start/Blueprint.lnk")
@@ -105,9 +128,9 @@ else
   # The app under its old name.
   rm -f "$bin/bluprint" "$icons/bluprint.png" "$apps/bluprint.desktop"
   # Beside the running binary, then over it: a running executable can't be written in place.
-  cp src-tauri/target/release/blueprint "$bin/.blueprint.new"
+  cp "$built/blueprint" "$bin/.blueprint.new"
   mv "$bin/.blueprint.new" "$bin/blueprint"
-  cp src-tauri/icons/128x128.png "$icons/blueprint.png"
+  cp "$art/128x128.png" "$icons/blueprint.png"
   printf '[Desktop Entry]\nType=Application\nName=Blueprint\nComment=A visual blueprint of a codebase\nExec=%s\nIcon=blueprint\nCategories=Development;\n' \
     "$bin/blueprint" >"$apps/blueprint.desktop"
   echo "Installed $bin/blueprint, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
