@@ -7,7 +7,7 @@ import f from "./landing-features.module.css";
  * The desktop app's other tools, drawn: the workspace, plans, diffs and the
  * running app need the desktop app, so the live frame (a static export of a
  * blueprint) can't show them. Each is drawn from the real components' markup in
- * the app's Classic theme, with this repo's and the Wikipedia demo's own names,
+ * the app's Classic theme, with the real names from this repo's blueprint and the Wikipedia app's,
  * and plays once when its tab opens.
  */
 export type Drawing = "claude" | "plan" | "review" | "run";
@@ -528,29 +528,28 @@ function RunScene() {
               Wikipedia
             </span>
             <span className={f.in} style={at(5.5)}>
-              Reading An Article
+              Article Display
             </span>
           </span>
         </Tab>
       }
     >
       <div className={`${f.page} ${f.out}`} style={{ "--ws": "370px", ...at(0, 5.5) } as CSSProperties}>
-        <Head title="wikipedia" sub="The official Wikipedia app for iPhone and iPad" meta="1,402 files · commit 8e1f0c2" />
+        <Head title="wikipedia" sub="Official Wikipedia iOS app" meta="1,918 files · commit 0b9980f" />
         <p className={f.cap}>
           How the parts connect<span>colours match the parts below</span>
         </p>
-        <Diagram boxes={WIKI} links={WIKI_LINKS} w={210} gx={70} gy={50}>
-          {/* What the phone shows, lit on the blueprint as Claude moves through it. */}
-          <span className={`${f.lit} ${f.blip}`} style={{ left: "2.33%", top: "4.64%", ...at(1.7, 2.9) }} />
-          <span className={`${f.lit} ${f.blip}`} style={{ left: "56.81%", top: "4.64%", ...at(2.9, 5.5) }} />
+        <Diagram boxes={WIKI} links={WIKI_LINKS} w={250} gx={170} gy={50}>
+          {/* The part the phone's screens live in, lit on the blueprint while Claude moves through them. */}
+          <span className={`${f.lit} ${f.blip}`} style={{ left: "1.73%", top: "4.64%", width: "36.02%", ...at(1.7, 5.5) }} />
         </Diagram>
       </div>
       <div className={`${f.page} ${f.in}`} style={{ "--ws": "370px", ...at(5.6) } as CSSProperties}>
         <Head
-          back={["Wikipedia"]}
-          title="Reading An Article"
-          eyebrow="Inside Wikipedia"
-          sub="Fetch a page's mobile HTML, lay it out in a web view, and keep its place."
+          back={["wikipedia", "Wikipedia iOS App", "Article & Navigation"]}
+          title="Article Display"
+          eyebrow="Inside Article & Navigation"
+          sub="Loads, renders, and manages article content display"
         />
         <ol className={f.flow}>
           {ARTICLE_STEPS.map(([title, body, file], i) => (
@@ -603,27 +602,28 @@ function RunScene() {
   );
 }
 
+// The Wikipedia app's blueprint (wikimedia/wikipedia-ios at 0b9980f): six of its parts and the calls between them.
 const WIKI: Box[] = [
-  { id: "feed", label: "Exploring The Feed", col: 0, row: 0, sec: 1 },
-  { id: "search", label: "Searching Articles", col: 1, row: 0, sec: 2 },
-  { id: "article", label: "Reading An Article", col: 1, row: 1, sec: 3 },
-  { id: "saved", label: "Saving For Later", col: 0, row: 1, sec: 4 },
-  { id: "api", label: "Wikimedia APIs", col: 1, row: 2, sec: 5 },
-  { id: "sync", label: "Syncing Reading Lists", col: 0, row: 2, sec: 6 },
+  { id: "app", label: "Wikipedia iOS App", col: 0, row: 0, sec: 1 },
+  { id: "data", label: "Wikipedia Data Layer", col: 1, row: 0, sec: 3 },
+  { id: "components", label: "Wikipedia Feature Components", col: 0, row: 1, sec: 2 },
+  { id: "tracking", label: "Tracking Analytics Events", col: 1, row: 1, sec: 6 },
+  { id: "infra", label: "Shared App Infrastructure", col: 0, row: 2, sec: 4 },
+  { id: "strings", label: "Localizing App Strings", col: 1, row: 2, sec: 5 },
 ];
 const WIKI_LINKS: Link[] = [
-  { from: "feed", to: "search", label: "tap search" },
-  { from: "search", to: "article", label: "opens a result" },
-  { from: "article", to: "saved", label: "save" },
-  { from: "article", to: "api", label: "fetches HTML" },
-  { from: "saved", to: "sync", label: "syncs" },
+  { from: "app", to: "data", label: "Fetches data models" },
+  { from: "app", to: "components", label: "Uses navigation & UI" },
+  { from: "data", to: "tracking", label: "Tracks experiment data" },
+  { from: "components", to: "infra", label: "Inherits base classes" },
+  { from: "infra", to: "strings", label: "Localizes shared strings" },
 ];
 
+// Article Display's parts, as its blueprint has them.
 const ARTICLE_STEPS: [string, string, string][] = [
-  ["Open the page", "The result's URL becomes an article view, pushed onto the navigation stack.", "ArticleViewController.swift"],
-  ["Fetch mobile HTML", "Asks the page content service for the article, served from the cache when it's fresh.", "ArticleFetcher.swift"],
-  ["Lay it out", "Loads the HTML into a web view with the app's theme and font size.", "ArticleWebMessagingController.swift"],
-  ["Keep your place", "Saves the scroll position, so the article reopens where you left it.", "ArticleViewController+Scroll.swift"],
+  ["Controller Properties", "Holds the article's view state, its coordinators and the web view's helpers.", "ArticleViewController.swift:10"],
+  ["View Setup", "Wires notification observers, builds the toolbar, lays out the web view and sets up the JavaScript bridge.", "ArticleViewController.swift:1480"],
+  ["Image Transition", "Pre-loads the lead image so the article opens with a scale transition.", "ArticleViewController.swift:1695"],
 ];
 
 /**
