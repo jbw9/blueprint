@@ -159,9 +159,10 @@ export function Workspace() {
       // A Preview opens in the main view, not beside Claude in the window.
       const main = extra?.main ?? extra?.kind === "preview";
       setTabs((t) => [...t, { key, kind: "shell", start, ran: start, title: "terminal", cwd, live: false, busy: false, main, ...extra }]);
+      if (behind) return key;
       if (main) setFront((f) => ({ ...f, [cwd]: key }));
       // A dev server is drawn in its Preview, never in the window.
-      else if (!extra?.dev && !behind) {
+      else if (!extra?.dev) {
         setActive((a) => ({ ...a, [cwd]: key }));
         if (cwd === here) show(true);
       }
@@ -210,6 +211,42 @@ export function Workspace() {
     return all.find((x) => x.key === lastPreview.current[root]) ?? all.at(-1);
   };
 
+  // When the user last moved, clicked, typed or scrolled anywhere in the app.
+  const stirred = useRef(0);
+  useEffect(() => {
+    const at = () => (stirred.current = Date.now());
+    at();
+    const kinds = ["pointerdown", "pointermove", "keydown", "wheel"] as const;
+    for (const k of kinds) window.addEventListener(k, at, { capture: true, passive: true });
+    return () => {
+      for (const k of kinds) window.removeEventListener(k, at, { capture: true });
+    };
+  }, []);
+  /**
+   * Whether a tab Claude is working in (or the dev server's Preview) may take
+   * the view: when it is in view already, when the main view shows a Preview
+   * that agent drives, or when the user is away (in another app, or still for
+   * two minutes). Otherwise the user is reading something, which stays in
+   * front, and the tab works behind it with a dot saying so.
+   */
+  const mayShow = (root: string, key?: number, agent?: number) =>
+    root === here &&
+    (!document.hasFocus() ||
+      Date.now() - stirred.current > 120_000 ||
+      (key !== undefined && (upFront?.key === key || (open && current?.key === key))) ||
+      (agent !== undefined && upFront?.kind === "preview" && !!claims.current[agent]?.includes(upFront.key)));
+  // The tabs Claude has just used out of the user's view, for the dot on each.
+  const [driven, setDriven] = useState<Record<number, boolean>>({});
+  const undrive = useRef<Record<number, number>>({});
+  const drive = (key: number) => {
+    setDriven((d) => (d[key] ? d : { ...d, [key]: true }));
+    clearTimeout(undrive.current[key]);
+    undrive.current[key] = window.setTimeout(() => setDriven((d) => {
+        const { [key]: gone, ...rest } = d;
+        return gone ? rest : d;
+      }), 5000);
+  };
+
   /**
    * A project's dev server, started when it has a web app and none runs: the
    * one asked for, else the one last switched to, else the one it opens first.
@@ -231,16 +268,18 @@ export function Workspace() {
     [add],
   );
 
-  /** A project's Preview tab, the one last in view or the one keyed: brought to the front, or opened. */
+  /** A project's Preview tab, the one last in view or the one keyed: brought to the front, or
+   * opened; `behind`, it is only opened, and whatever the user is reading stays in front. */
   const preview = useCallback(
-    (root: string, key?: number) => {
+    (root: string, key?: number, behind?: boolean) => {
       const open = key === undefined ? previewTab(root) : tabsNow.current.find((x) => x.key === key);
       if (!open) {
         // Closing the last Preview stopped the dev server; a new one starts it again.
         startDev(root);
-        return add(null, { kind: "preview", title: "Preview", cwd: root });
+        return add(null, { kind: "preview", title: "Preview", cwd: root }, behind);
       }
       setServerShown((s) => ({ ...s, [open.key]: false }));
+      if (behind) return open.key;
       if (open.main) setFront((f) => ({ ...f, [root]: open.key }));
       else {
         setActive((a) => ({ ...a, [root]: open.key }));
@@ -295,9 +334,16 @@ export function Workspace() {
     setActive((a) => ({ ...a, [here]: open.key }));
     show(true);
   };
-  const touching = useRef(phone);
+  // Claude touching a phone: brought forward only where the user is reading nothing else.
+  const touch = (platform: Platform) => {
+    const open = mine.find((x) => x.kind === platform);
+    if (!open) return;
+    drive(open.key);
+    if (mayShow(here, open.key)) phone(platform);
+  };
+  const touching = useRef(touch);
   useEffect(() => {
-    touching.current = phone;
+    touching.current = touch;
   });
 
   // A project opening for the first time this session: how it runs is read,
@@ -352,7 +398,7 @@ export function Workspace() {
     if (taken) return void portTaken(t, taken);
     moved.current.delete(t.cwd);
     setServers((all) => ({ ...all, [t.cwd]: url }));
-    preview(t.cwd);
+    preview(t.cwd, undefined, !mayShow(t.cwd, previewTab(t.cwd)?.key));
   };
   // Projects whose dev server was started again on a port of its own, once:
   // one that names its port itself fails there too, and is left to be read.
@@ -366,7 +412,7 @@ export function Workspace() {
     const owner = await invoke<string | null>("port_owner", { port: +new URL(url).port }).catch(() => null);
     if (owner === null || owner === t.cwd || owner.startsWith(`${t.cwd}/`) || owner.startsWith(`${t.cwd}\\`)) {
       setServers((all) => ({ ...all, [t.cwd]: url }));
-      return preview(t.cwd);
+      return preview(t.cwd, undefined, !mayShow(t.cwd, previewTab(t.cwd)?.key));
     }
     if (moved.current.has(t.cwd)) return;
     moved.current.add(t.cwd);
@@ -421,12 +467,7 @@ export function Workspace() {
       // A new tab beside a Preview already open, or the agent's own when all are
       // others'; with none, the first one opens below as before.
       if (previews().length && ((cmd.op === "navigate" && cmd.newTab) || key === undefined)) {
-        // In front only where the user is already with this agent or a Preview,
-        // never over a tab they are typing in.
-        const forward = root === here && (current?.pty === tab || upFront?.pty === tab || upFront?.kind === "preview");
-        const before = front[root] ?? null;
-        const made = add(null, { kind: "preview", title: "Preview", cwd: root });
-        if (!forward) setFront((f) => ({ ...f, [root]: before }));
+        const made = add(null, { kind: "preview", title: "Preview", cwd: root }, !mayShow(root, undefined, tab));
         await until(() => previewOf(made), 8000);
         key = made;
       }
@@ -447,15 +488,19 @@ export function Workspace() {
             "No preview is open for this project, and no dev server has printed an address. Start the dev server in a terminal tab, or navigate to its address, like http://localhost:3000.",
           );
         if (asked) setServers((all) => ({ ...all, [root]: asked }));
-        preview(root);
+        preview(root, undefined, cmd.op !== "sign_in" && !mayShow(root, previewTab(root)?.key, tab));
         handle = await until(() => previewOf(previewTab(root)?.key), 8000);
         key = previewTab(root)?.key;
         claim();
         if (asked) return reply(true, `Opened ${asked} in the preview${which()}.`);
       }
       claim();
+      if (key !== undefined) drive(key);
       const seen = cmd.op === "frame" || cmd.op === "sign_in" || (cmd.op === "agent" && cmd.name === "computer");
-      if (seen && root === latest.current.here) {
+      // Signing in is the user's to do, so it comes to them; the rest happens behind
+      // whatever they are reading: a screenshot staged out of sight, clicks and keys
+      // done in the page (components/preview/tools.ts).
+      if (seen && root === latest.current.here && (cmd.op === "sign_in" || mayShow(root, key, tab))) {
         const hidden = !latest.current.shown;
         preview(root, key);
         await sleep(hidden ? 520 : 80);
@@ -499,11 +544,7 @@ export function Workspace() {
   useEffect(() => {
     if (!desktop) return;
     const off = listen<{ id: number; tab: number; cmd: Call }>("blueprint:preview", (e) => void answering.current(e.payload));
-    // Claude touching a phone brings its tab forward, as acting on a page brings the Preview.
-    const touched = listen<{ platform: Platform }>("blueprint:device-touch", (e) => {
-      const { here } = latest.current;
-      if (tabsNow.current.some((t) => t.kind === e.payload.platform && t.cwd === here)) touching.current(e.payload.platform);
-    });
+    const touched = listen<{ platform: Platform }>("blueprint:device-touch", (e) => touching.current(e.payload.platform));
     return () => {
       void off.then((f) => f());
       void touched.then((f) => f());
@@ -539,16 +580,20 @@ export function Workspace() {
     const had = tabsNow.current.find((x) => x.kind === "plan" && x.of === from);
     const last = had?.plan ?? closedPlans.current[from];
     const asked = last?.state === "revising" ? last.asked : undefined;
-    placePlan(from, cwd, { ...got, version: (last?.version ?? 0) + 1, state: "open", after: asked });
+    // From a Claude the user is not with, it waits behind what they are reading:
+    // that Claude's tab already says it needs them, and opening it brings the plan.
+    const behind = !mayShow(cwd, from) && !mayShow(cwd, had?.key);
+    placePlan(from, cwd, { ...got, version: (last?.version ?? 0) + 1, state: "open", after: asked }, behind);
   };
-  /** The plan's tab, in front: made again if it was closed. */
-  const placePlan = (from: number, cwd: string, plan: Plan) => {
+  /** The plan's tab, in front (unless `behind`): made again if it was closed. */
+  const placePlan = (from: number, cwd: string, plan: Plan, behind?: boolean) => {
     const had = tabsNow.current.find((x) => x.kind === "plan" && x.of === from);
     delete closedPlans.current[from];
     const main = had ? !!had.main : !tabsNow.current.find((x) => x.key === from)?.main;
     const key = had?.key ?? nextKey++;
     if (had) patch(key, { plan });
     else setTabs((t) => [...t, { key, kind: "plan", start: null, ran: null, title: "Plan", cwd, live: false, busy: false, plan, of: from, main }]);
+    if (behind) return drive(key);
     if (main) {
       setFront((f) => ({ ...f, [cwd]: key }));
       // The window would sit over the plan; opening Claude's tab again brings both back.
@@ -1050,7 +1095,7 @@ export function Workspace() {
           <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
             {iconOf(t)}
             <TabLabel>{nameOf(t)}</TabLabel>
-            {t.status && <StatusDot status={t.status} />}
+            {t.status ? <StatusDot status={t.status} /> : driven[t.key] && !selected ? <StatusDot status="working" /> : null}
           </button>
         )}
         <TabClose label={nameOf(t)} active={selected} onClose={() => close(t.key)} />
@@ -1077,7 +1122,7 @@ export function Workspace() {
         <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex cursor-pointer items-center gap-1.5">
           {iconOf(t)}
           {nameOf(t)}
-          {t.status && <StatusDot status={t.status} />}
+          {t.status ? <StatusDot status={t.status} /> : driven[t.key] && !selected ? <StatusDot status="working" /> : null}
         </button>
       )}
       <button

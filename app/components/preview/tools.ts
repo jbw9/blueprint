@@ -72,13 +72,18 @@ export function tools({
   resize,
 }: Parts) {
   /**
-   * Whether real input can reach the page: always for a page from the web,
-   * which has its own webview; for the frame, only while it is on screen and
+   * Whether real input can reach the page: for a page from the web, while
+   * its own webview is shown (it is hidden with its tab, as when Claude works
+   * behind what the user reads); for the frame, only while it is on screen and
    * nothing is over it, since the input lands at that point of the window.
    */
   const reachable = () => {
     if (!REAL) return false;
-    if (onWeb.current) return !!browser.current;
+    if (onWeb.current) {
+      const r = sheet.current?.getBoundingClientRect();
+      const top = r && r.width >= 2 ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+      return !!browser.current && !!top && !!(stage.current ?? sheet.current)?.contains(top);
+    }
     const el = frame.current;
     const r = el?.getBoundingClientRect();
     if (!el || !r || r.width < 2) return false;
