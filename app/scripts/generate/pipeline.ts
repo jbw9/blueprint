@@ -172,6 +172,8 @@ export async function main(args: string[]) {
     part: pick(process.env.SLOP_PART, "sonnet"),
     // A leaf's words in a deepened --fast blueprint (deep.ts): its source is in front of it, nothing to find.
     words: pick(process.env.SLOP_WORDS, "sonnet"),
+    // The quick blueprint's words (fast.ts), which its sections and overview are written over in full.
+    quick: pick(process.env.SLOP_QUICK, "sonnet"),
   };
 
   // --out puts the blueprint elsewhere: the app's project vault (lib/vault.ts), so an
@@ -180,9 +182,6 @@ export async function main(args: string[]) {
   mkdirSync(out, { recursive: true });
   cacheIn(`${out}/.cache`, { fresh: has("--fresh") });
   // --overview redraws only the top level of the blueprint that is there (D60).
-  // The graph is what every author draws from and what the checker proves arrows against.
-  setGraph(await buildGraph(inv));
-  if (has("--overview")) return redraw(out, inv, models.author);
   const t0 = Date.now();
   const elapsed: Record<string, number> = {};
   const lap = async <T,>(stage: string, fn: () => Promise<T>): Promise<T> => {
@@ -192,6 +191,9 @@ export async function main(args: string[]) {
     console.log(`· ${stage} done in ${elapsed[stage]}s — $${(bill[stage]?.usd ?? 0).toFixed(2)}`);
     return r;
   };
+  // The graph is what every author draws from and what the checker proves arrows against.
+  setGraph(await lap("graph", () => buildGraph(inv)));
+  if (has("--overview")) return redraw(out, inv, models.author);
   // What the app shows while the run is on: the stage, and once the cut is in,
   // a line per root. A stale file from a previous run would be read as this
   // one's, so the first write happens before any work.
@@ -240,32 +242,47 @@ export async function main(args: string[]) {
   progress.reading = reading;
   flush();
   let flushed = 0;
-  const sums = await lap("summarize", () =>
-    summarize(inv, (n, of, path, purpose) => {
+  // The summaries as they arrive, and a promise per file that resolves once its own is in.
+  const live: Record<string, FileSummary> = {};
+  const arrived = new Map(code.map((f) => [f.path, Promise.withResolvers<void>()]));
+  const ready = (paths: string[]) => Promise.all(paths.map((p) => arrived.get(p)?.promise));
+  const summarizing = lap("summarize", () =>
+    summarize(inv, (n, of, path, s) => {
       if (n % 25 === 0 || n === of) say(`summarised ${n}/${of}`);
       reading.read.push(path);
-      if (purpose) reading.recent = [{ path, purpose }, ...reading.recent].slice(0, 8);
+      if (s) live[path] = s;
+      if (s?.purpose) reading.recent = [{ path, purpose: s.purpose }, ...reading.recent].slice(0, 8);
+      arrived.get(path)?.resolve();
       if (n === of || Date.now() - flushed > 250) {
         flushed = Date.now();
         flush();
       }
     }),
-  );
-  writeFileSync(`${out}/.cache/summaries.json`, JSON.stringify(sums, null, 1));
-  // The one model reading of the code, laid onto the graph: what each file is for and each function does.
-  withSummaries(activeGraph()!, sums);
-  writeFileSync(`${out}/graph.json`, JSON.stringify(activeGraph()) + "\n");
+  ).then((sums) => {
+    writeFileSync(`${out}/.cache/summaries.json`, JSON.stringify(sums, null, 1));
+    // The one model reading of the code, laid onto the graph: what each file is for and each function does.
+    withSummaries(activeGraph()!, sums);
+    writeFileSync(`${out}/graph.json`, JSON.stringify(activeGraph()) + "\n");
+    return sums;
+  });
+  // --fast describes each component while the rest of the repository is still being read.
+  const overlap = has("--fast") && stopAfter !== "summarize";
+  const sums = overlap ? live : await summarizing;
   if (stopAfter === "summarize") return;
   // --fast: the four-phase blueprint (fast.ts) in place of the cut, the authors and
   // the overview; then, unless --no-deepen, each of its sections written in
   // full by the authors, in reading order, a section the reader has open first.
-  if (has("--fast")) {
-    progress.stage = "author";
-    flush();
+  if (overlap) {
     const deepen = !has("--no-deepen");
     const agentDeepen = has("--deepen-agent");
     const run: Run = { command: `blueprint make ${inv.name} --fast`, mapperVersion: MAPPER_VERSION, repo: inv.scope ? name : inv.name, commit: inv.commit, files: code.length, elapsed: "", root: repo, explain: deepen ? EXPLAIN_LEVEL : "none", models, ...(inv.scope ? { scope: inv.scope } : {}) };
-    const r = await lap("fast", () => fastBlueprint(inv, sums, activeGraph()!, models.author, run, say));
+    const [r] = await Promise.all([
+      lap("fast", () => fastBlueprint(inv, live, activeGraph()!, models.quick, run, say, ready)),
+      summarizing.then(() => {
+        progress.stage = "author";
+        flush();
+      }),
+    ]);
     const quick = Math.round((Date.now() - t0) / 1000);
     r.blueprint.RUN.elapsed = `${Math.max(1, Math.round(quick / 60))} min`;
     atomic(`${out}/blueprint.json`, JSON.stringify(r.blueprint, null, 1) + "\n");
@@ -424,6 +441,7 @@ export async function main(args: string[]) {
           elapsed: { ...elapsed, ...r.timing, quick, total },
           usd: Math.round(usd * 100) / 100,
           bill,
+          throttled: { waits: throttle.waits, seconds: Math.round(throttle.seconds), lanes: throttle.lanes },
           components: r.arch.components.map((c) => ({ id: c.id, dir: c.dir, files: c.files.length })),
           discrepancies: r.discrepancies,
           quickCheck: { problems: r.checkProblems },
@@ -633,7 +651,7 @@ export async function main(args: string[]) {
     ...(only && last
       ? { elapsed: last.elapsed, usd: last.usd, fullUsd: last.fullUsd, bill: last.bill, repairs: [...(last.repairs ?? []), { roots: only, seconds: total, usd: Math.round(Object.values(bill).reduce((a, b) => a + b.usd, 0) * 100) / 100, bill }] }
       : { elapsed: { ...elapsed, total }, usd: Math.round(usd * 100) / 100, fullUsd: Math.round(fullUsd * 100) / 100, bill: spent }),
-    throttled: { waits: throttle.waits, seconds: Math.round(throttle.seconds) },
+    throttled: { waits: throttle.waits, seconds: Math.round(throttle.seconds), lanes: throttle.lanes },
     files: { listed: inv.files.length, summarised: code.length, unassigned: leftover },
     excluded: cut.excluded,
     coverage: { symbols: covered.symbols, explained: covered.explained, gaps: covered.gaps.map((g) => `${g.file}: ${g.symbol.name}`) },

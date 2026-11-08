@@ -194,23 +194,50 @@ export class UsageLimitError extends Error {
 /** Which door the calls go through: an AWS account (default) or the reader's own Claude Code. */
 export const BACKEND = process.env.SLOP_BACKEND === "claude-code" ? "claude-code" : "bedrock";
 
-const LIMIT = Number(process.env.SLOP_CONCURRENCY ?? 8);
+/**
+ * Calls in flight at once, found rather than set: the repository decides how
+ * many calls are ready at once and the account how many it takes, so a fixed
+ * number was either the bottleneck of a big run or a wall of throttles. Each
+ * call that comes back adds a little, about one lane per lane-full of calls;
+ * a throttle halves it, once per pause, as every call in flight hits the same
+ * limit together. SLOP_CONCURRENCY is the most it may reach.
+ */
+const MAX_LANES = Number(process.env.SLOP_CONCURRENCY ?? 24);
+const HALVED_PER_MS = 15_000;
+let lanes = MAX_LANES;
+let halvedAt = 0;
 let running = 0;
 const queue: (() => void)[] = [];
+const admit = () => {
+  while (queue.length && running < Math.floor(lanes)) {
+    running++;
+    queue.shift()!();
+  }
+};
 export async function slot<T>(fn: () => Promise<T>): Promise<T> {
-  if (running >= LIMIT) await new Promise<void>((r) => queue.push(r));
-  running++;
+  if (running < Math.floor(lanes) && !queue.length) running++;
+  else await new Promise<void>((r) => queue.push(r));
   try {
-    return await fn();
+    const r = await fn();
+    lanes = Math.min(MAX_LANES, lanes + 1 / Math.floor(lanes));
+    return r;
   } finally {
     running--;
-    queue.shift()?.();
+    admit();
   }
 }
 
+/** The account said too many: fewer calls at once from here, until replies show it takes more again. */
+export function slowDown() {
+  if (Date.now() - halvedAt < HALVED_PER_MS) return;
+  halvedAt = Date.now();
+  lanes = Math.max(1, Math.floor(lanes / 2));
+  throttle.lanes = Math.min(throttle.lanes, lanes);
+}
+
 let coolUntil = 0;
-/** Seconds of request time spent waiting out throttles, summed over calls — the account's quota, not the work. */
-export const throttle = { waits: 0, seconds: 0 };
+/** Seconds of request time spent waiting out throttles, summed over calls — the account's quota, not the work — and the fewest lanes the run fell to. */
+export const throttle = { waits: 0, seconds: 0, lanes: MAX_LANES };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RETRYABLE = /Throttling|TooManyRequests|ServiceUnavailable|ModelNotReady|InternalServer|ModelError|timeout|ECONNRESET|socket hang up/i;
 
@@ -256,6 +283,7 @@ export async function invoke(req: Request): Promise<Reply> {
         // A throttle is the account's quota, not this request: every call
         // waits it out, or the rest keep hitting the limit and burn retries.
         if (throttled) {
+          slowDown();
           coolUntil = Math.max(coolUntil, Date.now() + wait);
           throttle.waits++;
           throttle.seconds += wait / 1000;

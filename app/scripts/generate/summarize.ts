@@ -124,10 +124,10 @@ async function many(inv: Inventory, files: RepoFile[]): Promise<FileSummary[]> {
   return [...got, ...(await Promise.all(left.map((f) => one(inv, f))))];
 }
 
-/** `onDone` hears each file as it is read, with what it is for, so the app can show the reading as it happens. */
+/** `onDone` hears each file as it is read, with its summary, so the app can show the reading and later stages can start on what is read. */
 export async function summarize(
   inv: Inventory,
-  onDone: (n: number, of: number, path: string, purpose?: string) => void,
+  onDone: (n: number, of: number, path: string, summary?: FileSummary) => void,
 ): Promise<Record<string, FileSummary>> {
   const todo = inv.files.filter(isSource);
   const batches: RepoFile[][] = [];
@@ -142,7 +142,7 @@ export async function summarize(
   await Promise.all(
     batches.map(async (b) => {
       for (const s of b.length > 1 ? await many(inv, b) : [await one(inv, b[0])]) out[s.path] = s;
-      for (const f of b) onDone(++n, todo.length, f.path, out[f.path]?.purpose);
+      for (const f of b) onDone(++n, todo.length, f.path, out[f.path]);
     }),
   );
   return Object.fromEntries(Object.keys(out).sort().map((k) => [k, out[k]]));

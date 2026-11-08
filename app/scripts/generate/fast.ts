@@ -28,7 +28,7 @@ import { basename } from "node:path";
 import type { Node } from "@/lib/blueprint/schema";
 import type { BlueprintFile, Overview } from "@/lib/blueprint/build";
 import { prefixFor } from "./author";
-import { ask, type Tool } from "./bedrock";
+import { ask, UsageLimitError, type Tool } from "./bedrock";
 import { check, LEAF, looksLikePath, SUB_WORDS, words } from "./check";
 import type { Graph } from "./graph";
 import { isSource, type Inventory } from "./inventory";
@@ -37,6 +37,8 @@ import { thinArrows } from "./thin";
 
 /** Files one group holds at most: one diagram a reader takes in. SLOP_FAST_MAX. */
 export const MAX_FILES = Number(process.env.SLOP_FAST_MAX ?? 12);
+/** Files past which a component with groups is described in a call per group. SLOP_FAST_SPLIT. */
+const SPLIT_FILES = Number(process.env.SLOP_FAST_SPLIT ?? 30);
 /** Components the top level holds at most. SLOP_FAST_TOP. */
 const TOP_MAX = Number(process.env.SLOP_FAST_TOP ?? 12);
 /** Sibling sections of one app merged into one stay within this many files. SLOP_FAST_FAMILY. */
@@ -294,30 +296,48 @@ const NAMED = {
   title: { type: "string", description: "1-3 words, Title Case: what this is to a reader, named for what its parts do together. Never a filler word: not Core, Main, Other, Misc, Supporting, Extended, Files or Utilities alone. No file names." },
   sub: { type: "string", description: `At most ${SUB_WORDS} words (count them): what it does. No file names.` },
 };
+const FILES_FIELD = {
+  type: "array",
+  description: "One entry per file listed, in the order a reader should meet them.",
+  items: { type: "object", additionalProperties: false, required: ["path", "title", "sub"], properties: { path: { type: "string" }, ...NAMED } },
+};
+const HEAD_FIELDS = {
+  title: { type: "string", description: "1-4 words, Title Case. What a person does here, as an action ('Reading A Post', 'Signing Up'), or for shared code a plain noun ('Shared Layouts')." },
+  sub: { type: "string", description: `At most ${SUB_WORDS} words (count them), plainly: what someone does or gets here. No file names.` },
+  responsibility: { type: "string", description: "1-2 sentences, at most 40 words: what this component is responsible for, in this project's words." },
+  interface: { type: "array", items: { type: "string" }, description: "Its key functions, components or routes that the rest of the code uses." },
+  notes: { type: "string", description: "Anything surprising, or empty." },
+  groups: {
+    type: "array",
+    description: "One entry per group listed (none if no groups are listed), in the order a reader should meet them.",
+    items: { type: "object", additionalProperties: false, required: ["key", "title", "sub", "detail"], properties: { key: { type: "string" }, ...NAMED, detail: { type: "string", description: "1-2 sentences, at most 40 words: what this group does." } } },
+  },
+};
+const HEAD_REQUIRED = ["title", "sub", "responsibility", "interface", "groups"];
 const COMPONENT_TOOL: Tool = {
   name: "component",
   description: "Record what this component of the codebase is.",
+  input_schema: { type: "object", additionalProperties: false, required: [...HEAD_REQUIRED, "files"], properties: { ...HEAD_FIELDS, files: FILES_FIELD } },
+};
+/** A big component's own level and groups, its files described group by group (FILES_TOOL) beside it. */
+const HEAD_TOOL: Tool = {
+  name: "component",
+  description: "Record what this component of the codebase is and what each of its groups does.",
+  input_schema: { type: "object", additionalProperties: false, required: HEAD_REQUIRED, properties: HEAD_FIELDS },
+};
+const FILES_TOOL: Tool = {
+  name: "files",
+  description: "Record what each file of this group is.",
+  input_schema: { type: "object", additionalProperties: false, required: ["files"], properties: { files: FILES_FIELD } },
+};
+const SHORTEN_TOOL: Tool = {
+  name: "shortened",
+  description: "Record each text rewritten within its limit.",
   input_schema: {
     type: "object",
     additionalProperties: false,
-    required: ["title", "sub", "responsibility", "interface", "groups", "files"],
-    properties: {
-      title: { type: "string", description: "1-4 words, Title Case. What a person does here, as an action ('Reading A Post', 'Signing Up'), or for shared code a plain noun ('Shared Layouts')." },
-      sub: { type: "string", description: `At most ${SUB_WORDS} words (count them), plainly: what someone does or gets here. No file names.` },
-      responsibility: { type: "string", description: "1-2 sentences, at most 40 words: what this component is responsible for, in this project's words." },
-      interface: { type: "array", items: { type: "string" }, description: "Its key functions, components or routes that the rest of the code uses." },
-      notes: { type: "string", description: "Anything surprising, or empty." },
-      groups: {
-        type: "array",
-        description: "One entry per group listed (none if no groups are listed), in the order a reader should meet them.",
-        items: { type: "object", additionalProperties: false, required: ["key", "title", "sub", "detail"], properties: { key: { type: "string" }, ...NAMED, detail: { type: "string", description: "1-2 sentences, at most 40 words: what this group does." } } },
-      },
-      files: {
-        type: "array",
-        description: "One entry per file listed, in the order a reader should meet them.",
-        items: { type: "object", additionalProperties: false, required: ["path", "title", "sub"], properties: { path: { type: "string" }, ...NAMED } },
-      },
-    },
+    required: ["texts"],
+    properties: { texts: { type: "array", items: { type: "object", additionalProperties: false, required: ["n", "text"], properties: { n: { type: "integer" }, text: { type: "string" } } } } },
   },
 };
 
@@ -371,6 +391,46 @@ export async function askWithin(req: { model: string; stage: string; maxTokens: 
     messages: [...messages, { role: "assistant" as const, content: JSON.stringify(first) }, { role: "user" as const, content: `Your answer breaks these limits:\n- ${wrong.join("\n- ")}\nAnswer again in full, with every one of them within its limit and the rest as it was.` }],
     tool: req.tool,
   });
+}
+
+/** A text in an answer, its limit on words, and how to put a shorter one in its place. */
+export interface Bounded {
+  what: string;
+  text: unknown;
+  max: number;
+  set: (s: string) => void;
+}
+export const bounded = (o: Record<string, unknown>, key: string, what: string, max: number): Bounded => ({ what, text: o[key], max, set: (s) => (o[key] = s) });
+
+const clip = (s: string, max: number) => (words(s) <= max ? s : s.split(/\s+/).filter(Boolean).slice(0, max).join(" ").replace(/[,;:.]$/, ""));
+
+/**
+ * One structured answer, and only its texts that break their limits rewritten,
+ * in one short call: the model misses a limit by a word or two, and asking for
+ * the whole answer again took as long as the answer itself. A text still over
+ * after that is cut to its limit.
+ */
+export async function askBounded(req: { model: string; stage: string; maxTokens: number; prompt: string; tool: Tool }, fieldsOf: (a: any) => Bounded[]): Promise<any> {
+  const answer = await ask<any>({ model: req.model, stage: req.stage, maxTokens: req.maxTokens, system: SYSTEM, messages: [{ role: "user", content: req.prompt }], tool: req.tool });
+  const over = fieldsOf(answer).filter((f) => wordProblems([[f.what, f.text, f.max]]).length);
+  if (!over.length) return answer;
+  const list = over.map((f, i) => `${i + 1}. ${f.what}, at most ${f.max} words: "${f.text}"`).join("\n");
+  const got = await ask<{ texts?: { n: number; text: string }[] }>({
+    model: req.model,
+    stage: req.stage,
+    maxTokens: 500 + 60 * over.length,
+    system: SYSTEM,
+    messages: [{ role: "user", content: `Rewrite each text below within its limit on words, saying the same thing. Name no file; say what it does instead.\n\n${list}` }],
+    tool: SHORTEN_TOOL,
+  }).catch((e) => {
+    if (e instanceof UsageLimitError) throw e;
+    return { texts: [] };
+  });
+  over.forEach((f, i) => {
+    const t = got.texts?.find((x) => x.n === i + 1)?.text?.trim();
+    f.set(t && !wordProblems([[f.what, t, f.max]]).length ? t : clip(typeof f.text === "string" ? f.text : "", f.max));
+  });
+  return answer;
 }
 
 const SYSTEM = "You describe one part of a blueprint of a codebase from facts already extracted from its code. Use only what you are given; answer only with the structure asked for.";
@@ -512,8 +572,12 @@ export interface FastResult {
   timing: Record<string, number>;
 }
 
-/** Phases 2-4 over an inventory, its summaries and its graph (phase 1 is the caller's: inventory, summarize, graph). */
-export async function fastBlueprint(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: BlueprintFile["RUN"], say: (s: string) => void): Promise<FastResult> {
+/**
+ * Phases 2-4 over an inventory, its summaries and its graph (phase 1 is the caller's: inventory, summarize, graph).
+ * `sums` may still be filling while this runs: `ready` resolves once the summaries of the paths given are in it,
+ * so a component is described as soon as its own files are read, not after the whole repository.
+ */
+export async function fastBlueprint(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: BlueprintFile["RUN"], say: (s: string) => void, ready: (paths: string[]) => Promise<unknown> = async () => {}): Promise<FastResult> {
   const timing: Record<string, number> = {};
   const lap = async <T,>(stage: string, fn: () => Promise<T> | T): Promise<T> => {
     const t = Date.now();
@@ -550,30 +614,50 @@ export async function fastBlueprint(inv: Inventory, sums: Record<string, FileSum
     return top.length ? ` — the rest of the code uses it for ${top.join(", ")}` : "";
   };
   const fileLine = (p: string) => (sums[p] ? `${oneLine(sums[p])}\n${sums[p].symbols.slice(0, 8).map((s) => `    ${s.name} (${s.start}-${s.end}): ${s.does}`).join("\n")}` : p);
+  const headFields = (x: any): Bounded[] =>
+    x
+      ? [
+          bounded(x, "title", "the component's title", 4),
+          bounded(x, "sub", "the component's sub", SUB_WORDS),
+          bounded(x, "responsibility", "the component's responsibility", 40),
+          ...(x.groups ?? []).flatMap((gr: any) => (gr ? [bounded(gr, "title", `group ${gr.key}'s title`, 3), bounded(gr, "sub", `group ${gr.key}'s sub`, SUB_WORDS), bounded(gr, "detail", `group ${gr.key}'s detail`, 40)] : [])),
+        ]
+      : [];
+  const fileFields = (x: any): Bounded[] => (x?.files ?? []).flatMap((f: any) => (f ? [bounded(f, "title", `${f.path}'s title`, 3), bounded(f, "sub", `${f.path}'s sub`, SUB_WORDS)] : []));
   const described = await lap("fanout", () =>
     Promise.all(
       comps.map(async (c) => {
         const out = mod.filter((e) => e.from === c.id), into = mod.filter((e) => e.to === c.id);
-        const prompt = [
-          `# Repository: ${inv.name}`,
-          `## Component "${c.id}" (${c.dir})`,
+        const head = `# Repository: ${inv.name}\n\n## Component "${c.id}" (${c.dir})`;
+        const listed = () =>
           c.groups.length
             ? `## Its groups, each with its files\n${c.groups.map((gr) => `### Group "${gr.key}"${usedFor(gr.files)}\n${gr.files.map(fileLine).join("\n")}`).join("\n\n")}`
-            : `## Its files\n${c.files.map(fileLine).join("\n")}`,
+            : `## Its files\n${c.files.map(fileLine).join("\n")}`;
+        const context = () => [
+          head,
+          listed(),
           `## Depends on\n${out.map((e) => `${e.to}: calls ${e.names.join(", ") || "(imports only)"}`).join("\n") || "(nothing)"}`,
           `## Used by\n${into.map((e) => `${e.from}: calls ${e.names.join(", ") || "(imports only)"}`).join("\n") || "(nothing)"}`,
-          `${entries.some((p) => c.files.includes(p)) ? `## Entry points here\n${entries.filter((p) => c.files.includes(p)).join("\n")}\n\n` : ""}## Task\nDescribe this component${c.groups.length ? ", each of its groups," : ""} and each of its files.`,
-        ].join("\n\n");
-        const a = await askWithin({ model, stage: "fast-fanout", maxTokens: 8000, prompt, tool: COMPONENT_TOOL }, (x) =>
-          wordProblems([
-            ["the component's title", x?.title, 4],
-            ["the component's sub", x?.sub, SUB_WORDS],
-            ["the component's responsibility", x?.responsibility, 40],
-            ...(x?.groups ?? []).flatMap((gr: any): [string, unknown, number][] => [[`group ${gr?.key}'s title`, gr?.title, 3], [`group ${gr?.key}'s sub`, gr?.sub, SUB_WORDS], [`group ${gr?.key}'s detail`, gr?.detail, 40]]),
-            ...(x?.files ?? []).flatMap((f: any): [string, unknown, number][] => [[`${f?.path}'s title`, f?.title, 3], [`${f?.path}'s sub`, f?.sub, SUB_WORDS]]),
-          ]),
-        );
-        return [c.id, a] as const;
+          ...(entries.some((p) => c.files.includes(p)) ? [`## Entry points here\n${entries.filter((p) => c.files.includes(p)).join("\n")}`] : []),
+        ];
+        const whole = async () => {
+          await ready(c.files);
+          const prompt = [...context(), `## Task\nDescribe this component${c.groups.length ? ", each of its groups," : ""} and each of its files.`].join("\n\n");
+          return askBounded({ model, stage: "fast-fanout", maxTokens: 8000, prompt, tool: COMPONENT_TOOL }, (x) => [...headFields(x), ...fileFields(x)]);
+        };
+        // A big component's files in one answer were its slowest call by far: its own level and groups in one call, each group's files in another, side by side.
+        if (!(c.groups.length && c.files.length > SPLIT_FILES)) return [c.id, await whole()] as const;
+        const [a, ...parts] = await Promise.all([
+          ready(c.files).then(() =>
+            askBounded({ model, stage: "fast-fanout", maxTokens: 4000, prompt: [...context(), `## Task\nDescribe this component and each of its groups. Its files are described apart.`].join("\n\n"), tool: HEAD_TOOL }, headFields),
+          ),
+          ...c.groups.map(async (gr) => {
+            await ready(gr.files);
+            const prompt = [head, `## Its group "${gr.key}" (${gr.dir})${usedFor(gr.files)}\n${gr.files.map(fileLine).join("\n")}`, `## Task\nDescribe each file of this group.`].join("\n\n");
+            return askBounded({ model, stage: "fast-fanout", maxTokens: 4000, prompt, tool: FILES_TOOL }, fileFields);
+          }),
+        ]);
+        return [c.id, { ...a, files: parts.flatMap((p) => (Array.isArray(p?.files) ? p.files : [])) }] as const;
       }),
     ),
   );
@@ -599,6 +683,7 @@ export async function fastBlueprint(inv: Inventory, sums: Record<string, FileSum
     ]);
   });
 
+  await ready(inv.files.filter(isSource).map((f) => f.path));
   const discrepancies: string[] = [];
   const order = [...(synth.order ?? []).filter((id: string) => byId.has(id)), ...comps.map((c) => c.id).filter((id) => !(synth.order ?? []).includes(id))];
   for (const id of synth.order ?? []) if (!byId.has(id)) discrepancies.push(`synthesize ordered "${id}", which is no component`);
