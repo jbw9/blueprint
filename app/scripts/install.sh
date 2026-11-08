@@ -82,6 +82,12 @@ require("fs").writeFileSync(process.argv[1], JSON.stringify({ node, path }) + "\
 ' "$next/env.json" "$(command -v node)"
 
 if [ -z "$pre" ]; then
+  # Dictation's engine links whatever BLAS the build machine has, and distros split it differently
+  # (Fedora keeps cblas_* out of libblas.so.3), so a Linux binary built on one fails to start on another.
+  # Without it the engine uses its own loops, as its official Linux builds do.
+  if [ "$os" = Linux ]; then
+    export TRANSCRIBE_CMAKE_ARGS="${TRANSCRIBE_CMAKE_ARGS:+$TRANSCRIBE_CMAKE_ARGS }-DTRANSCRIBE_USE_SYSTEM_BLAS=OFF"
+  fi
   if [ "$os" = Darwin ]; then npx tauri build --bundles app; else npx tauri build --no-bundle; fi
 fi
 
