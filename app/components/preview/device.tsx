@@ -49,12 +49,17 @@ export function Device({
   root,
   visible,
   onCommand,
+  onShowTab,
+  tabOpen,
 }: {
   platform: Platform;
   root: string;
   visible: boolean;
-  /** Runs a command in a new terminal tab of this project: setup, or a build. */
-  onCommand: (command: string, label: string) => void;
+  /** Runs a command in a new terminal tab of this project, setup or a build, in front unless `behind`. */
+  onCommand: (command: string, label: string, behind?: boolean) => number;
+  /** Brings a terminal tab forward. */
+  onShowTab: (key: number) => void;
+  tabOpen: (key: number) => boolean;
 }) {
   const { label, device } = PLATFORM[platform];
   const [status, setStatus] = useState<Status | null>(null);
@@ -62,6 +67,8 @@ export function Device({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [screen, setScreen] = useState<string | null>(null);
+  // The tab building the app, while the build runs: the phone stays in view, saying so.
+  const [building, setBuilding] = useState<number | null>(null);
   const [picking, setPicking] = useState<{ x: number; y: number; target: Target; outline: React.CSSProperties } | null>(null);
 
   const check = useCallback(() => {
@@ -93,6 +100,38 @@ export function Device({
         setError(String(e));
         setPhase("idle");
       });
+  };
+
+  // The workspace's, as of its latest render: new functions every render would restart the timer.
+  const tabs = useRef({ onShowTab, tabOpen });
+  useEffect(() => {
+    tabs.current = { onShowTab, tabOpen };
+  });
+  useEffect(() => {
+    if (building === null) return;
+    const timer = setInterval(() => {
+      if (!tabs.current.tabOpen(building)) return setBuilding(null);
+      void invoke<boolean | null>("device_run_result", { platform, root }).then((ok) => {
+        if (ok === null) return;
+        setBuilding(null);
+        if (!ok) {
+          setError(`The app didn't build or open: its tab says why.`);
+          tabs.current.onShowTab(building);
+        }
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [building, platform, root]);
+
+  const run = () => {
+    setError(null);
+    invoke<{ command: string; ends: boolean }>("device_run", { platform, root })
+      .then(({ command, ends }) => {
+        // One that never ends (Expo, Flutter) stays in front: it is where the app is reloaded from.
+        const key = onCommand(command, `${label} build`, ends);
+        if (ends) setBuilding(key);
+      })
+      .catch((e) => setError(String(e)));
   };
 
   // The screen, one picture after another while the tab is in view.
@@ -275,17 +314,25 @@ export function Device({
         {platform === "android" ? <Small onClick={() => send({ kind: "key", text: "back" })}>Back</Small> : null}
         <button
           type="button"
-          onClick={() =>
-            void invoke<string>("device_run", { platform, root })
-              .then((cmd) => onCommand(cmd, `${label} build`))
-              .catch((e) => setError(String(e)))
-          }
-          title="Builds this project's app and opens it here, in a terminal tab"
-          className="ml-1 cursor-pointer bg-accent px-2.5 py-0.5 text-on-accent hover:bg-accent-strong"
+          onClick={run}
+          disabled={building !== null}
+          title="Builds this project's app and opens it here"
+          className="ml-1 cursor-pointer bg-accent px-2.5 py-0.5 text-on-accent hover:bg-accent-strong disabled:cursor-default disabled:opacity-60"
         >
-          Run app
+          {building !== null ? "Building…" : "Run app"}
         </button>
       </div>
+      {building !== null ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-accent-line bg-accent-surface px-3 py-1.5 text-[12px] text-ink">
+          <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-accent" />
+          <span className="min-w-0 flex-1 truncate">
+            Building the app. It opens here when it&apos;s done; the first build can take a few minutes.
+          </span>
+          <button type="button" onClick={() => onShowTab(building)} className="shrink-0 cursor-pointer text-accent underline-offset-2 hover:underline">
+            Show log
+          </button>
+        </div>
+      ) : null}
       {error || status.note ? (
         <p className={cn("shrink-0 truncate border-b border-border-gray px-3 py-1 text-[11.5px]", error ? "text-clay-ink" : "text-muted-slate")} title={error ?? status.note ?? ""}>
           {error ?? status.note}

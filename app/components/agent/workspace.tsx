@@ -150,7 +150,7 @@ export function Workspace() {
   const show = useCallback((next: boolean) => setOpen(next), []);
 
   const add = useCallback(
-    (start: string | null, extra?: Partial<Tab>) => {
+    (start: string | null, extra?: Partial<Tab>, behind?: boolean) => {
       const key = nextKey++;
       const cwd = extra?.cwd ?? here;
       // A Preview opens in the main view, not beside Claude in the window.
@@ -158,7 +158,7 @@ export function Workspace() {
       setTabs((t) => [...t, { key, kind: "shell", start, ran: start, title: "terminal", cwd, live: false, busy: false, main, ...extra }]);
       if (main) setFront((f) => ({ ...f, [cwd]: key }));
       // A dev server is drawn in its Preview, never in the window.
-      else if (!extra?.dev) {
+      else if (!extra?.dev && !behind) {
         setActive((a) => ({ ...a, [cwd]: key }));
         if (cwd === here) show(true);
       }
@@ -1394,7 +1394,12 @@ export function Workspace() {
                 platform={t.kind}
                 root={t.cwd}
                 visible={visible}
-                onCommand={(command, label) => add(null, { run: command, label, cwd: t.cwd })}
+                onCommand={(command, label, behind) => add(null, { run: command, label, cwd: t.cwd }, behind)}
+                onShowTab={(key) => {
+                  setActive((a) => ({ ...a, [t.cwd]: key }));
+                  if (t.cwd === here) show(true);
+                }}
+                tabOpen={(key) => tabs.some((x) => x.key === key)}
               />
               </Held>
             );

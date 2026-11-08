@@ -107,6 +107,7 @@ pub fn run() {
             devices::device_input,
             devices::device_describe,
             devices::device_run,
+            devices::device_run_result,
             dictate::dictate_status,
             dictate::dictate_download,
             dictate::dictate_remove,

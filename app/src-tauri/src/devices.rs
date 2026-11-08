@@ -1068,12 +1068,59 @@ pub async fn device_input(platform: String, input: Input) -> Result<(), String> 
     tauri::async_runtime::spawn_blocking(move || self::input(&platform, &input)).await.map_err(|e| e.to_string())?
 }
 
+/// A folder of this app's own, kept per project and platform: a project's
+/// build is reused by its next run, and never mistaken for another's.
+fn per_project(base: &Path, root: &Path, platform: &str) -> PathBuf {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    root.hash(&mut h);
+    let name = root.file_name().unwrap_or_default().to_string_lossy();
+    base.join(format!("{name}-{platform}-{:016x}", h.finish()))
+}
+
+/// Where a run of the project's app writes how its build ended.
+fn run_result(root: &Path, platform: &str) -> PathBuf {
+    per_project(&data().join("runs"), root, platform)
+}
+
+#[derive(serde::Serialize)]
+pub struct Run {
+    command: String,
+    /// It ends once the app is open, and says how in `device_run_result`.
+    /// Expo and Flutter stay running beside the app to reload it, so never end.
+    ends: bool,
+}
+
 /// The shell command that builds the project's app and opens it on the
-/// running phone, typed into a terminal tab so the build is in view.
+/// running phone, typed into a terminal tab beside it. One that ends writes 0
+/// or 1 to `run_result`, which `device_run_result` reads; the same `&& ||`
+/// works in sh and in cmd.
 #[tauri::command]
-pub fn device_run(platform: String, root: String) -> Result<String, String> {
-    let id = running_id(&platform)?;
+pub fn device_run(platform: String, root: String) -> Result<Run, String> {
     let root = PathBuf::from(root);
+    let command = run_command(&platform, &root)?;
+    if matches!(kind(&root), Kind::Expo | Kind::Flutter) {
+        return Ok(Run { command, ends: false });
+    }
+    let done = run_result(&root, &platform);
+    std::fs::create_dir_all(done.parent().unwrap()).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&done);
+    Ok(Run { command: format!("{command} && echo 0 > {done} || echo 1 > {done}", done = q(&done)), ends: true })
+}
+
+/// How the last run of the project's app ended, once it has: whether it built
+/// and opened. None while it is still going.
+#[tauri::command]
+pub fn device_run_result(platform: String, root: String) -> Option<bool> {
+    let done = run_result(Path::new(&root), &platform);
+    let text = std::fs::read_to_string(&done).ok()?;
+    let _ = std::fs::remove_file(&done);
+    Some(text.trim() == "0")
+}
+
+fn run_command(platform: &str, root: &Path) -> Result<String, String> {
+    let id = running_id(platform)?;
+    let root = root.to_path_buf();
     let kind = kind(&root);
     if platform == "android" {
         let sdk = sdk();
@@ -1113,7 +1160,7 @@ pub fn device_run(platform: String, root: String) -> Result<String, String> {
                 }
             }
         };
-        return Ok(env + &run);
+        return Ok(format!("{env}({run})"));
     }
     Ok(match kind {
         Kind::Expo => format!("npx expo run:ios --device {id}"),
@@ -1133,9 +1180,11 @@ pub fn device_run(platform: String, root: String) -> Result<String, String> {
                 .min_by_key(|(f, _)| *f != "-workspace")
                 .ok_or("This project has no Xcode project.")?;
             let scheme = file.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            let build = std::env::temp_dir().join("blueprint-ios-build");
+            // Kept out of the temp folder, which macOS clears: the next run builds
+            // only what changed instead of fetching and compiling everything again.
+            let build = per_project(&home().join("Library/Caches/dev.blueprint.app/ios-build"), &root, "ios");
             format!(
-                "xcodebuild {flag} {file} -scheme {scheme} -destination id={id} -derivedDataPath {build} build && app=$(find {products} -maxdepth 2 -name '*.app' | head -n 1) && xcrun simctl install {id} \"$app\" && xcrun simctl launch {id} \"$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' \"$app/Info.plist\")\"",
+                "(xcodebuild {flag} {file} -scheme {scheme} -destination id={id} -derivedDataPath {build} -skipPackageUpdates build && app=$(find {products} -maxdepth 2 -name '*.app' | head -n 1) && xcrun simctl install {id} \"$app\" && xcrun simctl launch {id} \"$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' \"$app/Info.plist\")\")",
                 file = q(&file),
                 scheme = q(Path::new(&scheme)),
                 build = q(&build),
