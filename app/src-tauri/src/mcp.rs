@@ -469,12 +469,12 @@ fn tools() -> Value {
         },
         {
             "name": "device",
-            "description": "Uses the iOS Simulator or Android emulator running in the app's iOS or Android tab: screenshot, tap, swipe, type text, press a key (home, back, enter, delete). Coordinates are the screenshot's pixels. The user starts the device from its tab; this tool only uses one that is already running.",
+            "description": "Uses the iOS Simulator or Android emulator in the app's iOS or Android tab: screenshot, read (every named or tappable element on screen, with where to tap it), tap, swipe, type text, press a key (home, back, enter, delete). Coordinates are the screenshot's pixels. Naming a platform that is not running starts it, as the tab's Start does; installing its app is a shell build (Expo: npx expo run:ios or run:android).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "platform": { "type": "string", "enum": ["ios", "android"], "description": "Which device, when both are running." },
-                    "action": { "type": "string", "enum": ["screenshot", "tap", "swipe", "type", "key"] },
+                    "action": { "type": "string", "enum": ["screenshot", "read", "tap", "swipe", "type", "key"] },
                     "coordinate": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
                     "to": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "description": "Where a swipe ends." },
                     "text": { "type": "string", "description": "Text to type, or a key: home, back, enter, delete." }
