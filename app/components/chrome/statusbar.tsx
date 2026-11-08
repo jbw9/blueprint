@@ -178,13 +178,13 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
   const updating = p.update?.status === "running";
   const items: MenuItem[] = [
     {
-      label: "Update blueprint to the code",
+      label: "Update Blueprint",
       disabled: generating || updating || p.status !== "ready",
       onClick: () => void run(async () => ({ action: "regenerate", id, claude: await claudePath(), explain: p.explain })),
     },
-    { label: "Remake blueprint…", disabled: generating, onClick: () => remakeBlueprint(id) },
+    { label: "Remake Blueprint", disabled: generating, onClick: () => remakeBlueprint(id) },
     {
-      label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint",
+      label: p.paused ? "Start Auto-Updates" : "Stop Auto-Updates",
       disabled: generating,
       separated: true,
       onClick: () => void run(async () => ({ action: "pause", id, paused: !p.paused })),
@@ -204,12 +204,12 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
         <CommitIcon />
         <span className="font-medium">Blueprint</span>
         <span className="font-mono text-[11px] text-muted-slate">{commit ?? "no commit"}</span>
-        {p.paused ? <span className="text-amber-ink">· updates off</span> : null}
+        {p.paused ? <span className="text-amber-ink">· paused</span> : null}
         <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-muted-slate">
           <path d="m1.5 5 2.5-2.5L6.5 5" />
         </svg>
       </Item>
-      {at ? <Menu x={at.x} y={at.y} up title={`Blueprint at ${commit ?? "no commit"}`} items={items} onClose={() => setAt(null)} /> : null}
+      {at ? <Menu x={at.x} y={at.y} up title={commit ? `Built from ${commit}` : "Not built from a commit"} items={items} onClose={() => setAt(null)} /> : null}
       {error ? (
         <Item title={`${error} Click to dismiss.`} onClick={() => setError(null)} className="min-w-0 text-clay-ink">
           <span className="truncate">✗ {error}</span>
