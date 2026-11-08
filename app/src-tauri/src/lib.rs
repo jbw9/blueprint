@@ -87,6 +87,7 @@ pub fn run() {
             browser::browser_go,
             browser::browser_eval,
             browser::browser_close,
+            browser::browser_picture,
             signins::signin_project,
             signins::signin_keep,
             signins::signin_list,

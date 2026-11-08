@@ -104,6 +104,85 @@ pub async fn browser_eval(app: AppHandle, label: String, js: String) -> Result<V
     Ok(serde_json::from_str(&out).unwrap_or(Value::Null))
 }
 
+/// A picture of the page, as a PNG data address: the tab shows it in the
+/// page's place while a menu or dialog of the app's is over it, as the
+/// webview, drawn above the app, would otherwise cover that.
+#[tauri::command]
+pub async fn browser_picture(app: AppHandle, label: String) -> Result<String, String> {
+    let view = app.get_webview(&label).ok_or(GONE)?;
+    let (tx, rx) = mpsc::channel::<Option<Vec<u8>>>();
+    view.with_webview(move |w| picture(w, tx)).map_err(|e| e.to_string())?;
+    let png = rx.recv_timeout(Duration::from_secs(5)).ok().flatten().ok_or("The page gave no picture.")?;
+    Ok(format!("data:image/png;base64,{}", crate::mcp::base64(&png)))
+}
+
+#[cfg(windows)]
+fn picture(w: tauri::webview::PlatformWebview, tx: mpsc::Sender<Option<Vec<u8>>>) {
+    use webview2_com::CapturePreviewCompletedHandler;
+    use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
+    use windows::Win32::Foundation::HGLOBAL;
+    use windows::Win32::System::Com::StructuredStorage::{CreateStreamOnHGlobal, GetHGlobalFromStream};
+    use windows::Win32::System::Com::{IStream, STATFLAG_NONAME, STATSTG};
+    use windows::Win32::System::Memory::{GlobalLock, GlobalUnlock};
+
+    fn bytes(stream: &IStream) -> Option<Vec<u8>> {
+        unsafe {
+            let mut stat = STATSTG::default();
+            stream.Stat(&mut stat, STATFLAG_NONAME).ok()?;
+            let global = GetHGlobalFromStream(stream).ok()?;
+            let at = GlobalLock(global) as *const u8;
+            if at.is_null() {
+                return None;
+            }
+            let png = std::slice::from_raw_parts(at, stat.cbSize as usize).to_vec();
+            let _ = GlobalUnlock(global);
+            Some(png)
+        }
+    }
+
+    let done = tx.clone();
+    let started = (|| unsafe {
+        let core = w.controller().CoreWebView2()?;
+        let stream = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
+        let out = stream.clone();
+        let handler = CapturePreviewCompletedHandler::create(Box::new(move |result| {
+            let _ = done.send(result.ok().and_then(|_| bytes(&out)));
+            Ok(())
+        }));
+        core.CapturePreview(COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG, &stream, &handler)
+    })();
+    if started.is_err() {
+        let _ = tx.send(None);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn picture(w: tauri::webview::PlatformWebview, tx: mpsc::Sender<Option<Vec<u8>>>) {
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage};
+    use objc2_foundation::{NSDictionary, NSError};
+    use objc2_web_kit::{WKSnapshotConfiguration, WKWebView};
+
+    unsafe {
+        let view = &*(w.inner() as *const WKWebView);
+        let config = WKSnapshotConfiguration::new(objc2::MainThreadMarker::new_unchecked());
+        let done = block2::RcBlock::new(move |image: *mut NSImage, _: *mut NSError| {
+            let png = image.as_ref().and_then(|image| {
+                let tiff = image.TIFFRepresentation()?;
+                let rep = NSBitmapImageRep::imageRepWithData(&tiff)?;
+                let png = rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())?;
+                Some(png.to_vec())
+            });
+            let _ = tx.send(png);
+        });
+        view.takeSnapshotWithConfiguration_completionHandler(Some(&config), &done);
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn picture(_: tauri::webview::PlatformWebview, tx: mpsc::Sender<Option<Vec<u8>>>) {
+    let _ = tx.send(None);
+}
+
 #[tauri::command]
 pub async fn browser_close(app: AppHandle, label: String) {
     if let Some(view) = app.get_webview(&label) {

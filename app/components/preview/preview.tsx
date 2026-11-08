@@ -122,6 +122,7 @@ export function Preview({
   const [page, setPage] = useState(0);
   // A page from the web is in front, in the webview of this label.
   const [web, setWeb] = useState<string | null>(null);
+  const [picture, setPicture] = useState<string | null>(null);
   const [claude, setClaude] = useState(false);
   const [signing, setSigning] = useState<Signing | null>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -338,7 +339,7 @@ export function Preview({
 
   useEffect(() => {
     if (!web) return;
-    return keepOver({ sheet, stage, view, replace }, web);
+    return keepOver({ sheet, stage, view, replace }, web, setPicture);
   }, [web]);
 
   const agent = (name: string, args: Record<string, unknown>) => ask({ frame, proxy, onWeb, browser, pending }, name, args);
@@ -595,6 +596,7 @@ export function Preview({
                   className={cn("block border-0", web && "invisible")}
                 />
               ) : null}
+              {web && picture ? <div className="absolute inset-0" style={{ backgroundImage: `url(${picture})`, backgroundSize: "100% 100%" }} /> : null}
             </div>
             <Handle
               label="Resize width"
