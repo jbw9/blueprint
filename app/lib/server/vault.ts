@@ -584,9 +584,11 @@ export const follows = (p: Project) =>
  * for when an agent in the app finishes a turn that edited the checkout at
  * `root`, or reported the bluprint wrong; the turn waits in turns.json for the
  * update to take it. A bluprint still being made, or not made, is left alone; one
- * already updating runs again after.
+ * already updating runs again after. `opened`: asked by opening the bluprint, not
+ * by anyone, so it runs with fewer Claudes at once and leaves one far behind its
+ * code alone (--opened).
  */
-export function updateBluprint(root: string, claude?: string, turn?: Turn): Project | undefined {
+export function updateBluprint(root: string, claude?: string, turn?: Turn, opened = false): Project | undefined {
   const p = listProjects().find((x) => x.root === root);
   if (!p || !follows(p)) return p;
   if (turn) {
@@ -600,20 +602,28 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn): Proj
     writeFileSync(file, JSON.stringify([...waiting, turn]) + "\n");
   }
   if (p.update?.status === "running") {
-    update(p.id, (q) => (q.update!.again = true));
+    // The one running already catches up with the code an open would ask about.
+    if (!opened) update(p.id, (q) => (q.update!.again = true));
     return getProject(p.id);
   }
   const dir = projectDir(p.id);
   const log = openSync(join(dir, "update.log"), "w");
   const child = spawn(
     process.execPath,
-    [...TSX, "scripts/generate/run.mts", p.root, "--update", "--out", dir],
+    [...TSX, "scripts/generate/run.mts", p.root, "--update", "--out", dir, ...(opened ? ["--opened"] : [])],
     {
       cwd: process.cwd(),
       detached: true,
       windowsHide: true,
       stdio: ["ignore", log, log],
-      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
+      env: {
+        ...process.env,
+        SLOP_BACKEND: "claude-code",
+        SLOP_EXPLAIN: p.explain ?? "full",
+        ...(claude ? { SLOP_CLAUDE: claude } : {}),
+        ...(opened ? { SLOP_CONCURRENCY: process.env.SLOP_CONCURRENCY ?? "3" } : {}),
+        ...creditEnv(),
+      },
     },
   );
   closeSync(log);

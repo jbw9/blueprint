@@ -394,6 +394,19 @@ export async function update(args: string[]) {
     result({ ok: true, changed: [], sections: [], unmatched });
     return;
   }
+  // Opening a bluprint asks for this without anyone choosing it. One far behind
+  // its code would be most of it redone in the background, eight Claudes at a
+  // time, on every open until a run got through: it waits to be asked for.
+  if (has("--opened") && !turns.length && (found.length > bluprint.RUN.files / 2 || unplaced.length > 100)) {
+    result({
+      ok: false,
+      changed: [],
+      sections: [],
+      unmatched,
+      error: `This bluprint is far behind its code (${found.length} files changed${unplaced.length ? `, ${unplaced.length} not in it` : ""}), too much to redo in the background. Update it to the code from Projects, or remake it.`,
+    });
+    return;
+  }
   const byPath = new Map(found.map((c) => [c.path, c]));
   const sums = has("--dry-run") ? {} : await summarize(inv, () => {});
   withSummaries(activeGraph()!, sums);
@@ -451,6 +464,27 @@ export async function update(args: string[]) {
   const say = (s: string) => console.log(`  ${s}`);
   const failed: string[] = [];
   const removed: string[] = [];
+  // Each changed file's sections still to land. Once they all have, the bluprint
+  // describes the file as it is and base.json says so then, not only when the
+  // whole run ends: a run that dies keeps what it finished, and the next starts there.
+  const waiting = new Map<string, Set<Placed>>();
+  for (const t of picked)
+    for (const f of new Set(refs(t.node).map((r) => r.file)))
+      if (byPath.has(f) && !isNew(f)) waiting.set(f, (waiting.get(f) ?? new Set()).add(t));
+  const caughtUp = (t: Placed, ok: boolean) => {
+    let any = false;
+    for (const [f, ts] of waiting) {
+      if (!ts.has(t)) continue;
+      // A failed section leaves its files to the end of the run, as before.
+      if (!ok) waiting.delete(f);
+      else if (ts.delete(t) && !ts.size) {
+        waiting.delete(f);
+        base[f] = byPath.get(f)!.after;
+        any = true;
+      }
+    }
+    if (any) atomic(`${out}/base.json`, JSON.stringify(base) + "\n");
+  };
   // Each section goes into the bluprint the moment it is redone, and the bluprint is
   // written then, so the open page shows it while the others are still being
   // worked on (components/bluprint-context.tsx). The sections are redone
@@ -484,6 +518,7 @@ export async function update(args: string[]) {
       say(`${t.node.id}: FAILED, kept as it was`);
     }
     atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
+    caughtUp(t, Boolean(node));
   };
   const fresh: { id: string; title: string; ok: boolean }[] = [];
   await Promise.all([

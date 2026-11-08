@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       case "update":
         if (!str(root)) return bad("bad request");
         // A checkout no project of the user's bluprints (an example's) cannot follow it.
-        return Response.json(updateBluprint(root as string, str(claude), turnOf(turn)) ?? { skipped: true });
+        return Response.json(updateBluprint(root as string, str(claude), turnOf(turn), body.opened === true) ?? { skipped: true });
       case "pause":
         if (!str(id)) return bad("bad request");
         setPaused(id as string, paused === true);

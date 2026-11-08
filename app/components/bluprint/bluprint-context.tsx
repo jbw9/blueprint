@@ -126,7 +126,7 @@ export function BluprintProvider({
   useEffect(() => {
     if (version === undefined || !root || asked.has(name)) return;
     asked.add(name);
-    void updateBluprint(root);
+    void updateBluprint(root, undefined, true);
   }, [name, version, root]);
 
   // The level the reader has open (components/bluprint/canvas.tsx), read when an update lands.
