@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs Blueprint on macOS or Linux, built from source:
+# Installs Blueprint on macOS, Linux or Windows (in Git Bash), built from source:
 #   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
 # The source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it); running this again updates and rebuilds.
 # When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
@@ -22,7 +22,8 @@ main() {
   os=$(uname)
   case $os in
   Darwin | Linux) ;;
-  *) die "Blueprint installs on macOS and Linux." ;;
+  MINGW* | MSYS* | CYGWIN*) os=Windows ;;
+  *) die "Blueprint installs on macOS, Linux and Windows (in Git Bash: https://git-scm.com/downloads/win)." ;;
   esac
   # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
@@ -33,6 +34,14 @@ main() {
     need c++ "xcode-select --install"
     need node "Node 20 or newer: https://nodejs.org (or: brew install node)"
     need cmake "brew install cmake (or https://cmake.org/download)"
+  elif [ "$os" = Windows ]; then
+    need node "Node 20 or newer: winget install OpenJS.NodeJS.LTS (or https://nodejs.org)"
+    need cmake "winget install Kitware.CMake (or https://cmake.org/download)"
+    # Rust links with MSVC's C++ tools, which only vswhere can find from here.
+    vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+    [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ] ||
+      missing="$missing
+  - the Visual Studio C++ build tools: winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
     need git "your package manager's git"
     need node "Node 20 or newer: https://nodejs.org/en/download/package-manager"
@@ -59,7 +68,14 @@ Install those, then run this again."
     die "Blueprint needs Node 20 or newer; this is $(node -v)."
   if ! command -v cargo >/dev/null; then
     say "Installing Rust (rustup)"
-    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+    if [ "$os" = Windows ]; then
+      init="$(mktemp -d)/rustup-init.exe"
+      case $(uname -m) in aarch64 | arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac
+      curl -fsSLo "$init" "https://win.rustup.rs/$arch"
+      "$init" -y --profile minimal
+    else
+      curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+    fi
     PATH="$HOME/.cargo/bin:$PATH"
   fi
 
