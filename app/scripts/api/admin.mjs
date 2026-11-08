@@ -214,32 +214,39 @@ export async function repo({ pw, repo_name } = {}) {
     }));
 }
 
-/** The credit's settings, each machine's use over 30 days, and the spend per day (credit.mjs). */
+/** The credit's settings, each account's use over 30 days, and the spend per day (credit.mjs). */
 export async function credit({ pw } = {}) {
   await allowed(pw);
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
-  const [config, devices, spend, ...use] = await Promise.all([
+  const [config, accounts, spend, ...use] = await Promise.all([
     get("credit", "config"),
-    query("device"),
+    query("account"),
     query("creditday", { from: days[0] }),
-    ...days.map((d) => query(`devuse#${d}`)),
+    ...days.map((d) => query(`use#${d}`)),
   ]);
+  const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, flagged_30: 0, last_at: null });
   const by = new Map();
   for (const u of use.flat()) {
-    const d = by.get(u.sk) ?? { tab_tokens_30: 0, gen_tokens_30: 0, usd: 0, last_at: null };
-    d.tab_tokens_30 += Number(u.tab_tokens) || 0;
-    d.gen_tokens_30 += Number(u.gen_tokens) || 0;
-    d.usd += Number(u.usd) || 0;
+    const d = by.get(u.sk) ?? none();
+    d.tab_usd_30 += (Number(u.tab_micro) || 0) / 1e6;
+    d.gen_usd_30 += (Number(u.gen_micro) || 0) / 1e6;
+    d.calls_30 += (Number(u.tab_calls) || 0) + (Number(u.gen_calls) || 0);
+    d.flagged_30 += Number(u.flagged) || 0;
     if (!d.last_at || u.last_at > d.last_at) d.last_at = u.last_at;
     by.set(u.sk, d);
   }
   return {
     config: config ? summary(config) : null,
     usd_30: spend.reduce((a, d) => a + (Number(d.usd) || 0), 0),
-    devices: devices
-      .map((d) => ({ device: d.sk, ...without(d, "pk", "sk"), ...(by.get(d.sk) ?? { tab_tokens_30: 0, gen_tokens_30: 0, usd: 0, last_at: null }) }))
-      .sort((a, b) => b.usd - a.usd)
+    accounts: accounts
+      .map((a) => ({
+        account: a.sk, login: a.login ?? null, gh_created: a.gh_created ?? null, first_at: a.first_at ?? null, machines: a.devices?.size ?? 0,
+        allowed: !!a.allowed, blocked: !!a.blocked, uncapped: !!a.uncapped, note: a.note ?? null, ...(by.get(a.sk) ?? none()),
+      }))
+      .sort((a, b) => b.tab_usd_30 + b.gen_usd_30 - (a.tab_usd_30 + a.gen_usd_30))
       .slice(0, 200),
     daily: spend.map((d) => ({ day: d.sk, tab_usd: d.tab_usd ?? 0, gen_usd: d.gen_usd ?? 0 })),
+    // The dashboard as deployed before accounts reads machines; empty, it still draws. Goes once blpr.dev/admin is redeployed.
+    devices: [],
   };
 }

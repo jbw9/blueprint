@@ -1,121 +1,210 @@
-// Blueprint credit: Claude on Blueprint's own Bedrock, for machines running Blueprint. Answers as Bedrock
-// does, so Claude Code (in Bedrock mode) and the generator (scripts/generate/bedrock.ts) talk to it
-// unchanged. Each call is checked against the machine's allowance (db.mjs), forwarded byte for byte
-// to one of the project's tagged inference profiles, and its tokens are written back.
+// Blueprint credit: Claude on Blueprint's own Bedrock, for people signed in to Blueprint with GitHub
+// (auth.mjs). Answers as Bedrock does, so Claude Code (in Bedrock mode) and the generator
+// (scripts/generate/bedrock.ts) talk to it unchanged, both through the app's local relay. Each call is
+// shaped (policy.mjs), admitted against its account's allowance, forwarded byte for byte to one of
+// the project's tagged inference profiles, and settled at what Bedrock says it used.
 //
-// `tab` is Claude Code in a Blueprint tab and is capped per window; `gen` is blueprint generation.
-// The settings are the `credit / config` item, changed in the DynamoDB console, never in the app:
-// enabled (false: only machines marked `allowed`), window_hours, tab_tokens, gen_tokens (absent: no
-// cap), ip_factor, new_devices_per_ip_day, daily_usd_ceiling. A machine's own `tab_tokens` or
-// `gen_tokens`, `allowed` and `blocked` go on its `device / <id>` item. A token here is input + cache
-// writes + output + a tenth of cache reads, which cost a tenth.
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { get, put, refused, today, update, without } from "./db.mjs";
+// `tab` is Claude Code in a Blueprint tab and has a 5-hour window and a weekly one, as Claude Code's
+// own plans do; `gen` is blueprint generation and has a weekly window. Spend is in millionths of a
+// dollar at list price (a price in $ per million tokens is micro-dollars per token). The settings
+// are the `credit / config` item (DEFAULTS), changed in the DynamoDB console, never in the app. An
+// account's own item can carry any of the limits, or `uncapped`, `allowed` (let in while the credit
+// is off for everyone) or `blocked`.
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import { network } from "./auth.mjs";
+import { del, get, put, refused, today, update, without } from "./db.mjs";
+import { shape } from "./policy.mjs";
 
 const REGION = process.env.AWS_REGION || "us-east-1";
 const HOST = `bedrock-runtime.${REGION}.amazonaws.com`;
 const PROFILES = JSON.parse(process.env.PROFILES ?? "{}");
 const OPS = new Set(["invoke-with-response-stream", "invoke", "count-tokens"]);
 
-/** $ per million tokens through a global profile; a cache write costs 1.25× input. */
+/** $ per million tokens through a global profile; a cache write costs 1.25× input, a cache read a tenth. */
 const PRICE = { haiku: { in: 1, out: 5 }, sonnet: { in: 3, out: 15 }, opus: { in: 5, out: 25 } };
 
 const familyOf = (model) => (/haiku/i.test(model) ? "haiku" : /opus/i.test(model) ? "opus" : "sonnet");
 /** A tab gets Sonnet or Haiku whatever it asks for; generation gets the family it asks for. */
 const familyFor = (lane, model) => (lane === "tab" && familyOf(model) === "opus" ? "sonnet" : familyOf(model));
 
-const sign = (device) => createHmac("sha256", process.env.TOKEN_SECRET).update(device).digest("base64url");
-export const tokenFor = (device) => `${device}.${sign(device)}`;
-export function deviceOf(headers) {
-  const [device, mac] = (headers.authorization ?? "").replace(/^Bearer\s+/i, "").split(".");
-  if (!device || !mac || !/^[0-9a-f]{64}$/.test(device)) return null;
-  const want = Buffer.from(sign(device));
-  const got = Buffer.from(mac);
-  return want.length === got.length && timingSafeEqual(want, got) ? device : null;
-}
+/* ── settings ── */
 
-/* ── allowances ── */
-
-const DEFAULTS = { enabled: false, window_hours: 5, tab_tokens: 500000, gen_tokens: null, ip_factor: 3, new_devices_per_ip_day: 3, daily_usd_ceiling: 25 };
+export const DEFAULTS = {
+  enabled: false,
+  ends_at: null,
+  policy: "log",
+  gh_min_age_days: 30,
+  devices_per_account: 2,
+  new_accounts_per_ip_day: 5,
+  window_hours: 5,
+  week_hours: 168,
+  tab_usd_5h: 3,
+  tab_usd_week: 12,
+  gen_usd_week: 12,
+  tab_inflight: 3,
+  gen_inflight: 4,
+  usd_per_minute: 1,
+  max_tokens: 32000,
+  daily_usd_ceiling: 200,
+};
 let cached = null;
 /** The settings, read at most every 30 seconds per running copy of this function. */
-async function config() {
+export async function config() {
   if (cached && Date.now() - cached.at < 30_000) return cached.value;
   const value = { ...DEFAULTS, ...without(await get("credit", "config"), "pk", "sk") };
   cached = { at: Date.now(), value };
   return value;
 }
 
-/** Tokens used in the window still open, and when it closes; 0 and null once it has. */
-async function windowOf(who, lane, hours) {
-  const w = await get(`win#${who}`, lane);
-  const ends = w ? Date.parse(w.started) + hours * 3600_000 : 0;
-  return ends > Date.now() ? { used: Number(w.tokens) || 0, resets: new Date(ends).toISOString() } : { used: 0, resets: null };
+const MICRO = 1e6;
+const epoch = () => Math.floor(Date.now() / 1000);
+const ended = (c) => !!c.ends_at && Date.now() >= Date.parse(c.ends_at);
+const open = (c, a) => !!a && !a.blocked && (!!a.allowed || (!!c.enabled && !ended(c)));
+
+/** What the landing page asks: whether the promotion is on for everyone right now. */
+export async function promo() {
+  const c = await config();
+  return { on: !!c.enabled && !ended(c) };
 }
 
-/** A machine seen before always gets back in; a new one only while its address has made few today. */
-export async function register(device, ip) {
-  if (typeof device !== "string" || !/^[0-9a-f]{64}$/.test(device)) return { ok: false, reason: "Not a device id." };
-  if (await get("device", device)) return { ok: true };
+/** The windows a lane spends from, and how long each stays open. */
+const WINDOWS = { tab: ["tab5h", "tabweek"], gen: ["genweek"] };
+const hoursOf = (c, w) => (w === "tab5h" ? c.window_hours : c.week_hours);
+const LIMIT_OF = { tab5h: "tab_usd_5h", tabweek: "tab_usd_week", genweek: "gen_usd_week" };
+const pick = (c, a, k) => a?.[k] ?? c[k];
+/** A window's cap in micro-dollars; an uncapped account is still counted, against a cap it never meets. */
+const capOf = (c, a, w) => (a?.uncapped ? Number.MAX_SAFE_INTEGER : pick(c, a, LIMIT_OF[w]) * MICRO);
+
+/** Spend in a window while it is open, and when it closes; nothing once it has. */
+async function windowOf(account, w, hours) {
+  const row = await get(`win#acct:${account}`, w);
+  const ends = row?.started ? Date.parse(row.started) + hours * 3600_000 : 0;
+  return ends > Date.now() ? { used: Number(row.micro) || 0, resets: new Date(ends).toISOString() } : { used: 0, resets: null };
+}
+
+/** What the app shows: whether the credit is there for this account, and each of its windows. */
+export async function status(account) {
   const c = await config();
+  const a = await get("account", account);
+  const meters = Object.fromEntries(
+    await Promise.all(
+      Object.keys(LIMIT_OF).map(async (w) => [w, { ...(await windowOf(account, w, hoursOf(c, w))), limit: a?.uncapped ? null : pick(c, a, LIMIT_OF[w]) * MICRO }]),
+    ),
+  );
+  const reason = !a ? "Sign in again." : a.blocked ? "Blueprint credit isn't available to this account." : ended(c) && !a.allowed ? "Blueprint's free Claude Code promotion has ended." : !open(c, a) ? "Blueprint credit isn't open yet." : undefined;
+  return { available: open(c, a), reason, login: a?.login ?? null, ends_at: c.ends_at ?? null, meters };
+}
+
+/* ── admitting and settling a call ── */
+
+/**
+ * Adds `micro` to an open window while it is under `cap`, or starts the window afresh once the last has
+ * closed. The update is conditional, so calls made at once each see the others' share. Null when it
+ * is admitted, else when the window opens again.
+ */
+async function charge(account, w, hours, cap, micro, again = true) {
+  const key = `win#acct:${account}`;
+  const cut = new Date(Date.now() - hours * 3600_000).toISOString();
   try {
-    await update(`ipreg#${ip}`, today(), "SET n = if_not_exists(n, :zero) + :one, #ttl = :ttl",
-      { ":zero": 0, ":one": 1, ":max": c.new_devices_per_ip_day, ":ttl": Math.floor(Date.now() / 1000) + 2 * 86400 },
-      "attribute_not_exists(n) OR n < :max", { "#ttl": "ttl" });
-  } catch (e) {
-    if (refused(e)) return { ok: false, reason: "Too many new machines from this network today." };
-    throw e;
-  }
-  try {
-    await put({ pk: "device", sk: device, at: new Date().toISOString(), ip: String(ip).slice(0, 64), allowed: false, blocked: false }, "attribute_not_exists(pk)");
+    await update(key, w, "SET micro = micro + :m", { ":m": micro, ":cut": cut, ":cap": cap }, "started > :cut AND micro < :cap");
+    return null;
   } catch (e) {
     if (!refused(e)) throw e;
   }
-  return { ok: true };
+  const row = await get(key, w);
+  if (row?.started > cut) return new Date(Date.parse(row.started) + hours * 3600_000).toISOString();
+  try {
+    await put({ pk: key, sk: w, started: new Date().toISOString(), micro, ttl: epoch() + hours * 3600 + 86400 }, "attribute_not_exists(pk) OR attribute_not_exists(started) OR started <= :cut", { ":cut": cut });
+    return null;
+  } catch (e) {
+    // Another call opened the window first: it is open now.
+    if (!refused(e) || !again) throw e;
+    return charge(account, w, hours, cap, micro, false);
+  }
 }
 
-/** Whether this machine may make a call now, and if not, why and until when. */
-async function admit(device, ip, lane) {
-  const c = await config();
-  const d = await get("device", device);
-  if (!d || d.blocked || !(c.enabled || d.allowed)) return { ok: false, reason: "Blueprint credit is not available on this machine." };
-  const spent = Number((await get("creditday", today()))?.usd) || 0;
-  if (spent >= c.daily_usd_ceiling)
-    return { ok: false, reason: "Blueprint credit has reached its per day limit for everyone. It opens again at midnight UTC.", resets: `${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}T00:00:00.000Z` };
-  const cap = lane === "tab" ? (d.tab_tokens ?? c.tab_tokens) : (d.gen_tokens ?? c.gen_tokens);
-  if (cap == null) return { ok: true };
-  const [mine, theirs] = await Promise.all([windowOf(`device:${device}`, lane, c.window_hours), windowOf(`ip:${ip}`, lane, c.window_hours)]);
-  if (mine.used >= cap) return { ok: false, reason: "Blueprint credit is used up for now.", resets: mine.resets };
-  if (theirs.used >= cap * c.ip_factor) return { ok: false, reason: "Blueprint credit is used up on this network for now.", resets: theirs.resets };
-  return { ok: true };
+/** One of the account's `n` call slots on a lane, held until released; null when all are taken. A lease ends with the function's 15-minute limit, so a call that dies holding one frees it. */
+async function takeSlot(account, lane, n) {
+  const lease = randomBytes(8).toString("hex");
+  for (let i = 0; i < n; i++) {
+    try {
+      await put({ pk: `slot#${account}`, sk: `${lane}#${i}`, lease_id: lease, lease_until: Date.now() + 900_000, ttl: epoch() + 1800 }, "attribute_not_exists(pk) OR lease_until < :now", { ":now": Date.now() });
+      return { sk: `${lane}#${i}`, lease };
+    } catch (e) {
+      if (!refused(e)) throw e;
+    }
+  }
+  return null;
 }
 
-/** One call's use, added to its machine's and address's windows; a window that has closed starts again here. */
-async function spend(device, ip, lane, family, u) {
-  const c = await config();
-  const n = u.input + u.output + u.cache_write + Math.floor(u.cache_read / 10);
-  const usd = usdOf(family, u);
-  const now = new Date();
-  const cut = new Date(now - c.window_hours * 3600_000).toISOString();
+const quiet = (p) =>
+  p.catch((e) => {
+    if (!refused(e)) console.error(e);
+  });
+
+/** Moves everything a call reserved from its guess to what it cost, and lets its slot go. Settling at 0 undoes a call that never ran. */
+async function settle(account, lane, held, micro) {
+  const d = micro - held.guess;
   await Promise.all([
-    ...[`device:${device}`, `ip:${ip}`].map((who) =>
-      update(`win#${who}`, lane, "SET tokens = tokens + :n", { ":n": n, ":cut": cut }, "started > :cut").catch((e) => {
-        if (!refused(e)) throw e;
-        return put({ pk: `win#${who}`, sk: lane, started: now.toISOString(), tokens: n, ttl: Math.floor(now / 1000) + c.window_hours * 3600 + 86400 });
-      }),
-    ),
-    update("creditday", today(), "ADD usd :u, #lane :u", { ":u": usd }, undefined, { "#lane": `${lane}_usd` }),
-    update(`devuse#${today()}`, device, "ADD #lane :n, usd :u SET last_at = :now", { ":n": n, ":u": usd, ":now": now.toISOString() }, undefined, { "#lane": `${lane}_tokens` }),
+    ...held.windows.map((w) => quiet(update(`win#acct:${account}`, w, "ADD micro :d", { ":d": d }, "attribute_exists(started)"))),
+    held.minute && quiet(update(`rate#${account}`, held.minute, "ADD micro :d", { ":d": d })),
+    held.day && quiet(update("creditday", held.day, "ADD usd :u, #lane :u", { ":u": d / MICRO }, undefined, { "#lane": `${lane}_usd` })),
+    held.slot && quiet(del(`slot#${account}`, held.slot.sk, "lease_id = :l", { ":l": held.slot.lease })),
   ]);
 }
 
-/** What the app shows: whether the credit is there for this machine, and its tab window. */
-export async function status(device) {
-  const c = await config();
-  const d = await get("device", device);
-  const w = await windowOf(`device:${device}`, "tab", c.window_hours);
-  return { available: !!d && !d.blocked && (c.enabled || !!d.allowed), used: w.used, limit: d?.tab_tokens ?? c.tab_tokens, resets: w.resets, window_hours: c.window_hours };
+const until = (iso) => Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 1000));
+
+/**
+ * Whether this account may make a call now, reserving `guess` against every limit it meets: a call
+ * slot, the account's spend this minute, everyone's spend today, and the lane's windows. A refusal
+ * gives back whatever was reserved before it. `wait` refusals are a throttle the caller retries;
+ * the others last until `resets`.
+ */
+async function admit(c, account, a, lane, guess) {
+  if (!open(c, a)) return { ok: false, reason: ended(c) && !a?.allowed ? "Blueprint's free Claude Code promotion has ended." : "Blueprint credit isn't available to this account." };
+  const held = { guess, windows: [], minute: null, day: null, slot: null };
+  const no = async (r) => (await settle(account, lane, held, 0), { ok: false, ...r });
+
+  held.slot = await takeSlot(account, lane, pick(c, a, lane === "tab" ? "tab_inflight" : "gen_inflight"));
+  if (!held.slot) return no({ wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
+
+  if (!a.uncapped) {
+    const minute = new Date().toISOString().slice(0, 16);
+    try {
+      await update(`rate#${account}`, minute, "ADD micro :m SET #ttl = :ttl", { ":m": guess, ":cap": pick(c, a, "usd_per_minute") * MICRO, ":ttl": epoch() + 3600 }, "attribute_not_exists(micro) OR micro < :cap", { "#ttl": "ttl" });
+      held.minute = minute;
+    } catch (e) {
+      if (!refused(e)) throw e;
+      return no({ wait: 61 - new Date().getSeconds(), reason: "This account is spending fast; calls slow down for a minute." });
+    }
+  }
+
+  const day = today();
+  try {
+    // An uncapped account's spend still counts toward the day, but the day's ceiling doesn't stop it.
+    if (a.uncapped) await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO }, undefined, { "#lane": `${lane}_usd` });
+    else await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO, ":cap": c.daily_usd_ceiling }, "attribute_not_exists(usd) OR usd < :cap", { "#lane": `${lane}_usd` });
+    held.day = day;
+  } catch (e) {
+    if (!refused(e)) throw e;
+    return no({ reason: "Blueprint credit has reached its daily limit for everyone. It opens again at midnight UTC.", resets: `${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}T00:00:00.000Z` });
+  }
+
+  for (const w of WINDOWS[lane]) {
+    const resets = await charge(account, w, hoursOf(c, w), capOf(c, a, w), guess);
+    if (resets) return no({ reason: w === "genweek" ? "This week's Blueprint credit for maps is used up." : "Your Blueprint credit for Claude Code is used up for now.", resets });
+    held.windows.push(w);
+  }
+  return { ok: true, held };
 }
+
+/** A rough price for a call before Bedrock says what it used: its prompt as if a tenth were new, and up to 4,000 tokens out. */
+const guessOf = (family, bytes, maxTokens) => Math.ceil((bytes / 4) * PRICE[family].in * 0.1 + Math.min(maxTokens, 4000) * PRICE[family].out);
+const microOf = (family, u) => {
+  const p = PRICE[family];
+  return Math.ceil(u.input * p.in + u.cache_write * p.in * 1.25 + u.cache_read * p.in * 0.1 + u.output * p.out);
+};
 
 /* ── SigV4, for the one host and two headers this needs ── */
 const sha = (s) => createHash("sha256").update(s).digest("hex");
@@ -142,21 +231,26 @@ function signed(path, body, extra) {
 
 /**
  * Reads the usage out of Bedrock's event stream as it passes, without holding it up: each message is
- * a length-prefixed frame whose payload is {"bytes": base64 of one Anthropic stream event}.
+ * a length-prefixed frame whose payload is {"bytes": base64 of one Anthropic stream event}. A stream
+ * cut off before its final usage is counted by the characters that did come.
  */
 function meter() {
   const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
   let buf = Buffer.alloc(0);
+  let chars = 0;
+  let final = false;
   const take = (ev) => {
+    if (ev.type === "content_block_delta") chars += (ev.delta?.text ?? ev.delta?.thinking ?? ev.delta?.partial_json ?? "").length;
     const u = ev.type === "message_start" ? ev.message?.usage : ev.type === "message_delta" ? ev.usage : null;
     if (!u) return;
+    if (ev.type === "message_delta") final = true;
     if (u.input_tokens != null) usage.input = u.input_tokens;
     if (u.cache_read_input_tokens != null) usage.cache_read = u.cache_read_input_tokens;
     if (u.cache_creation_input_tokens != null) usage.cache_write = u.cache_creation_input_tokens;
     if (u.output_tokens != null) usage.output = u.output_tokens;
   };
   return {
-    usage,
+    usage: () => (final ? usage : { ...usage, output: Math.max(usage.output, Math.ceil(chars / 4)) }),
     push(chunk) {
       buf = Buffer.concat([buf, chunk]);
       while (buf.length >= 12) {
@@ -185,31 +279,86 @@ function meter() {
   };
 }
 
-const usdOf = (family, u) => {
-  const p = PRICE[family];
-  return (u.input * p.in + u.cache_write * p.in * 1.25 + u.cache_read * p.in * 0.1 + u.output * p.out) / 1e6;
-};
+/** One call kept 30 days, for review, and its tokens added to the account's day. */
+async function record(account, lane, family, ip, headers, flags, code, u, micro) {
+  const now = new Date();
+  await Promise.all([
+    quiet(
+      put({
+        pk: `req#${account}`,
+        sk: `${now.toISOString()}#${randomBytes(3).toString("hex")}`,
+        lane,
+        family,
+        cls: String(headers["x-claude-code-request-class"] ?? "").slice(0, 20) || undefined,
+        code,
+        in_tok: u.input,
+        out_tok: u.output,
+        cr_tok: u.cache_read,
+        cw_tok: u.cache_write,
+        micro,
+        net: network(ip),
+        flags: flags.length ? flags : undefined,
+        ttl: epoch() + 30 * 86400,
+      }),
+    ),
+    quiet(
+      update(`use#${today()}`, account, "ADD #calls :one, #micro :m, in_tok :i, out_tok :o, cr_tok :r, cw_tok :w, flagged :f SET last_at = :now, #ttl = :ttl",
+        { ":one": 1, ":m": micro, ":i": u.input, ":o": u.output, ":r": u.cache_read, ":w": u.cache_write, ":f": flags.length ? 1 : 0, ":now": now.toISOString(), ":ttl": epoch() + 120 * 86400 },
+        undefined, { "#calls": `${lane}_calls`, "#micro": `${lane}_micro`, "#ttl": "ttl" }),
+    ),
+  ]);
+}
 
 /** Answers one Bedrock call on a lane, as Bedrock would, writing to `stream`. */
-export async function relay({ stream, reply, device, ip, lane, model, op, headers, body }) {
-  const family = familyFor(lane, decodeURIComponent(model));
-  const target = op === "count-tokens" ? decodeURIComponent(model) : PROFILES[family];
+export async function relay({ stream, reply, account, ip, lane, model, op, headers, body }) {
   if (!OPS.has(op)) return reply(404, { message: "Not found." });
+  const c = await config();
+  const a = await get("account", account);
+  const refuse = (r) => {
+    const after = r.wait ?? (r.resets ? until(r.resets) : null);
+    // A throttle Claude Code and the generator retry; a used-up allowance they show at once, which a retry-after over 60 does.
+    return reply(429, { message: r.wait ? r.reason : `${r.reason}${r.resets && !r.reason.includes("midnight") ? ` It opens again at ${new Date(r.resets).toUTCString()}.` : ""} Turn off Blueprint credit in Settings to use your own Claude.` }, {
+      "x-should-retry": r.wait ? "true" : "false",
+      "x-amzn-errortype": r.wait ? "ThrottlingException" : "ServiceQuotaExceededException",
+      ...(after ? { "retry-after": String(after) } : {}),
+    });
+  };
 
-  // Counting tokens costs nothing, so it is not metered.
-  if (op !== "count-tokens") {
-    const ok = await admit(device, ip, lane);
-    if (!ok.ok) {
-      const until = ok.resets && !ok.reason.includes("midnight") ? ` It opens again at ${new Date(ok.resets).toUTCString()}.` : "";
-      // Not a throttle, which Claude Code and the generator would retry for minutes.
-      return reply(429, { message: `${ok.reason}${until} Turn off Blueprint credit in Settings to use your own Claude.` }, {
-        "x-should-retry": "false",
-        "x-amzn-errortype": "ServiceQuotaExceededException",
-        ...(ok.resets ? { "retry-after": String(Math.max(1, Math.round((Date.parse(ok.resets) - Date.now()) / 1000))) } : {}),
-      });
-    }
+  // Counting tokens costs nothing, so it is not metered, only kept to Claude models.
+  if (op === "count-tokens") {
+    const id = decodeURIComponent(model);
+    if (!open(c, a)) return refuse({ reason: "Blueprint credit isn't available to this account." });
+    if (!/^((global|us|eu|apac)\.)?anthropic\.claude-[\w.:-]+$/.test(id)) return reply(400, { message: "Not a Claude model." });
+    return forward({ stream, op, target: id, headers, body });
   }
 
+  const family = familyFor(lane, decodeURIComponent(model));
+  const shaped = shape({ lane, body, headers, maxTokens: c.max_tokens });
+  if (!shaped.body) return reply(400, { message: "Not a model call." }, { "x-amzn-errortype": "ValidationException" });
+  if (shaped.flags.length && c.policy === "enforce") {
+    await record(account, lane, family, ip, headers, shaped.flags, 403, { input: 0, output: 0, cache_read: 0, cache_write: 0 }, 0);
+    return reply(403, { message: "Blueprint credit only runs Claude Code in Blueprint's tabs and Blueprint's own map generation." }, { "x-amzn-errortype": "AccessDeniedException" });
+  }
+
+  const guess = guessOf(family, shaped.body.length, shaped.maxTokens);
+  const ok = await admit(c, account, a, lane, guess);
+  if (!ok.ok) return refuse(ok);
+
+  const meters = meter();
+  let code = 0;
+  try {
+    code = await forward({ stream, op, target: PROFILES[family], headers, body: shaped.body, meters });
+  } finally {
+    // Settled whatever happened to the stream: a call the caller walked away from still cost what it used.
+    const u = code >= 200 && code < 300 ? meters.usage() : { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+    const micro = microOf(family, u);
+    await settle(account, lane, ok.held, micro);
+    await record(account, lane, family, ip, headers, shaped.flags, code, u, micro);
+  }
+}
+
+/** Sends one call to Bedrock and its reply back as Bedrock gave it; the reply's status. */
+async function forward({ stream, op, target, headers, body, meters }) {
   const upstream = `/model/${encodeURIComponent(target)}/${op}`;
   const pass = Object.fromEntries(Object.entries(headers).filter(([k]) => k === "content-type" || k === "accept" || k.startsWith("x-amzn-bedrock-")));
   const res = await fetch(`https://${HOST}${upstream}`, { method: "POST", headers: signed(upstream, body, pass), body });
@@ -217,18 +366,19 @@ export async function relay({ stream, reply, device, ip, lane, model, op, header
     statusCode: res.status,
     headers: Object.fromEntries([...res.headers].filter(([k]) => k === "content-type" || k.startsWith("x-amzn-"))),
   });
-  const meters = meter();
   if (op === "invoke-with-response-stream" && res.ok) {
     for await (const chunk of res.body) {
       const b = Buffer.from(chunk);
-      meters.push(b);
+      meters?.push(b);
+      // The caller has gone: stop reading, so Bedrock stops writing what nobody reads.
+      if (out.destroyed) break;
       out.write(b);
     }
   } else {
     const text = await res.text();
-    if (op === "invoke" && res.ok) meters.json(text);
+    if (op === "invoke" && res.ok) meters?.json(text);
     out.write(text);
   }
   out.end();
-  if (op !== "count-tokens" && res.ok) await spend(device, ip, lane, family, meters.usage);
+  return res.status;
 }

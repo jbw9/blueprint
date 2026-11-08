@@ -4,5 +4,5 @@
 set -e
 mkdir -p out
 rm -f out/api.zip
-(cd scripts/api && zip -q ../../out/api.zip index.mjs admin.mjs credit.mjs db.mjs)
+(cd scripts/api && zip -q ../../out/api.zip index.mjs admin.mjs auth.mjs credit.mjs db.mjs policy.mjs)
 echo out/api.zip

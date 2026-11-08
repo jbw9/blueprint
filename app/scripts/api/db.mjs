@@ -4,18 +4,33 @@
 //   run / <at>#<id>              one finished run, without its report; runbody#<id> / body holds that
 //   admin / pw                   the dashboard password, as scrypt salt:hash
 //   credit / config              the credit's settings (credit.mjs)
-//   device / <id>                one machine on the credit
-//   win#device:<id>|win#ip:<a> / <lane>   its open window
-//   ipreg#<address> / <day>      machines new to the credit from that address that day
-//   creditday / <day>            the credit's spend that day; devuse#<day> / <id> one machine's
+//   account / gh:<id>            one GitHub account on the credit, and the machines it uses (auth.mjs)
+//   session / <sha256>           one signed-in machine's session, by its token's hash
+//   device / <id>                one machine, and the account it is bound to
+//   ipreg#<network> / <day>      accounts new to the credit from that network that day
+//   win#acct:<id> / tab5h|tabweek|genweek   an account's open window, in millionths of a dollar
+//   slot#<acct> / <lane>#<n>     one call of the account's in flight; rate#<acct> / <minute> its spend that minute
+//   creditday / <day>            the credit's spend that day; use#<day> / <acct> one account's tokens and spend
+//   req#<acct> / <at>            one call, kept 30 days for review
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchGetCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchGetCommand, DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const TABLE = process.env.TABLE ?? "bluprint";
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOptions: { removeUndefinedValues: true } });
 
 export const get = async (pk, sk) => (await doc.send(new GetCommand({ TableName: TABLE, Key: { pk, sk } }))).Item ?? null;
-export const put = (item, condition) => doc.send(new PutCommand({ TableName: TABLE, Item: item, ...(condition ? { ConditionExpression: condition } : {}) }));
+export const put = (item, condition, values, names) =>
+  doc.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: item,
+      ...(condition ? { ConditionExpression: condition } : {}),
+      ...(values ? { ExpressionAttributeValues: values } : {}),
+      ...(names ? { ExpressionAttributeNames: names } : {}),
+    }),
+  );
+export const del = (pk, sk, condition, values) =>
+  doc.send(new DeleteCommand({ TableName: TABLE, Key: { pk, sk }, ...(condition ? { ConditionExpression: condition, ExpressionAttributeValues: values } : {}) }));
 export const update = (pk, sk, expression, values, condition, names) =>
   doc.send(
     new UpdateCommand({
