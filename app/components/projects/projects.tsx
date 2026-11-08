@@ -46,7 +46,7 @@ async function pickFolder(title: string): Promise<string | undefined> {
  */
 export async function openFolder() {
   if (!isTauri()) return show({ mode: "open" });
-  const root = await pickFolder("Open a folder to bluprint");
+  const root = await pickFolder("Open a folder to blueprint");
   if (root) show({ mode: "open", root });
 }
 
@@ -136,7 +136,7 @@ export function ProjectsDialog() {
   };
 
   const browse = async () => {
-    const dir = await pickFolder(mode === "new" ? "Choose where the new folder goes" : "Open a folder to bluprint");
+    const dir = await pickFolder(mode === "new" ? "Choose where the new folder goes" : "Open a folder to blueprint");
     if (dir) changeRoot(dir);
   };
 
@@ -247,7 +247,7 @@ export function ProjectsDialog() {
               ) : list ? (
                 <div className="px-3 py-10 text-center">
                   <p className="text-[13.5px] font-medium text-ink">No projects yet</p>
-                  <p className="mt-1 text-[12.5px] text-muted-slate">Open a folder of code to make its bluprint, or start a new one, empty or cloned from GitHub.</p>
+                  <p className="mt-1 text-[12.5px] text-muted-slate">Open a folder of code to make its blueprint, or start a new one, empty or cloned from GitHub.</p>
                 </div>
               ) : (
                 <p className="px-3 py-10 text-center text-[12.5px] text-faint">Loading…</p>
@@ -282,7 +282,7 @@ const UNDERSTAND: { label: string; explain: Explain }[] = [
 ];
 
 const EXPLAINS: Record<Explain, { label: string; note: string }> = {
-  none: { label: "No explanations", note: "The bluprint alone: parts, pictures and the code behind each step." },
+  none: { label: "No explanations", note: "The blueprint alone: parts, pictures and the code behind each step." },
   minimal: { label: "Minimal explanations", note: "One line per level on what this project calls it, a few of its own words defined, a short walkthrough." },
   brief: { label: "Brief explanations", note: "A sentence or two per level on what it is for, a short glossary and walkthrough." },
   detailed: { label: "Detailed explanations", note: "A paragraph or two per level in plain words, the odd picture, a glossary and a walkthrough." },
@@ -310,7 +310,7 @@ function Understanding({ value, onChange }: { value: number; onChange: (v: numbe
         <span id="understand-q" className="text-[13px] font-semibold text-ink">
           How well do you understand this repo?
         </span>
-        <span className="mt-0.5 block text-[12px] text-muted-slate">So the bluprint says as much as you need, and no more.</span>
+        <span className="mt-0.5 block text-[12px] text-muted-slate">So the blueprint says as much as you need, and no more.</span>
       </div>
       <div className="px-8">
         <div
@@ -509,14 +509,14 @@ function StartProject({
         {canBluprint ? (
           <div className="flex items-start gap-4 border-t border-border-gray pt-5">
             <div className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold text-ink">Make a bluprint</span>
+              <span className="block text-[13px] font-semibold text-ink">Make a blueprint</span>
               <span className="mt-0.5 block text-[12px] leading-snug text-muted-slate">
                 {making
                   ? "Your Claude Code reads it now. About 20 minutes for a mid-sized repo, on your plan's usage."
-                  : "It opens with just your tabs. Nothing is read or spent until you make a bluprint."}
+                  : "It opens with just your tabs. Nothing is read or spent until you make a blueprint."}
               </span>
             </div>
-            <Switch on={making} onChange={setMaking} label="Make a bluprint" />
+            <Switch on={making} onChange={setMaking} label="Make a blueprint" />
           </div>
         ) : null}
 
@@ -529,7 +529,7 @@ function StartProject({
           Cancel
         </button>
         <button type="submit" disabled={busy || !ready} className={PRIMARY}>
-          {clone ? (busy ? "Cloning…" : making ? "Clone and make bluprint" : "Clone") : fresh ? "Create" : making ? "Make bluprint" : "Open"}
+          {clone ? (busy ? "Cloning…" : making ? "Clone and make blueprint" : "Clone") : fresh ? "Create" : making ? "Make blueprint" : "Open"}
         </button>
       </footer>
     </form>
@@ -606,13 +606,13 @@ function statusOf(p: Listed): { text: string; title?: string; tone: string } {
   const { status, commit, seconds } = p.bluprint;
   if (status === "generating") return { text: `Mapping · ${minutes(p.bluprint.startedAt)} min`, tone: "text-amber-ink" };
   if (status === "failed" && !p.paused) return { text: "Mapping failed", tone: "text-clay-ink" };
-  if (p.paused) return p.hasBluprint ? { text: "Updates off", title: `The bluprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No bluprint", tone: "text-faint" };
+  if (p.paused) return p.hasBluprint ? { text: "Updates off", title: `The blueprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No blueprint", tone: "text-faint" };
   if (status === "ready")
     return p.stale
-      ? { text: "Out of date", title: `Bluprint made at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
-      : { text: commit ? `Bluprint · ${commit}` : "Bluprint ready", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
+      ? { text: "Out of date", title: `Blueprint made at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
+      : { text: commit ? `Blueprint · ${commit}` : "Blueprint ready", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
   if (status === "cancelled") return { text: "Cancelled", tone: "text-faint" };
-  return { text: "Empty", title: "Make its bluprint once it has code.", tone: "text-faint" };
+  return { text: "Empty", title: "Make its blueprint once it has code.", tone: "text-faint" };
 }
 
 function ProjectRow({
@@ -640,7 +640,7 @@ function ProjectRow({
   // which deletes the bluprint but never the code.
   const [panel, setPanel] = useState<"make" | "remove" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const [understand, setUnderstand] = useState(() => Math.max(0, UNDERSTAND.findIndex((u) => u.explain === (p.explain ?? "full"))));
+  const [understand, setUnderstand] = useState(() => Math.max(0, UNDERSTAND.findIndex((u) => u.explain === (p.explain ?? "brief"))));
   const { status } = p.bluprint;
   const generating = status === "generating";
   const openable = p.hasBluprint || p.paused || status === "empty";
@@ -648,12 +648,12 @@ function ProjectRow({
 
   const items: MenuItem[] = [];
   if (openable) items.push({ label: "Open", onClick: () => onOpen() });
-  if (generating) items.push({ label: "Cancel bluprint", onClick: onCancel, disabled: busy });
+  if (generating) items.push({ label: "Cancel blueprint", onClick: onCancel, disabled: busy });
   else {
-    if (status === "ready") items.push({ label: "Update bluprint to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    if (status === "failed" || status === "cancelled") items.push({ label: "Retry bluprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    items.push({ label: p.hasBluprint ? "Remake bluprint…" : "Make a bluprint…", onClick: () => setPanel("make") });
-    if (p.hasBluprint) items.push({ label: p.paused ? "Keep the bluprint updated" : "Stop updating the bluprint", onClick: () => onPause(!p.paused), disabled: busy });
+    if (status === "ready") items.push({ label: "Update blueprint to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
+    if (status === "failed" || status === "cancelled") items.push({ label: "Retry blueprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
+    items.push({ label: p.hasBluprint ? "Remake blueprint…" : "Make a blueprint…", onClick: () => setPanel("make") });
+    if (p.hasBluprint) items.push({ label: p.paused ? "Keep the blueprint updated" : "Stop updating the blueprint", onClick: () => onPause(!p.paused), disabled: busy });
   }
   items.push({ label: "Remove from Projects…", onClick: () => setPanel("remove"), separated: true });
 
@@ -731,7 +731,7 @@ function ProjectRow({
               }}
               className={PRIMARY}
             >
-              {p.hasBluprint ? "Remake bluprint" : "Make bluprint"}
+              {p.hasBluprint ? "Remake blueprint" : "Make blueprint"}
             </button>
           </div>
         </div>
@@ -740,7 +740,7 @@ function ProjectRow({
       {panel === "remove" ? (
         <div className="mx-3 mb-2 mt-1 flex items-center gap-2 border border-clay-line bg-clay-surface/40 px-4 py-2.5">
           <p className="mr-auto text-[12.5px] text-ink">
-            Remove <span className="font-semibold">{p.name}</span>? This deletes its bluprint, not the folder.
+            Remove <span className="font-semibold">{p.name}</span>? This deletes its blueprint, not the folder.
           </p>
           <button type="button" onClick={() => setPanel(null)} className={QUIET}>
             Cancel
