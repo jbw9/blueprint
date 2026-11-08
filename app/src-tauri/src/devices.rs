@@ -396,7 +396,7 @@ fn idb() -> Option<PathBuf> {
 /// an app opened from the Dock does not have Homebrew's folder on, then in
 /// /usr/local/bin alone; so it is found here and named to idb.
 fn idb_companion() -> Option<PathBuf> {
-    installed("idb_companion", &["/opt/homebrew/bin".into(), "/usr/local/bin".into()])
+    installed("idb_companion", &[home().join(".local/bin"), "/opt/homebrew/bin".into(), "/usr/local/bin".into()])
 }
 
 const IDB_INSTALL: &str = "brew tap facebook/fb && brew install facebook/fb/idb-companion && pipx install fb-idb";
