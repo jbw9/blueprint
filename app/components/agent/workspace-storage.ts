@@ -1,9 +1,9 @@
 "use client";
 
-import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import { CLAUDE } from "@/components/agent/agents";
 import type { Tab } from "@/components/agent/workspace-tab";
+import { isDesktop } from "@/lib/client/platform";
 
 /** What the workspace (components/agent/workspace.tsx) keeps in localStorage between launches. */
 
@@ -54,7 +54,7 @@ export function useSavedSessions(tabs: Tab[], add: (start: string | null, extra?
     }
   }, [tabs]);
   useEffect(() => {
-    if (restored.current || !isTauri()) return;
+    if (restored.current || !isDesktop()) return;
     restored.current = true;
     // Once, from storage the server render cannot read: initial state would not hydrate.
     for (const { cwd, session } of storedSessions()) add(CLAUDE.id, { cwd, session, resume: session });

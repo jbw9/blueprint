@@ -1,9 +1,10 @@
 "use client";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { bare } from "@/components/preview/address";
 import { DRAIN, type Parts, type Said } from "@/components/preview/parts";
+import { isDesktop } from "@/lib/client/platform";
 
 /** Hands what the frame's page and the webview's pages say to `hear`, until the returned call. */
 export function listenToPage({ frame, onWeb, browser, hear, replace, setShown }: Pick<Parts, "frame" | "onWeb" | "browser" | "hear" | "replace" | "setShown">) {
@@ -17,7 +18,7 @@ export function listenToPage({ frame, onWeb, browser, hear, replace, setShown }:
   window.addEventListener("message", on);
   // Every page of the webview, heard from its first: a load can finish
   // before the webview is shown, or before its open has returned.
-  const off = isTauri()
+  const off = isDesktop()
     ? listen<{ label: string; url: string; done: boolean }>("blueprint:browser", (e) => {
         if (e.payload.label !== browser.current || !onWeb.current) return;
         replace.current();

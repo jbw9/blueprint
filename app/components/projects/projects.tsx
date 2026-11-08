@@ -1,6 +1,5 @@
 "use client";
 
-import { isTauri } from "@tauri-apps/api/core";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DIALOG, INPUT, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
@@ -11,6 +10,7 @@ import type { Explain, Progress, Project } from "@/lib/server/vault";
 import { cn } from "@/lib/client/utils";
 import { projectAction } from "@/lib/client/api";
 import { claudePath } from "@/lib/client/claude";
+import { isDesktop } from "@/lib/client/platform";
 
 /**
  * The project list: the reader's own projects, imported from this machine and
@@ -34,7 +34,7 @@ export const openProjects = (root?: string) => show(root ? { mode: "open", root 
 
 /** The system's folder picker; undefined outside the desktop app, or when the reader cancels. */
 async function pickFolder(title: string): Promise<string | undefined> {
-  if (!isTauri()) return undefined;
+  if (!isDesktop()) return undefined;
   const { open } = await import("@tauri-apps/plugin-dialog");
   const dir = await open({ directory: true, title });
   return typeof dir === "string" ? dir : undefined;
@@ -45,7 +45,7 @@ async function pickFolder(title: string): Promise<string | undefined> {
  * desktop app there is no picker, so the screen asks for the path instead.
  */
 export async function openFolder() {
-  if (!isTauri()) return show({ mode: "open" });
+  if (!isDesktop()) return show({ mode: "open" });
   const root = await pickFolder("Open a folder to blueprint");
   if (root) show({ mode: "open", root });
 }
@@ -205,7 +205,7 @@ export function ProjectsDialog() {
             setUrl={changeUrl}
             busy={busy}
             error={error}
-            onBrowse={isTauri() ? () => void browse() : undefined}
+            onBrowse={isDesktop() ? () => void browse() : undefined}
             onStart={(explain, paused) => void start(explain, paused)}
             onCancel={() => {
               setMode(null);

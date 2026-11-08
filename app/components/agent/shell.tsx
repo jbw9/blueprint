@@ -2,7 +2,7 @@
 
 import "@xterm/xterm/css/xterm.css";
 import type { ITheme, Terminal } from "@xterm/xterm";
-import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -14,7 +14,7 @@ import { outline } from "@/lib/blueprint/build";
 import { readSettings } from "@/lib/client/settings";
 import { themeOf, type Theme } from "@/lib/client/theme";
 import { cn } from "@/lib/client/utils";
-import { isMac } from "@/lib/client/platform";
+import { isDesktop, isMac } from "@/lib/client/platform";
 import { findClaude } from "@/lib/client/claude";
 import { creditRelay } from "@/lib/client/credit";
 
@@ -291,7 +291,7 @@ export function Shell({
   });
 
   useEffect(() => {
-    if (!isTauri()) {
+    if (!isDesktop()) {
       // queueMicrotask, so the effect body itself sets no state.
       queueMicrotask(() => setError("The terminal needs the desktop app: run `npm run app:dev`."));
       return;

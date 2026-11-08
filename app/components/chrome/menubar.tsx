@@ -1,6 +1,5 @@
 "use client";
 
-import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { openPalette } from "@/components/chrome/palette";
@@ -10,6 +9,7 @@ import { openDiff } from "@/components/review/diff";
 import { openHistory } from "@/components/review/additions";
 import { openClaude } from "@/lib/agent/context";
 import { showBlueprint } from "@/lib/agent/workspace-toggle";
+import { isDesktop } from "@/lib/client/platform";
 import { openSettings } from "@/lib/client/settings";
 
 /** What each of the Mac menu bar's `open-*` items does (src-tauri/src/lib.rs, `app_menu`). */
@@ -30,7 +30,7 @@ const ACTIONS: Record<string, () => unknown> = {
 
 export function MenuBar() {
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isDesktop()) return;
     const off = listen<string>("blueprint:menu", (e) => ACTIONS[e.payload]?.());
     return () => void off.then((f) => f());
   }, []);

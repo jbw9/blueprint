@@ -1,8 +1,9 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useSyncExternalStore } from "react";
 import { claudeTab, insertPrompt } from "@/lib/agent/context";
 import { openSettings, readSettings, saveSettings } from "@/lib/client/settings";
 import { signal } from "@/lib/client/signal";
+import { isDesktop } from "@/lib/client/platform";
 
 /**
  * Hold Control+Option, speak, let go. Bound for Claude's prompt, it is Claude
@@ -111,7 +112,7 @@ let field: HTMLElement | null = null;
 let limit: ReturnType<typeof setTimeout> | undefined;
 
 export function startDictation() {
-  if (!isTauri() || started || mustAsk()) return;
+  if (!isDesktop() || started || mustAsk()) return;
   const focused = document.activeElement as HTMLElement | null;
   // xterm's own input is a textarea: the terminal means Claude's prompt, not a field.
   field = focused?.matches(EDITABLE) && !focused.closest(".xterm") ? focused : null;
@@ -192,7 +193,7 @@ function begin() {
 /** Mounted once: the hold-to-talk keys, anywhere in the window. */
 export function useDictationKey() {
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isDesktop()) return;
     // Started by holding the keys, so letting go ends it; one from the palette ends on "done".
     let held = false;
     // Capture phase, so it is seen before xterm or a field takes the key.
