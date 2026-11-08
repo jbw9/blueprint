@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 /** A box of the blueprint's top-level picture, and an arrow between two, as the blueprint file has them. */
 export interface Diagram {
-  boxes: { id: string; label: string; sub?: string; col: number; row: number }[];
+  boxes: { id: string; label: string; sub?: string; col: number; row: number; opens?: string }[];
   arrows: { from: string; to: string; label: string }[];
 }
 

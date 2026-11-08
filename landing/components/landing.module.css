@@ -1014,11 +1014,16 @@
   margin-top: 18px;
   overflow: visible;
 }
-/* A diagram on its own fills the window's height, centred, as a level does in the app. */
+/* A diagram takes the window's room left under any heading, and fits it whole, centred, as a level does in the app. */
 .view:has(> .chart:only-child),
-.pane:has(> .chart:only-child) {
+.pane:has(> .chart) {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+}
+.view > .chart,
+.pane > .chart {
+  flex: 1 1 0;
+  min-height: 0;
 }
 .chart:only-child {
   margin-top: 0;
@@ -1040,6 +1045,10 @@
   fill: var(--paper);
   stroke: var(--ink);
   transition: fill 0.2s ease-out;
+}
+/* A line's label, in a pill on the line. */
+.chart [data-pill] {
+  stroke: none;
 }
 .chart [data-box] text {
   font-size: 15px;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Diagram } from "@/lib/blueprints";
+import { BOX_H, fit, layoutDagre, type DagreArrow } from "@/lib/dagre";
 import s from "./landing.module.css";
 
 interface HowProps {
@@ -131,79 +132,58 @@ export function LandingHow({ name, roots, opened, cited }: HowProps) {
   );
 }
 
-const GY = 46;
-
 /**
- * A diagram as the app's blueprint draws it: boxes on a grid, joined by labelled
- * arrows, in the page's one ink. Boxes and arrows fade in one by one unless
- * `still`; `target` marks the box the cursor clicks.
+ * A diagram as the app draws the landing's demos (lib/dagre.ts): ranks top to
+ * bottom, curved lines, each label in a pill on its line, in the page's one ink.
+ * Boxes and arrows fade in one by one unless `still`; `target` marks the box the
+ * cursor clicks: the box, or the box that opens that section.
  */
 function Chart({ d, still, target }: { d: Diagram; still?: boolean; target?: string }) {
-  // Boxes with a second line are wider, as the app draws them; plain ones pack closer.
-  const subs = d.boxes.some((b) => b.sub);
-  const BW = subs ? 190 : 160;
-  const GX = subs ? 96 : 100;
-  const bh = subs ? 58 : 50;
-  const cols = Math.max(...d.boxes.map((b) => b.col)) + 1;
-  const rows = Math.max(...d.boxes.map((b) => b.row)) + 1;
-  const at = new Map(d.boxes.map((b) => [b.id, { x: 1 + b.col * (BW + GX), y: 1 + b.row * (bh + GY) }]));
-  const w = cols * BW + (cols - 1) * GX + 2;
-  const h = rows * bh + (rows - 1) * GY + 2;
-  // Each box fades in, then the arrow that reaches it: box, arrow, box, arrow.
+  const L = layoutDagre(d, true);
+  // Each box fades in, then the lines that reach it: box, arrow, box, arrow.
   const nth = new Map(d.boxes.map((b, i) => [b.id, i]));
   const fade = (order: number) => (still ? {} : { className: s.in, "data-in": "", "data-order": order });
+  const order = (a: DagreArrow) => 2 * Math.max(nth.get(a.from)!, nth.get(a.to)!) + 1;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={s.chart}>
+    <svg viewBox={`0 0 ${L.W} ${L.H}`} className={s.chart}>
       <defs>
-        <marker id="how-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+        <marker id="how-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M1 1.2L7 4 1 6.8z" />
         </marker>
       </defs>
-      {d.arrows.map((a) => {
-        const f = at.get(a.from)!;
-        const t = at.get(a.to)!;
-        let path: string;
-        let label: { x: number; y: number; anchor: "start" | "middle" };
-        if (f.y === t.y) {
-          const [x1, x2] = f.x < t.x ? [f.x + BW, t.x - 3] : [f.x, t.x + BW + 3];
-          path = `M${x1} ${f.y + bh / 2}H${x2}`;
-          label = { x: (x1 + x2) / 2, y: f.y + bh / 2 - 8, anchor: "middle" };
-        } else if (f.x === t.x) {
-          path = `M${f.x + BW / 2} ${f.y + bh}V${t.y - 3}`;
-          label = { x: f.x + BW / 2 + 8, y: (f.y + bh + t.y) / 2 + 4, anchor: "start" };
-        } else {
-          // Out of the side, down the gap beside the target, and into its side.
-          const left = t.x < f.x;
-          const gx = left ? t.x + BW + GX / 2 : t.x - GX / 2;
-          const sy = f.y + bh / 2 + (left ? 9 : 0);
-          path = `M${left ? f.x : f.x + BW} ${sy}H${gx}V${t.y + bh / 2}H${left ? t.x + BW + 3 : t.x - 3}`;
-          label = { x: gx + 7, y: f.y + bh + GY / 2 + 4, anchor: "start" };
-        }
-        return (
-          <g key={a.from + a.to} {...fade(2 * Math.max(nth.get(a.from)!, nth.get(a.to)!) + 1)}>
-            <path d={path} markerEnd="url(#how-arrow)" />
-            <text x={label.x} y={label.y} textAnchor={label.anchor}>
-              {a.label}
+      {L.arrows.map((a) => (
+        <g key={a.from + a.to} {...fade(order(a))}>
+          <path d={a.d} markerEnd="url(#how-arrow)" markerStart={a.both ? "url(#how-arrow)" : undefined} />
+        </g>
+      ))}
+      {/* Over every line, so no line runs through another's label. */}
+      {L.arrows.map((a) =>
+        a.pill ? (
+          <g key={`${a.from + a.to}-pill`} {...fade(order(a))}>
+            <rect data-pill="" x={a.pill.x} y={a.pill.y} width={a.pill.w} height={a.pill.h} rx={Math.min(11, a.pill.h / 2)} />
+            <text textAnchor="middle">
+              {a.lines!.map((l, k) => (
+                <tspan key={k} x={a.pill!.x + a.pill!.w / 2} y={a.pill!.y + 15 + k * 16}>
+                  {l}
+                </tspan>
+              ))}
             </text>
           </g>
-        );
-      })}
-      {d.boxes.map((b, i) => {
-        const { x, y } = at.get(b.id)!;
-        return (
-          <g key={b.id} {...fade(2 * i)} data-box="" data-target={b.id === target ? "" : undefined}>
-            <rect x={x} y={y} width={BW} height={bh} />
-            <text x={x + BW / 2} y={b.sub ? y + 25 : y + bh / 2 + 5} textAnchor="middle">
-              {b.label}
+        ) : null,
+      )}
+      {L.boxes.map(({ x, y, w, b }) => (
+        <g key={b.id} {...fade(2 * nth.get(b.id)!)} data-box="" data-target={target && (b.id === target || b.opens === target) ? "" : undefined}>
+          <rect x={x} y={y} width={w} height={BOX_H} />
+          <text x={x + w / 2} y={b.sub ? y + 25 : y + BOX_H / 2 + 5} textAnchor="middle">
+            {b.label}
+          </text>
+          {b.sub ? (
+            <text x={x + w / 2} y={y + 44} textAnchor="middle">
+              {fit(b.sub, w, 7.2)}
             </text>
-            {b.sub ? (
-              <text x={x + BW / 2} y={y + 44} textAnchor="middle">
-                {b.sub}
-              </text>
-            ) : null}
-          </g>
-        );
-      })}
+          ) : null}
+        </g>
+      ))}
     </svg>
   );
 }
