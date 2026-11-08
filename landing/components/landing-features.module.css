@@ -1,6 +1,6 @@
-/* The desktop app's tools, drawn (landing-features.tsx), in the app's Classic
-   theme: cobalt ink on white, black bars, square corners, Zilla Slab titles
-   and Plex Mono. Colours are the app's own tokens (app/app/globals.css). */
+/* The desktop app's tools, drawn (landing-features.tsx), in the app's Dark
+   theme (its tokens are set on the demo window, landing.module.css .canvas),
+   Zilla Slab titles and Plex Mono. */
 .fit {
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
   --font-sans: var(--font-body), system-ui, sans-serif;
@@ -589,7 +589,7 @@ button.project:hover {
   height: 13px;
 }
 
-/* Claude Code, in its terminal: Classic's palette, cobalt on white. */
+/* Claude Code, in its terminal. */
 .term {
   display: flex;
   flex: 1;
@@ -599,7 +599,7 @@ button.project:hover {
   padding: 8px 14px 8px;
   overflow: hidden;
   font: 12px/1.6 var(--font-mono);
-  color: #1e2f9e;
+  color: var(--color-on-surface);
 }
 /* A terminal's output: newest at the bottom, the oldest pushed off the top. */
 .log {

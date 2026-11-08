@@ -615,14 +615,80 @@
   border: 1px solid var(--ink);
   background: var(--paper);
 }
+/* The app as a screenshot of it would show it: its Dark theme (app/app/globals.css),
+   in a rounded window that lifts off the sheet, not a box drawn in the page's ink. */
 .canvas {
+  color-scheme: dark;
+  --color-paper: #0f0f11;
+  --color-card: #18181b;
+  --color-surface: #141416;
+  --color-surface-container-low: #17171a;
+  --color-surface-container: #222226;
+  --color-surface-dim: #2b2b30;
+  --color-ink: #fafafa;
+  --color-night: #000000;
+  --color-bezel: #3a3a40;
+  --color-on-surface: #ececee;
+  --color-on-surface-variant: #d4d4d8;
+  --color-muted-slate: #a1a1aa;
+  --color-faint: #7a7a83;
+  --color-accent: #fafafa;
+  --color-accent-strong: #e4e4e7;
+  --color-on-accent: #111113;
+  --color-accent-surface: #232327;
+  --color-accent-line: #3f3f46;
+  --color-amber-ink: #e0b45e;
+  --color-amber-surface: #2d2718;
+  --color-amber-line: #6b5a2c;
+  --color-clay-ink: #f08a8f;
+  --color-clay-surface: #301e1f;
+  --color-clay-line: #6a3c3e;
+  --color-border-gray: #27272a;
+  --color-border-strong: #3a3a40;
+  --color-wire: #52525b;
+  --color-actor-1: #93b4ff;
+  --color-actor-1-surface: #1e2840;
+  --color-actor-2: #7dd3d8;
+  --color-actor-2-surface: #1a2a2c;
+  --color-actor-3: #e0b45e;
+  --color-actor-3-surface: #2d2718;
+  --color-actor-4: #c9a7f5;
+  --color-actor-4-surface: #2a2236;
+  --color-sec-1-surface: #1e2840;
+  --color-sec-1-ink: #93b4ff;
+  --color-sec-2-surface: #1a2a2c;
+  --color-sec-2-ink: #7dd3d8;
+  --color-sec-3-surface: #2d2718;
+  --color-sec-3-ink: #e0b45e;
+  --color-sec-4-surface: #2a2236;
+  --color-sec-4-ink: #c9a7f5;
+  --color-sec-5-surface: #1f2a1f;
+  --color-sec-5-ink: #8fd19a;
+  --color-sec-6-surface: #2f2124;
+  --color-sec-6-ink: #f0a0b4;
+  --color-sec-7-surface: #2e2419;
+  --color-sec-7-ink: #e0a77a;
+  --color-code: #0a0a0b;
+  --color-code-plain: #e4e4e7;
+  --color-code-comment: #7a7a83;
+  --color-code-string: #f0a58f;
+  --color-code-keyword: #c4a7ff;
+  --color-diff-add-ink: #7fc782;
+  --color-diff-add-surface: #1d2e1e;
+  --color-diff-add-line: #3a6b3c;
+  --color-diff-remove-ink: #e88080;
+  --color-diff-remove-surface: #331d1d;
+  --color-diff-remove-line: #7a3535;
+  --shadow-lift: 0 10px 34px -6px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   height: min(800px, 82vh);
   min-height: 560px;
-  border: 1px solid var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
   overflow: hidden;
-  background: var(--paper);
+  background: var(--color-paper);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(10, 20, 80, 0.12), 0 32px 70px -18px rgba(10, 20, 80, 0.45);
 }
 .dots i {
   width: 9px;
@@ -635,7 +701,7 @@
 .stage {
   position: relative;
   flex: 1;
-  background: var(--paper);
+  background: var(--color-paper);
 }
 .stage iframe {
   position: absolute;
@@ -657,7 +723,7 @@
   margin: 0;
   font: 11.5px var(--mono);
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--color-faint);
 }
 .under {
   display: flex;
@@ -699,14 +765,14 @@
   position: absolute;
   left: 0;
   top: 0;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--on-ink);
   animation: appear 0.2s ease-out;
 }
 .ring::after {
   content: "";
   position: absolute;
   inset: -2px;
-  outline: 1px dashed var(--ink);
+  outline: 1px dashed var(--on-ink);
   animation: pulse 1.6s var(--ease) infinite;
 }
 @keyframes pulse {

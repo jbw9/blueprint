@@ -79,10 +79,16 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
   const guide = useRef<Tour>(null);
   const shownBlueprint = useRef(open);
 
-  // The page is always the white sheet, so the app in it is always Classic, the sheet's own cobalt, whatever the reader picked in the app.
-  const light = () => {
+  // The app in the window is always Dark, as a screenshot of it would be, whatever the reader picked in the app.
+  // The app, once hydrated, puts back the theme saved in its settings, so this holds it.
+  const dark = () => {
     try {
-      frame.current!.contentDocument!.documentElement.dataset.theme = "classic";
+      const root = frame.current!.contentDocument!.documentElement;
+      const hold = () => {
+        if (root.dataset.theme !== "dark") root.dataset.theme = "dark";
+      };
+      hold();
+      new MutationObserver(hold).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     } catch {}
   };
 
@@ -91,7 +97,7 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
   useEffect(() => {
     const doc = frame.current?.contentDocument;
     if (doc?.readyState === "complete" && doc.URL !== "about:blank") {
-      light();
+      dark();
       setLoaded(open);
     }
   }, [open]);
@@ -189,7 +195,7 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
               title={`${current.label}, explored`}
               hidden={!exploring}
               onLoad={() => {
-                light();
+                dark();
                 setLoaded(open);
               }}
             />
