@@ -202,16 +202,74 @@ const AUTHOR_STEPS: [string, string, string][] = [
  * is ticked when it's built.
  */
 // When Claude starts on each step; it is ticked a moment before the next starts.
-const STEP_AT = (i: number) => 5.6 + i * 1.15;
+const STEP_AT = (i: number) => 5.6 + i * 1.5;
 const BUILT = STEP_AT(6) - 0.1;
-// What Claude edits for each step, as its window shows it.
-const BUILD_EDITS: [string, string, string][] = [
-  ["Update", "app/src-tauri/src/browser.rs", "a WebKit cookie store per project"],
-  ["Update", "app/src-tauri/src/browser.rs", "site rules: names only, never secrets"],
-  ["Update", "app/components/preview/preview.tsx", "open each site with its rule's store"],
-  ["Write", "app/components/preview/sign-in-bar.tsx", "the bar, and where to keep the sign-in"],
-  ["Update", "app/src-tauri/src/agent.js", "refuse password fields"],
-  ["Update", "app/components/chrome/settings.tsx", "saved sign-ins, with Forget"],
+// What Claude edits for each step, as Claude Code prints an edit: the tool, what
+// it changed, and the lines with their numbers, red where removed and green where added.
+type Edit = { tool: "Update" | "Write"; file: string; said: string; lines: [number, " " | "+" | "-", string][] };
+const BUILD_EDITS: Edit[] = [
+  {
+    tool: "Update",
+    file: "app/src-tauri/src/browser.rs",
+    said: "with 4 additions and 1 removal",
+    lines: [
+      [88, " ", "let view = WebviewBuilder::new(label, url)"],
+      [89, "-", "    .data_store(SHARED_STORE);"],
+      [89, "+", "    .data_store(match keep {"],
+      [90, "+", "        Keep::Project => project_store(&root),"],
+      [91, "+", "        Keep::All => SHARED_STORE,"],
+      [92, "+", "    });"],
+    ],
+  },
+  {
+    tool: "Update",
+    file: "app/src-tauri/src/browser.rs",
+    said: "with 3 additions",
+    lines: [
+      [14, "+", "/// Which store each site signs in to. Hosts only."],
+      [15, "+", "#[derive(Serialize, Deserialize, Default)]"],
+      [16, "+", "struct SignIns { sites: BTreeMap<String, Keep> }"],
+    ],
+  },
+  {
+    tool: "Update",
+    file: "app/components/preview/preview.tsx",
+    said: "with 2 additions and 1 removal",
+    lines: [
+      [61, "-", "const view = await openView(url);"],
+      [61, "+", "const keep = await signInRule(new URL(url).host);"],
+      [62, "+", "const view = await openView(url, keep);"],
+    ],
+  },
+  {
+    tool: "Write",
+    file: "app/components/preview/sign-in-bar.tsx",
+    said: "Wrote 52 lines",
+    lines: [
+      [1, " ", "export function SignInBar({ host, onDone }: Props) {"],
+      [2, " ", "  const [keep, setKeep] = useState(defaultKeep(host));"],
+      [3, " ", "  return ("],
+    ],
+  },
+  {
+    tool: "Update",
+    file: "app/src-tauri/src/agent.js",
+    said: "with 2 additions",
+    lines: [
+      [130, "+", 'if (el.type === "password")'],
+      [131, "+", '  throw new Error("never fills a password field");'],
+    ],
+  },
+  {
+    tool: "Update",
+    file: "app/components/chrome/settings.tsx",
+    said: "with 3 additions",
+    lines: [
+      [212, "+", '<Section title="Saved sign-ins">'],
+      [213, "+", "  {sites.map((s) => <Forget key={s} host={s} />)}"],
+      [214, "+", "</Section>"],
+    ],
+  },
 ];
 
 function PlanScene() {
@@ -373,25 +431,45 @@ function PlanScene() {
         }
       >
         <div className={f.term}>
-          <div className={f.msg}>
-            <span className={f.ok}>⏺</span>
-            <span>Plan accepted. Building it in auto mode.</span>
-          </div>
-          {BUILD_EDITS.map(([tool, file, what], i) => (
-            <div key={i} className={`${f.msg} ${f.in}`} style={at(STEP_AT(i) + 0.15)}>
+          {/* Newest at the bottom, the oldest scrolling off the top, as a terminal does. */}
+          <div className={f.log}>
+            <div className={f.msg}>
               <span className={f.ok}>⏺</span>
-              <span>
-                <b>{tool}</b>({file})
-                <br />
-                <span className={f.res}>⎿&nbsp;&nbsp;{what}</span>
-              </span>
+              <span>Plan accepted. Building it in auto mode.</span>
             </div>
-          ))}
-          <div className={`${f.msg} ${f.in}`} style={at(BUILT + 0.2)}>
-            <span>⏺</span>
-            <span>All 6 steps are built. Sign in to a site once in the Preview, and I&rsquo;ll open it signed in from then on.</span>
+            {BUILD_EDITS.map((e, i) => (
+              <div key={i} className={f.arrive} style={at(STEP_AT(i) + 0.15)}>
+                <div>
+                  <div className={f.msg}>
+                    <span className={f.ok}>⏺</span>
+                    <span>
+                      <b>{e.tool}</b>({e.file})
+                      <br />
+                      <span className={f.res}>
+                        ⎿&nbsp;&nbsp;
+                        {e.tool === "Write" ? `${e.said} to ${e.file.split("/").pop()}` : `Updated ${e.file.split("/").pop()} ${e.said}`}
+                      </span>
+                    </span>
+                  </div>
+                  <pre className={f.ccDiff}>
+                    {e.lines.map(([n, k, text], j) => (
+                      <span key={j} data-k={k}>
+                        <span>{n}</span>
+                        <span>{k === " " ? "" : k}</span>
+                        <code>{text}</code>
+                      </span>
+                    ))}
+                  </pre>
+                </div>
+              </div>
+            ))}
+            <div className={f.arrive} style={at(BUILT + 0.2)}>
+              <div className={f.msg}>
+                <span>⏺</span>
+                <span>All 6 steps are built. Sign in to a site once in the Preview, and I&rsquo;ll open it signed in from then on.</span>
+              </div>
+            </div>
           </div>
-          <span className={f.grow} />
           <Prompt />
         </div>
       </Workspace>

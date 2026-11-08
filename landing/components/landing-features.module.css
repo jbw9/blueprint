@@ -601,6 +601,61 @@ button.project:hover {
   font: 12px/1.6 var(--font-mono);
   color: #1e2f9e;
 }
+/* A terminal's output: newest at the bottom, the oldest pushed off the top. */
+.log {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+/* Takes no room until it arrives, then opens to its height. */
+.arrive {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  animation: arrive-row 0.3s var(--ease) var(--t) forwards;
+}
+.arrive > * {
+  min-height: 0;
+  overflow: hidden;
+}
+@keyframes arrive-row {
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+/* An edit's lines as Claude Code prints them under the tool call. */
+.ccDiff {
+  margin: 4px 0 0 2ch;
+  font: 11px/1.55 var(--font-mono);
+}
+.ccDiff > span {
+  display: grid;
+  grid-template-columns: 4ch 2ch minmax(0, 1fr);
+}
+.ccDiff > span > span:first-child {
+  padding-right: 1ch;
+  text-align: right;
+  color: var(--color-faint);
+}
+.ccDiff code {
+  font: inherit;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ccDiff [data-k="+"] {
+  background: var(--color-diff-add-surface);
+  color: var(--color-diff-add-ink);
+}
+.ccDiff [data-k="-"] {
+  background: var(--color-diff-remove-surface);
+  color: var(--color-diff-remove-ink);
+}
 .hello {
   display: flex;
   gap: 12px;
