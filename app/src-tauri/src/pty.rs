@@ -23,12 +23,84 @@ struct Pty {
     child: Box<dyn Child + Send + Sync>,
     /// Where picks wait for the next prompt to Claude in this tab.
     context: PathBuf,
+    #[cfg(windows)]
+    job: Option<Job>,
 }
 
 impl Pty {
+    fn new(master: Box<dyn MasterPty + Send>, writer: Box<dyn Write + Send>, child: Box<dyn Child + Send + Sync>, context: PathBuf) -> Self {
+        #[cfg(windows)]
+        let job = child.as_raw_handle().and_then(Job::holding);
+        Pty {
+            master,
+            writer,
+            child,
+            context,
+            #[cfg(windows)]
+            job,
+        }
+    }
+
+    /// Blocks until the console is gone, so never on the main thread.
     fn end(mut self) {
+        #[cfg(windows)]
+        drop(self.job.take());
         let _ = self.child.kill();
+        // A Windows console opens by asking the terminal where its cursor is
+        // (portable-pty inherits the cursor), and does nothing, closing included,
+        // until it is told. A tab ended before xterm answered would never close;
+        // this answers for it, to a console with no program left to read it.
+        #[cfg(windows)]
+        let _ = self.writer.write_all(b"[1;1R").and_then(|()| self.writer.flush());
         claude::forget(&self.context);
+    }
+
+    /// Ends `ptys` on a thread of their own.
+    fn end_apart(ptys: Vec<Pty>) {
+        if !ptys.is_empty() {
+            std::thread::spawn(move || ptys.into_iter().for_each(Pty::end));
+        }
+    }
+}
+
+/// Everything a tab's shell started, Claude's own processes too. A Windows
+/// console stays open while any program is still attached to it, and closing
+/// it waits for that; so the whole tree goes with the shell, and with the app
+/// should it die.
+#[cfg(windows)]
+struct Job(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+unsafe impl Send for Job {}
+#[cfg(windows)]
+unsafe impl Sync for Job {}
+
+#[cfg(windows)]
+impl Job {
+    fn holding(process: std::os::windows::io::RawHandle) -> Option<Job> {
+        use windows_sys::Win32::System::JobObjects::*;
+        unsafe {
+            let job = Job(CreateJobObjectW(std::ptr::null(), std::ptr::null()));
+            if job.0.is_null() {
+                return None;
+            }
+            let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            let set = SetInformationJobObject(
+                job.0,
+                JobObjectExtendedLimitInformation,
+                &limits as *const _ as *const _,
+                std::mem::size_of_val(&limits) as u32,
+            );
+            (set != 0 && AssignProcessToJobObject(job.0, process as _) != 0).then_some(job)
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for Job {
+    fn drop(&mut self) {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.0) };
     }
 }
 
@@ -42,9 +114,8 @@ impl Ptys {
     /// Every shell still running, ended. Called when the app exits, so
     /// closing the window never leaves a shell behind.
     pub fn kill_all(&self) {
-        for (_, p) in self.open.lock().unwrap().drain() {
-            p.end();
-        }
+        let all = self.open.lock().unwrap().drain().map(|(_, p)| p).collect();
+        Pty::end_apart(all);
     }
 }
 
@@ -131,7 +202,7 @@ pub fn pty_spawn(
 
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-    ptys.open.lock().unwrap().insert(id, Pty { master: pair.master, writer, child, context });
+    ptys.open.lock().unwrap().insert(id, Pty::new(pair.master, writer, child, context));
 
     let open = ptys.open.clone();
     // Reads go to a second thread that sends them on. Claude Code redraws in
@@ -161,10 +232,8 @@ pub fn pty_spawn(
             }
         }
         // Gone from the bluprint already if it was killed from the UI.
-        let code = open
-            .lock()
-            .unwrap()
-            .remove(&id)
+        let ended = open.lock().unwrap().remove(&id);
+        let code = ended
             .and_then(|mut p| {
                 claude::forget(&p.context);
                 p.child.wait().ok()
@@ -196,9 +265,8 @@ pub fn pty_resize(id: u32, cols: u16, rows: u16, ptys: tauri::State<Ptys>) -> Re
 
 #[tauri::command]
 pub fn pty_kill(id: u32, ptys: tauri::State<Ptys>) -> Result<(), String> {
-    if let Some(p) = ptys.open.lock().unwrap().remove(&id) {
-        p.end();
-    }
+    let ended = ptys.open.lock().unwrap().remove(&id);
+    Pty::end_apart(ended.into_iter().collect());
     Ok(())
 }
 
@@ -332,8 +400,33 @@ pub fn context_pending(id: u32, ptys: tauri::State<Ptys>) -> Result<bool, String
 
 #[cfg(test)]
 mod tests {
-    #[cfg(unix)]
     use super::*;
+
+    #[test]
+    fn a_tab_ended_while_a_program_runs_in_it_lets_go_at_once() {
+        let pair = native_pty_system().openpty(size(80, 24)).unwrap();
+        let mut cmd = CommandBuilder::new(shell());
+        #[cfg(windows)]
+        cmd.args(["/k", "ping", "-t", "127.0.0.1"]);
+        #[cfg(unix)]
+        cmd.args(["-c", "sleep 600"]);
+        let child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while reader.read(&mut buf).is_ok_and(|n| n > 0) {}
+        });
+        let writer = pair.master.take_writer().unwrap();
+        let pty = Pty::new(pair.master, writer, child, std::env::temp_dir().join("bluprint-test-context.md"));
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let (done, ended) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            pty.end();
+            let _ = done.send(());
+        });
+        assert!(ended.recv_timeout(std::time::Duration::from_secs(10)).is_ok(), "ending the shell hung");
+    }
 
     #[cfg(unix)]
     #[test]

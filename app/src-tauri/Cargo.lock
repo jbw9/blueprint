@@ -244,6 +244,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "transcribe-cpp",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

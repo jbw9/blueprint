@@ -23,6 +23,11 @@ tauri-plugin-clipboard-manager = "2"
 handy-recorder = "0.1"
 transcribe-cpp = "0.4"
 
+# A job object per terminal tab, so ending the tab ends everything its shell started (src/pty.rs).
+# Already in the build through tauri; named here to call it.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
 # The webview's own widget, to take a touchpad pinch before WebKitGTK does (src/lib.rs).
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
