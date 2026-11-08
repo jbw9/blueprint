@@ -14,7 +14,6 @@ import { FileView, closeFile, useOpenFile } from "@/components/bluprint/code";
 import { section, type Target } from "@/lib/agent/context";
 import { DragChip, SectionTabs, dropAt, dropInTab, openInTab, setPartDrag, tabTitle, type Drop } from "@/components/chrome/tabs";
 import { DiffBar, HereChanges } from "@/components/review/diagram-diff";
-import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import { useSettings, type Ground } from "@/lib/client/settings";
 import { useDesktop } from "@/lib/client/platform";
 import { PICKABLE, PickMenu, opener, opensAt, targetOf, wordsOf } from "@/components/bluprint/pick";
@@ -231,7 +230,7 @@ export function Canvas() {
   return (
     <div
       className="flex h-full w-full flex-col overflow-hidden bg-paper"
-      onContextMenu={desktop || STATIC_BLUPRINT ? onContextMenu : undefined}
+      onContextMenu={desktop ? onContextMenu : undefined}
       onClickCapture={(e) => (e.metaKey || e.ctrlKey ? toTab(e) : undefined)}
       onAuxClickCapture={(e) => (e.button === 1 ? toTab(e) : undefined)}
       onPointerDown={grab}

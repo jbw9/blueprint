@@ -38,19 +38,6 @@ interface State {
   picks: Record<number, Pick[]>;
 }
 
-/**
- * A published bluprint has no tabs: its one Claude is the panel (components/agent/claude-web.tsx),
- * which holds the queue itself and sends it with the reader's next question.
- */
-const WEB = !!process.env.NEXT_PUBLIC_STATIC_BLUPRINT;
-export const WEB_TAB = 0;
-const PROMPT = "bluprint:web-prompt";
-export const onWebPrompt = (f: (text: string) => void) => {
-  const on = (e: Event) => f((e as CustomEvent<string>).detail);
-  window.addEventListener(PROMPT, on);
-  return () => window.removeEventListener(PROMPT, on);
-};
-
 let state: State = { target: null, picks: {} };
 const { subscribe, emit } = signal();
 const set = (next: State) => {
@@ -146,7 +133,7 @@ export function tabEnded(pty: number) {
 /** Whether a Claude tab would take a pick now, without one being opened for it. */
 export const hasClaude = () => state.target !== null;
 /** The pty of that tab, for writing to Claude Code directly (lib/agent/dictate.ts). */
-export const claudeTab = () => (WEB ? null : state.target);
+export const claudeTab = () => state.target;
 
 /** Hand something to Claude. Opens a tab first if none is running Claude. */
 export function pick(t: Target) {
@@ -163,10 +150,8 @@ export function pick(t: Target) {
  * is: `[button "Sign up"]` goes in at the cursor, and what it stands for goes
  * with that prompt through the hook, saying the name it goes by. Typed only
  * while Claude is not asking the user something, which typing would answer.
- * A published bluprint's panel keeps its own list instead.
  */
 export function mention(t: Target) {
-  if (WEB) return pick(t);
   const title = t.tag ? nameFor(t.key, t.tag) : t.title;
   const name = `[${title}] `;
   const named = { ...t, title, text: `Named in the prompt as [${title}]:\n${t.text}` };
@@ -268,7 +253,6 @@ function whenIdle(pty: number) {
 
 /** Typed into a program's prompt as a paste, then Enter, a moment later so it is not part of the paste. */
 export function prompt(pty: number, text: string) {
-  if (WEB) return void window.dispatchEvent(new CustomEvent(PROMPT, { detail: text }));
   paste(pty, text);
   setTimeout(() => void invoke("pty_write", { id: pty, data: "\r" }), 150);
 }
@@ -290,7 +274,7 @@ async function whenFree(pty: number) {
 
 /** Pasted into the prompt of the tab picks go to, without Enter. False with no such tab. */
 export function insertPrompt(text: string): boolean {
-  if (WEB || state.target === null) return false;
+  if (state.target === null) return false;
   paste(state.target, text);
   return true;
 }
@@ -309,11 +293,11 @@ async function whenUp(pty: number) {
 async function add(pty: number, t: Target) {
   const mine = state.picks[pty] ?? [];
   if (mine.some((p) => p.key === t.key && p.status === "queued")) return;
-  if (!WEB) await invoke("context_add", { id: pty, text: t.text });
+  await invoke("context_add", { id: pty, text: t.text });
   // A sent pick picked again goes again: it moves to the end, queued.
   const rest = (state.picks[pty] ?? []).filter((p) => p.key !== t.key);
   withPicks(pty, [...rest, { ...t, status: "queued" }]);
-  if (!WEB) watch();
+  watch();
 }
 
 /** Take back a pick that has not gone out yet. One already sent is only dropped from view. */
@@ -321,7 +305,7 @@ export async function unpick(pty: number, key: string) {
   const mine = state.picks[pty] ?? [];
   const gone = mine.find((p) => p.key === key);
   if (!gone) return;
-  if (gone.status === "queued" && !WEB && (await invoke<boolean>("context_pending", { id: pty }))) {
+  if (gone.status === "queued" && (await invoke<boolean>("context_pending", { id: pty }))) {
     const keep = mine.filter((p) => p.status === "queued" && p.key !== key);
     await invoke("context_set", { id: pty, text: keep.map((p) => p.text).join("\n\n") });
   }

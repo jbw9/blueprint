@@ -17,7 +17,6 @@ import { Palette } from "@/components/chrome/palette";
 import { StatusBar } from "@/components/chrome/statusbar";
 import { ReviewTray } from "@/components/review/review-tray";
 import { listBluprints, loadDemo, loadBluprint, remoteOf, rootOf } from "@/lib/server/bluprints";
-import { ClaudeWeb } from "@/components/agent/claude-web";
 import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import type { Progress } from "@/lib/server/vault";
 
@@ -88,7 +87,7 @@ export default async function Home({
           </div>
         </DiffMode>
         <Suspense>
-          {STATIC_BLUPRINT ? <ClaudeWeb /> : <Workspace />}
+          {STATIC_BLUPRINT ? null : <Workspace />}
         </Suspense>
         {embed ? null : <StatusBar />}
         <Suspense>

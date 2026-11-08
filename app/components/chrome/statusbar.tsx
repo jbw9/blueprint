@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AgentIcon } from "@/components/agent/agents";
 import { Kbd, keys } from "@/components/ui/button";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { openReview } from "@/components/review/diff";
@@ -66,13 +65,7 @@ export function StatusBar() {
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
       </Item>
-      {STATIC_BLUPRINT ? (
-        <Item title="Ask Claude about this code" onClick={toggleWorkspace}>
-          <AgentIcon id="claude" />
-          {/* A published page takes Control+` only (components/agent/claude-web.tsx). */}
-          Claude <Kbd className={KEY}>{keys(mac, "`", { ctrl: true })}</Kbd>
-        </Item>
-      ) : (
+      {STATIC_BLUPRINT ? null : (
         <Item title="Claude Code & terminal" onClick={toggleWorkspace}>
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <rect x="1.5" y="2.5" width="13" height="11" rx="2" />

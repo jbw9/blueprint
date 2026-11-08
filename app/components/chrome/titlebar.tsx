@@ -16,8 +16,6 @@ import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { TabClose } from "@/components/chrome/tabs";
 import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/open-projects";
 import { DocIcon } from "@/components/bluprint/docs";
-import { LOGOS } from "@/components/agent/agents";
-import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 
@@ -88,18 +86,11 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
         {bare ? null : (
           <Control
-            label={STATIC_BLUPRINT ? `Claude (${keys(mac, "`", { ctrl: true })})` : `Claude Code & terminal (${keys(mac, "`")})`}
+            label={`Claude Code & terminal (${keys(mac, "`")})`}
             onClick={toggleWorkspace}
           >
-            {/* A published page has no terminal, only Claude (components/agent/claude-web.tsx). */}
-            {STATIC_BLUPRINT ? (
-              <path d={LOGOS.claude.d} transform="scale(0.6667)" fill={LOGOS.claude.color} stroke="none" />
-            ) : (
-              <>
-                <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-                <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
-              </>
-            )}
+            <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+            <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
           </Control>
         )}
         <Control label="Settings" onClick={openSettings}>

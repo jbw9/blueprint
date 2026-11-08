@@ -57,7 +57,7 @@ function HandProblems({ node, path }: { node: Node; path: string[] }) {
     const timer = setTimeout(() => setPasted(false), 2500);
     return () => clearTimeout(timer);
   }, [pasted]);
-  if (!desktop && !STATIC_BLUPRINT) return null;
+  if (!desktop) return null;
   const claude = main.id === CLAUDE.id;
   const label = claude
     ? status === "queued"
