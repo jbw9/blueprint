@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Bluprint admin</title>
+<title>Blueprint admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=Zilla+Slab:wght@300;400;500&display=swap" rel="stylesheet">
@@ -177,7 +177,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
           <ellipse cx="460" cy="474" rx="16" ry="24"/><ellipse cx="570" cy="474" rx="16" ry="24"/>
           <g class="blush"><ellipse cx="412" cy="524" rx="29" ry="16"/><ellipse cx="620" cy="524" rx="29" ry="16"/></g>
         </svg>
-        Bluprint <small>Admin</small>
+        Blueprint <small>Admin</small>
       </span>
       <div class="right" id="bar"></div>
     </div>
@@ -369,7 +369,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
         return '<tr class="run' + (open ? " open" : "") + '" data-run="' + r.id + '">' +
           '<td title="' + esc(new Date(r.at).toLocaleString()) + '">' + when(r.at) + "</td>" +
           '<td><span class="tag ' + (r.status === "ok" ? "ok" : "bad") + '">' + esc(r.status) + "</span></td>" +
-          "<td>" + ver(r.mapper_version) + '</td><td><button class="repo" data-repo="' + esc(r.repo) + '" title="Every bluprint of ' + esc(r.repo) + ' across versions">' + esc(r.repo) + "</button></td>" +
+          "<td>" + ver(r.mapper_version) + '</td><td><button class="repo" data-repo="' + esc(r.repo) + '" title="Every blueprint of ' + esc(r.repo) + ' across versions">' + esc(r.repo) + "</button></td>" +
           "<td>" + esc((r.repo_commit || "").slice(0, 7)) + '</td><td class="num">' + n(r.files) + '</td><td class="num">' + secs(r.quick_s) +
           '</td><td class="num">' + secs(r.total_s) + '</td><td class="num">' + usd(r.usd) + '</td><td class="num" title="' + usd(r.updates_usd) + ' in updates">' + n(r.updates) + "</td><td>" + esc(r.backend) +
           "</td><td>" + esc((r.install_id || "").slice(0, 8)) + "</td></tr>" +
@@ -383,13 +383,13 @@ button.repo:hover { text-decoration-color: var(--ink); }
     bar.innerHTML = '<span class="stamp">Updated ' + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) + "</span>" +
       '<button class="btn" id="refresh">Refresh</button><button class="btn" id="out">Sign out</button>';
     app.innerHTML = '<div class="wrap">' +
-      '<div class="head"><div><p class="eyebrow">Internal · last 30 days</p><h1>How Bluprint is doing</h1>' +
-      '<p class="lede">Installs from install.sh, visits to blpr.dev, and every bluprint run reported by the app, by generator version.</p></div></div>' +
+      '<div class="head"><div><p class="eyebrow">Internal · last 30 days</p><h1>How Blueprint is doing</h1>' +
+      '<p class="lede">Installs from install.sh, visits to blpr.dev, and every blueprint run reported by the app, by generator version.</p></div></div>' +
 
       '<dl class="tiles">' +
       tile("Installs", n(d.installs_30), n(d.installs_failed_30) + " failed · " + n(d.installs) + " all time") +
       tile("Visitors", n(d.visitors_30), n(d.views_30) + " page views") +
-      tile("New bluprints", n(d.runs_30), pct(d.runs_failed_30, d.runs_30) + " failed · " + n(d.updates_30) + " updates") +
+      tile("New blueprints", n(d.runs_30), pct(d.runs_failed_30, d.runs_30) + " failed · " + n(d.updates_30) + " updates") +
       tile("Machines", n(d.machines), "that sent a run") +
       tile("Model spend", usd(d.usd_30), "at API list price") +
       tile("Mapper", latest ? ver(latest.mapper_version) : "—", latest ? "median " + secs(latest.total_s) + " · " + usd(latest.usd) : "no runs yet") +
@@ -399,12 +399,12 @@ button.repo:hover { text-decoration-color: var(--ink); }
       '<div class="card"><h3>Installs per day <span>' + n(d.installs_30) + '</span></h3>' + bars(d.daily, "installs", "installs_failed") +
       '<div class="key"><span><i></i>Worked</span><span><i class="b"></i>Failed</span></div></div>' +
       '<div class="card"><h3>Visitors per day <span>' + n(d.visitors_30) + "</span></h3>" + bars(d.daily, "visitors") + "</div>" +
-      '<div class="card"><h3>New bluprints per day <span>' + n(d.runs_30) + "</span></h3>" + bars(d.daily, "runs_ok", "runs_failed") +
+      '<div class="card"><h3>New blueprints per day <span>' + n(d.runs_30) + "</span></h3>" + bars(d.daily, "runs_ok", "runs_failed") +
       '<div class="key"><span><i></i>Finished</span><span><i class="b"></i>Failed</span></div></div>' +
       "</div></section>" +
 
-      '<section><p class="eyebrow">Generator</p><h2>By version</h2><p class="lede">Full bluprint runs only, not updates. Times and cost are medians and averages of runs that finished.</p>' +
-      '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>Version</th><th class="num">Runs</th><th class="num">Failed</th><th class="num">Quick bluprint</th><th class="num">Full bluprint</th><th class="num">Avg cost</th><th class="num">Avg files</th><th class="num">Check problems</th><th>First run</th><th>Last run</th></tr></thead><tbody>' +
+      '<section><p class="eyebrow">Generator</p><h2>By version</h2><p class="lede">Full blueprint runs only, not updates. Times and cost are medians and averages of runs that finished.</p>' +
+      '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>Version</th><th class="num">Runs</th><th class="num">Failed</th><th class="num">Quick blueprint</th><th class="num">Full blueprint</th><th class="num">Avg cost</th><th class="num">Avg files</th><th class="num">Check problems</th><th>First run</th><th>Last run</th></tr></thead><tbody>' +
       (d.versions.length ? d.versions.map(function (v) {
         return "<tr><td>" + ver(v.mapper_version) + '</td><td class="num">' + n(v.runs) + '</td><td class="num">' + pct(v.failed, v.runs) +
           '</td><td class="num">' + secs(v.quick_s) + '</td><td class="num">' + secs(v.total_s) + '</td><td class="num">' + usd(v.usd) +
@@ -413,7 +413,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
       }).join("") : '<tr><td colspan="10" class="empty">No runs yet</td></tr>') +
       "</tbody></table></div></section>" +
 
-      '<section><p class="eyebrow">Runs</p><h2>Recent bluprints</h2><p class="lede">The latest 200 new bluprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p><div style="margin-top:14px" id="runs">' + runsTable() + "</div></section>" +
+      '<section><p class="eyebrow">Runs</p><h2>Recent blueprints</h2><p class="lede">The latest 200 new blueprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p><div style="margin-top:14px" id="runs">' + runsTable() + "</div></section>" +
 
       creditSection(d.credit) +
 
@@ -423,7 +423,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
       '<div class="card"><h3>Installs by system</h3>' + list(d.os, "os", "installs") + "</div>" +
       "</div></section>" +
 
-      '<dl class="end"><div class="title"><dt>Title</dt><dd>Bluprint admin</dd></div><div><dt>Drawn</dt><dd>' +
+      '<dl class="end"><div class="title"><dt>Title</dt><dd>Blueprint admin</dd></div><div><dt>Drawn</dt><dd>' +
       new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) + '</dd></div><div><dt>Sheet</dt><dd>1 of 1</dd></div><div><dt>Site</dt><dd><a href="https://blpr.dev">blpr.dev</a></dd></div></dl>' +
       "</div>";
   }
@@ -438,7 +438,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
     var byDay = {};
     c.daily.forEach(function (d) { byDay[d.day] = d; });
     var rows = days.map(function (day) { var d = byDay[day] || {}; return { day: day, tab: Math.round(100 * Number(d.tab_usd || 0)), gen: Math.round(100 * Number(d.gen_usd || 0)) }; });
-    return '<section><p class="eyebrow">Bluprint credit</p><h2>Claude on Bluprint\'s Bedrock</h2><p class="lede">' +
+    return '<section><p class="eyebrow">Blueprint credit</p><h2>Claude on Blueprint\'s Bedrock</h2><p class="lede">' +
       (cfg.enabled ? "Open to every machine. " : "Off for everyone but machines marked allowed. ") +
       n(cfg.tab_tokens) + " tab tokens per " + n(cfg.window_hours) + " hours; generation " + (cfg.gen_tokens == null ? "uncapped" : n(cfg.gen_tokens)) +
       "; at most " + usd(cfg.daily_usd_ceiling) + " a day for everyone. Change it on the <code>credit / config</code> item in the bluprint table.</p>" +
@@ -481,13 +481,13 @@ button.repo:hover { text-decoration-color: var(--ink); }
       var shade = 0.35 + 0.65 * (versions.indexOf(r.mapper_version) + 1) / versions.length;
       return '<div class="bar" title="' + esc(ver(r.mapper_version) + " · " + new Date(r.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " · " + fmt(r[key])) +
         '"><i style="height:' + (100 * Number(r[key]) / max) + "%;opacity:" + shade + '"></i></div>';
-    }).join("") + '</div><div class="axis"><span>First bluprint</span><span>Latest</span></div>';
+    }).join("") + '</div><div class="axis"><span>First blueprint</span><span>Latest</span></div>';
   }
 
   function repoPanel() {
     var v = repoView;
-    var head = '<div class="repoHead"><button class="btn" id="back">← All bluprints</button><h3>' + esc(v.name) + "</h3>" +
-      '<span class="stamp">Every new bluprint of this repo, on every machine</span></div>';
+    var head = '<div class="repoHead"><button class="btn" id="back">← All blueprints</button><h3>' + esc(v.name) + "</h3>" +
+      '<span class="stamp">Every new blueprint of this repo, on every machine</span></div>';
     if (!v.runs) return head + '<p class="empty">' + esc(v.error || "Loading…") + "</p>";
     var runs = v.runs;
     var versions = [];
@@ -517,20 +517,20 @@ button.repo:hover { text-decoration-color: var(--ink); }
     var one = function (x) { return Number(x).toFixed(1); };
     var tok = function (x) { return n(Math.round(x)); };
     return head +
-      '<div class="scroll"><table><thead><tr><th>Version</th><th class="num">Bluprints</th><th class="num">Failed</th><th class="num">Quick bluprint</th><th class="num">Full bluprint</th><th class="num">Avg cost</th><th class="num">Avg tokens</th><th class="num">Quick-bluprint problems</th><th class="num">Final problems</th><th class="num">Sections accepted</th></tr></thead><tbody>' +
+      '<div class="scroll"><table><thead><tr><th>Version</th><th class="num">Blueprints</th><th class="num">Failed</th><th class="num">Quick blueprint</th><th class="num">Full blueprint</th><th class="num">Avg cost</th><th class="num">Avg tokens</th><th class="num">Quick-blueprint problems</th><th class="num">Final problems</th><th class="num">Sections accepted</th></tr></thead><tbody>' +
       byVersion.map(function (row) {
         return "<tr><td>" + ver(row.version) + '</td><td class="num">' + n(row.runs) + '</td><td class="num">' + pct(row.failed, row.runs) + "</td>" +
           cell(row, "quick_s", secs) + cell(row, "total_s", secs) + cell(row, "usd", usd) + cell(row, "tokens", tok) +
           cell(row, "quick_problems", one) + cell(row, "problems", one) +
           '<td class="num">' + (row.accepted == null ? "—" : Math.round(100 * row.accepted) + "%") + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
-      '<p class="lede" style="margin-top:8px">Medians for time, averages for the rest, of bluprints that finished. Each change is against the version before; lower is better.</p>' +
+      '<p class="lede" style="margin-top:8px">Medians for time, averages for the rest, of blueprints that finished. Each change is against the version before; lower is better.</p>' +
       '<div class="grid3" style="margin-top:18px">' +
-      '<div class="card"><h3>Full bluprint time</h3>' + runBars(runs, "total_s", secs, versions) + "</div>" +
+      '<div class="card"><h3>Full blueprint time</h3>' + runBars(runs, "total_s", secs, versions) + "</div>" +
       '<div class="card"><h3>Cost</h3>' + runBars(runs, "usd", usd, versions) + "</div>" +
-      '<div class="card"><h3>Quick-bluprint problems</h3>' + runBars(runs, "quick_problems", n, versions) + "</div>" +
+      '<div class="card"><h3>Quick-blueprint problems</h3>' + runBars(runs, "quick_problems", n, versions) + "</div>" +
       "</div>" +
-      '<p class="lede" style="margin-top:6px">One bar per bluprint, oldest first; darker is a newer version.</p>' +
+      '<p class="lede" style="margin-top:6px">One bar per blueprint, oldest first; darker is a newer version.</p>' +
       '<div class="scroll" style="margin-top:18px"><table><thead><tr><th>When</th><th>Status</th><th>Version</th><th>Commit</th><th class="num">Files</th><th class="num">Quick</th><th class="num">Total</th><th class="num">Cost</th><th class="num">Tokens</th><th class="num">Problems</th><th class="num">Updates</th><th>Machine</th></tr></thead><tbody>' +
       runs.slice().reverse().map(function (r) {
         var open = openRun === r.id;
