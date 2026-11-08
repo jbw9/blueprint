@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs Bluprint on macOS or Linux, built from source:
-#   curl -fsSL https://raw.githubusercontent.com/jbw9/bluprint/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
 # The source is kept in ~/.bluprint/src (BLUPRINT_DIR moves it); running this again updates and rebuilds.
 # When it ends it tells us the OS and whether it worked, nothing else; BLUPRINT_NO_TELEMETRY=1 skips that.
 set -e
@@ -11,7 +11,7 @@ API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
   trap report EXIT
-  repo=${BLUPRINT_REPO:-https://github.com/jbw9/bluprint.git}
+  repo=${BLUPRINT_REPO:-https://github.com/jbw9/blueprint.git}
   ref=${BLUPRINT_REF:-main}
   dir=${BLUPRINT_DIR:-$HOME/.bluprint}/src
   os=$(uname)
