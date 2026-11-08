@@ -32,7 +32,7 @@ export interface Tab {
   dev?: boolean;
   /** The dev server's: the folder of the web app it serves. */
   site?: string;
-  /** Moved out of the window, into the main view in front of the map. */
+  /** Moved out of the window, into the main view in front of the bluprint. */
   main?: boolean;
   /** What the agent in front is doing, for the dot on the tab. */
   status?: Status;

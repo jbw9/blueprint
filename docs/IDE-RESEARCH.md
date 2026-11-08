@@ -76,14 +76,14 @@ Other points he makes that matter to us:
 | They say | Bluprint today |
 |---|---|
 | “Go very quickly from the high-level chunks down to the low-level chunks” (Witteveen) | The whole product: features first, one level at a time, down to the line (D16, D28) |
-| Agent-written HTML docs and diagrams citing file names | A Bluprint map is exactly that, except every sentence is checked against the code it cites (Verifying Claims) and kept current as the code changes (D64) |
-| Diffs, not a wall of text in a terminal | Changes drawn on the map: section verdicts, +/− per box, Prev / Next through every changed part (D72–D78) |
+| Agent-written HTML docs and diagrams citing file names | A bluprint is exactly that, except every sentence is checked against the code it cites (Verifying Claims) and kept current as the code changes (D64) |
+| Diffs, not a wall of text in a terminal | Changes drawn on the bluprint: section verdicts, +/− per box, Prev / Next through every changed part (D72–D78) |
 | “If you can’t see what it’s seeing, you’re not steering it” | Picks go into the agent’s prompt; Claude moves your view to the section it is explaining (D59) |
 | Review the docs; did it change things I didn’t ask for? | Docs reader (D65–D66); the Plan tab compares planned sections with what actually changed |
-| IDE intelligence is for the agent too | `map_search`, `map_section`, `map_where` for Claude |
+| IDE intelligence is for the agent too | `bluprint_search`, `bluprint_section`, `bluprint_where` for Claude |
 | Several agents side by side | Claude Code, Codex and OpenCode tabs in the workspace |
 | Know what you can trust | `derived` / `partial` / `inferred`, and claims that fail the check are removed (D3) |
-| Agents scaffold a stack you don’t know; then you explore it (Levin’s browser-extension story) | Import a project made by an agent and read its map; the explain level adapts to how well you know it (D70) |
+| Agents scaffold a stack you don’t know; then you explore it (Levin’s browser-extension story) | Import a project made by an agent and read its bluprint; the explain level adapts to how well you know it (D70) |
 
 ## 3. Where we disagree, or only partly agree
 
@@ -98,13 +98,13 @@ Other points he makes that matter to us:
   reading at the right height: the shape first, then lines only where the
   shape changed or the risk is.
 - **The IDE as the one cockpit.** For many people the agent now lives in a
-  terminal and the editor is open “sometimes”. A tool beside both (the map
+  terminal and the editor is open “sometimes”. A tool beside both (the bluprint
   plus agent tabs) fits how people actually work better than pulling
   everything into one editor.
 - **ACP and BYOK.** The lock-in argument is fair and applies to us: making a
-  map needs Claude Code or Bedrock. But ACP is early. MCP already gives
+  bluprint needs Claude Code or Bedrock. But ACP is early. MCP already gives
   tools to any agent, and that is the cheaper way to be agent-neutral now.
-- **“Saves tokens.”** Plausible, unmeasured. We should measure map tools
+- **“Saves tokens.”** Plausible, unmeasured. We should measure bluprint tools
   against plain grep on a real task before we claim it.
 - **Debugger, test runner, refactoring.** Real IDE jobs, not ours. Bluprint sits
   beside the editor; it does not replace it.
@@ -113,15 +113,15 @@ Other points he makes that matter to us:
 
 ## 4. What history adds (DECISIONS.md D1)
 
-CodeSee built zoomable codebase maps plus PR review maps. GitKraken bought it
-and **shut the map down, keeping the review part**. Greptile started as
+CodeSee built zoomable codebase bluprints plus PR review bluprints. GitKraken bought it
+and **shut the bluprint down, keeping the review part**. Greptile started as
 codebase onboarding and **pivoted to PR review**. Sourcetrail was archived:
 “the sort of thing that you would need only once or every once in a while.”
 
 Both sources now say review is the bottleneck. Together that says Bluprint’s
 strongest story is **reviewing what agents changed, at the architecture
 level, and owning it**. Exploring an unfamiliar repo is still the way in, and
-the reason the map exists, but review is what people do every day.
+the reason the bluprint exists, but review is what people do every day.
 
 ---
 
@@ -145,7 +145,7 @@ or it turns to noise.
 
 ### 5.3 Scope check (M)
 Compare the sections a turn edited with what was picked or planned, and flag
-“changed outside what you asked about”. The Plan tab’s map coverage already
+“changed outside what you asked about”. The Plan tab’s bluprint coverage already
 does this for plans; this extends it to plain prompts. Witteveen: “did the
 agent go off and change things that I didn’t want changed?”
 
@@ -163,9 +163,9 @@ from the scanner’s import graph. This is “find usages”, answered as sectio
 rather than a list of files. It is the navigation check Witteveen uses to
 judge whether a change is safe.
 
-### 5.6 Map tools for every agent (M)
+### 5.6 Bluprint tools for every agent (M)
 Register Bluprint’s MCP server with Codex and OpenCode when the agent strip
-launches them, so `map_search` and friends work there too. Today they open as
+launches them, so `bluprint_search` and friends work there too. Today they open as
 plain terminals. This is our answer to walled gardens, and it backs the
 landing page’s “works beside Claude Code, Codex and OpenCode”.
 
@@ -175,13 +175,13 @@ D77 already summarizes a commit. Extend it to a range: a PR description
 built from the sections it moved, the parts reviewed, and anything marked
 partial. Paste it into the PR.
 
-### 5.8 Tests on the map (L, later)
+### 5.8 Tests on the bluprint (L, later)
 Run the project’s test or typecheck script and pin failures to sections via
-`map_where`. A section could also show which tests cite its code, so a
+`bluprint_where`. A section could also show which tests cite its code, so a
 reviewer sees untested parts, and can spot Witteveen’s `return true` tests.
 
 ### 5.9 Measure the token claim (S)
-Run one real task twice in a Bluprint tab, with map tools and without, and record
+Run one real task twice in a Bluprint tab, with bluprint tools and without, and record
 tokens and turns. If it holds up, it is a landing-page claim and a reason
 for 5.6.
 
@@ -223,4 +223,4 @@ Still open for the landing page:
 1. Is review, rather than first-time exploring, the story we lead with?
 2. How far do we go to be agent-neutral (5.6 now; a second generation
    backend later or never)?
-3. Do tests belong on the map (5.8), or is that the IDE’s job?
+3. Do tests belong on the bluprint (5.8), or is that the IDE’s job?

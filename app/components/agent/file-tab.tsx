@@ -13,7 +13,7 @@ import { useMac } from "@/lib/client/platform";
  * A file a terminal named (components/agent/shell.tsx), open in the main view as an
  * editor tab: a breadcrumb over the path, the code pane's editor with its
  * gutter, and a status line. Any file on disk, read and written through the
- * desktop app (src-tauri/src/files.rs) rather than the map's `/api/source`,
+ * desktop app (src-tauri/src/files.rs) rather than the bluprint's `/api/source`,
  * since agents name files outside the project and Claude's pasted images.
  */
 

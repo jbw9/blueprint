@@ -1,20 +1,20 @@
 /**
  * The shape a generated node must have, checked field by field so the author
  * gets a precise list back instead of a renderer crash. The types themselves
- * stay in lib/map/schema.ts — `typeReference` hands the model that file's own text,
+ * stay in lib/bluprint/schema.ts — `typeReference` hands the model that file's own text,
  * comments included, because those comments ARE the standard each field is
  * held to.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- validates untrusted model output */
 import { readFileSync } from "node:fs";
-import type { Node } from "@/lib/map/schema";
+import type { Node } from "@/lib/bluprint/schema";
 import { autofix, check } from "./check";
 import { fillFromGraph } from "./fill";
 import { activeGraph } from "./graph";
 
-/** lib/map/schema.ts from `State` to its end. */
+/** lib/bluprint/schema.ts from `State` to its end. */
 export function typeReference(): string {
-  const src = readFileSync("lib/map/schema.ts", "utf8");
+  const src = readFileSync("lib/bluprint/schema.ts", "utf8");
   return src.slice(src.indexOf("export type State"));
 }
 
@@ -32,7 +32,7 @@ const KINDS: Record<string, string[]> = {
   bars: ["unit", "rows"],
   parts: ["total", "rows"],
   chips: ["rows"],
-  map: ["rows"],
+  bluprint: ["rows"],
 };
 
 const isStr = (v: unknown) => typeof v === "string" && v.trim().length > 0;
@@ -109,7 +109,7 @@ export function idsOf(n: Node, out = new Set<string>()): Set<string> {
 /**
  * Everything wrong with a submitted node, as the agent gets it back: its
  * shape first (a malformed node would crash the checker), then ids already
- * `taken` elsewhere in the map, then the checks the finished map is held to.
+ * `taken` elsewhere in the bluprint, then the checks the finished bluprint is held to.
  * A section is checked inside its root (`within` puts it there), and only the
  * problems with its own ids, or duplicate ids, are its to fix.
  */
@@ -129,7 +129,7 @@ export function submitProblems(
   opts.fixed?.push(...autofix(node, repo));
   const mine = idsOf(node);
   const clash = [...mine].filter((id) => opts.taken?.has(id));
-  if (clash.length) return clash.map((id) => `${id}: already used elsewhere in the map`);
+  if (clash.length) return clash.map((id) => `${id}: already used elsewhere in the bluprint`);
   const problems = check({ AUTHORED: [opts.within ? opts.within(node) : node] }, repo, { generated: true }).problems;
   return opts.within ? problems.filter((p) => [...mine].some((id) => p.includes(id)) || p.startsWith("DUP")) : problems;
 }

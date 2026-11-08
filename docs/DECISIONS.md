@@ -5,27 +5,27 @@ breaks at scale. Recorded as made.
 
 ---
 
-## D1 — Not a zoomable architecture map
+## D1 — Not a zoomable architecture bluprint
 
 **Chose:** question-answering over a resolved graph, at function granularity.
-**Beat:** an interactive zoomable map with semantic drill-down (the original idea).
+**Beat:** an interactive zoomable bluprint with semantic drill-down (the original idea).
 
-CodeSee built almost exactly that — semantic-zoom codebase maps plus PR review
-maps, VC-funded, strong founder. GitKraken acquired it May 2024 and **sunset the
-map**, keeping the review piece. Sourcetrail: archived 2021, and a competitor's
+CodeSee built almost exactly that — semantic-zoom codebase bluprints plus PR review
+bluprints, VC-funded, strong founder. GitKraken acquired it May 2024 and **sunset the
+bluprint**, keeping the review piece. Sourcetrail: archived 2021, and a competitor's
 diagnosis in its HN thread is the category epitaph — call-graph visualizers are
 *"the sort of thing that you would need only once or every once in a while."*
 Greptile launched as Onboard AI doing codebase onboarding, pivoted to PR review,
 and that pivot raised a $25M Series A.
 
-Kuhn et al. put a spatial code map *inside Eclipse* — removing the "not in my IDE"
-excuse — and developers *"rarely used the map for direct navigation"* and found the
+Kuhn et al. put a spatial code bluprint *inside Eclipse* — removing the "not in my IDE"
+excuse — and developers *"rarely used the bluprint for direct navigation"* and found the
 base layout *"surprising and often confusing."* What they did use it for was
 decorating search results and call graphs they were already running.
 
 **Cost accepted:** no striking screenshot, so no viral launch moment. Fine — the
 goal is a working tool, not a business.
-**Breaks at scale:** if a map is ever added, node-link + Sugiyama layering for
+**Breaks at scale:** if a bluprint is ever added, node-link + Sugiyama layering for
 paths (never force-directed, never a matrix for path-following), and
 `DOI = importance − distance-from-focus` to serve both broad and deep entry.
 
@@ -292,7 +292,7 @@ click a silent no-op:
 **Cost accepted:** the camera frames the opened level, which pushes the owner
 card partly above the viewport (measured y:−279). You can see the row list by
 panning up, but it is not in view at rest.
-**Breaks at scale:** `deepRows` only understands `map` and `flow` blocks. A deep
+**Breaks at scale:** `deepRows` only understands `bluprint` and `flow` blocks. A deep
 row inside `schema`, `bars`, `chips` or `routes` is silently ignored — it renders
 a caret and opens nothing, which is the worst failure mode available.
 
@@ -362,7 +362,7 @@ repository cannot confirm or refute.
 **Cost accepted:** `LINKS` endpoints are `owner:rowKey` strings that `tsc` cannot
 check — `rowId()` takes arbitrary strings, so a typo draws no wire and reports
 nothing. Guarded with a throwaway script that re-derives each block kind's anchor
-key from `components/anatomy.tsx` (schema→column name, map→`from`, flow→`n`,
+key from `components/anatomy.tsx` (schema→column name, bluprint→`from`, flow→`n`,
 source→the literal `"source"`, the rest→`label`) and cross-references all 48
 endpoints. It is not in the repo, so the next edit to `LINKS` has no guard unless
 someone writes it again.
@@ -432,11 +432,11 @@ recurse forever rather than erroring.
 ## D14 — depth is authored, not derived
 
 After D13 three roots reached 4 levels and seven stayed at 3. That is not a
-second defect: `deepRows` only synthesizes children for `map` and `flow` rows,
+second defect: `deepRows` only synthesizes children for `bluprint` and `flow` rows,
 so a branch ending in a `facts` block is a leaf by construction. The seven
 shallow roots bottomed out in `facts`.
 
-**Decision:** deepen by re-authoring those terminals as `map`/`flow` rows
+**Decision:** deepen by re-authoring those terminals as `bluprint`/`flow` rows
 carrying a further `under` that ends in a verbatim `source`, rather than by
 teaching `deepRows` to descend into `facts`.
 
@@ -587,7 +587,7 @@ and allow a gated write back.
 design), and separately, refusing editing entirely.
 
 The pasted text was verified once at authoring time and drifts silently the
-moment the file changes — a map that is confidently wrong about code it quotes,
+moment the file changes — a bluprint that is confidently wrong about code it quotes,
 which is the exact failure this project exists to study. D11 already paid for
 this once: five wrong line numbers needed a corrective commit. The repo is a
 live git checkout and every spot-checked anchor (`lib/rules/income.ts:733`,
@@ -595,7 +595,7 @@ live git checkout and every spot-checked anchor (`lib/rules/income.ts:733`,
 resolved to the right line, so reading it is sound today.
 
 `matchesFixture` is the load-bearing field: when disk and fixture disagree the
-UI must say the map has drifted, never silently render fresh text under a stale
+UI must say the bluprint has drifted, never silently render fresh text under a stale
 explanation.
 
 **Writing is the one operation that can destroy work**, so it is narrow by
@@ -734,10 +734,10 @@ children: "Stage the PDF in S3", "Sign the request by hand", "Invoke, then
 poll", "Follow the pointer". It *also* printed all four inline with their full
 `detail` paragraphs — 240 words on one card. The next level was being painted
 onto the current one, so drilling revealed nothing that was not already on
-screen, and the level read as an essay in columns rather than a map.
+screen, and the level read as an essay in columns rather than a bluprint.
 
 This is the failure the whole product is supposed to delete. D1 rejected a
-zoomable map in favour of question-answering, but a level that renders every
+zoomable bluprint in favour of question-answering, but a level that renders every
 answer at once is not answering a question — it is the wall of context the tool
 exists to replace. The user's own words: *"It's just like talking into a
 chatbot, right? It doesn't really help."*
@@ -757,7 +757,7 @@ purpose-built figures where the arrangement IS the finding.
 with no brand marks.
 
 The marks are not decoration. Every brand rendered is a real entry in the
-mapped repo's `package.json` — `@aws-sdk/client-bedrock-runtime`,
+the repo's `package.json` — `@aws-sdk/client-bedrock-runtime`,
 `@supabase/supabase-js`, `openai`, `next`, `pdf-lib`, `zod` — and the fixture
 already names them in prose 19, 18 and 16 times respectively. A Supabase glyph
 says in one symbol what "Supabase Postgres, one wide row per filing" says in
@@ -771,7 +771,7 @@ where the stages are real. A card with nothing true to draw gets no shape.
 **Cost accepted:** hand-authored glyphs are simplified silhouettes, not the
 real corporate artwork, and they will look approximate to anyone who knows the
 brands well. Nine marks and four figures are also a maintenance surface that
-grows with every new technology a mapped repo uses.
+grows with every new technology a repo with a bluprint uses.
 **Breaks at scale:** this does not generalise. A real run against an unknown
 repo would meet technologies with no authored glyph and no authored figure, and
 fall back to the neutral chip — so the visual richness that makes this board
@@ -851,7 +851,7 @@ Sibling arrows are no longer wires; FK and trace wires still are.
 **Cost accepted:** no spatial overview of the whole tree at once, and the
 board no longer looks like a diagram. You cannot see two branches side by side.
 **At scale:** a level with 30 children is a long scroll of cards; the budget
-(~7 per level) is authored, not enforced. A generated map would need to group
+(~7 per level) is authored, not enforced. A generated bluprint would need to group
 or page wide levels.
 
 ## D29 — The open level lives in the URL; empty space does nothing
@@ -885,7 +885,7 @@ never live here. Containment is unchanged: `../../../etc/passwd` still refuses.
 **Cost accepted:** still assumes `~/Desktop/Code/taxBuddy`; `SLOP_REPO_ROOT`
 overrides it.
 **At scale:** one repo per server. A second repo needs the root chosen per
-map, not per process.
+bluprint, not per process.
 
 ## D31 — A level names its parts; it never shows their contents
 
@@ -913,9 +913,9 @@ visible until you open it. More clicks to reach the same fact.
 **At scale:** fine to ~12 parts; past that the rail is a long scroll, and the
 peek line is the only thing distinguishing similar rows.
 
-## D32 — Facts in the fixture, plumbing in `lib/map.ts`
+## D32 — Facts in the fixture, plumbing in `lib/bluprint.ts`
 
-**Chose:** a fixture exports `RUN`, `AUTHORED`, `E0`, `LINKS`; `lib/map.ts`
+**Chose:** a fixture exports `RUN`, `AUTHORED`, `E0`, `LINKS`; `lib/bluprint.ts`
 derives the row nodes and `nodeAt`/`levelAt`/`allNodes`, and picks the active
 fixture in one import. `REPO_ROOT` defaults to `~/Desktop/Code/<RUN.repo>`.
 **Beat:** copying taxbuddy.ts's 100 lines of tree helpers into explorify.ts.
@@ -927,7 +927,7 @@ would mean two copies of D13/D27's hard-won row-child rules drifting apart.
 **Cost accepted:** one fixture active per build — switching is an edit, not a
 picker.
 **At scale:** the selector should become a route segment or a query param so
-several mapped repos can be open at once.
+several repos' bluprints can be open at once.
 
 ## D33 — The path forks into lanes where the code does
 
@@ -972,10 +972,10 @@ they are picked/stored/compared, every screen that shows them, a stored value,
 and one problem; the code is five labelled places, one click away.
 
 **Cost accepted:** `code` refs are line ranges, not quotes, so they can drift
-silently when the repo changes — check-map catches out-of-range, not
+silently when the repo changes — check-bluprint catches out-of-range, not
 shifted-by-ten. Every node now needs a person (or agent) to write a real
 explanation; the fixture roughly doubles.
-**At scale:** a generated map would need these blocks emitted by analysis, and
+**At scale:** a generated bluprint would need these blocks emitted by analysis, and
 `diagram` layout by col/row stops working past ~5 columns.
 
 ## D35 — The path is a breadcrumb across the top, not a rail
@@ -1016,7 +1016,7 @@ generic beyond "serve the app, stub its backend, screenshot".
 
 ## D38 — Detail is two sentences at most; the rest is pictures
 
-**Chose:** `detail` ≤ 2 sentences and ≤ 40 words, enforced by check-map.
+**Chose:** `detail` ≤ 2 sentences and ≤ 40 words, enforced by check-bluprint.
 What used to be paragraphs moves into `diagram`, `sequence`, `table` and
 `screen` blocks, plus `issues`. **Beat:** 1-3 paragraphs (D34), which the
 user called "way too long … i want to replace the huge text block with
@@ -1172,7 +1172,7 @@ error — spending colour to repeat what another cue already says. The corner
 badge (D43) answers "can I open this"; colour is now spent on D52's question
 instead, which nothing else answered.
 **Beat:** the 8px green corner badge alone (D43). **Why:** measured across
-every map, 2,440 of 2,596 boxes are `plain` — so a picture was a field of
+every bluprint, 2,440 of 2,596 boxes are `plain` — so a picture was a field of
 identical rectangles, and the single most useful thing it knew ("you can go in
 here") was carried by a badge smaller than a word. The user's report was that
 the app "feels a bit boring, not inviting … doesn't make it interesting to
@@ -1186,7 +1186,7 @@ in. **At scale:** derived, so it costs no authoring and cannot rot.
 ## D49 — One hue per actor in a sequence
 
 **Chose:** `actorTone` assigns a colour by position in `actors`; the lifeline,
-the chip and every arrow the actor SENDS take it. A message the map is unsure
+the chip and every arrow the actor SENDS take it. A message the bluprint is unsure
 of keeps amber and its dashes — doubt outranks identity.
 **Beat:** two identical grey chips with every arrow in the same green, where
 tracking who spoke over a six-message exchange meant re-reading every label.
@@ -1198,9 +1198,9 @@ authored sequence has more than four. **At scale:** assigned, not authored.
 **Chose:** `lib/highlight.ts`, a dependency-free tokenizer (strings, comments,
 numbers, keywords, types, calls, annotations) with a language resolved from
 the file's extension; 12.5px/1.65 rather than 11.5px/1.55.
-**Beat:** one flat ink for every line. The map exists to make code legible, so
+**Beat:** one flat ink for every line. The bluprint exists to make code legible, so
 its own code pane cannot be the least legible pane in the product.
-**Why a tokenizer, not a parser:** the maps cite nine languages; a grammar per
+**Why a tokenizer, not a parser:** the bluprints cite nine languages; a grammar per
 language to colour a 14-line slice costs more than it returns. The lexical
 layer they share is the part that carries the reading.
 **Cost accepted:** it is lexical, so a word that is a keyword in one of the
@@ -1223,7 +1223,7 @@ only useful before you look.
 **Cost accepted:** past ~1.35 the labels read as a poster. Below 1100px the
 header is one column again, in the old order. **At scale:** unchanged — the
 audit (`audit-diagrams.mts`) lays out in viewBox units, so uniform scaling
-cannot introduce an overlap; 23 maps, 0 problems after the change.
+cannot introduce an overlap; 23 bluprints, 0 problems after the change.
 
 
 ## D52 — A box is coloured by the SECTION it opens, not by the fact that it opens
@@ -1274,34 +1274,34 @@ decision refuses to add a second.
 
 **Cost accepted:** two marks can appear on one level (a section can be both
 `not certain` and partly the reader's), and a reader scanning for "what is mine"
-has no filter — the history panel is the list, not the map.
-**At scale:** a map with hundreds of additions needs the additions findable from
-the map, not only from a dialog.
+has no filter — the history panel is the list, not the bluprint.
+**At scale:** a bluprint with hundreds of additions needs the additions findable from
+the bluprint, not only from a dialog.
 
-## D54 — The reader's additions live beside the map, never inside it
+## D54 — The reader's additions live beside the bluprint, never inside it
 
 **Chose:** `<vault>/projects/<id>/overlay.json` holding additions and edits,
-`history.json` holding every version before this one, composed into the map by
-`apply()` inside `loadMap` — the one seam every reader of a map already passes
-through. `map.json` stays byte-for-byte as the generator wrote it.
-**Beat:** merging additions straight into `map.json`, which is simpler to render
+`history.json` holding every version before this one, composed into the bluprint by
+`apply()` inside `loadBluprint` — the one seam every reader of a bluprint already passes
+through. `bluprint.json` stays byte-for-byte as the generator wrote it.
+**Beat:** merging additions straight into `bluprint.json`, which is simpler to render
 and needs no composition step.
 
-`map.json` has two writers that rewrite it without asking: `regenerate` replaces
+`bluprint.json` has two writers that rewrite it without asking: `regenerate` replaces
 it wholesale, and every `update.ts` run rewrites the sections whose code moved.
 A reader's note in that file is a note the generator will win against, silently,
 at exactly the moment the reader has most invested in it. Separate files mean the
 two writers never share one.
 
-Composing in `loadMap` rather than in the canvas is what kept this small: the
+Composing in `loadBluprint` rather than in the canvas is what kept this small: the
 renderer, the title bar and the text handed to Claude all see composed content
 with no knowledge that an overlay exists. Verified by replacing a project's
-`map.json` with a completely different map — the entries were kept and reported
+`bluprint.json` with a completely different bluprint — the entries were kept and reported
 as orphaned, not dropped, and reattached when the original returned.
 
 **Cost accepted:** an entry naming a section that a regenerate renamed is
 orphaned and shows nowhere until the reader deals with it; the alternative is
-deleting their work, so it is kept and reported. Examples under `app/maps/` get no
+deleting their work, so it is kept and reported. Examples under `app/bluprints/` get no
 overlay at all — they are committed fixtures shared by every reader of the
 checkout, so they are read-only by construction.
 **At scale:** orphan recovery is manual. Re-attaching a note to a renamed section
@@ -1310,7 +1310,7 @@ wants fuzzy matching on the old title, which nothing does yet.
 ## D55 — A reader's correction goes through the updater; their words do not
 
 **Chose:** two routes behind one "Fix this". "Say what's wrong" posts a
-`{section, note}` correction down the path `slop-map-fix` already takes
+`{section, note}` correction down the path `slop-bluprint-fix` already takes
 (`lib/vault.ts` → `turns.json` → `update.ts`), so the section is re-read against
 the real file and stays code-derived. "Write it myself" stores the reader's text
 in the overlay, marked as theirs, and reads no code.
@@ -1335,22 +1335,22 @@ of its code and says so.
 words and later corrects the same section via the updater ends up with both, the
 overlay winning.
 
-## D56 — A diff is shown over the map's own pictures, and says when it cannot be
+## D56 — A diff is shown over the bluprint's own pictures, and says when it cannot be
 
 **Chose:** diff mode decorates the normal level — sections tinted, a removed
 section kept on screen struck through in red, a dropped schema row red beside a
 new one in green, a removed diagram box red beside its replacement. Default range
-is the map's commit → working tree, so uncommitted work counts. Any two commits
-can be picked; a range the map's line references cannot speak to returns
+is the bluprint's commit → working tree, so uncommitted work counts. Any two commits
+can be picked; a range the bluprint's line references cannot speak to returns
 `basis: "files"` with a `why` and no section verdicts.
 **Beat:** a separate diff screen listing changed files, and separately, inventing
 section verdicts for any commit pair.
 
 The question a reader has while reviewing is "what did this do to the
-architecture", and a file list does not answer it — the whole reason the map
+architecture", and a file list does not answer it — the whole reason the bluprint
 exists is that file lists do not. Section verdicts are only meaningful when the
-map's refs mean something on the `from` side, which holds when `from` is the
-map's own commit; past maps are not stored per commit, so for an arbitrary pair
+bluprint's refs mean something on the `from` side, which holds when `from` is the
+bluprint's own commit; past bluprints are not stored per commit, so for an arbitrary pair
 the honest answer is a file diff that admits it. `basis` is that admission, and
 it exists so the fallback is visible rather than quietly wrong.
 
@@ -1361,18 +1361,18 @@ moved to `scripts/generate/gitdiff.ts` unchanged and is shared. Two copies of
 **Cost accepted:** the diff re-reads and re-diffs on every range change, with no
 cache. Block-level matching is by id (diagram boxes), column name (schema) and
 first cell plus occurrence index (tables) — the last because a first cell is not
-unique, which was measured: two identical maps reported four changed rows until
+unique, which was measured: two identical bluprints reported four changed rows until
 occurrence was counted.
-**At scale:** storing a map per commit would make the both-sides-have-a-map path
+**At scale:** storing a bluprint per commit would make the both-sides-have-a-bluprint path
 real for any pair, and that path is already written and currently unreachable.
 
 ## D57 — A root is published when it is accepted, not when the run ends
 
-**Chose:** the author stage writes `map.json` each time a root is accepted,
+**Chose:** the author stage writes `bluprint.json` each time a root is accepted,
 plus a `progress.json` the project list polls, so finished sections are
 explorable while the rest are still being written. One `assemble()` produces
-both the partial and the final map.
-**Beat:** keeping the map until the run ends and only enriching the progress
+both the partial and the final bluprint.
+**Beat:** keeping the bluprint until the run ends and only enriching the progress
 line, which was the safe option and the one the user explicitly allowed
 ("if this is not possible without sacrificing output quality dont").
 
@@ -1387,18 +1387,18 @@ refs.
 `row` is the root's index in the cut, never its index among those finished, so a
 root that lands fifth takes row 1 if that is its place and moves nothing already
 on screen. Writes go through a serialising chain rather than latest-wins: that is
-not needed for `map.json` alone, but it stops `map.json` and `progress.json`
+not needed for `bluprint.json` alone, but it stops `bluprint.json` and `progress.json`
 disagreeing about which roots exist, which would tell a reader a section is
-explorable before the map they would open contains it.
+explorable before the bluprint they would open contains it.
 
 **Cost accepted:** the statuses are only the ones the generator can report.
 `authorRoot` logs once per submit and `runTool` reports nothing, so `reading
 <file>` — which the approved sketch showed — is not derivable and is not
 claimed. A root in flight shows `drafting`, or `revising — N problems` while the
 repair loop converges.
-**At scale:** a reader can open a half-made map and form a picture of a
+**At scale:** a reader can open a half-made bluprint and form a picture of a
 repository from half its sections, with nothing on the level itself saying the
-map is incomplete — only the project list knows.
+bluprint is incomplete — only the project list knows.
 
 ## D58 — The diff is a list you navigate from, not a bar on the level you are on
 
@@ -1410,7 +1410,7 @@ routes, the level shows the change.
 **Why:** the first build put the verdict counts in a bar across the top of
 whatever level happened to be open. That is the summary of a whole comparison
 rendered on a page showing one of its entries, so finding the three sections
-that moved meant already knowing where they were — the hunt the map exists to
+that moved meant already knowing where they were — the hunt the bluprint exists to
 remove. A changed-files list is how a diff is read everywhere else, and it is
 the one shape that answers "what changed?" before "what changed *here*?".
 
@@ -1418,14 +1418,14 @@ the one shape that answers "what changed?" before "what changed *here*?".
 who never opens the panel sees tints with no index to them. Worth it: the index
 is one click away and the tints are where the detail belongs.
 
-## D59 — Claude drives the map through a script, and names sections from an outline
+## D59 — Claude drives the bluprint through a script, and names sections from an outline
 
-**Chose:** `slop-map-show section "<title>"` / `slop-map-show diff "<from>"
+**Chose:** `slop-bluprint-show section "<title>"` / `slop-bluprint-show diff "<from>"
 ["<to>"]`, appended to a marker beside the tab's queue and drained on EVERY
-`pty_state` poll rather than at the Stop hook. A second script, `slop-map-list`,
-prints the map's sections from a file written when the tab starts.
+`pty_state` poll rather than at the Stop hook. A second script, `slop-bluprint-list`,
+prints the bluprint's sections from a file written when the tab starts.
 
-**Why:** the channel had to exist anyway — `slop-map-fix` is the same shape, and
+**Why:** the channel had to exist anyway — `slop-bluprint-fix` is the same shape, and
 reusing it costs no new transport. Draining mid-turn is the whole point: a
 reader who asks how sign-ups work wants to be looking at sign-ups while the
 answer arrives, and navigation that lands after the explanation has finished is
@@ -1440,9 +1440,9 @@ equally, moves nobody and says so. That is deliberate — `findSection` refuses 
 ambiguous match rather than opening an arbitrary one of them, because being
 taken to the wrong section mid-answer is worse than not moving.
 
-## D60 — The top of the map is a level
+## D60 — The top of the bluprint is a level
 
-**Chose:** the repository is a level like any other. `map.json` carries an
+**Chose:** the repository is a level like any other. `bluprint.json` carries an
 `OVERVIEW` (sub, a two-sentence detail, one diagram whose boxes open the roots,
 code refs), and the canvas renders it with the same `Level` as every node, at
 the empty path. A root's eyebrow reads "Inside <repo>". The generator draws the
@@ -1457,11 +1457,11 @@ not code, yet were stamped `derived`. Supersedes D33 and the step numbers of
 D35's breadcrumb.
 
 The cut still partitions files into roots; it lists them in the order someone
-meets them and no longer draws edges. A map with no overview yet (mid-run,
+meets them and no longer draws edges. A bluprint with no overview yet (mid-run,
 D57) lists its roots, which is what `Level` does for any node without a
-picture. `--overview` redraws only the top level of an existing map.
+picture. `--overview` redraws only the top level of an existing bluprint.
 
-The committed maps were migrated mechanically: each old path became the
+The committed bluprints were migrated mechanically: each old path became the
 diagram, marked `inferred`, because none of those repositories were on the
 machine to cite against. Run `--overview` where they are to replace them.
 
@@ -1476,7 +1476,7 @@ past ~15 it stops being a picture; the cut's 4–10 roots keep it inside that.
 only when it has no parts below it. A level with parts points down at them
 instead. Every node still carries `code` refs: they are what the checker and
 the verifier hold its claims to, and what Claude is handed for a section
-(`describe` in `lib/map.ts`). They are just not drawn above the bottom.
+(`describe` in `lib/bluprint.ts`). They are just not drawn above the bottom.
 **Beat:** D34's drawer on every level, the overview's included. On a level with
 parts it competed with the picture as the way down, and offered the lines of a
 whole feature where the reader had not yet picked which part to read.
@@ -1491,16 +1491,16 @@ early.
 
 **Chose:** the window has fixed regions, separated by hairlines, the way an
 editor does: the title bar (where you are, and a box that opens the palette),
-the map, and a status bar under it. Chrome is one tone
-(`surface-container-low`); the map is the cream page. The workspace still
-floats over the map's right edge and stops above the status bar; its open tab
+the bluprint, and a status bar under it. Chrome is one tone
+(`surface-container-low`); the bluprint is the cream page. The workspace still
+floats over the bluprint's right edge and stops above the status bar; its open tab
 is the colour of the terminal under it, as an editor draws tabs. Every action on a
 level is the same `Button` (`components/button.tsx`), and they sit in one row
 above the title instead of a rail beside the prose. Eyebrows and hints are set
 in sans; mono is left to identifiers (§11). Diagram boxes take a hairline
 instead of a 1.5px coloured edge. The dot field is no longer the default.
 **Beat:** docking the workspace as a side pane, which the user tried and
-turned down: they want it to float as it did. Also a sidebar tree of the map,
+turned down: they want it to float as it did. Also a sidebar tree of the bluprint,
 which the user turned down again here for the reason in D35. The
 palette does the sidebar's job (reaching any level without walking down) and
 spends no column on it.
@@ -1510,42 +1510,42 @@ a surface is, and a level's header mixed a mono button, a sans button and a
 pill.
 
 **Cost accepted:** the status bar takes 24px of height on every screen. (The
-workspace covered the right of the map while it was open; the map now keeps
+workspace covered the right of the bluprint while it was open; the bluprint now keeps
 clear of it the way a plan does, laying its level out in what the window
 leaves, `--workspace-inset`, and never in less than 480px, past which the
 window covers it again. Opening the window reflows the level at once rather
 than with the slide.)
-**At scale:** the palette lists every level, 71 in this repository's map;
-it caps at 60 results and ranks by match, so a big map is still one keystroke
+**At scale:** the palette lists every level, 71 in this repository's bluprint;
+it caps at 60 results and ranks by match, so a big bluprint is still one keystroke
 plus a few letters.
 
 
-## D63 — The app ships no example maps
+## D63 — The app ships no example bluprints
 
-**Chose:** delete the six committed example maps (`app/maps/*`) and the
+**Chose:** delete the six committed example bluprints (`app/bluprints/*`) and the
 explorify screenshots (`public/shots`). The app opens the reader's own projects
 only; with none, it shows Welcome, whose one button starts or imports a
-project. `maps/` is now git-ignored local output from the generator.
+project. `bluprints/` is now git-ignored local output from the generator.
 **Kept:** the generator's worked example. The author prompt quoted one root of
-the explorify map, so that root, stripped exactly as before, is now
+the explorify bluprint, so that root, stripped exactly as before, is now
 `scripts/generate/prompts/exemplar.json`: generation is unchanged.
-**The landing keeps its demo.** Five of the maps (bluprint, flask,
-fastapi, ky, umami: `map.json`, `report.json`, `source.json`) now live in
+**The landing keeps its demo.** Five of the bluprints (bluprint, flask,
+fastapi, ky, umami: `bluprint.json`, `report.json`, `source.json`) now live in
 `landing/demo/`, with the page that quotes them. The app reads them
-(`loadDemo` in `lib/maps.ts`) only for a page the landing frames (`?embed`)
+(`loadDemo` in `lib/bluprints.ts`) only for a page the landing frames (`?embed`)
 or a static export; an embed never falls back to one of the reader's
 projects. `scripts/export-static.mts` exports a demo or a project.
-**Beat:** hiding the examples from the app while keeping them in `app/maps`;
+**Beat:** hiding the examples from the app while keeping them in `app/bluprints`;
 and cutting the landing's demo, "removed claims" and flask sections.
 
-**Cost accepted:** a first launch has nothing to look at until a project is
-mapped. The eval and diagram-audit scripts list only what is in local `maps/`.
+**Cost accepted:** a first launch has nothing to look at until a project has a
+bluprint. The eval and diagram-audit scripts list only what is in local `bluprints/`.
 
 
-## D64 — The map follows its file, one section at a time
+## D64 — The bluprint follows its file, one section at a time
 
-**Chose:** the open map polls `/api/map` every second with the version it has
-(the times of `map.json` and `overlay.json`), and gets a new file only when
+**Chose:** the open bluprint polls `/api/bluprint` every second with the version it has
+(the times of `bluprint.json` and `overlay.json`), and gets a new file only when
 there is one. The new file is merged into the old (`lib/share.ts`): every part
 equal to what was there keeps its old object, so only the sections that
 changed re-render, and what is on screen keeps its scroll, open code and
@@ -1555,10 +1555,10 @@ picture by `data-opens`, and the level's header only when nothing on it lit.
 The generator already wrote each root as it was accepted; the updater now
 writes each section as it is redone, not once at the end.
 **Beat:** `router.refresh()` when an update finished, which re-sent and
-rebuilt the whole map once, after every section was done; and pushing changes
+rebuilt the whole bluprint once, after every section was done; and pushing changes
 over a socket, which the app has no server for.
 
-**Cost accepted:** a poll a second while a map is open (two stats when nothing
+**Cost accepted:** a poll a second while a bluprint is open (two stats when nothing
 changed). A section redone while the reader is inside it changes under them,
 lit, rather than waiting for them to leave.
 
@@ -1578,7 +1578,7 @@ passage redoes the section citing it.
 part of the product; and doc files as `code`, which would put prose in the
 code drawer and let a node stand on a note instead of the code.
 
-**Cost accepted:** docs only reach a map when it is generated again; a long
+**Cost accepted:** docs only reach a bluprint when it is generated again; a long
 doc is read 400 lines at a time, so a decision log is found by grep.
 
 
@@ -1599,7 +1599,7 @@ read the demo's frozen `source.json` instead of its checkout; a project now
 wins over a demo of the same name.
 **Beat:** opening docs in a terminal tab or the system's editor, which leaves
 the app for what is part of understanding the code; and a dialog, which cannot
-be linked to or left open beside the map's own Back.
+be linked to or left open beside the bluprint's own Back.
 
 **Cost accepted:** a dependency for Markdown. Links to code files inside a doc
 are named, not opened; images in a doc do not load.
@@ -1607,7 +1607,7 @@ are named, not opened; images in a doc do not load.
 
 ## D67 — A leaf is one piece of code; every part is a box that leads to one
 
-**Chose:** a generated map has two kinds of level, and `check` holds both.
+**Chose:** a generated bluprint has two kinds of level, and `check` holds both.
 A level with parts is one `diagram` whose boxes open every child, plus at
 most two blocks. A leaf is one function, handler, screen or config: at most 3
 code ranges from at most 2 files and 200 lines, no diagram, and 1–2 blocks,
@@ -1622,10 +1622,10 @@ pages. On the six landing demos, 43–78% of leaves cited more than one part
 parts had no box leading to them. The exemplar taught it: its leaves cited
 4–5 ranges under 2–4 blocks.
 **Measured:** six repos (ky, flask, saas-starter, taxonomy, realworld,
-explorify), mapped twice through Claude Code. Second round: 0 check problems,
+explorify), given a bluprint twice through Claude Code. Second round: 0 check problems,
 0% leaves over the limit, 0% parts without a box, no leaf diagrams, every
 leaf with a block; median detail 24–27 words and 4.7–6.2 boxes per diagram
-on every map; $3.81–9.67 a map against $8–45 before. `eval.mts` reports
+on every bluprint; $3.81–9.67 a bluprint against $8–45 before. `eval.mts` reports
 these as `fat leaves %`, `parts w/o box %`, `leaf diagrams %` and the leaf
 columns.
 **Beat:** opening a leaf's code by default in the app, which shows the same
@@ -1650,7 +1650,7 @@ draws the idea and opens nothing). The repository level adds a glossary
 shown below its diagram. An Explain toggle in the header hides all of it; it
 is on by default and remembered per browser.
 **Why:** a reader asked why the code was "laid down there" with nothing
-saying what it belonged to, and found the map hard to follow with no
+saying what it belonged to, and found the bluprint hard to follow with no
 background in the project. The drawer listed ranges under a level with no
 link to the sentence each one proved.
 **Measured:** ky, saas-starter, flask and the kafka control plane, from the
@@ -1660,13 +1660,13 @@ steps; cost and node counts within D67's range ($5.90–21.59). 2 leaves out of
 ~150 repeated their own block as their explain picture; `check` now rejects
 that.
 **Beat:** linking code from diagram boxes, which on a leaf there are none of;
-and a separate "beginner mode" map, which would double the generation and
+and a separate "beginner mode" bluprint, which would double the generation and
 drift from the real one.
 
 **Cost accepted:** the top of every level is longer when Explain is on, so a
 level's picture sits lower; the tour scrolls to it.
 
-## D69 — A map is watched while it is made
+## D69 — A bluprint is watched while it is made
 
 **Chose:** a project opens the moment its run starts, and until its overview
 lands the repository's level is the run itself:
@@ -1681,13 +1681,13 @@ lands the repository's level is the run itself:
   boxes. Its boxes settle and each arrow is traced in, once, on arrival.
 
 A strip of the five stages sits above all of it. The pipeline writes what
-this needs beside the map: `progress.json` gains the reading and each root's
+this needs beside the bluprint: `progress.json` gains the reading and each root's
 `sub`; `drafts.json` holds each root's latest submit whose shape holds,
-removed when the root is accepted or fails. lib/maps.ts composes drafts into
-the page's map marked `draft`. A draft opens dimmed under a note that it is
-still being checked. Neither file is the map, and nothing in `map.json`
+removed when the root is accepted or fails. lib/bluprints.ts composes drafts into
+the page's bluprint marked `draft`. A draft opens dimmed under a note that it is
+still being checked. Neither file is the bluprint, and nothing in `bluprint.json`
 changes.
-**Why:** a first map takes 10–30 minutes, and the only sign of it was a line
+**Why:** a first bluprint takes 10–30 minutes, and the only sign of it was a line
 in the Projects list. A reader asked to see the diagram build "as ppl can get
 bored easily while waiting".
 **Measured:** realworld (62 files) imported through the app: open on the
@@ -1697,23 +1697,23 @@ as drafts with 1–2 problems before they passed; the overview drawn in with its
 10 arrows traced. The whole run took 12.6 minutes and cost $5.92, with 0 check
 problems.
 **Beat:** streaming the agents' own text, which shows effort rather than the
-map; and writing drafts into `map.json`, which every other reader of that
+bluprint; and writing drafts into `bluprint.json`, which every other reader of that
 file (export, check, update) would then have to tell from the real thing.
 
 **Cost accepted:** a draft can be wrong in ways the checker has already
 flagged; the note says so, and it is replaced within a submit or two.
 
-## D70 — How much a map explains is asked, not assumed
+## D70 — How much a bluprint explains is asked, not assumed
 
 **Chose:** importing a folder asks two questions: how well the reader knows
 this codebase (never opened it / used it or read some / wrote parts of it),
 and how well they know this kind of software (new to it / some / expert).
 The answers pick one of three levels, which the project keeps and every run
-and update follows (`SLOP_EXPLAIN`, recorded on the map as `RUN.explain`):
+and update follows (`SLOP_EXPLAIN`, recorded on the bluprint as `RUN.explain`):
 
 - **None** for someone who wrote the code, or knows the field and has used
-  it: the map as it was before D68's plain-words layer. Steps still open
-  their lines; that is how the map reads, not an explanation.
+  it: the bluprint as it was before D68's plain-words layer. Steps still open
+  their lines; that is how the bluprint reads, not an explanation.
 - **Full** for someone new to both: D68's layer, unchanged.
 - **Brief** for everyone else: one or two sentences per level on what this
   project means by it, no pictures, a glossary of 3–8 terms a developer
@@ -1732,9 +1732,9 @@ project. Hiding it behind a toggle still pays for it, and still has the
 agents spend their turns on it.
 **Beat:** asking the reader to pick a level by name, which asks them to
 predict what a level contains; and choosing per reader at view time, which
-would need every map generated at full.
+would need every bluprint generated at full.
 
-**Cost accepted:** a map is often read by someone other than the person who
+**Cost accepted:** a bluprint is often read by someone other than the person who
 imported it, and their answers set it for every reader. Regenerating at
 another level redoes the roots; the summaries and the cut replay from cache.
 
@@ -1748,14 +1748,14 @@ another level redoes the roots; the summaries and the cut replay from cache.
 
 ## D72 — Commits are a list in the diff panel, and lines are drawn under what they changed
 
-**Chose:** the diff panel opens on the commit list (subject, author, date, +/−) under the map's own default; a click shows what that commit did (`<it>~1..<it>`), and two arbitrary ends sit behind "Compare two commits…". Every changed file opens onto its hunks, and a step's code popup shows "What changed here" — only the hunks inside its lines. The map's line references are carried to any `from` commit through the diff from the map's text, following renames commit by commit, so any commit gets section verdicts. Supersedes D56's rule that only the map's own commit could.
+**Chose:** the diff panel opens on the commit list (subject, author, date, +/−) under the bluprint's own default; a click shows what that commit did (`<it>~1..<it>`), and two arbitrary ends sit behind "Compare two commits…". Every changed file opens onto its hunks, and a step's code popup shows "What changed here" — only the hunks inside its lines. The bluprint's line references are carried to any `from` commit through the diff from the bluprint's text, following renames commit by commit, so any commit gets section verdicts. Supersedes D56's rule that only the bluprint's own commit could.
 **Fixed with it:** after an update the working-tree diff started from the commit, not `base.json`, so verdicts compared refs to the wrong numbering.
 **Beat:** a separate commit screen (D56 holds: the hunks sit next to the code they belong to).
-**Cost accepted:** a ref whose own lines changed between the map's text and `from` lands near, not on. A commit far from the map's takes 2–5 s.
+**Cost accepted:** a ref whose own lines changed between the bluprint's text and `from` lands near, not on. A commit far from the bluprint's takes 2–5 s.
 
-## D73 — How the code got here: commits on the map's sections, chapters on request
+## D73 — How the code got here: commits on the bluprint's sections, chapters on request
 
-**Chose:** `?timeline` takes the level's place (the D66 pattern) and draws every commit (up to 2000) as a dot on the rows of the map's roots, by the cut's `owners`, one step per commit with dates under it and each commit's size as a bar above. Paths follow renames, so history from before a move still lands on today's roots. A dot opens what that commit did on its root's level; a drag opens a stretch; both through diff mode. "Tell the story" is one structured model call over the commit messages, checked so every chapter's ends are real commits in order, drawn as bands. Claude opens it with `slop-map-show timeline`.
+**Chose:** `?timeline` takes the level's place (the D66 pattern) and draws every commit (up to 2000) as a dot on the rows of the bluprint's roots, by the cut's `owners`, one step per commit with dates under it and each commit's size as a bar above. Paths follow renames, so history from before a move still lands on today's roots. A dot opens what that commit did on its root's level; a drag opens a stretch; both through diff mode. "Tell the story" is one structured model call over the commit messages, checked so every chapter's ends are real commits in order, drawn as bands. Claude opens it with `slop-bluprint-show timeline`.
 **Beat:** a time-scaled axis, which crushed three busy weeks into slivers beside empty gaps; and narrating history in chat only.
 **Measured:** this repository: 193 commits, first read 6.8 s, cached 69 ms (keyed by HEAD and the roots). Story: 7 chapters, $0.05, 27 s, accepted first try.
 **Cost accepted:** every new commit re-reads the log; a repository past 2000 commits shows its newest.
@@ -1763,7 +1763,7 @@ another level redoes the roots; the summaries and the cut replay from cache.
 
 ## D74 — Changes in the diagrams, code you type into, whole files in tabs
 
-**Chose:** in diff mode a diagram box takes its section's verdict colour: amber when changed, red, dashed and struck through when gone, green when new. After a map update, a diagram also compares against `map.base.json`, a copy of the map from before the update's first write, so boxes and arrows added or removed show in green and red. Code panes have no edit button: the code is an editor (a transparent textarea over the highlighted text) that writes only on Save or ⌘S, with the trimmed diff shown first. "open file ↗" opens the whole file in a tab of its own as `?file=`, an editor with the same save and stale check; Esc, Back and closing the tab return to the level.
+**Chose:** in diff mode a diagram box takes its section's verdict colour: amber when changed, red, dashed and struck through when gone, green when new. After a bluprint update, a diagram also compares against `bluprint.base.json`, a copy of the bluprint from before the update's first write, so boxes and arrows added or removed show in green and red. Code panes have no edit button: the code is an editor (a transparent textarea over the highlighted text) that writes only on Save or ⌘S, with the trimmed diff shown first. "open file ↗" opens the whole file in a tab of its own as `?file=`, an editor with the same save and stale check; Esc, Back and closing the tab return to the level.
 **Beat:** an edit toggle, which was one more click before every fix; and a code-editor dependency (CodeMirror/Monaco), which would mean a new package and a second colour scheme.
 **Fixed with it:** a whole-file save dropped the file's final newline, because `writeSlice` strips one; the file view sends one for it to strip.
 **Cost accepted:** no multi-cursor, find, or language smarts; an unsaved draft is lost when you leave the view.
@@ -1771,7 +1771,7 @@ another level redoes the roots; the summaries and the cut replay from cache.
 
 ## D75 — Changes read like an editor's source control
 
-**Chose:** the diff panel is a two-pane window. On the left are "Since the map was made" and then the commits, newest first, on one line with a dot each. The picked commit opens onto its changed files beneath it: name, folder, +/−, and an M/A/D letter. On the right is the picked file side by side (removals beside what replaced them, hatched where one side has no line) or inline, with "⋯ N unchanged lines" between hunks. With no file picked, the right side shows the commit: message, author, date, sha, and the map sections it moved, each opening its level. ↑/↓ walk commits and files as one list, ⇧-click a second commit compares the two, a filter narrows the history, and the layout choice is kept. The panel still routes and the level still shows the red and green (D58).
+**Chose:** the diff panel is a two-pane window. On the left are "Since the bluprint was made" and then the commits, newest first, on one line with a dot each. The picked commit opens onto its changed files beneath it: name, folder, +/−, and an M/A/D letter. On the right is the picked file side by side (removals beside what replaced them, hatched where one side has no line) or inline, with "⋯ N unchanged lines" between hunks. With no file picked, the right side shows the commit: message, author, date, sha, and the bluprint sections it moved, each opening its level. ↑/↓ walk commits and files as one list, ⇧-click a second commit compares the two, a filter narrows the history, and the layout choice is kept. The panel still routes and the level still shows the red and green (D58).
 **Beat:** the earlier dialog: a short commit list, from/to `<select>`s behind "Compare two commits…", and files that expanded inline under the section list. It had no way to read a commit file by file, and comparing meant two dropdowns of truncated subjects.
 **Fixed with it:** the commit log took 6–11 s on this repository, because one commit of build output made `--numstat` read 4,000 blobs. Files over 1 MB now count as binary (`core.bigFileThreshold=1m`), and the log is kept until HEAD moves: 2.0 s first, 24 ms after. Totals moved by 4 lines in 317,000.
 **Cost accepted:** the last 200 commits only; no word-level highlights inside a changed line; an older commit's diff still takes seconds while renames are followed, and its paths from the log show meanwhile.
@@ -1779,7 +1779,7 @@ another level redoes the roots; the summaries and the cut replay from cache.
 
 ## D76 — History opens on the newest commit and compares any two
 
-**Chose:** the panel is titled History and starts on the newest commit. The "Since the map was made" row is gone, because the map keeps itself current and the question it answered is no longer one a reader asks. A row's "⇄ Compare with <selected>" button on hover, or ⇧/⌘-click, compares two commits, older as base. Base and compare are tagged on their rows, the commits between are shaded, the right side shows both as cards with a swap, and the files changed between them list under the compare row as a single commit's do. A single commit shows what an editor's commit details do: author and email, an initials avatar, when, branch and tag chips, the whole message, the sha to copy, parents to click, the committer where it differs, and merges marked.
+**Chose:** the panel is titled History and starts on the newest commit. The "Since the bluprint was made" row is gone, because the bluprint keeps itself current and the question it answered is no longer one a reader asks. A row's "⇄ Compare with <selected>" button on hover, or ⇧/⌘-click, compares two commits, older as base. Base and compare are tagged on their rows, the commits between are shaded, the right side shows both as cards with a swap, and the files changed between them list under the compare row as a single commit's do. A single commit shows what an editor's commit details do: author and email, an initials avatar, when, branch and tag chips, the whole message, the sha to copy, parents to click, the committer where it differs, and merges marked.
 **Beat:** comparing through two `<select>`s, and a details line holding only author and date.
 **Cost accepted:** a merge's changes are shown against its first parent, and the history is one line with no branch lanes. Refs are read with the log, so a new branch or tag shows after the next commit.
 **At scale:** same as D75: the last 200 commits.
@@ -1791,9 +1791,9 @@ another level redoes the roots; the summaries and the cut replay from cache.
 **Measured:** the 14-file checkpoint `eeaed23`: 6.4 s, $0.06.
 **Cost accepted:** the model is asked for 40 words and wrote about 60; nothing enforces it. A diff past 40,000 characters is told from its start.
 
-## D78 — A change is found on the map the way a pull request is read
+## D78 — A change is found on the bluprint the way a pull request is read
 
-**Chose:** while a change is shown, a bar across the top of every level names it (the commit, review or range), gives the legend (+ new, ~ changed, − gone) and steps through every changed part with ‹ Prev / Next ›, each opening that part's level. Each changed diagram box wears a "+N −M" tag on its top edge, counting the hunks that touch the lines it and everything under it cite. Under the picture, its changed boxes are listed with GitHub's five squares, each row opening onto those red and green lines, and hovering a row lights its box. A level whose own lines changed opens with "This part changed", showing its hunks first. The title bar's version-control button uses the branch glyph editors give source control and shows as pressed while a change is on. The diff state, not the panel, makes "nothing picked" mean the newest commit, so bar, panel and map agree.
+**Chose:** while a change is shown, a bar across the top of every level names it (the commit, review or range), gives the legend (+ new, ~ changed, − gone) and steps through every changed part with ‹ Prev / Next ›, each opening that part's level. Each changed diagram box wears a "+N −M" tag on its top edge, counting the hunks that touch the lines it and everything under it cite. Under the picture, its changed boxes are listed with GitHub's five squares, each row opening onto those red and green lines, and hovering a row lights its box. A level whose own lines changed opens with "This part changed", showing its hunks first. The title bar's version-control button uses the branch glyph editors give source control and shows as pressed while a change is on. The diff state, not the panel, makes "nothing picked" mean the newest commit, so bar, panel and bluprint agree.
 **Beat:** tints alone, which the user could not find; and a separate diff screen (D56 holds: the lines sit on the picture and the level they belong to).
 **Cost accepted:** a hunk counts toward a box when its old side meets a cited span, so one hunk shared by two parts counts in both. A part whose verdict comes only from what is under it lists no lines of its own and says so.
 

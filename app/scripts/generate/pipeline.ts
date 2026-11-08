@@ -6,18 +6,18 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Node, Run } from "@/lib/map/schema";
-import type { MapFile, Overview } from "@/lib/map/build";
+import type { Node, Run } from "@/lib/bluprint/schema";
+import type { BluprintFile, Overview } from "@/lib/bluprint/build";
 import type { Progress } from "@/lib/server/vault";
 import { parseArgs } from "./args";
 import { auditMarkdown } from "./audit";
-import { coverage } from "@/lib/map/coverage";
+import { coverage } from "@/lib/bluprint/coverage";
 import { authorRoot, authorSplit, inParts, submitLine, tooBig, type Authored, type OnSubmit } from "./author";
 import { catalogOf } from "./catalog";
 import { BACKEND, bill, MODELS, cacheIn, sweepCache, throttle } from "./bedrock";
 import { ccClose, type Turn } from "./claude-code";
 import { deepOverview, deepRoot } from "./deep";
-import { fastMap } from "./fast";
+import { fastBluprint } from "./fast";
 import { arrowStats, check, dedupeIssues, EXPLAIN_LEVEL, OVERVIEW_ID } from "./check";
 import { cutRepo, place, unclaimed, type Cut } from "./cut";
 import { activeGraph, buildGraph, setGraph, withSummaries } from "./graph";
@@ -41,38 +41,38 @@ function withoutEdges(cut: Cut & { edges?: unknown }): Cut {
 }
 
 /**
- * The overview of a finished map, drawn again from the code: for a map made
+ * The overview of a finished bluprint, drawn again from the code: for a bluprint made
  * before D60, whose top level was the cut's uncited path, or one whose roots
  * moved. The cut is the cached one when there is one; otherwise each root owns
  * the files its own levels cite, which is all the overview reads it for.
  */
 async function redraw(out: string, inv: ReturnType<typeof inventory>, model: string) {
-  const map: MapFile = JSON.parse(readFileSync(`${out}/map.json`, "utf8"));
+  const bluprint: BluprintFile = JSON.parse(readFileSync(`${out}/bluprint.json`, "utf8"));
   const cited = (n: Node): string[] => [...(n.code ?? []).map((c) => c.file), ...(n.children ?? []).flatMap(cited)];
   const cut: Cut = existsSync(`${out}/.cache/cut.json`)
     ? withoutEdges(JSON.parse(readFileSync(`${out}/.cache/cut.json`, "utf8")))
-    : { about: "", excluded: [], roots: map.AUTHORED.map((r) => ({ id: r.id, prefix: "", title: r.title, sub: r.sub, why: "", files: [...new Set(cited(r))] })) };
-  const problems = await redrawOverview(map, cut, inv, model);
-  if (!problems) atomic(`${out}/map.json`, JSON.stringify(map, null, 1) + "\n");
-  console.log(`${out}/map.json — overview ${problems ? `not accepted: ${problems.slice(0, 5).join("; ")}` : "redrawn"}, $${Object.values(bill).reduce((a, b) => a + b.usd, 0).toFixed(2)}`);
+    : { about: "", excluded: [], roots: bluprint.AUTHORED.map((r) => ({ id: r.id, prefix: "", title: r.title, sub: r.sub, why: "", files: [...new Set(cited(r))] })) };
+  const problems = await redrawOverview(bluprint, cut, inv, model);
+  if (!problems) atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
+  console.log(`${out}/bluprint.json — overview ${problems ? `not accepted: ${problems.slice(0, 5).join("; ")}` : "redrawn"}, $${Object.values(bill).reduce((a, b) => a + b.usd, 0).toFixed(2)}`);
   await ccClose();
 }
 
-/** Draws `map`'s top level again from its roots as they are, in place; the checker's last word if it was not accepted. */
-export async function redrawOverview(map: MapFile, cut: Cut, inv: Inventory, model: string, sums: Record<string, FileSummary> = {}): Promise<string[] | null> {
-  const drawn = await overviewOf(map.AUTHORED, cut, inv, model, (n, problems) => console.log(`  overview: submit ${n} — ${problems ? `${problems} problems` : "clean"}`), sums);
+/** Draws `bluprint`'s top level again from its roots as they are, in place; the checker's last word if it was not accepted. */
+export async function redrawOverview(bluprint: BluprintFile, cut: Cut, inv: Inventory, model: string, sums: Record<string, FileSummary> = {}): Promise<string[] | null> {
+  const drawn = await overviewOf(bluprint.AUTHORED, cut, inv, model, (n, problems) => console.log(`  overview: submit ${n} — ${problems ? `${problems} problems` : "clean"}`), sums);
   if (!drawn.overview) return drawn.problems;
   const node = { ...drawn.overview, id: OVERVIEW_ID, title: "Overview", sub: drawn.overview.sub ?? "", col: 0, row: 0 };
   const top = toOverview(node);
   if (EXPLAIN_LEVEL === "none") for (const k of ["explain", "glossary"] as const) delete top[k];
-  map.OVERVIEW = top;
+  bluprint.OVERVIEW = top;
   return null;
 }
 
 export type RootStatus = Progress["roots"][number]["status"];
 
 /**
- * A map asked to explain nothing (D70) keeps nothing explained: the types the
+ * A bluprint asked to explain nothing (D70) keeps nothing explained: the types the
  * authors read describe `explain`, and measured, they wrote it on half the
  * levels unasked.
  */
@@ -126,7 +126,7 @@ export async function main(args: string[]) {
   const repo = resolve(dir!);
   const inv = inventory(repo);
   const name = opt("--name") ?? inv.name.toLowerCase();
-  // --scope maps part of a large repo; the rest stays readable to the authors.
+  // --scope bluprints part of a large repo; the rest stays readable to the authors.
   const scope = opt("--scope")?.split(",");
   if (scope) scopeTo(inv, { paths: scope, focus: opt("--focus") ?? "" });
   const only = opt("--roots")?.split(",");
@@ -138,16 +138,16 @@ export async function main(args: string[]) {
     cut: pick(process.env.SLOP_CUT),
     author: pick(process.env.SLOP_AUTHOR),
     part: pick(process.env.SLOP_PART, "sonnet"),
-    // A leaf's words in a deepened --fast map (deep.ts): its source is in front of it, nothing to find.
+    // A leaf's words in a deepened --fast bluprint (deep.ts): its source is in front of it, nothing to find.
     words: pick(process.env.SLOP_WORDS, "sonnet"),
   };
 
-  // --out puts the map elsewhere: the app's project vault (lib/vault.ts), so an
-  // imported project's map never lands in this repo's committed examples.
-  const out = opt("--out") ?? `maps/${name}`;
+  // --out puts the bluprint elsewhere: the app's project vault (lib/vault.ts), so an
+  // imported project's bluprint never lands in this repo's committed examples.
+  const out = opt("--out") ?? `bluprints/${name}`;
   mkdirSync(out, { recursive: true });
   cacheIn(`${out}/.cache`, { fresh: has("--fresh") });
-  // --overview redraws only the top level of the map that is there (D60).
+  // --overview redraws only the top level of the bluprint that is there (D60).
   // The graph is what every author draws from and what the checker proves arrows against.
   setGraph(await buildGraph(inv));
   if (has("--overview")) return redraw(out, inv, models.author);
@@ -172,7 +172,7 @@ export async function main(args: string[]) {
     atomic(`${out}/progress.json`, JSON.stringify(progress, null, 1) + "\n");
   };
   // A root's latest submit while it is still being checked, which the app
-  // shows dimmed (D69). Its own file, beside the map: it is not the map.
+  // shows dimmed (D69). Its own file, beside the bluprint: it is not the bluprint.
   const drafts: Record<string, Node> = {};
   let drafting = Promise.resolve();
   const writeDrafts = () => (drafting = drafting.then(() => atomic(`${out}/drafts.json`, JSON.stringify(drafts) + "\n")));
@@ -224,7 +224,7 @@ export async function main(args: string[]) {
   withSummaries(activeGraph()!, sums);
   writeFileSync(`${out}/graph.json`, JSON.stringify(activeGraph()) + "\n");
   if (stopAfter === "summarize") return;
-  // --fast: the four-phase map (fast.ts) in place of the cut, the authors and
+  // --fast: the four-phase bluprint (fast.ts) in place of the cut, the authors and
   // the overview; then, unless --no-deepen, each of its sections written in
   // full by the authors, in reading order, a section the reader has open first.
   if (has("--fast")) {
@@ -232,20 +232,20 @@ export async function main(args: string[]) {
     flush();
     const deepen = !has("--no-deepen");
     const agentDeepen = has("--deepen-agent");
-    const run: Run = { command: `bluprint map ${inv.name} --fast`, mapperVersion: MAPPER_VERSION, repo: inv.scope ? name : inv.name, commit: inv.commit, files: code.length, elapsed: "", root: repo, explain: deepen ? EXPLAIN_LEVEL : "none", models };
-    const r = await lap("fast", () => fastMap(inv, sums, activeGraph()!, models.author, run, say));
+    const run: Run = { command: `bluprint make ${inv.name} --fast`, mapperVersion: MAPPER_VERSION, repo: inv.scope ? name : inv.name, commit: inv.commit, files: code.length, elapsed: "", root: repo, explain: deepen ? EXPLAIN_LEVEL : "none", models };
+    const r = await lap("fast", () => fastBluprint(inv, sums, activeGraph()!, models.author, run, say));
     const quick = Math.round((Date.now() - t0) / 1000);
-    r.map.RUN.elapsed = `${Math.max(1, Math.round(quick / 60))} min`;
-    atomic(`${out}/map.json`, JSON.stringify(r.map, null, 1) + "\n");
+    r.bluprint.RUN.elapsed = `${Math.max(1, Math.round(quick / 60))} min`;
+    atomic(`${out}/bluprint.json`, JSON.stringify(r.bluprint, null, 1) + "\n");
     writeFileSync(`${out}/arch.json`, JSON.stringify(r.arch, null, 1) + "\n");
-    console.log(`\n${out}/map.json — ${r.map.AUTHORED.length} components, ${r.checkProblems.length} check problems, ${r.discrepancies.length} discrepancies, ${quick}s`);
+    console.log(`\n${out}/bluprint.json — ${r.bluprint.AUTHORED.length} components, ${r.checkProblems.length} check problems, ${r.discrepancies.length} discrepancies, ${quick}s`);
     for (const d of r.discrepancies) console.log(`  discrepancy: ${d}`);
     for (const p of r.checkProblems.slice(0, 30)) console.log(`  check: ${p}`);
 
     // The components as a cut, so the authors (and later updates, update.ts) read them as roots.
     const fastCut: Cut = {
-      about: r.map.OVERVIEW?.detail ?? "",
-      roots: r.map.AUTHORED.map((n) => {
+      about: r.bluprint.OVERVIEW?.detail ?? "",
+      roots: r.bluprint.AUTHORED.map((n) => {
         const c = r.arch.components.find((x) => x.id === n.id)!;
         return { id: n.id, prefix: c.prefix, title: n.title, sub: n.sub, why: n.detail ?? "", files: c.files };
       }),
@@ -259,11 +259,11 @@ export async function main(args: string[]) {
       progress.stage = "deepen";
       progress.roots = fastCut.roots.map((x) => ({ id: x.id, title: x.title, sub: x.sub, status: "queued" as RootStatus, detail: "quick version" }));
       flush();
-      const map = r.map;
+      const bluprint = r.bluprint;
       let writing = Promise.resolve();
       const save = () => {
-        const body = JSON.stringify(map, null, 1) + "\n";
-        writing = writing.then(() => atomic(`${out}/map.json`, body));
+        const body = JSON.stringify(bluprint, null, 1) + "\n";
+        writing = writing.then(() => atomic(`${out}/bluprint.json`, body));
         return writing;
       };
       // The reader's open section, which the app writes when they open a quick one (lib/vault.ts, focus).
@@ -287,7 +287,7 @@ export async function main(args: string[]) {
         // Code builds the section and a model writes its words (deep.ts); --deepen-agent writes it with an author agent, as before.
         if (!agentDeepen)
           // A section whose calls all fail keeps its quick version, as a failed author does.
-          done = await deepRoot(root, r.map.AUTHORED.find((n) => n.id === id)!, inv, sums, activeGraph()!, { group: models.author, words: models.words }, say).catch((e: Error) => ({ root: null, turns: 0, reads: 0, submits: 0, problems: [e.message.slice(0, 300)], trail: [] }));
+          done = await deepRoot(root, r.bluprint.AUTHORED.find((n) => n.id === id)!, inv, sums, activeGraph()!, { group: models.author, words: models.words }, say).catch((e: Error) => ({ root: null, turns: 0, reads: 0, submits: 0, problems: [e.message.slice(0, 300)], trail: [] }));
         else if (tooBig(root, fastCut, inv, sums)) {
           const split = await authorSplit(root, fastCut, inv, sums, { cut: models.cut, part: models.part, join: models.author }, null, { submit: submitted(id, root.prefix), part: () => {}, say });
           done = split?.authored ?? (await authorRoot(root, fastCut, inv, sums, models.author, submitted(id, root.prefix)));
@@ -297,9 +297,9 @@ export async function main(args: string[]) {
         void writeDrafts();
         if (done.root) {
           // In the quick one's place: same id and row, so the overview's boxes still open it.
-          const i = map.AUTHORED.findIndex((n) => n.id === id);
-          map.AUTHORED[i] = { ...plain(done.root), col: 0, row: i };
-          dedupeIssues(map.AUTHORED[i]);
+          const i = bluprint.AUTHORED.findIndex((n) => n.id === id);
+          bluprint.AUTHORED[i] = { ...plain(done.root), col: 0, row: i };
+          dedupeIssues(bluprint.AUTHORED[i]);
           await save();
           mark(id, "done", "written in full");
           say(`${id}: written in full after ${done.turns + 1} ${agentDeepen ? "turns" : "calls"}`);
@@ -324,14 +324,14 @@ export async function main(args: string[]) {
 
       // The top level drawn again over the sections as written in full, as the
       // full pipeline draws it (D60): its explainer, glossary and walkthroughs,
-      // which the quick map has none of. If it fails the quick one stays.
+      // which the quick bluprint has none of. If it fails the quick one stays.
       progress.stage = "overview";
       flush();
       const drawn: Overviewed = agentDeepen
-        ? await lap("overview", () => overviewOf(map.AUTHORED, fastCut, inv, models.author, (n, problems) => say(`overview: submit ${n} — ${problems ? `${problems} problems` : "clean"}`), sums))
+        ? await lap("overview", () => overviewOf(bluprint.AUTHORED, fastCut, inv, models.author, (n, problems) => say(`overview: submit ${n} — ${problems ? `${problems} problems` : "clean"}`), sums))
         : await lap("overview", async () => {
             try {
-              const o = await deepOverview(map.AUTHORED, map.OVERVIEW!, inv, activeGraph()!, models.author);
+              const o = await deepOverview(bluprint.AUTHORED, bluprint.OVERVIEW!, inv, activeGraph()!, models.author);
               return { overview: o.overview, turns: 0, submits: 1, problems: o.problems };
             } catch (e) {
               return { overview: null, turns: 0, submits: 0, problems: [(e as Error).message.slice(0, 300)] };
@@ -340,16 +340,16 @@ export async function main(args: string[]) {
       if (drawn.overview) {
         const top = { ...drawn.overview };
         if (EXPLAIN_LEVEL === "none") for (const k of ["explain", "glossary"] as const) delete top[k];
-        map.OVERVIEW = top;
-        atomic(`${out}/map.json`, JSON.stringify(map, null, 1) + "\n");
+        bluprint.OVERVIEW = top;
+        atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
       }
       say(`overview: ${drawn.overview ? "redrawn" : "kept the quick one"} after ${drawn.turns + 1} turns`);
     }
 
     const total = Math.round((Date.now() - t0) / 1000);
-    const final = check(r.map, repo, { generated: true });
-    r.map.RUN.elapsed = `${Math.max(1, Math.round(total / 60))} min`;
-    atomic(`${out}/map.json`, JSON.stringify(r.map, null, 1) + "\n");
+    const final = check(r.bluprint, repo, { generated: true });
+    r.bluprint.RUN.elapsed = `${Math.max(1, Math.round(total / 60))} min`;
+    atomic(`${out}/bluprint.json`, JSON.stringify(r.bluprint, null, 1) + "\n");
     const usd = Object.values(bill).reduce((a, b) => a + b.usd, 0);
     writeFileSync(
       `${out}/report.json`,
@@ -376,14 +376,14 @@ export async function main(args: string[]) {
     );
     progress.stage = "done";
     flush();
-    if (deepen) console.log(`\ndeepened ${Object.values(deep).filter((a) => a.root).length}/${fastCut.roots.length} sections; ${final.problems.length} check problems; $${usd.toFixed(2)}, quick map at ${quick}s, done at ${total}s`);
+    if (deepen) console.log(`\ndeepened ${Object.values(deep).filter((a) => a.root).length}/${fastCut.roots.length} sections; ${final.problems.length} check problems; $${usd.toFixed(2)}, quick bluprint at ${quick}s, done at ${total}s`);
     await ccClose();
     return;
   }
   progress.stage = "cut";
   flush();
 
-  // A re-run keeps the cut of the map that is there unless asked for a fresh
+  // A re-run keeps the cut of the bluprint that is there unless asked for a fresh
   // one: a new cut could rename every root. Code added since that no root
   // claims is placed in it (cut.ts, place) rather than cut again, so only the
   // roots that gain files are redone. Edges of a cut made before D60 are
@@ -409,16 +409,16 @@ export async function main(args: string[]) {
   if (stopAfter === "cut") return;
 
   // A re-run with --roots reuses the roots it is not asked to redo.
-  const prev: MapFile | null = only && existsSync(`${out}/map.json`) ? JSON.parse(readFileSync(`${out}/map.json`, "utf8")) : null;
+  const prev: BluprintFile | null = only && existsSync(`${out}/bluprint.json`) ? JSON.parse(readFileSync(`${out}/bluprint.json`, "utf8")) : null;
   const authored: Record<string, Authored> = {};
   let overview: Overview | undefined;
 
   /**
-   * The authored roots as a map file. The row is the root's place in the cut,
+   * The authored roots as a bluprint file. The row is the root's place in the cut,
    * not its place among those done, so a root arriving never moves the ones
    * already on screen. Until the overview is drawn the top level lists them.
    */
-  const assemble = (run: Run): MapFile => {
+  const assemble = (run: Run): BluprintFile => {
     const AUTHORED = cut.roots.flatMap((r, i) => {
       const n = authored[r.id]?.root;
       return n ? [{ ...plain(n), col: 0, row: i }] : [];
@@ -435,12 +435,12 @@ export async function main(args: string[]) {
   progress.roots = cut.roots.map((r) => ({ id: r.id, title: r.title, sub: r.sub, status: "queued" as RootStatus, detail: "queued" }));
   flush();
 
-  // The RUN of a map still being made: the same facts as the final one, with
+  // The RUN of a bluprint still being made: the same facts as the final one, with
   // the time so far in place of the total the run does not have yet.
   const runNow = (): Run => ({
-    command: `bluprint map ${inv.name}`,
+    command: `bluprint make ${inv.name}`,
     mapperVersion: MAPPER_VERSION,
-    // A scoped map is named for its part and counts only the files it covers.
+    // A scoped bluprint is named for its part and counts only the files it covers.
     repo: inv.scope ? name : inv.name,
     commit: inv.commit,
     files: inv.scope ? code.length : inv.files.length,
@@ -453,12 +453,12 @@ export async function main(args: string[]) {
 
   // The roots are authored concurrently, so their partial writes are chained:
   // each waits for the previous rename. Latest-wins would be enough for the
-  // file's content, but the chain also keeps progress.json and map.json from
+  // file's content, but the chain also keeps progress.json and bluprint.json from
   // disagreeing about which roots exist.
   let writing = Promise.resolve();
   const partial = () => {
-    const map = assemble(runNow());
-    writing = writing.then(() => atomic(`${out}/map.json`, JSON.stringify(map, null, 1) + "\n"));
+    const bluprint = assemble(runNow());
+    writing = writing.then(() => atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n"));
     return writing;
   };
 
@@ -505,7 +505,7 @@ export async function main(args: string[]) {
         const cov = authored[r.id].coverage;
         say(`${r.id}: ${authored[r.id].root ? "accepted" : "FAILED"} after ${authored[r.id].turns + 1} turns, ${authored[r.id].reads} reads${cov ? `, ${cov.symbols - cov.gaps.length}/${cov.symbols} symbols explained` : ""}`);
         // Accepted means it already passed, inside authorRoot's submit, the
-        // same check() the finished map passes — so showing it now shows
+        // same check() the finished bluprint passes — so showing it now shows
         // nothing a finished root would not.
         if (authored[r.id].root) {
           mark(r.id, "done", "explorable now");
@@ -522,7 +522,7 @@ export async function main(args: string[]) {
   // The top level is drawn last, from the roots as accepted (D60). A repair
   // that leaves the same roots standing keeps the overview it had.
   const accepted = cut.roots.flatMap((r) => (authored[r.id].root ? [authored[r.id].root!] : []));
-  const same = (o: MapFile | null) => o?.OVERVIEW && o.AUTHORED.map((n) => n.id).join() === accepted.map((n) => n.id).join();
+  const same = (o: BluprintFile | null) => o?.OVERVIEW && o.AUTHORED.map((n) => n.id).join() === accepted.map((n) => n.id).join();
   let drawn: Overviewed | null = null;
   if (same(prev)) overview = prev!.OVERVIEW;
   else if (accepted.length) {
@@ -549,11 +549,11 @@ export async function main(args: string[]) {
       for (const [k] of runs) if (last.bill?.[k]) spent[k] = last.bill[k];
     }
   }
-  const map = assemble({ ...runNow(), elapsed: `${Math.round(total / 60)} min` });
-  const { AUTHORED } = map;
-  const final = check(map, repo, { generated: true });
+  const bluprint = assemble({ ...runNow(), elapsed: `${Math.round(total / 60)} min` });
+  const { AUTHORED } = bluprint;
+  const final = check(bluprint, repo, { generated: true });
   const covered = coverage(index, AUTHORED);
-  atomic(`${out}/map.json`, JSON.stringify(map, null, 1) + "\n");
+  atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
   progress.stage = "done";
   flush();
 
@@ -567,7 +567,7 @@ export async function main(args: string[]) {
     // price; on a Claude plan they come out of the plan's usage instead.
     backend: BACKEND,
     models,
-    // A --roots repair is not what the map costs to make: the full run's
+    // A --roots repair is not what the bluprint costs to make: the full run's
     // time and price stand, and the repair is listed beside them.
     ...(only && last
       ? { elapsed: last.elapsed, usd: last.usd, fullUsd: last.fullUsd, bill: last.bill, repairs: [...(last.repairs ?? []), { roots: only, seconds: total, usd: Math.round(Object.values(bill).reduce((a, b) => a + b.usd, 0) * 100) / 100, bill }] }
@@ -590,14 +590,14 @@ export async function main(args: string[]) {
     })),
     check: { problems: final.problems, depth: final.roots },
     graph: { ...activeGraph()!.stats, defs: activeGraph()!.defs.length, edges: activeGraph()!.edges.length },
-    arrows: arrowStats(map),
+    arrows: arrowStats(bluprint),
   };
   writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1) + "\n");
   writeFileSync(
     `${out}/audit.md`,
     auditMarkdown({ inv, cut, rejected, leftover, cutReused, authored, drawn, overview, only, backend: BACKEND, models, seconds: total, checkProblems: final.problems }),
   );
-  console.log(`\n${out}/map.json — ${AUTHORED.length}/${cut.roots.length} roots, ${final.problems.length} check problems, ${covered.explained}/${covered.symbols} symbols explained, ${report.arrows.inferred}/${report.arrows.total} arrows inferred, $${report.usd} spent ($${report.fullUsd} uncached), ${report.elapsed.total}s`);
+  console.log(`\n${out}/bluprint.json — ${AUTHORED.length}/${cut.roots.length} roots, ${final.problems.length} check problems, ${covered.explained}/${covered.symbols} symbols explained, ${report.arrows.inferred}/${report.arrows.total} arrows inferred, $${report.usd} spent ($${report.fullUsd} uncached), ${report.elapsed.total}s`);
   final.problems.slice(0, 20).forEach((p) => console.log(`  ${p}`));
   // Where the writing stage's minutes went, root by root (replayed roots have no log).
   const timed = report.roots.flatMap((r) => (r.timing ? [{ id: r.id, ...r.timing }] : []));
@@ -606,7 +606,7 @@ export async function main(args: string[]) {
     for (const t of timed.sort((a, b) => ("wall" in b ? b.wall : b.seconds) - ("wall" in a ? a.wall : a.seconds)))
       console.log(`  ${t.id.padEnd(22)} ${String("wall" in t ? `${t.wall} wall` : t.seconds).padStart(9)} · ${t.turns} turns · ${t.wait} / ${t.think} / ${t.write} · ${t.out} (${t.thinking}) · ${t.toFirstSubmit ?? "never"} · ${t.repairTurns}`);
   }
-  // A whole map asked for every reply it still needs; the rest can never replay.
+  // A whole bluprint asked for every reply it still needs; the rest can never replay.
   if (!only) {
     const swept = sweepCache();
     if (swept) console.log(`  swept ${swept} stale cached replies`);

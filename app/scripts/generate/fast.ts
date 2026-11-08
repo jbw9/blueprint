@@ -1,5 +1,5 @@
 /**
- * The fast map (--fast): the same map file, made in four phases where code
+ * The fast bluprint (--fast): the same bluprint file, made in four phases where code
  * does what code can and a model only names and describes.
  *
  * 1. Extraction, no model: the inventory, the fact graph, and from them the
@@ -14,9 +14,9 @@
  *    thinking: its title, sub, what it is responsible for, and a title for
  *    each of its groups and files.
  * 4. Synthesize: one short call over the components and the module graph for
- *    the map's top line, their order and a label per arrow. Arrows are drawn
+ *    the bluprint's top line, their order and a label per arrow. Arrows are drawn
  *    from the graph, never from the model: an arrow it names that the graph
- *    lacks is listed as a discrepancy, not drawn. The map is checked once and
+ *    lacks is listed as a discrepancy, not drawn. The bluprint is checked once and
  *    its problems listed, not sent back for repair.
  *
  * What it gives up against the full pipeline: levels follow directories, not
@@ -25,8 +25,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model answers */
 import { basename } from "node:path";
-import type { Node } from "@/lib/map/schema";
-import type { MapFile, Overview } from "@/lib/map/build";
+import type { Node } from "@/lib/bluprint/schema";
+import type { BluprintFile, Overview } from "@/lib/bluprint/build";
 import { prefixFor } from "./author";
 import { ask, type Tool } from "./bedrock";
 import { check, LEAF, looksLikePath, SUB_WORDS, words } from "./check";
@@ -322,7 +322,7 @@ const COMPONENT_TOOL: Tool = {
 
 const SYNTH_TOOL: Tool = {
   name: "overview",
-  description: "Record the map's top level.",
+  description: "Record the bluprint's top level.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -340,7 +340,7 @@ const SYNTH_TOOL: Tool = {
   },
 };
 
-/** What an answer breaks of the map's limits on words, which the check holds every card to. */
+/** What an answer breaks of the bluprint's limits on words, which the check holds every card to. */
 export function wordProblems(fields: [what: string, text: unknown, max: number][]): string[] {
   const out: string[] = [];
   for (const [what, text, max] of fields) {
@@ -372,7 +372,7 @@ export async function askWithin(req: { model: string; stage: string; maxTokens: 
   });
 }
 
-const SYSTEM = "You describe one part of a map of a codebase from facts already extracted from its code. Use only what you are given; answer only with the structure asked for.";
+const SYSTEM = "You describe one part of a bluprint of a codebase from facts already extracted from its code. Use only what you are given; answer only with the structure asked for.";
 
 /** Code ranges for a file as a leaf cites them: the whole file if it is short, else its largest functions within the leaf's limits. */
 export function leafCode(path: string, lines: number, s: FileSummary | undefined): NonNullable<Node["code"]> {
@@ -486,7 +486,7 @@ export function diagramOf(g: Graph) {
 }
 
 export interface FastResult {
-  map: MapFile;
+  bluprint: BluprintFile;
   arch: { files: Record<string, { component: string; lines: number; symbols: { name: string; kind: string; line: number }[]; imports: string[] }>; components: Component[]; module_graph: ModuleEdge[]; entrypoints: string[]; external_deps: string[] };
   /** What the model said that the graph does not hold: listed, not fixed. */
   discrepancies: string[];
@@ -496,7 +496,7 @@ export interface FastResult {
 }
 
 /** Phases 2-4 over an inventory, its summaries and its graph (phase 1 is the caller's: inventory, summarize, graph). */
-export async function fastMap(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: MapFile["RUN"], say: (s: string) => void): Promise<FastResult> {
+export async function fastBluprint(inv: Inventory, sums: Record<string, FileSummary>, g: Graph, model: string, run: BluprintFile["RUN"], say: (s: string) => void): Promise<FastResult> {
   const timing: Record<string, number> = {};
   const lap = async <T,>(stage: string, fn: () => Promise<T> | T): Promise<T> => {
     const t = Date.now();
@@ -574,7 +574,7 @@ export async function fastMap(inv: Inventory, sums: Record<string, FileSummary>,
         })
         .join("\n")}`,
       `## Links between them, from the code (from → to: weight; what is called, most called first)\n${mod.filter((e) => e.calls).map((e) => `- ${e.from} → ${e.to}: ${e.weight}; ${e.names.join(", ")}`).join("\n") || "(none)"}`,
-      `## Task\nWrite the map's top level: its line and detail, the order of the components, and a label for each link listed. A link's arrow cites a call to the first name it lists, so its label says what that call does.`,
+      `## Task\nWrite the bluprint's top level: its line and detail, the order of the components, and a label for each link listed. A link's arrow cites a call to the first name it lists, so its label says what that call does.`,
     ].join("\n\n");
     return askWithin({ model, stage: "fast-synthesize", maxTokens: 4000, prompt, tool: SYNTH_TOOL }, (x) => [
       ...wordProblems([["the sub", x?.sub, SUB_WORDS], ["the detail", x?.detail, 40]]),
@@ -678,9 +678,9 @@ export async function fastMap(inv: Inventory, sums: Record<string, FileSummary>,
     anatomy: [top],
   } as unknown as Overview;
 
-  const map: MapFile = { RUN: run, OVERVIEW, AUTHORED };
-  // Held to the quick map's own standard: it writes no explainers, whatever the map's level.
-  const checkProblems = await lap("check", () => check({ ...map, RUN: { ...run, explain: "none" } }, inv.repo, { generated: true }).problems);
+  const bluprint: BluprintFile = { RUN: run, OVERVIEW, AUTHORED };
+  // Held to the quick bluprint's own standard: it writes no explainers, whatever the bluprint's level.
+  const checkProblems = await lap("check", () => check({ ...bluprint, RUN: { ...run, explain: "none" } }, inv.repo, { generated: true }).problems);
 
   const arch: FastResult["arch"] = {
     files: Object.fromEntries(
@@ -693,5 +693,5 @@ export async function fastMap(inv: Inventory, sums: Record<string, FileSummary>,
     entrypoints: entries,
     external_deps: inv.deps,
   };
-  return { map, arch, discrepancies, checkProblems, timing };
+  return { bluprint, arch, discrepancies, checkProblems, timing };
 }

@@ -4,16 +4,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ExplainedBlock, type Explained } from "@/components/map/blocks";
+import { ExplainedBlock, type Explained } from "@/components/bluprint/blocks";
 import { Button } from "@/components/ui/button";
 import { goTo } from "@/components/chrome/crumbs";
-import { useMaybeMap } from "@/components/map/map-context";
+import { useMaybeBluprint } from "@/components/bluprint/bluprint-context";
 import { findSection } from "@/lib/agent/act";
-import { citations } from "@/lib/map/coverage";
-import type { BuiltMap } from "@/lib/map/build";
+import { citations } from "@/lib/bluprint/coverage";
+import type { BuiltBluprint } from "@/lib/bluprint/build";
 import { DiagramDiff, TINT, WORD } from "@/components/review/diff";
 import { Eyebrow } from "@/components/ui/state";
-import type { Anatomy, DiagramArrow, DiagramBox } from "@/lib/map/schema";
+import type { Anatomy, DiagramArrow, DiagramBox } from "@/lib/bluprint/schema";
 import type { PartDiff, Verdict } from "@/lib/server/diff";
 import { fileLines, parsePlan, pieces, planChoices, type Choice, type FileLine } from "@/lib/agent/plan";
 import { cn, sleep } from "@/lib/client/utils";
@@ -24,7 +24,7 @@ import type { Status } from "@/lib/client/open-projects";
  * (components/agent/workspace.tsx), so it is read rather than scrolled past in the
  * terminal: a title and two sentences, then a few short sections, pictures
  * among them only where the plan needs one, and its Steps ticked off as
- * Claude builds it. A diagram is drawn the way the map draws a diff (components/review/diff.tsx) —
+ * Claude builds it. A diagram is drawn the way the bluprint draws a diff (components/review/diff.tsx) —
  * a plan is a diff that has not happened yet — so what it adds is green, what
  * it changes amber and what it removes red, against the parts it leaves alone.
  *
@@ -187,7 +187,7 @@ export function PlanView({
             );
           })}
         </div>
-        <OnTheMap text={plan.text} since={plan.state === "approved" ? plan.approvedAt : undefined} done={status === "done"} />
+        <OnTheBluprint text={plan.text} since={plan.state === "approved" ? plan.approvedAt : undefined} done={status === "done"} />
         {plan.file ? (
           <p className="mt-10 font-mono text-[11px] text-faint" title={plan.file}>
             {plan.file.replace(/^\/(Users|home)\/[^/]+/, "~")}
@@ -270,7 +270,7 @@ export function PlanView({
   );
 }
 
-/** Every diagram box the plan tied to a map section (its `section`, an id path), with what the plan does to it. */
+/** Every diagram box the plan tied to a bluprint section (its `section`, an id path), with what the plan does to it. */
 function plannedSections(text: string): { label: string; section: string; change?: string }[] {
   return pieces(text).flatMap((p) => {
     if (p.kind !== "figure" || p.lang !== "diagram") return [];
@@ -284,12 +284,12 @@ function plannedSections(text: string): { label: string; section: string; change
 }
 
 /**
- * A plan with no diagram tied to the map still names its files: each one the
- * map already explains lands on the section that explains it most closely.
+ * A plan with no diagram tied to the bluprint still names its files: each one the
+ * bluprint already explains lands on the section that explains it most closely.
  */
-function filedSections(text: string, map: BuiltMap): { label: string; section: string; change?: string }[] {
-  const cited = citations(map.L0);
-  const root = map.RUN.root?.replace(/\/$/, "");
+function filedSections(text: string, bluprint: BuiltBluprint): { label: string; section: string; change?: string }[] {
+  const cited = citations(bluprint.L0);
+  const root = bluprint.RUN.root?.replace(/\/$/, "");
   const seen = new Set<string>();
   return pieces(text).flatMap((p) => {
     if (p.kind !== "figure" || p.lang !== "files") return [];
@@ -305,22 +305,22 @@ function filedSections(text: string, map: BuiltMap): { label: string; section: s
 }
 
 /**
- * Where the plan lands on the map, each part a way to its level; and once
- * the plan is built, what the map's updates actually redid beside what the
+ * Where the plan lands on the bluprint, each part a way to its level; and once
+ * the plan is built, what the bluprint's updates actually redid beside what the
  * plan said it would touch, so a plan that quietly grew, or missed a part,
  * is visible without reading the diff.
  */
-function OnTheMap({ text, since, done }: { text: string; since?: number; done: boolean }) {
-  const map = useMaybeMap();
+function OnTheBluprint({ text, since, done }: { text: string; since?: number; done: boolean }) {
+  const bluprint = useMaybeBluprint();
   const planned = useMemo(() => {
     const drawn = plannedSections(text);
-    return drawn.length || !map ? drawn : filedSections(text, map);
-  }, [text, map]);
+    return drawn.length || !bluprint ? drawn : filedSections(text, bluprint);
+  }, [text, bluprint]);
   const [touched, setTouched] = useState<{ id: string; title: string }[] | null>(null);
   useEffect(() => {
-    if (!map || !done || since === undefined) return;
+    if (!bluprint || !done || since === undefined) return;
     let live = true;
-    fetch(`/api/diff?map=${encodeURIComponent(map.name)}&turns=1`)
+    fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint.name)}&turns=1`)
       .then((r) => r.json())
       .then((j: { turns?: { at: string; sections?: { id: string; title: string }[] }[] }) => {
         if (!live) return;
@@ -331,18 +331,18 @@ function OnTheMap({ text, since, done }: { text: string; since?: number; done: b
     return () => {
       live = false;
     };
-  }, [map, done, since]);
-  if (!map || !planned.length) return null;
-  const pathOf = (section: string) => (map.nodeAt(section.split("/")) ? section.split("/") : findSection(map, section));
-  const trail = (path: string[]) => path.map((_, i) => map.nodeAt(path.slice(0, i + 1))?.title ?? path[i]).join(" › ");
+  }, [bluprint, done, since]);
+  if (!bluprint || !planned.length) return null;
+  const pathOf = (section: string) => (bluprint.nodeAt(section.split("/")) ? section.split("/") : findSection(bluprint, section));
+  const trail = (path: string[]) => path.map((_, i) => bluprint.nodeAt(path.slice(0, i + 1))?.title ?? path[i]).join(" › ");
   const resolved = planned.map((p) => ({ ...p, path: pathOf(p.section) }));
   // A planned section counts as touched when it, or a section inside it, was redone.
-  const hit = (path: string[]) => touched?.some((t) => path.includes(t.id) || map.nodeAt(path)?.children?.some(function inside(c): boolean { return c.id === t.id || (c.children ?? []).some(inside); }));
+  const hit = (path: string[]) => touched?.some((t) => path.includes(t.id) || bluprint.nodeAt(path)?.children?.some(function inside(c): boolean { return c.id === t.id || (c.children ?? []).some(inside); }));
   const changing = resolved.filter((p) => p.path && p.change);
   const unplanned = touched?.filter((t) => !resolved.some((p) => p.path?.includes(t.id))) ?? [];
   return (
     <section className="mt-9 border-t border-border-gray pt-8">
-      <Eyebrow className="mb-3.5 block">On the map</Eyebrow>
+      <Eyebrow className="mb-3.5 block">On the bluprint</Eyebrow>
       <ul className="flex flex-col gap-1 text-[13px]">
         {resolved.map((p) => (
           <li key={p.label + p.section} className="flex items-baseline gap-2">
@@ -427,7 +427,7 @@ function marked(text: string, marks: StepMark[]): Components {
   };
 }
 
-/** A fence drawn as the map draws its blocks; one that does not parse is shown as written. */
+/** A fence drawn as the bluprint draws its blocks; one that does not parse is shown as written. */
 function Figure({ lang, body }: { lang: string; body: string }) {
   if (lang === "files") {
     const lines = fileLines(body);
@@ -545,7 +545,7 @@ function figureOf(lang: string, body: string): React.ReactNode {
   return null;
 }
 
-/** The files a plan touches, marked as the map marks a diff. */
+/** The files a plan touches, marked as the bluprint marks a diff. */
 function Files({ lines }: { lines: FileLine[] }) {
   return (
     <ul className="max-w-[860px] overflow-hidden border border-border-gray bg-card">

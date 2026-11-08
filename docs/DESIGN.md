@@ -17,7 +17,7 @@ Code paths are relative to `app/`.
 A reader opens a repository they did not write and needs to know how it works,
 fast enough to talk about it. The app answers that one question a level at a
 time: what this part is, how its pieces fit, and where the code is. It is a
-reading tool, not a diagramming tool. It is not a zoomable map of the code
+reading tool, not a diagramming tool. It is not a zoomable bluprint of the code
 (D1), and nothing on screen is decoration: every arrow claims a real sequence
 (D19), and every picture draws something the analysis found (D25).
 
@@ -33,13 +33,13 @@ Two readers, one screen:
 
 | Thing | What it is | Where it lives |
 |---|---|---|
-| **Map** | One repository's explanation, written by the generator | the project's folder in the vault (`lib/server/vault.ts`); the app ships no example maps |
-| **Level** | One node of the map, open. The repository itself is the top level (D60) | `Level` in `components/map/canvas.tsx` |
+| **Bluprint** | One repository's explanation, written by the generator | the project's folder in the vault (`lib/server/vault.ts`); the app ships no example bluprints |
+| **Level** | One node of the bluprint, open. The repository itself is the top level (D60) | `Level` in `components/bluprint/canvas.tsx` |
 | **Part** | A child of the open level. Named and peeked at, never opened in place (D31) | `Steps` / `Grid` / `List` in `canvas.tsx` |
-| **Block** | One piece of explanation on a level: diagram, table, sequence, screen, example (D34) | `components/map/blocks.tsx`, `components/map/anatomy.tsx` |
-| **State** | How sure the map is: `derived`, `partial`, `inferred` (D3) | `components/ui/state.tsx` |
+| **Block** | One piece of explanation on a level: diagram, table, sequence, screen, example (D34) | `components/bluprint/blocks.tsx`, `components/bluprint/anatomy.tsx` |
+| **State** | How sure the bluprint is: `derived`, `partial`, `inferred` (D3) | `components/ui/state.tsx` |
 | **Origin** | Where a thing came from when not the code: the reader. A second axis, never a fourth state (D53) | `OriginMark` in `state.tsx` |
-| **Overlay** | What the reader added or corrected, kept beside the map, never in it (D54) | `lib/server/overlay.ts` |
+| **Overlay** | What the reader added or corrected, kept beside the bluprint, never in it (D54) | `lib/server/overlay.ts` |
 
 The rule that ties them together: **one level at a time** (D28). The open node
 is the page; its parts are the way down; the trail is the way back. Level six
@@ -51,7 +51,7 @@ looks like level one.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ map● api◐ +  ›  Sign Up  ›  Student…     ◷ status   ▣ ± ✎ ⟲ >_ ⚙ – □ × │  Titlebar
+│ bluprint● api◐ +  ›  Sign Up  ›  Student…     ◷ status   ▣ ± ✎ ⟲ >_ ⚙ – □ × │  Titlebar
 ├──────────────────────────────────────────────────────────────────────┤
 │  ← Sign Up                                           ┌──────────────┐│
 │  INSIDE SIGN UP                                      │ Claude │ zsh +││
@@ -73,8 +73,8 @@ The window's own bar; the native one is off. It carries **where you are**: the
 open projects, a tab each, and the trail of levels (`Crumbs`,
 `components/chrome/crumbs.tsx`), which wraps instead of truncating (D35). On the right
 are one button per dialog, then the window buttons (D46: a Mac keeps its own
-traffic lights). Between them is a status line: a map update running, done or
-failed, or "This map doesn't follow edits" with an import link. Outside the
+traffic lights). Between them is a status line: a bluprint update running, done or
+failed, or "This bluprint doesn't follow edits" with an import link. Outside the
 desktop app no title bar is drawn, and the canvas draws the crumbs itself.
 
 A project gets a tab when it is opened, and the tabs are kept between
@@ -87,7 +87,7 @@ Cmd+1–9 (Ctrl+1–9 off a Mac) picks a tab and Ctrl+Tab the last project; on a
 Mac they are menu-bar keys (`src-tauri/src/lib.rs`), so they work from inside
 a Preview's page too.
 
-### Canvas — `components/map/canvas.tsx`
+### Canvas — `components/bluprint/canvas.tsx`
 
 The rest of the window, scrolling. It shows exactly one `Level`, top to bottom:
 
@@ -106,30 +106,30 @@ The rest of the window, scrolling. It shows exactly one `Level`, top to bottom:
 
 ### Workspace — `components/agent/workspace.tsx`
 
-A window floating over the map's right edge, holding tabs. Each tab is a real
-terminal in the map's checkout (`components/agent/shell.tsx`), started as Claude
+A window floating over the bluprint's right edge, holding tabs. Each tab is a real
+terminal in the bluprint's checkout (`components/agent/shell.tsx`), started as Claude
 Code, another installed agent (`components/agent/agents.tsx`), or a plain shell. It
-floats, so opening it never takes space from the map, and it stops above the
+floats, so opening it never takes space from the bluprint, and it stops above the
 status bar. Hiding it never ends a program. Desktop only.
 
 ### Status bar — `components/chrome/statusbar.tsx`
 
-One 24px line under the map and the workspace: the commit, file count, how
-many levels there are, how many are not certain, how many problems the map
-found, a running or finished map update, and the two keys that reach
+One 24px line under the bluprint and the workspace: the commit, file count, how
+many levels there are, how many are not certain, how many problems the bluprint
+found, a running or finished bluprint update, and the two keys that reach
 everything (Ctrl+K, Ctrl+`). Whatever level is open, this does not change.
 
 ### Palette — `components/chrome/palette.tsx`
 
 Ctrl+K (or Ctrl+P, or the box in the title bar) opens one input over the
-window. Typing matches every level in the map by name, with its trail beside
+window. Typing matches every level in the bluprint by name, with its trail beside
 it, and Enter opens it, however deep it is. A leading `>` (or Ctrl+Shift+P)
 lists the app's actions; the title bar's **+** lists the
-maps. This is how you jump around the map without a sidebar (D35, D62).
+bluprints. This is how you jump around the bluprint without a sidebar (D35, D62).
 
 ### Dialogs
 
-All dialogs sit over the map on a shared `Overlay` (`components/ui/dialog.tsx`):
+All dialogs sit over the bluprint on a shared `Overlay` (`components/ui/dialog.tsx`):
 Escape or a click outside closes them, and Escape stops at the dialog instead
 of also leaving the level.
 
@@ -137,8 +137,8 @@ of also leaving the level.
 |---|---|---|
 | Projects — `projects.tsx` | title bar, "Import to keep it updated" | your imported projects, and a wizard to start or import one |
 | Diff panel — `diff-panel.tsx` | title bar, or Claude setting a range | every section a commit range touched; a click opens that level (D58) |
-| Audit — `audit.tsx` | title bar | how the map was made: the run's `audit.md` |
-| History — `history.tsx` | title bar | what you added to this map, every earlier version, revert |
+| Audit — `audit.tsx` | title bar | how the bluprint was made: the run's `audit.md` |
+| History — `history.tsx` | title bar | what you added to this bluprint, every earlier version, revert |
 | Settings — `settings.tsx` | title bar | theme, background (plain by default / dots / squares), default agent, Claude Code path, model |
 
 ---
@@ -153,22 +153,22 @@ code. Back is the browser's back, the swipe, Esc, the "←" link, or a crumb.
 **Ask Claude about what you're looking at.** Right-click anything on a level
 (a card, row, box, block, line of code, or empty space for the whole section)
 → "Add to Claude context" or "Add and open Claude" → the item waits in the tab
-for your next prompt → ask. Claude can run `bluprint-map-show section "<title>"`,
+for your next prompt → ask. Claude can run `bluprint-show section "<title>"`,
 which moves your view while the answer is still arriving (D59).
 
-**Keep or correct what the map says.** After Claude answers, a level offers to
+**Keep or correct what the bluprint says.** After Claude answers, a level offers to
 keep the answer as a block marked as yours (`KeepAnswer`). History lists all of
 it and can revert. The "Fix this" button is gone from the level header (D62),
 and its dialog (D55) with it.
 
 **Review a change.** Diff button → the panel lists changed sections → click
 one → the same level, decorated: tinted sections, removed things in red beside
-their replacements (D56). By default the range is the map's commit to the
+their replacements (D56). By default the range is the bluprint's commit to the
 working tree. If a range can't be compared section by section, the panel says
 why and lists the changed files instead of guessing.
 
-**Map a new project.** Projects → start → choose a new folder or an existing
-one → mapping runs through your Claude Code → finished sections can be opened
+**Make a bluprint of a new project.** Projects → start → choose a new folder or an existing
+one → the run goes through your Claude Code → finished sections can be opened
 before the run ends (D57).
 
 ---
@@ -178,11 +178,11 @@ before the run ends (D57).
 | State | What the reader sees |
 |---|---|
 | **No overview yet** (mid-run) | The top level lists its roots as parts, the same as any node without a picture (D60) |
-| **Half-made map** | Finished sections can be explored. Only the project list shows that the run is still going (D57, known gap) |
-| **Unknown map or level** | A `?map=` that isn't found falls back to your most recently opened project; a path whose id was renamed falls back to the repo level (D29) |
+| **Half-made bluprint** | Finished sections can be explored. Only the project list shows that the run is still going (D57, known gap) |
+| **Unknown bluprint or level** | A `?bluprint=` that isn't found falls back to your most recently opened project; a path whose id was renamed falls back to the repo level (D29) |
 | **No projects yet** | The window shows Welcome (`components/chrome/welcome.tsx`): a title bar with Projects and Settings, and one button to start or import a project |
-| **Map from another copy** | Title bar: "This map doesn't follow edits", with an import link |
-| **Updating** | Title bar: "◷ Updating the map…" → "✓ Map updated: <sections>" for 6 s, or "✗ Map update failed" with the error on hover |
+| **Bluprint from another copy** | Title bar: "This bluprint doesn't follow edits", with an import link |
+| **Updating** | Title bar: "◷ Updating the bluprint…" → "✓ Bluprint updated: <sections>" for 6 s, or "✗ Bluprint update failed" with the error on hover |
 | **Not certain** | `partial`: solid amber edge; `inferred`: dashed. Each carries its `unsure` reason. `derived` carries no mark (D3) |
 | **Claude names a missing section** | Claude says so briefly and the view doesn't move (`components/agent/acts.tsx`) |
 | **Browser, not desktop** | No title bar, workspace, right-click menu, or keep/fix. Crumbs are drawn on the canvas |
@@ -221,7 +221,7 @@ never appears unless you asked for it.
   (D56).
 - **Quizzes or self-tests** (D4).
 - **Languages beyond TS/JS for resolution** (D2).
-- **An icon library.** Marks are hand-drawn SVG (`components/map/shapes.tsx`).
+- **An icon library.** Marks are hand-drawn SVG (`components/bluprint/shapes.tsx`).
 
 ---
 
@@ -521,10 +521,10 @@ landing page sets its embedded app to Classic.
 - **The camera is gone.** §12 and parts of §13 (springs, `drillInto`, a dot
   field bound to pan) describe the pan/zoom canvas that D28 replaced with one
   level at a time. The level transition now is a 180 ms fade-and-slide (§6).
-- **Incomplete maps** don't say so on the level itself (D57).
+- **Incomplete bluprints** don't say so on the level itself (D57).
 - **Wide levels.** The ~7 parts per level is an authored budget, not enforced.
-  A generated map with 30 parts would be a long scroll (D28, D31).
+  A generated bluprint with 30 parts would be a long scroll (D28, D31).
 - **Orphaned additions.** When a regenerate renames a section, the reader's
   entries for it are kept but shown nowhere until recovered by hand (D54).
-- The components, map schema and generator have uncommitted changes as of
+- The components, bluprint schema and generator have uncommitted changes as of
   2026-10-26 (overview work, D60/D61). Re-check §3 and §5 once they land.

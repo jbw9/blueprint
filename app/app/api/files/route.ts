@@ -1,34 +1,34 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadMap, rootOf } from "@/lib/server/maps";
+import { loadBluprint, rootOf } from "@/lib/server/bluprints";
 import { followLive } from "@/lib/server/live";
 import { sourcePath } from "@/scripts/generate/inventory";
 import { projectDir } from "@/lib/server/vault";
-import type { MapIndex } from "@/lib/map/coverage";
+import type { BluprintIndex } from "@/lib/bluprint/coverage";
 
 /**
- * Every file of the map the reader has open: what the map knows of each
+ * Every file of the bluprint the reader has open: what the bluprint knows of each
  * (`index.json`, scripts/generate/catalog.ts) and what is in the checkout now,
- * so a file added since the map was made shows as not on it yet rather than
+ * so a file added since the bluprint was made shows as not on it yet rather than
  * not at all.
  *
- * `?behind=1` answers only which of those files changed since the map last
+ * `?behind=1` answers only which of those files changed since the bluprint last
  * saw them (its commit, then base.json after updates: what an update would
  * start from), for the status bar to poll without the whole index.
  *
- * As app/api/diff/route.ts: a caller names a map, never a path, and the
+ * As app/api/diff/route.ts: a caller names a bluprint, never a path, and the
  * checkout is the project's own.
  */
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
-  let open: ReturnType<typeof loadMap> = null;
+  let open: ReturnType<typeof loadBluprint> = null;
   try {
-    open = loadMap(q.get("map") ?? undefined);
+    open = loadBluprint(q.get("bluprint") ?? undefined);
   } catch {}
-  if (!open) return Response.json({ error: "No such map." }, { status: 404 });
+  if (!open) return Response.json({ error: "No such bluprint." }, { status: 404 });
   const f = join(projectDir(open.name), "index.json");
-  const index: MapIndex | null = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null;
+  const index: BluprintIndex | null = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null;
   const root = rootOf(open.file.RUN);
   let present: string[] = [];
   try {
@@ -48,16 +48,16 @@ export async function GET(request: Request) {
   } catch {}
   // New code files, judged as an update judges them
   // (scripts/generate/inventory.ts): a lockfile, a test or a type stub
-  // appearing is not something the map would add.
+  // appearing is not something the bluprint would add.
   const files = index?.files ?? {};
-  // A map made before index.json says nothing about which files it saw, so none is new to it.
+  // A bluprint made before index.json says nothing about which files it saw, so none is new to it.
   const added = index ? present.filter((p) => !files[p] && sourcePath(p)) : [];
   if (q.get("behind")) {
     // Exactly what an update would take (lib/server/live.ts, as update.ts `found`), so one always clears it.
     const behind = followLive(open.name, root)?.live.files.map((f) => f.path) ?? [];
     return Response.json({ behind });
   }
-  // Every file in the checkout, for the palette to find one by: a map still being
+  // Every file in the checkout, for the palette to find one by: a bluprint still being
   // made has no index yet, and a non-code file added since is in no other list.
   return Response.json({ index, added, local, present });
 }

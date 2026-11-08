@@ -4,11 +4,11 @@ import { join } from "node:path";
 
 /**
  * The landing page is a static site, published at the root of the Pages
- * branch with each demo map's own export beside it (app/scripts/export-static.mts).
- * Its demo reaches into the framed map for the tour, so the map has to be on
+ * branch with each demo bluprint's own export beside it (app/scripts/export-static.mts).
+ * Its demo reaches into the framed bluprint for the tour, so the bluprint has to be on
  * this page's origin: in dev, everything this app does not serve itself is
  * handed to the app's dev server (its pages, assets and /api), so
- * `/?map=…&embed` framed here is the live app.
+ * `/?bluprint=…&embed` framed here is the live app.
  */
 export default function config(phase: string): NextConfig {
   // The design tokens and the theme script are the app's own (../app), read in place.
@@ -20,7 +20,7 @@ export default function config(phase: string): NextConfig {
       async rewrites() {
         return {
           beforeFiles: [
-            { source: "/", has: [{ type: "query", key: "map" }], destination: `${app}/` },
+            { source: "/", has: [{ type: "query", key: "bluprint" }], destination: `${app}/` },
             // The app's own assets (its assetPrefix, ../app/next.config.ts): same names as this page's under /_next.
             { source: "/bluprint-app/:path*", destination: `${app}/bluprint-app/:path*` },
           ],

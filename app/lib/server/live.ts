@@ -1,27 +1,27 @@
 /**
- * The map following the code as it is typed, before any model has looked.
+ * The bluprint following the code as it is typed, before any model has looked.
  *
- * While a project's map is open (app/api/map polls it each second), its
+ * While a project's bluprint is open (app/api/bluprint polls it each second), its
  * checkout is watched. Each save works out, with no model call, what an
- * update would start from: which files differ from what the map describes,
+ * update would start from: which files differ from what the bluprint describes,
  * which sections cite the lines that changed, and where every cited line has
  * moved to. The page marks those sections at once and reads its code at the
- * moved lines; the update that rewrites them (lib/server/vault.ts, updateMap) is
+ * moved lines; the update that rewrites them (lib/server/vault.ts, updateBluprint) is
  * asked for once the edits settle (components/chrome/statusbar.tsx).
  *
- * What the map describes: base.json after updates, the map's commit before
- * the first. While an update runs, moved.json once it has written the map:
- * that map cites the code as the update found it (scripts/generate/update.ts).
+ * What the bluprint describes: base.json after updates, the bluprint's commit before
+ * the first. While an update runs, moved.json once it has written the bluprint:
+ * that bluprint cites the code as the update found it (scripts/generate/update.ts).
  */
 import { createHash } from "node:crypto";
 import { watch, type FSWatcher } from "node:fs";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { Node } from "@/lib/map/schema";
-import type { MapFile } from "@/lib/map/build";
+import type { Node } from "@/lib/bluprint/schema";
+import type { BluprintFile } from "@/lib/bluprint/build";
 import { diffOf, git, moved, readText, refs, touches, type Base, type Change } from "@/scripts/generate/gitdiff";
 import { sourcePath } from "@/scripts/generate/inventory";
-import { getProject, mapFileOf, projectDir } from "@/lib/server/vault";
+import { getProject, bluprintFileOf, projectDir } from "@/lib/server/vault";
 
 /** What the open page is told: the files that moved and the sections they touch. */
 export interface Live {
@@ -41,7 +41,7 @@ interface Watch {
   /** Something under the checkout changed since the last look. */
   dirty: boolean;
   timer?: ReturnType<typeof setTimeout>;
-  /** The stamps of the map and its base when last worked out, so an update landing is a change too. */
+  /** The stamps of the bluprint and its base when last worked out, so an update landing is a change too. */
   stamp: string;
   looked: number;
   changes: Map<string, Change>;
@@ -68,20 +68,20 @@ function readJson<T>(f: string, empty: T): T {
   }
 }
 
-/** What the map describes, per path, where it is not the map's commit. */
+/** What the bluprint describes, per path, where it is not the bluprint's commit. */
 function baseOf(id: string): Base {
   const dir = projectDir(id);
   const base = readJson<Base>(join(dir, "base.json"), {});
-  // A running update's moved lines are in the map once it has written the map
+  // A running update's moved lines are in the bluprint once it has written the bluprint
   // since; one left by a run that died describes nothing.
   const m = join(dir, "moved.json");
-  const moving = getProject(id)?.update?.status === "running" && mtime(join(dir, "map.json")) > mtime(m);
+  const moving = getProject(id)?.update?.status === "running" && mtime(join(dir, "bluprint.json")) > mtime(m);
   return moving ? { ...base, ...readJson<Base>(m, {}) } : base;
 }
 
 const stampOf = (id: string) => {
   const dir = projectDir(id);
-  return [mtime(join(dir, "map.json")), mtime(join(dir, "base.json")), mtime(join(dir, "moved.json"))].join(":");
+  return [mtime(join(dir, "bluprint.json")), mtime(join(dir, "base.json")), mtime(join(dir, "moved.json"))].join(":");
 };
 
 function walk(nodes: Node[], at: string[] = [], out: { node: Node; path: string[] }[] = []) {
@@ -93,18 +93,18 @@ function walk(nodes: Node[], at: string[] = [], out: { node: Node; path: string[
 }
 
 /**
- * Every file that differs from what the map describes, as an update would
- * take it (update.ts `found`; the files list `?behind=1`), against the map as
+ * Every file that differs from what the bluprint describes, as an update would
+ * take it (update.ts `found`; the files list `?behind=1`), against the bluprint as
  * it is on disk. A diff already worked out for the same text is kept.
  */
 function work(id: string, w: Watch) {
-  const file = mapFileOf(id);
+  const file = bluprintFileOf(id);
   if (!file) return;
-  const map: MapFile = readJson(file, { RUN: { commit: "" }, AUTHORED: [] } as unknown as MapFile);
+  const bluprint: BluprintFile = readJson(file, { RUN: { commit: "" }, AUTHORED: [] } as unknown as BluprintFile);
   const base = baseOf(id);
-  const all = walk(map.AUTHORED);
+  const all = walk(bluprint.AUTHORED);
   const cited = new Set(all.flatMap((p) => refs(p.node).map((r) => r.file)));
-  const commit = map.RUN.commit;
+  const commit = bluprint.RUN.commit;
   const paths = new Set([
     ...(commit ? git(w.root, "diff", "--name-only", "--relative", commit).split("\n") : []),
     ...git(w.root, "ls-files", "--others", "--exclude-standard").split("\n"),
@@ -192,10 +192,10 @@ g.__bluprintLiveSweep.unref?.();
 
 /**
  * The open page asking: starts watching the checkout if nothing was, and
- * brings what is known up to date when the code, the map or its base moved.
+ * brings what is known up to date when the code, the bluprint or its base moved.
  */
 export function followLive(id: string, root: string): Watch | undefined {
-  if (!existsSync(root) || !mapFileOf(id)) return undefined;
+  if (!existsSync(root) || !bluprintFileOf(id)) return undefined;
   let w = watches.get(id);
   if (w && w.root !== root) {
     w.watcher?.close();
@@ -224,10 +224,10 @@ export function liveOf(id: string): Live | undefined {
   return watches.get(id)?.live;
 }
 
-/** Every cited line in `map` moved to where its code is now, so the page reads the right lines while the code is ahead. */
-export function shiftRefs(id: string, map: MapFile): MapFile {
+/** Every cited line in `bluprint` moved to where its code is now, so the page reads the right lines while the code is ahead. */
+export function shiftRefs(id: string, bluprint: BluprintFile): BluprintFile {
   const changes = watches.get(id)?.changes;
-  if (!changes?.size) return map;
-  for (const p of walk(map.AUTHORED)) refs(p.node, (f, line) => (changes.has(f) ? moved(changes.get(f)!, line) : line));
-  return map;
+  if (!changes?.size) return bluprint;
+  for (const p of walk(bluprint.AUTHORED)) refs(p.node, (f, line) => (changes.has(f) ? moved(changes.get(f)!, line) : line));
+  return bluprint;
 }

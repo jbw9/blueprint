@@ -4,12 +4,12 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DIALOG, Overlay } from "@/components/ui/dialog";
 import { OPEN_DIFF, TINT, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { cn } from "@/lib/client/utils";
 import type { Commit, SectionDiff } from "@/lib/server/diff";
 import { ReviewCard, ReviewPicker, Outside } from "@/components/review/reviews";
 import { FileRow, Rail, Row } from "@/components/review/commits";
-import { Comparing, Details, EndTag, FilePane, OnTheMap, Refs } from "@/components/review/commit-detail";
+import { Comparing, Details, EndTag, FilePane, OnTheBluprint, Refs } from "@/components/review/commit-detail";
 import type { View } from "@/components/review/diff-view";
 import { ago } from "@/components/review/ago";
 import { openTimeline } from "@/components/review/timeline";
@@ -19,7 +19,7 @@ import { openTimeline } from "@/components/review/timeline";
  * source control is (D75): the commits down the left on one line, the one
  * picked opening onto its files beneath it, and the file picked drawn on the
  * right, side by side or inline. With no file picked the right side is the
- * commit itself — who, when, and which sections of the map it moved, each
+ * commit itself — who, when, and which sections of the bluprint it moved, each
  * opening its level, where the red and green are drawn in place
  * (components/review/diff.tsx).
  *
@@ -27,7 +27,7 @@ import { openTimeline } from "@/components/review/timeline";
  * key and nothing else. Comparing is any two commits, as an editor's history
  * does it: "Compare with selected" on a row, or ⇧/⌘-click it; the right side
  * then names both ends and can swap them. It opens on the newest commit —
- * the map keeps itself current, so "since the map was made" is not a
+ * the bluprint keeps itself current, so "since the bluprint was made" is not a
  * question worth a row (D76).
  *
  * Mounted once beside the other dialogs and opened by the same event that
@@ -39,7 +39,7 @@ const VIEW_KEY = "bluprint.diff.view";
 
 export function DiffPanel() {
   const d = useDiff();
-  const { nodeAt, name: map } = useMap();
+  const { nodeAt, name: bluprint } = useBluprint();
   const [shown, setShown] = useState(false);
   const [file, setFile] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -165,7 +165,7 @@ export function DiffPanel() {
               setShown(false);
               openTimeline();
             }}
-            title="How the code got here — every commit on the map's sections, over time"
+            title="How the code got here — every commit on the bluprint's sections, over time"
             className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
           >
             Timeline
@@ -173,10 +173,10 @@ export function DiffPanel() {
           <button
             type="button"
             onClick={() => setShown(false)}
-            title="Close this and keep the map coloured by what changed"
+            title="Close this and keep the bluprint coloured by what changed"
             className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-accent hover:bg-surface-container-low"
           >
-            See it on the map
+            See it on the bluprint
           </button>
           <button
             type="button"
@@ -202,7 +202,7 @@ export function DiffPanel() {
           {/* ── history ── */}
           <aside className="flex w-[340px] shrink-0 flex-col border-r border-border-gray">
             <div className="shrink-0 border-b border-border-gray p-2">
-              <ReviewPicker map={map} value={d.review} onPick={d.setReview} />
+              <ReviewPicker bluprint={bluprint} value={d.review} onPick={d.setReview} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -307,7 +307,7 @@ export function DiffPanel() {
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 {picked ? (
-                  <Details key={picked.sha} map={map} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
+                  <Details key={picked.sha} bluprint={bluprint} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
                 ) : pair?.base && pair.with ? (
                   <Comparing
                     base={pair.base}
@@ -319,7 +319,7 @@ export function DiffPanel() {
                 ) : (
                   <h3 className="text-[17px] font-semibold leading-snug text-ink">{caption}</h3>
                 )}
-                {diff?.review ? <ReviewCard r={diff.review} map={map} spec={d.review} onMapped={d.reload} /> : null}
+                {diff?.review ? <ReviewCard r={diff.review} bluprint={bluprint} spec={d.review} onMade={d.reload} /> : null}
                 {d.loading ? <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p> : null}
                 {d.error ? (
                   <p className="mt-4 text-[13px]" style={{ color: TINT.removed.ink }}>
@@ -345,7 +345,7 @@ export function DiffPanel() {
                       <p className="mt-1.5 text-[13px] text-muted-slate">Nothing changed.</p>
                     )}
                     {diff.basis === "files" ? <p className="mt-4 text-[12.5px] leading-snug text-on-surface-variant">{diff.why}</p> : null}
-                    {diff.basis === "sections" ? <OnTheMap sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
+                    {diff.basis === "sections" ? <OnTheBluprint sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
                     {diff.outside?.length ? <Outside outside={diff.outside} title={(p) => nodeAt(p)?.title ?? p.at(-1)!} onOpen={(p) => (goTo(p), setShown(false))} /> : null}
                   </>
                 ) : null}

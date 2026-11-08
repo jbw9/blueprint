@@ -328,7 +328,7 @@ export function Device({
               if (Math.hypot(to.x - from.x, to.y - from.y) < 0.015) send({ kind: "tap", x: from.x, y: from.y });
               else send({ kind: "swipe", x: from.x, y: from.y, x2: to.x, y2: to.y, ms: Math.min(1000, Math.max(100, Date.now() - from.t)) });
             }}
-            // Right-click hands Claude the element there, as on the map and a page.
+            // Right-click hands Claude the element there, as on the bluprint and a page.
             onContextMenu={(e) => {
               e.preventDefault();
               const { x, y } = at(e);

@@ -3,28 +3,28 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentIcon } from "@/components/agent/agents";
 import { Kbd, keys } from "@/components/ui/button";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { openReview } from "@/components/review/diff";
-import { openFiles, useFiles } from "@/components/map/files";
+import { openFiles, useFiles } from "@/components/bluprint/files";
 import { openPalette } from "@/components/chrome/palette";
 import { openProjects } from "@/components/projects/projects";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
-import { coverage } from "@/lib/map/coverage";
-import type { Node } from "@/lib/map/schema";
-import { STATIC_MAP } from "@/lib/map/source";
+import { coverage } from "@/lib/bluprint/coverage";
+import type { Node } from "@/lib/bluprint/schema";
+import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import { cn } from "@/lib/client/utils";
 import { useMac } from "@/lib/client/platform";
 
 /**
- * The line along the bottom of the window: what is true of the whole map,
+ * The line along the bottom of the window: what is true of the whole bluprint,
  * whatever level is open. Which commit it describes, how much of it is not
  * certain, whether an update is running, and the two keys that get you
  * anywhere. It is the one place this lives, so no level has to repeat it.
  */
 export function StatusBar() {
-  const { name, maps, RUN, L0, TOP } = useMap();
-  const local = maps.some((m) => m.id === name && m.local);
+  const { name, bluprints, RUN, L0, TOP } = useBluprint();
+  const local = bluprints.some((m) => m.id === name && m.local);
 
   const counts = useMemo(() => {
     let levels = 0;
@@ -51,7 +51,7 @@ export function StatusBar() {
 
   return (
     <footer data-chrome="bar" className="flex h-6 shrink-0 select-none items-center gap-0.5 border-t border-border-gray bg-surface-container-low px-2 text-[11.5px] text-muted-slate">
-      <Item title="The commit this map describes" mono>
+      <Item title="The commit this bluprint describes" mono>
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
           <circle cx="8" cy="8" r="2.5" />
           <path d="M1 8h4.5M10.5 8H15" />
@@ -60,44 +60,44 @@ export function StatusBar() {
       </Item>
       {covered ? (
         <Item
-          title="Top-level symbols a level opens, of those the map must explain — click for every file"
+          title="Top-level symbols a level opens, of those the bluprint must explain — click for every file"
           onClick={() => openFiles(covered.gaps.length ? "gaps" : "all")}
           className={covered.gaps.length ? "text-amber-ink" : undefined}
         >
           {covered.explained}/{covered.symbols} explained
         </Item>
       ) : (
-        <Item title="Files the map read — click for every file" onClick={() => openFiles()}>
+        <Item title="Files the bluprint read — click for every file" onClick={() => openFiles()}>
           {RUN.files} files
         </Item>
       )}
       {files?.added.length ? (
-        <Item title="Files added since the map was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
-          {files.added.length} not on the map yet
+        <Item title="Files added since the bluprint was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
+          {files.added.length} not on the bluprint yet
         </Item>
       ) : null}
       <Sep />
-      <Item title={`Levels in the map — ${keys(mac, "P")} to go to one`} onClick={() => openPalette()}>
+      <Item title={`Levels in the bluprint — ${keys(mac, "P")} to go to one`} onClick={() => openPalette()}>
         {counts.levels} levels
       </Item>
       {counts.unsure ? (
-        <Item title="Levels the map is not certain about — click to list them" onClick={() => openPalette("unsure")} className="text-amber-ink">
+        <Item title="Levels the bluprint is not certain about — click to list them" onClick={() => openPalette("unsure")} className="text-amber-ink">
           <span aria-hidden className="size-[7px] rounded-full bg-amber-ink/80" />
           {counts.unsure} not certain
         </Item>
       ) : null}
       {counts.problems ? (
-        <Item title="Problems the map found in the code — click to list them" onClick={() => openPalette("problems")} className="text-clay-ink">
+        <Item title="Problems the bluprint found in the code — click to list them" onClick={() => openPalette("problems")} className="text-clay-ink">
           <span aria-hidden>⚠</span>
           {counts.problems} {counts.problems === 1 ? "problem" : "problems"}
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <MapUpdates key={name} id={name} root={RUN.root} local={local} />
+      <BluprintUpdates key={name} id={name} root={RUN.root} local={local} />
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
       </Item>
-      {STATIC_MAP ? (
+      {STATIC_BLUPRINT ? (
         <Item title="Ask Claude about this code" onClick={toggleWorkspace}>
           <AgentIcon id="claude" />
           {/* A published page takes Control+` only (components/agent/claude-web.tsx). */}
@@ -153,7 +153,7 @@ function Sep() {
   return <span aria-hidden className="mx-1 h-3 w-px bg-border-strong" />;
 }
 
-/** How long the changed files must stay as they are before the map follows them by itself. */
+/** How long the changed files must stay as they are before the bluprint follows them by itself. */
 const SETTLE = 3_000;
 
 interface Update {
@@ -166,7 +166,7 @@ interface Update {
 
 /**
  * The section ids an update is rewriting right now, for the open level to say
- * so where the reader is looking (components/map/canvas.tsx): the status bar alone
+ * so where the reader is looking (components/bluprint/canvas.tsx): the status bar alone
  * was missed, and a minute with nothing changing read as the update not working.
  */
 let redoing: string[] = [];
@@ -186,22 +186,22 @@ export function useRedoing(): string[] {
 }
 
 /**
- * Follows the open map while an agent changes its code: an update redoing
- * the touched sections (lib/server/vault.ts) shows here while it runs. The map takes
- * each section as it lands by itself (components/map/map-context.tsx); this only
+ * Follows the open bluprint while an agent changes its code: an update redoing
+ * the touched sections (lib/server/vault.ts) shows here while it runs. The bluprint takes
+ * each section as it lands by itself (components/bluprint/bluprint-context.tsx); this only
  * says what is happening. Only the user's own projects update; an
  * example describes some other copy of its code, so when an agent edits its
  * checkout this says so and offers to import it.
  *
  * Edits made outside a Bluprint tab (another editor, a pull) never ask for an
  * update, so between updates this says how far the code has moved from what
- * the map describes (lib/server/live.ts, followed with the map each second), and
+ * the bluprint describes (lib/server/live.ts, followed with the bluprint each second), and
  * updates it once those files have stopped changing for SETTLE. Not while
- * Claude is mid-turn in the checkout: its turn updates the map when it ends,
+ * Claude is mid-turn in the checkout: its turn updates the bluprint when it ends,
  * with its account of what it did. The same change is never retried after it
  * failed, since each try is a paid run.
  */
-function MapUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
+function BluprintUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
   const [u, setU] = useState<Update | null>(null);
   const [unfollowed, setUnfollowed] = useState(false);
 
@@ -235,7 +235,7 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
     return () => (clearInterval(timer), setRedoing([]));
   }, [id, local]);
 
-  const { live } = useMap();
+  const { live } = useBluprint();
   const behind = local ? (live?.files ?? []) : [];
   const sig = local ? (live?.sig ?? "") : "";
   // The change last updated for, so a failed one is not paid for again.
@@ -265,8 +265,8 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
   if (unfollowed && root)
     return (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
-        <span className="truncate" title="This map was made from another copy of the code, so it cannot follow edits here.">
-          This map doesn&apos;t follow edits
+        <span className="truncate" title="This bluprint was made from another copy of the code, so it cannot follow edits here.">
+          This bluprint doesn&apos;t follow edits
         </span>
         <button
           type="button"
@@ -283,13 +283,13 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
         </button>
       </span>
     );
-  // A turn that changed nothing the map covers passes silently.
+  // A turn that changed nothing the bluprint covers passes silently.
   if (!u || (u.status === "done" && (!fresh || !u.sections?.length)))
     return behind.length && root ? (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
         <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
           Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
-          {tried === sig ? "" : " · map follows when edits settle"}
+          {tried === sig ? "" : " · bluprint follows when edits settle"}
         </span>
         <button
           type="button"
@@ -312,10 +312,10 @@ function MapUpdates({ id, root, local }: { id: string; root?: string; local: boo
       {u.status === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" /> : null}
       <span className="truncate">
         {u.status === "running"
-          ? "Updating the map to match the code…"
+          ? "Updating the bluprint to match the code…"
           : u.status === "failed"
-            ? "✗ Map update failed"
-            : `✓ Map updated: ${u.sections!.join(", ")}`}
+            ? "✗ Bluprint update failed"
+            : `✓ Bluprint updated: ${u.sections!.join(", ")}`}
       </span>
       {u.status === "done" ? (
         <button type="button" onClick={() => (setFresh(false), openReview("turn:latest"))} className="shrink-0 cursor-pointer underline">

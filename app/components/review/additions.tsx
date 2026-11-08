@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DIALOG, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { cn } from "@/lib/client/utils";
 import type { Entry, Orphan, Version } from "@/lib/server/overlay";
 
 /**
- * Everything the reader has added to this map, and every version of it.
+ * Everything the reader has added to this bluprint, and every version of it.
  *
- * The map itself is the generator's and is replaced whenever the code moves,
+ * The bluprint itself is the generator's and is replaced whenever the code moves,
  * so this is the one place the reader's own work is listed as work: what they
  * added, what it replaced, and a way back to any earlier state. Reverting is
  * itself recorded, so no step here loses anything.
@@ -36,7 +36,7 @@ function says(e: Entry): string {
 }
 
 export function HistoryDialog() {
-  const map = useMap();
+  const bluprint = useBluprint();
   const [shown, setShown] = useState(false);
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,11 +48,11 @@ export function HistoryDialog() {
   }, []);
 
   const load = useCallback(() => {
-    fetch(`/api/overlay?map=${encodeURIComponent(map.name)}`)
+    fetch(`/api/overlay?bluprint=${encodeURIComponent(bluprint.name)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setState(d ? { overlay: d.overlay, history: d.history, orphans: d.orphans } : null))
       .catch(() => setState(null));
-  }, [map.name]);
+  }, [bluprint.name]);
 
   useEffect(() => {
     if (shown) load();
@@ -65,12 +65,12 @@ export function HistoryDialog() {
     const ok = await fetch("/api/overlay", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ map: map.name, ...body }),
+      body: JSON.stringify({ bluprint: bluprint.name, ...body }),
     })
       .then((r) => r.ok)
       .catch(() => false);
     setBusy(false);
-    // The map is composed on the server, so the level redraws from the overlay.
+    // The bluprint is composed on the server, so the level redraws from the overlay.
     if (ok) window.location.reload();
   }
 
@@ -83,7 +83,7 @@ export function HistoryDialog() {
         <header className="border-b border-border-gray px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink">What you added</h2>
           <p className="mt-0.5 text-[12px] text-muted-slate">
-            Kept beside the map, never inside it — so remapping the code never writes over your work.
+            Kept beside the bluprint, never inside it — so remaking the bluprint never writes over your work.
           </p>
         </header>
 
@@ -104,7 +104,7 @@ export function HistoryDialog() {
                       <span className="min-w-0 text-[13px] text-ink">
                         {says(e)}
                         {orphaned.has(e.id) ? (
-                          // Kept, not deleted: a remap that renamed a section
+                          // Kept, not deleted: a remake that renamed a section
                           // must never silently destroy a note.
                           <span className="mt-0.5 block text-[11.5px] text-amber-ink">
                             The part this belonged to is gone — it is kept, but shown nowhere.

@@ -7,11 +7,11 @@ const QUESTIONS = [
   },
   {
     q: "Does my code leave my computer?",
-    a: "Only the way it does whenever you use Claude Code: your own Claude Code reads the files it needs to make the map. The map itself is saved on your computer and nowhere else.",
+    a: "Only the way it does whenever you use Claude Code: your own Claude Code reads the files it needs to make the bluprint. The bluprint itself is saved on your computer and nowhere else.",
   },
   {
     q: "What do I need?",
-    a: "A Mac or a Linux desktop, and Claude Code signed in with a Claude plan. Making a map counts against that plan's usage, like any other Claude Code session.",
+    a: "A Mac or a Linux desktop, and Claude Code signed in with a Claude plan. Making a bluprint counts against that plan's usage, like any other Claude Code session.",
   },
   {
     q: "Which languages does it read?",
@@ -19,15 +19,15 @@ const QUESTIONS = [
   },
   {
     q: "How do I tell what's proven from what's a guess?",
-    a: "A solid line or a plain card came from the code. Anything the map couldn't prove is marked: a dashed line, or a card labelled partial or inferred. Sentences that failed the check are taken out before you see them.",
+    a: "A solid line or a plain card came from the code. Anything the bluprint couldn't prove is marked: a dashed line, or a card labelled partial or inferred. Sentences that failed the check are taken out before you see them.",
   },
   {
     q: "What happens when the code changes?",
-    a: "An update finds the files that changed since the map last looked, redoes only the sections whose code they touch, and moves every other line reference along with the code, so the rest stays true.",
+    a: "An update finds the files that changed since the bluprint last looked, redoes only the sections whose code they touch, and moves every other line reference along with the code, so the rest stays true.",
   },
 ];
 
-/** What people ask before they map their own repository. */
+/** What people ask before they bluprint their own repository. */
 export function LandingStart() {
   return (
     <section id="questions" className={s.section} aria-labelledby="questions-title">

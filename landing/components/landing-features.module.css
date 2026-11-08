@@ -99,7 +99,7 @@
   }
 }
 
-/* ── the map's tabs ──────────────────────────────────── */
+/* ── the bluprint's tabs ──────────────────────────────────── */
 .strip {
   display: flex;
   flex-shrink: 0;
@@ -1076,7 +1076,7 @@
   height: 20px;
 }
 
-/* The project's own app: its colours, not the map's. */
+/* The project's own app: its colours, not the bluprint's. */
 .site {
   flex: 1;
   min-height: 0;

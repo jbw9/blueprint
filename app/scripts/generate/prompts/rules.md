@@ -1,6 +1,6 @@
-# What a map is
+# What a bluprint is
 
-A map explains a codebase to someone who did not write it. They start broad, open one part, go deeper, and can always reach the exact lines. Reading the code should be the last resort. Every level must answer a question its parent could not.
+A bluprint explains a codebase to someone who did not write it. They start broad, open one part, go deeper, and can always reach the exact lines. Reading the code should be the last resort. Every level must answer a question its parent could not.
 
 The reader is a developer who has to *explain* this system under questioning: what calls what, where data is written and read, and what breaks. A picture that looks plausible but cannot survive a follow-up question is worse than no picture.
 
@@ -17,7 +17,7 @@ The reader is a developer who has to *explain* this system under questioning: wh
 - **Every claim cites real lines.** Every node has `code` refs: file plus 1-indexed inclusive line range, with a plain label saying what those lines do. Cite the lines that prove the node's `detail`, not the file header.
 - **Every arrow is a real path.** Draw an arrow in a `diagram` only where the code really goes from one thing to the other: a call, a redirect, a write, a read, a navigation. Its `at` is the `file:line` where that happens; where the graph has that call, leave `at` out and it is filled with the call's line. Its `label` is a few words (at most 24 characters): "tap", "reads rsvp", "redirects". An arrow you cannot cite is an arrow you must not draw. A dead end or broken path is drawn with `tone: "warn"`, not left out.
 - **Order is a claim.** `group: {ordering: "sequence"}` only when the children really happen in that order for one run. Otherwise use `set` with a `note` saying why they belong together.
-- **Don't invent.** If the repo doesn't say, the map doesn't say. Name the gap in `unsure` or as an issue.
+- **Don't invent.** If the repo doesn't say, the bluprint doesn't say. Name the gap in `unsure` or as an issue.
 
 ## Shape of the tree
 
@@ -26,7 +26,7 @@ The reader is a developer who has to *explain* this system under questioning: wh
 - **Each level names its parts and never shows their contents.** Children are chapters: each one answers one question about its parent.
 - **Two kinds of level, and nothing else.**
   - A **level with parts** is a picture: one `diagram` whose boxes open every child, plus at most two other blocks. Each part the reader sees on it leads down.
-  - A **leaf** is one piece of code: one function, handler, component, screen, query or config, the thing a reader would open to change it. Its `code` is that thing's own lines: at most 3 ranges, from at most 2 files, about 200 lines in all. It has no `diagram` (a diagram names parts, and a leaf has none) and 1–2 blocks that explain the lines. The first is picked by what the code is, so the same kind of code reads the same way in every map:
+  - A **leaf** is one piece of code: one function, handler, component, screen, query or config, the thing a reader would open to change it. Its `code` is that thing's own lines: at most 3 ranges, from at most 2 files, about 200 lines in all. It has no `diagram` (a diagram names parts, and a leaf has none) and 1–2 blocks that explain the lines. The first is picked by what the code is, so the same kind of code reads the same way in every bluprint:
     - a component, page or screen that draws something → `screen`
     - a function, handler or action that does something → `flow`, its steps in order
     - code whose point is talking to another system (an API, the database, a queue) → `sequence`
@@ -46,7 +46,7 @@ The reader is a developer who has to *explain* this system under questioning: wh
 The level itself, `node` open:
 
 1. `title`: the thing's own name in 1–4 words, Title Case, everyday words a newcomer would use. Good: "Organisation Sign-Up", "Interest Categories", "Choosing The Home Screen". Bad: nicknames such as "Org Wizard" or "Role Lookup", code identifiers such as `rsvp` or `fetchAllEvents`, and file paths. Code identifiers belong in `detail` in backticks.
-2. `sub`: at most 8 words saying what this IS, plainly: "Add a repo and watch it get mapped". Not a list of its parts (the children already name them) and never a file path.
+2. `sub`: at most 8 words saying what this IS, plainly: "Add a repo and watch its bluprint get made". Not a list of its parts (the children already name them) and never a file path.
 3. `detail`: **at most two sentences and at most 40 words.** The one thing to know before looking at the pictures. Everything else is a block.
    - On a leaf, say what the code is for and what depends on it: who calls it, what it guards, what breaks if it is wrong. Its blocks already walk the lines; the detail must not retell them.
 4. `anatomy`: blocks drawn as the thing they describe. Use whichever fit; a level with parts has its diagram and at most two more, a leaf at most two and no diagram:
@@ -67,7 +67,7 @@ The level itself, `node` open:
      - A `web` screen gives `route`, the URL path it is at (`/settings/billing`, `/invite/[token]`), when the code shows it — a URL, never a file path.
      - An item's `note` is drawn beside the screen with a line to the item: what it does or holds, in a few words ("opens the wizard", "must be 8+ characters"). Give a note only to the items worth pointing at, about 3–6; an item that explains itself gets none.
    - `example`: what a stored value or payload looks like. It is labelled as an example, synthesized from the code.
-   - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`map.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
+   - **A file or record is shown by what is in it, never by its name alone.** When a level names files it writes or reads (`bluprint.json`, `.env`, a log), or stored records, give each one that matters a `schema` (its fields, for structured data: JSON, a table, a typed config) or an `example` (for text: markdown, logs, CSV). A list of names with a line each tells the reader only that the files exist.
    - `flow` (numbered steps), `facts` (label/value pairs), `chips` (a closed set), `map` (in → out rules), `schema` (table columns), `routes` (HTTP routes).
 5. `issues`: real problems a developer should know before touching this, shown as "Watch out".
    - Each is a few-word title, then 1–3 sentences on what goes wrong, for whom, and when, with `where` as `file:line`.

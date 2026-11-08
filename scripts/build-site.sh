@@ -1,7 +1,7 @@
 #!/bin/sh
 # usage: sh scripts/build-site.sh <site>
 #   builds blpr.dev into <site>, a checkout of the gh-pages branch, replacing what was there: the
-#   landing page, the demo maps made from this repo, and the admin dashboard. The builds in $keep
+#   landing page, the demo bluprints made from this repo, and the admin dashboard. The builds in $keep
 #   are not exported by this script, so they stay as deployed.
 set -e
 site=$(cd "$1" && pwd)
@@ -12,18 +12,18 @@ keep="kafka"
 demos="fastapi:fastapi/full-stack-fastapi-template flask:pallets/flask ky:sindresorhus/ky bluprint:jbw9/bluprint umami:umami-software/umami"
 
 for d in $demos; do
-  map=${d%%:*}
+  bluprint=${d%%:*}
   repo=${d#*:}
-  commit=$(node -p "require('../landing/demo/$map/map.json').RUN.commit")
-  npx -y tsx@4.23.15 --tsconfig tsconfig.json scripts/export-static.mts "$map" --base-path "$base/$map" --source-url "https://github.com/$repo/blob/$commit"
+  commit=$(node -p "require('../landing/demo/$bluprint/bluprint.json').RUN.commit")
+  npx -y tsx@4.23.15 --tsconfig tsconfig.json scripts/export-static.mts "$bluprint" --base-path "$base/$bluprint" --source-url "https://github.com/$repo/blob/$commit"
 done
 (cd ../landing && NEXT_PUBLIC_BASE_PATH=$base npm run build)
 
 find "$site" -mindepth 1 -maxdepth 1 ! -name .git $(for k in $keep; do printf ' ! -name %s' "$k"; done) -exec rm -rf {} +
 cp -R ../landing/out/. "$site/"
 for d in $demos; do
-  map=${d%%:*}
-  cp -R "out/$map" "$site/$map"
+  bluprint=${d%%:*}
+  cp -R "out/$bluprint" "$site/$bluprint"
 done
 # The admin dashboard, at blpr.dev/admin: one static page, its data behind a password (admin/supabase.sql).
 mkdir -p "$site/admin"

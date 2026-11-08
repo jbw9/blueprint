@@ -11,9 +11,9 @@ import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, t
 import { useMac } from "@/lib/client/platform";
 
 /**
- * Settings, as a dialog over the map. There is little to set: the theme,
+ * Settings, as a dialog over the bluprint. There is little to set: the theme,
  * the agent new tabs open into, where Claude Code is when it was not found by
- * itself, which model it runs, and what the map is drawn on. Every change is
+ * itself, which model it runs, and what the bluprint is drawn on. Every change is
  * saved as it is made, so there is nothing to confirm and nothing to undo.
  */
 
@@ -121,7 +121,7 @@ export function SettingsDialog() {
               ))}
             </div>
           </Field>
-          <Field group label="Background" hint="What the map is drawn on.">
+          <Field group label="Background" hint="What the bluprint is drawn on.">
             <div role="radiogroup" aria-label="Background" className="inline-flex border border-border-gray p-0.5">
               {GROUNDS.map((g) => (
                 <button
@@ -143,7 +143,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Default agent"
-            hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Map context goes to Claude either way.`}
+            hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Bluprint context goes to Claude either way.`}
           >
             <div role="radiogroup" aria-label="Default agent" className="inline-flex border border-border-gray p-0.5">
               {agents.map((a) => (
@@ -322,7 +322,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Run reports"
-            hint="When a map finishes, Bluprint sends the Bluprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
+            hint="When a bluprint finishes, Bluprint sends the Bluprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
           >
             <RunReports />
           </Field>

@@ -1,9 +1,9 @@
-// The Claude a published map's page talks to (components/agent/claude-web.tsx): a Lambda behind a
-// streaming function URL, answering from the map and the code it cites, on Bedrock. The page
+// The Claude a published bluprint's page talks to (components/agent/claude-web.tsx): a Lambda behind a
+// streaming function URL, answering from the bluprint and the code it cites, on Bedrock. The page
 // holds no credentials; this function's role may call one model and nothing else, and every
 // limit below bounds what one stranger's question can cost.
 //
-// Packed with map.json and source.json beside it (scripts/pages-claude/pack.sh).
+// Packed with bluprint.json and source.json beside it (scripts/pages-claude/pack.sh).
 import { readFileSync } from "node:fs";
 import { BedrockRuntimeClient, ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime";
 
@@ -18,36 +18,36 @@ const MAX_TOTAL = 60000;
 const MAX_MESSAGES = 16;
 const MAX_LINES = 300;
 
-const map = JSON.parse(readFileSync(new URL("map.json", import.meta.url), "utf8"));
+const bluprint = JSON.parse(readFileSync(new URL("bluprint.json", import.meta.url), "utf8"));
 const source = JSON.parse(readFileSync(new URL("source.json", import.meta.url), "utf8"));
 const bedrock = new BedrockRuntimeClient({});
 
-/** The map as an outline: every level's title, what it is, and the lines it cites. */
+/** The bluprint as an outline: every level's title, what it is, and the lines it cites. */
 function outline() {
   const out = [];
-  const o = map.OVERVIEW ?? {};
-  out.push(`${map.RUN.repo}: ${o.sub ?? ""}`, o.detail ?? "", o.explain?.body ?? "");
+  const o = bluprint.OVERVIEW ?? {};
+  out.push(`${bluprint.RUN.repo}: ${o.sub ?? ""}`, o.detail ?? "", o.explain?.body ?? "");
   for (const t of o.glossary ?? []) out.push(`Term — ${t.term}: ${t.meaning}`);
   const walk = (n, depth) => {
     const refs = (n.code ?? []).map((c) => `${c.file}:${c.start}-${c.end}`).join(", ");
     out.push(`${"  ".repeat(depth)}- ${n.title} — ${n.sub}${n.detail ? `. ${n.detail}` : ""}${refs ? ` [${refs}]` : ""}`);
     for (const c of n.children ?? []) walk(c, depth + 1);
   };
-  for (const n of map.AUTHORED) walk(n, 0);
+  for (const n of bluprint.AUTHORED) walk(n, 0);
   return out.filter(Boolean).join("\n");
 }
 
-const SYSTEM = `You are Claude, in a terminal beside a map of the codebase ${map.RUN.repo} (commit ${map.RUN.commit}), on a public web page. Readers ask you about this code.
+const SYSTEM = `You are Claude, in a terminal beside a bluprint of the codebase ${bluprint.RUN.repo} (commit ${bluprint.RUN.commit}), on a public web page. Readers ask you about this code.
 
-The map shows the repository as a tree of sections (user journey, data flow, the code behind each). The reader can attach things they picked on the map: a whole section arrives as a block starting with \`[Map section:\`, one element of a section (a row, a diagram box, a step, a line of code) as one starting with \`[Map element:\`. Each names where it sits on the map, what it says, and the code behind it. Treat what is attached as what the reader is asking about, and read the listed code when it is relevant. Each message also opens with a \`[Reading now:\` line naming the section the reader has open, followed by that section when it has changed since the last message. When they ask what they are reading, or say "this" or "here" with nothing attached, they mean that section: summarize or answer from it and the code it lists. It is told to you, not shown to them, so never mention having been told where they are.
+The bluprint shows the repository as a tree of sections (user journey, data flow, the code behind each). The reader can attach things they picked on the bluprint: a whole section arrives as a block starting with \`[Bluprint section:\`, one element of a section (a row, a diagram box, a step, a line of code) as one starting with \`[Bluprint element:\`. Each names where it sits on the bluprint, what it says, and the code behind it. Treat what is attached as what the reader is asking about, and read the listed code when it is relevant. Each message also opens with a \`[Reading now:\` line naming the section the reader has open, followed by that section when it has changed since the last message. When they ask what they are reading, or say "this" or "here" with nothing attached, they mean that section: summarize or answer from it and the code it lists. It is told to you, not shown to them, so never mention having been told where they are.
 
 Answer in Markdown, which the page renders: short paragraphs, lists, \`code\`, and fenced code blocks for code worth quoting; no headings above ###. Be concise. Cite code as path:line. Read a file with read_file before saying what it does; never guess at code you have not read. You can only read the files listed below, and cannot run anything or change anything. If asked about something outside this codebase, say briefly that you are here to explain this code.
 
-You also drive what the reader is looking at. When they ask how something works, call show_section with the map section it is about before you explain, naming it by its title exactly as the outline below spells it (the words before the dash), so they are looking at the thing you are explaining as you explain it. Show the most specific section that fits; show another as your answer moves to it. Never announce that you are showing them something — they can see it — though naming the section is fine where the prose wants it.
+You also drive what the reader is looking at. When they ask how something works, call show_section with the bluprint section it is about before you explain, naming it by its title exactly as the outline below spells it (the words before the dash), so they are looking at the thing you are explaining as you explain it. Show the most specific section that fits; show another as your answer moves to it. Never announce that you are showing them something — they can see it — though naming the section is fine where the prose wants it.
 
 Files: ${Object.keys(source).join(", ")}
 
-The map:
+The bluprint:
 ${outline()}`;
 
 const TOOLS = {
@@ -72,7 +72,7 @@ const TOOLS = {
     {
       toolSpec: {
         name: "show_section",
-        description: "Open a section of the map for the reader, by its title as the outline spells it.",
+        description: "Open a section of the bluprint for the reader, by its title as the outline spells it.",
         inputSchema: { json: { type: "object", properties: { section: { type: "string" } }, required: ["section"] } },
       },
     },
@@ -156,7 +156,7 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       const results = content
         .filter((b) => b.toolUse)
         .map(({ toolUse: { toolUseId, name, input } }) => {
-          // The page resolves the name against its map and moves there (components/agent/claude-web.tsx).
+          // The page resolves the name against its bluprint and moves there (components/agent/claude-web.tsx).
           if (name === "show_section") {
             // The outline writes "title — what it is"; a name copied whole is cut back to its title.
             send("show", String(input.section ?? "").split(" — ")[0].trim());

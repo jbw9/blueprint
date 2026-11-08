@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Hunks, TINT, WORD, openDiff, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { hunksOf, type HunkLines } from "@/lib/client/hunks";
-import type { FileChange, MapDiff, SectionDiff, Verdict } from "@/lib/server/diff";
+import type { FileChange, BluprintDiff, SectionDiff, Verdict } from "@/lib/server/diff";
 import { cn } from "@/lib/client/utils";
 
 /**
@@ -32,7 +32,7 @@ export interface Changed {
  * lines its sections cite. A box on an overview is the way down to every
  * change beneath it, so it counts them all.
  */
-export function changesUnder(diff: MapDiff, id: string): Changed | null {
+export function changesUnder(diff: BluprintDiff, id: string): Changed | null {
   const own = diff.sections.find((s) => s.id === id);
   if (!own) return null;
   const verdict = own.verdict !== "untouched" ? own.verdict : own.inside ? "changed" : null;
@@ -49,7 +49,7 @@ export function changesUnder(diff: MapDiff, id: string): Changed | null {
     const change = diff.files.find((c) => (c.mapped ?? c.path) === path);
     if (!change) continue;
     // A hunk counts where its old side meets a cited span — the test the
-    // code popup's "What changed here" makes (components/map/explain.tsx).
+    // code popup's "What changed here" makes (components/bluprint/explain.tsx).
     const only = (h: HunkLines) => {
       const old = h.lines.map((l) => l.old ?? h.oldStart);
       const lo = Math.min(...old);
@@ -152,7 +152,7 @@ export function DiagramChanges({
                   ))
                 ) : (
                   <p className="text-[12px] text-muted-slate">
-                    {ch.verdict === "added" ? "A part the map gained: it has no lines from before to set against." : ch.verdict === "removed" ? "A part the map lost." : "Its own lines held; something it holds changed. Open it to see where."}
+                    {ch.verdict === "added" ? "A part the bluprint gained: it has no lines from before to set against." : ch.verdict === "removed" ? "A part the bluprint lost." : "Its own lines held; something it holds changed. Open it to see where."}
                   </p>
                 )}
               </div>
@@ -167,11 +167,11 @@ export function DiagramChanges({
 /**
  * Across the top of a level while a change is shown: what change, what the
  * colours mean, and the way to every place it touched — so the reader never
- * has to hunt the map for it.
+ * has to hunt the bluprint for it.
  */
 export function DiffBar({ path }: { path: string[] }) {
   const d = useDiff();
-  const { nodeAt } = useMap();
+  const { nodeAt } = useBluprint();
   if (!d || (!d.diff && !d.loading && !d.error)) return null;
   const all = d.diff?.sections.filter((s) => s.verdict !== "untouched") ?? [];
   const here = path.join("/");
@@ -222,7 +222,7 @@ export function DiffBar({ path }: { path: string[] }) {
               </button>
             </>
           ) : (
-            <span className="text-[12px] text-muted-slate">{d.error ?? "No part of the map changed"}</span>
+            <span className="text-[12px] text-muted-slate">{d.error ?? "No part of the bluprint changed"}</span>
           )}
           <span className="mx-1 h-4 w-px bg-border-gray" />
           <button type="button" className={btn} onClick={openDiff}>

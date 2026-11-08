@@ -2,7 +2,7 @@
 //! pty (pty.rs); a new one starts their own `claude` in it first, so it looks
 //! and behaves exactly as it does in their terminal, and quitting Claude leaves
 //! the shell behind. What this module adds is finding that binary, and the
-//! launcher that lets the map hand it context.
+//! launcher that lets the bluprint hand it context.
 //!
 //! The launcher is a small script, `bluprint-claude`, on each tab's PATH. It runs
 //! the user's `claude` with `--settings` carrying a `UserPromptSubmit` hook,
@@ -12,8 +12,8 @@
 //! servers, theme and status line all still apply.
 //!
 //! The hand-off is a file. Each tab has its own queue under the temp dir,
-//! named in `$BLUPRINT_CONTEXT`. Picking on the map appends a block to it —
-//! `[Map section: …]` for a whole section, `[Map element: …]` for one thing on
+//! named in `$BLUPRINT_CONTEXT`. Picking on the bluprint appends a block to it —
+//! `[Bluprint section: …]` for a whole section, `[Bluprint element: …]` for one thing on
 //! a level — and the hook drains it on the next prompt: whatever a prompt hook
 //! prints is added to that prompt's context. The file being gone is how the
 //! UI knows a pick was delivered (components/agent/workspace.tsx shows it).
@@ -22,7 +22,7 @@ use portable_pty::CommandBuilder;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Every prompt first says where the user is on the map (`.where`, kept by the
+/// Every prompt first says where the user is on the bluprint (`.where`, kept by the
 /// app as they move; see `place`): its first line always, so "what am I
 /// reading?" has an answer, and the section itself only when it has changed
 /// since the last prompt, so one page read for a while is not sent each turn.
@@ -132,25 +132,25 @@ fn status(word: &str) -> serde_json::Value {
 /// At the end of every turn, two markers, for two different readers.
 ///
 /// `.ended` is written always: it names the session's transcript, which is how
-/// the app offers to keep an answer on the map (lib/agent/keep.ts). A turn that only
-/// answered a question changes no file and files no fix, so the map-following
+/// the app offers to keep an answer on the bluprint (lib/agent/keep.ts). A turn that only
+/// answered a question changes no file and files no fix, so the bluprint-following
 /// marker below never fires for it — and that is the common case for a reader
 /// who just asked how something works.
 ///
-/// `.turn` is written only when the turn may have edited code or found the map
-/// wrong (bluprint-map-fix), and is what makes the map follow the agent. Keeping
+/// `.turn` is written only when the turn may have edited code or found the bluprint
+/// wrong (bluprint-fix), and is what makes the bluprint follow the agent. Keeping
 /// the two separate means offering to keep an answer never triggers an update,
 /// and an edit never implies the reader wanted a note.
 const TURN: &str = r#"f="$BLUPRINT_CONTEXT"; s=$(cat); printf '%s' "$s" > "$f.ended.part" && mv "$f.ended.part" "$f.ended"; [ -e "$f.dirty" ] || [ -s "$f.fix" ] || exit 0; rm -f "$f.dirty"; printf '%s' "$s" > "$f.turn.part" && mv "$f.turn.part" "$f.turn"; exit 0"#;
 
-/// What Claude runs when it finds the map wrong: one line per section, kept
+/// What Claude runs when it finds the bluprint wrong: one line per section, kept
 /// beside the tab's queue until the turn ends. Allowed without asking.
 const FIX: &str = r#"#!/bin/sh
-# Tells Bluprint its map is wrong about a section (src-tauri/src/claude.rs).
+# Tells Bluprint the bluprint is wrong about a section (src-tauri/src/claude.rs).
 [ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to correct." >&2; exit 1; }
-[ $# -ge 2 ] || { echo 'usage: bluprint-map-fix "<section title>" "<what the map gets wrong, and what is true>"' >&2; exit 2; }
+[ $# -ge 2 ] || { echo 'usage: bluprint-fix "<section title>" "<what the bluprint gets wrong, and what is true>"' >&2; exit 2; }
 printf '%s\t%s\n' "$(printf '%s' "$1" | tr '\t\n' '  ')" "$(printf '%s' "$2" | tr '\t\n' '  ')" >> "$BLUPRINT_CONTEXT.fix"
-echo "Noted. The map's \"$1\" will be corrected after this turn."
+echo "Noted. The bluprint's \"$1\" will be corrected after this turn."
 "#;
 
 /// What Claude runs to put the user in front of what it is talking about: one
@@ -158,26 +158,26 @@ echo "Noted. The map's \"$1\" will be corrected after this turn."
 /// the turn. Refs are written as the user said them and resolved by the app.
 /// Allowed without asking.
 const SHOW: &str = r#"#!/bin/sh
-# Drives Bluprint's map: shows a section, a diff, or the history (src-tauri/src/claude.rs).
+# Drives the open bluprint: shows a section, a diff, or the history (src-tauri/src/claude.rs).
 [ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to show." >&2; exit 1; }
 clean() { printf '%s' "$1" | tr '\t\n' '  '; }
 case "$1" in
 section)
-  [ -n "$2" ] || { echo 'usage: bluprint-map-show section "<section title or id>"' >&2; exit 2; }
+  [ -n "$2" ] || { echo 'usage: bluprint-show section "<section title or id>"' >&2; exit 2; }
   printf 'section\t%s\t\n' "$(clean "$2")" >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing \"$2\" on the map."
+  echo "Showing \"$2\" on the bluprint."
   ;;
 diff)
-  [ $# -ge 2 ] || { echo 'usage: bluprint-map-show diff "<from>" ["<to>"]' >&2; exit 2; }
+  [ $# -ge 2 ] || { echo 'usage: bluprint-show diff "<from>" ["<to>"]' >&2; exit 2; }
   printf 'diff\t%s\t%s\n' "$(clean "$2")" "$(clean "$3")" >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing the diff${2:+ from \"$2\"}${3:+ to \"$3\"} on the map."
+  echo "Showing the diff${2:+ from \"$2\"}${3:+ to \"$3\"} on the bluprint."
   ;;
 timeline)
   printf 'timeline\t\t\n' >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing the history of the code over the map."
+  echo "Showing the history of the code over the bluprint."
   ;;
 *)
-  echo 'usage: bluprint-map-show section "<section title or id>" | bluprint-map-show diff "<from>" ["<to>"] | bluprint-map-show timeline' >&2
+  echo 'usage: bluprint-show section "<section title or id>" | bluprint-show diff "<from>" ["<to>"] | bluprint-show timeline' >&2
   exit 2
   ;;
 esac
@@ -195,19 +195,19 @@ curl -sS --fail-with-body "$BLUPRINT_MCP_URL/text" -H 'Content-Type: application
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_terminal\",\"arguments\":{\"name\":\"$name\",\"lines\":$lines}}}"
 "#;
 
-/// The map's own table of contents, for naming a section that was not picked.
+/// The bluprint's own table of contents, for naming a section that was not picked.
 ///
 /// The user asks "how do sign ups work?" with nothing attached, so the only
 /// section names in context are whatever they happened to pick earlier —
-/// usually none. Without this, `bluprint-map-show section` would be a guess at a
+/// usually none. Without this, `bluprint-show section` would be a guess at a
 /// title that may not exist, which is how a reader ends up somewhere they did
 /// not ask to be. The outline is written beside the tab's queue when the tab
-/// starts (pty.rs), from the map the page already has.
+/// starts (pty.rs), from the bluprint the page already has.
 const LIST: &str = r#"#!/bin/sh
-# Lists Bluprint's map, section by section (src-tauri/src/claude.rs).
-[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no map to list." >&2; exit 1; }
-[ -s "$BLUPRINT_CONTEXT.map" ] || { echo "This repository has no map yet." >&2; exit 1; }
-cat "$BLUPRINT_CONTEXT.map"
+# Lists the open bluprint, section by section (src-tauri/src/claude.rs).
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no bluprint to list." >&2; exit 1; }
+[ -s "$BLUPRINT_CONTEXT.bluprint" ] || { echo "This repository has no bluprint yet." >&2; exit 1; }
+cat "$BLUPRINT_CONTEXT.bluprint"
 "#;
 
 /// What Claude runs to mark a step of the plan it is building (`checklist!`):
@@ -225,39 +225,39 @@ printf '%s\t%s\t%s\n' "$n" "$state" "$(printf '%s' "$*" | tr '\t\n' '  ')" >> "$
 echo "Step $n: $state."
 "#;
 
-const SYSTEM: &str = "This session was opened from Bluprint, an app that maps this \
+const SYSTEM: &str = "This session was opened from Bluprint, an app that bluprints this \
 repository as a tree of sections (user journey, data flow, the code behind each). The user \
-can attach things they picked on the map: a whole section arrives as a block starting with \
-`[Map section:`, one element of a section (a row, a diagram box, a step, a line of code) as \
-one starting with `[Map element:`. Each names where it sits on the map, what it says, and \
+can attach things they picked on the bluprint: a whole section arrives as a block starting with \
+`[Bluprint section:`, one element of a section (a row, a diagram box, a step, a line of code) as \
+one starting with `[Bluprint element:`. Each names where it sits on the bluprint, what it says, and \
 the code behind it. Treat what is attached as what the user is asking about, and read the \
 listed code when it is relevant. Each prompt also opens with a `[Reading now:` line naming \
 the section the user has open, followed by that section when it has changed since the last \
 prompt. When they ask what they are reading, or say \"this\" or \"here\" with nothing \
 attached, they mean that section: summarize or answer from it and the code it lists. It is \
-told to you, not shown to them, so never mention having been told where they are. Do not edit files unless asked. The map can be wrong: when \
+told to you, not shown to them, so never mention having been told where they are. Do not edit files unless asked. The bluprint can be wrong: when \
 you find that it is (a listed problem that is not real, a description or a line reference \
-that does not match the code), run `bluprint-map-fix \"<section title>\" \"<what it gets wrong, \
-and what is true>\"` once per section, and the map is corrected after your turn. Code you \
-change updates the map by itself, deletions included; there is no need to report edits. \
+that does not match the code), run `bluprint-fix \"<section title>\" \"<what it gets wrong, \
+and what is true>\"` once per section, and the bluprint is corrected after your turn. Code you \
+change updates the bluprint by itself, deletions included; there is no need to report edits. \
 You also drive what the user is looking at. When they ask how something works and nothing \
-is attached, run `bluprint-map-list` to see what the map actually calls its sections, then, if \
-one of them is what they are asking about, run `bluprint-map-show section \"<section title>\"` \
+is attached, run `bluprint-list` to see what the bluprint actually calls its sections, then, if \
+one of them is what they are asking about, run `bluprint-show section \"<section title>\"` \
 before you explain, naming it exactly as the outline spells it, so \
 they are looking at the thing you are explaining as you explain it; the app takes it \
 immediately, not at the end of your turn. When they ask to see what changed, run \
-`bluprint-map-show diff \"<from>\" \"<to>\"` — `<to>` may be left off, meaning the working tree, \
-and an empty `<from>` means the commit the map was built from. Pass the refs through as the \
+`bluprint-show diff \"<from>\" \"<to>\"` — `<to>` may be left off, meaning the working tree, \
+and an empty `<from>` means the commit the bluprint was built from. Pass the refs through as the \
 user said them, `HEAD~1`, a sha, a branch, or a phrase like \"last commit by hindra2\": the \
 app resolves them against the repository, so do not run git to work one out first. When they \
-ask how the code got here or how it changed over time, run `bluprint-map-show timeline`: it draws \
-every commit on the map's sections, and they can click through it while you tell the history. \
-The `map_search`, `map_section` and `map_where` tools read the map itself. Before you change a \
-file, ask `map_where` which sections explain it, so the change fits the part of the product it \
-lives in and the user can follow what you are building on the map. \
-Keeping the map right is background upkeep, not part of the answer: never tell the user \
-whether you edited files, whether the map is accurate, or that there is nothing to correct, \
-and mention a correction only in passing when you ran bluprint-map-fix. What you show is \
+ask how the code got here or how it changed over time, run `bluprint-show timeline`: it draws \
+every commit on the bluprint's sections, and they can click through it while you tell the history. \
+The `bluprint_search`, `bluprint_section` and `bluprint_where` tools read the bluprint itself. Before you change a \
+file, ask `bluprint_where` which sections explain it, so the change fits the part of the product it \
+lives in and the user can follow what you are building on the bluprint. \
+Keeping the bluprint right is background upkeep, not part of the answer: never tell the user \
+whether you edited files, whether the bluprint is accurate, or that there is nothing to correct, \
+and mention a correction only in passing when you ran bluprint-fix. What you show is \
 likewise not worth narrating — the user can see it, so never announce that you are taking \
 them somewhere, though naming the section you are explaining is fine where the prose wants \
 it. The app also runs the project: its web app in Preview tabs (often several at once, \
@@ -281,8 +281,8 @@ rest follows from. A picture goes here only when it shows what the bullets canno
 change calls for, never out of habit: most changes need none, and boxes in a row that restate the \
 bullets are worse than none. Each is a fenced block of JSON: a ```diagram when parts are added, \
 removed or rewired, {\"caption\" (a few words), \"boxes\": [{\"id\", \"label\" (1-3 words), \"sub\" \
-(a file, or a few words), \"col\", \"row\", \"change\", \"section\" (the id path of the map section \
-this box is, from map_where or map_search, when it is one)}], \"arrows\": [{\"from\", \"to\", \
+(a file, or a few words), \"col\", \"row\", \"change\", \"section\" (the id path of the bluprint section \
+this box is, from bluprint_where or bluprint_search, when it is one)}], \"arrows\": [{\"from\", \"to\", \
 \"label\" (1-3 words), \"change\"}]}, on a grid read left to right and at most three columns wide, \
 where `change` is \"new\", \"changed\" or \"gone\" and what stays as it is has none; a ```sequence \
 when the order of calls is the point, {\"caption\", \"actors\": [names], \"rows\": [{\"from\", \"to\", \
@@ -316,7 +316,7 @@ pub struct Launch {
 /// and the conversation the tab would be reopened into, go on any exit — a
 /// quit, a crash, Ctrl+C — and the script's status is Claude's.
 const LAUNCHER: &str = r#"#!/bin/sh
-# Claude Code with Bluprint's map-context hook (src-tauri/src/claude.rs).
+# Claude Code with the bluprint-context hook (src-tauri/src/claude.rs).
 trap 'rm -f "$BLUPRINT_CONTEXT.live" "$BLUPRINT_CONTEXT.session"' EXIT INT TERM HUP
 : > "$BLUPRINT_CONTEXT.live"
 # A reopened tab's conversation, taken once: a `claude` typed later starts afresh.
@@ -339,7 +339,7 @@ exec "$BLUPRINT_LAUNCHER" "$@"
 /// zsh in a tab starts from here (`ZDOTDIR`), so the shim stays first on PATH
 /// after the user's own startup files: a `.zshrc` that puts `~/.local/bin`
 /// first would otherwise find the real `claude`, and a `claude` typed in the tab
-/// would run without the hooks (no plan tab, no status, no map context).
+/// would run without the hooks (no plan tab, no status, no bluprint context).
 /// Each file loads the user's own from where zsh would have read it.
 #[cfg(unix)]
 const ZSHENV: &str = r#"# Bluprint's zsh startup (src-tauri/src/claude.rs).
@@ -616,14 +616,14 @@ pub fn steps_of(queue: &Path) -> Vec<Step> {
 /// Something Claude asked the app to show. Serializes tagged on `verb`, for a
 /// discriminated union on the page: `{"verb":"section","section":"Sign ups"}`,
 /// or `{"verb":"diff","from":"HEAD~1","to":null}` — `from` empty meaning the
-/// map's own commit, `to` null meaning the working tree. Refs arrive as Claude
+/// bluprint's own commit, `to` null meaning the working tree. Refs arrive as Claude
 /// wrote them; resolving them is the page's job.
 #[derive(serde::Serialize, Debug, PartialEq)]
 #[serde(tag = "verb", rename_all = "lowercase")]
 pub enum Act {
     Section { section: String },
     Diff { from: String, to: Option<String> },
-    /// The history of the code, drawn over the map's sections.
+    /// The history of the code, drawn over the bluprint's sections.
     Timeline,
 }
 
@@ -654,8 +654,8 @@ pub fn take_acts(queue: &Path) -> Vec<Act> {
         .collect()
 }
 
-/// A finished turn the map should follow: where its transcript is, and the
-/// sections Claude found the map wrong about.
+/// A finished turn the bluprint should follow: where its transcript is, and the
+/// sections Claude found the bluprint wrong about.
 #[derive(serde::Serialize, Debug)]
 pub struct Turn {
     transcript: Option<String>,
@@ -681,7 +681,7 @@ pub fn take_ended(queue: &Path) -> Option<String> {
 }
 
 /// The turn Claude finished since this was last asked, if it edited code or
-/// found the map wrong. Taking it clears it, so each is reported once.
+/// found the bluprint wrong. Taking it clears it, so each is reported once.
 pub fn take_turn(queue: &Path) -> Option<Turn> {
     let marker = queue.with_extension("md.turn");
     let stop = std::fs::read_to_string(&marker).ok()?;
@@ -740,9 +740,9 @@ pub fn status_of(queue: &Path) -> Option<String> {
 /// an upgrade of the app replaces old ones.
 fn launcher() -> std::io::Result<PathBuf> {
     let dir = std::env::temp_dir().join("bluprint").join("bin");
-    install(&dir.join("bluprint-map-fix"), FIX)?;
-    install(&dir.join("bluprint-map-show"), SHOW)?;
-    install(&dir.join("bluprint-map-list"), LIST)?;
+    install(&dir.join("bluprint-fix"), FIX)?;
+    install(&dir.join("bluprint-show"), SHOW)?;
+    install(&dir.join("bluprint-list"), LIST)?;
     install(&dir.join("bluprint-plan-step"), STEP)?;
     install(&dir.join("bluprint-terminal"), TERMINAL)?;
     let path = dir.join("bluprint-claude");
@@ -797,14 +797,14 @@ fn install(path: &Path, script: &str) -> std::io::Result<()> {
 /// without relying on PATH.
 pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline: Option<&str>, tab: u32) -> std::io::Result<PathBuf> {
     let path = launcher()?;
-    // The page has the map; this only keeps it where bluprint-map-list can read it.
-    // Written per tab and cleared with the tab, so it never outlives the map it
+    // The page has the bluprint; this only keeps it where bluprint-list can read it.
+    // Written per tab and cleared with the tab, so it never outlives the bluprint it
     // was taken from.
     if let Some(text) = outline.map(str::trim).filter(|t| !t.is_empty()) {
         if let Some(dir) = queue.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        std::fs::write(queue.with_extension("md.map"), format!("{text}\n"))?;
+        std::fs::write(queue.with_extension("md.bluprint"), format!("{text}\n"))?;
     }
     let hook = |c: &str| serde_json::json!({ "type": "command", "command": c });
     let mut settings = serde_json::json!({
@@ -834,7 +834,7 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
             "SessionEnd": [{ "hooks": [hook(RESTORE)] }]
         },
         "permissions": {
-            "allow": ["Bash(bluprint-map-fix:*)", "Bash(bluprint-map-show:*)", "Bash(bluprint-map-list:*)", "Bash(bluprint-plan-step:*)", "Bash(bluprint-terminal:*)", "mcp__bluprint-preview"],
+            "allow": ["Bash(bluprint-fix:*)", "Bash(bluprint-show:*)", "Bash(bluprint-list:*)", "Bash(bluprint-plan-step:*)", "Bash(bluprint-terminal:*)", "mcp__bluprint-preview"],
             // The preview is the browser here: Chrome would open beside the app, out of the user's sight.
             // So is gstack's headless Chromium: these skills do nothing but drive it, or hand it Chrome's sign-ins.
             "deny": [
@@ -901,7 +901,7 @@ pub fn append(queue: &Path, text: &str) -> std::io::Result<()> {
     writeln!(f, "{}\n", text.trim_end())
 }
 
-/// Where the user is on the map, rewritten whenever they move. Written whole
+/// Where the user is on the bluprint, rewritten whenever they move. Written whole
 /// and renamed into place, so a prompt never reads half of it.
 pub fn place(queue: &Path, text: &str) -> std::io::Result<()> {
     if let Some(dir) = queue.parent() {
@@ -916,7 +916,7 @@ pub fn place(queue: &Path, text: &str) -> std::io::Result<()> {
 /// Replaces what is still waiting. Empty clears it.
 pub fn replace(queue: &Path, text: &str) -> std::io::Result<()> {
     if text.trim().is_empty() {
-        // Only the queue: `forget` would also drop the tab's live, map and fix state.
+        // Only the queue: `forget` would also drop the tab's live, bluprint and fix state.
         let _ = std::fs::remove_file(queue);
         return Ok(());
     }
@@ -995,7 +995,7 @@ mod tests {
         let q = dir.path().join("context-1.md");
         assert_eq!(run(HOOK, &q), "");
 
-        append(&q, "[Map section: Signing Up › Student Sign-Up (explorify)\nFive stages.]").unwrap();
+        append(&q, "[Bluprint section: Signing Up › Student Sign-Up (explorify)\nFive stages.]").unwrap();
         assert!(pending(&q));
         // A prompt takes it: Claude gets the block, and the queue is empty.
         assert!(run(HOOK, &q).contains("Five stages."));
@@ -1009,7 +1009,7 @@ mod tests {
     fn the_hook_says_where_and_the_page_once() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        place(&q, "[Reading now: explorify › Signing Up]\n[Map section: Signing Up\nFive stages.]").unwrap();
+        place(&q, "[Reading now: explorify › Signing Up]\n[Bluprint section: Signing Up\nFive stages.]").unwrap();
         // The first prompt gets where, and the page.
         let first = run(HOOK, &q);
         assert!(first.starts_with("[Reading now: explorify › Signing Up]"));
@@ -1019,10 +1019,10 @@ mod tests {
         assert!(second.contains("[Reading now:"));
         assert!(!second.contains("Five stages."));
         // Moved: the new page goes out, and a pick still follows it.
-        place(&q, "[Reading now: explorify › Tax Engine]\n[Map section: Tax Engine\nFormulas.]").unwrap();
-        append(&q, "[Map element: a row]").unwrap();
+        place(&q, "[Reading now: explorify › Tax Engine]\n[Bluprint section: Tax Engine\nFormulas.]").unwrap();
+        append(&q, "[Bluprint element: a row]").unwrap();
         let third = run(HOOK, &q);
-        assert!(third.contains("Formulas.") && third.contains("[Map element: a row]"));
+        assert!(third.contains("Formulas.") && third.contains("[Bluprint element: a row]"));
     }
 
     /// The stop hook as Claude Code runs it: what it is told arrives on stdin.
@@ -1064,7 +1064,7 @@ mod tests {
     fn every_turn_is_offered_for_keeping_even_one_that_only_talked() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        // The case the map-following marker deliberately ignores: a question
+        // The case the bluprint-following marker deliberately ignores: a question
         // answered, nothing edited. Keeping an answer has to work here.
         stop(&q);
         assert!(take_turn(&q).is_none());
@@ -1078,7 +1078,7 @@ mod tests {
     fn a_correction_alone_makes_a_turn() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let fix = launcher().unwrap().with_file_name("bluprint-map-fix");
+        let fix = launcher().unwrap().with_file_name("bluprint-fix");
         let out = Command::new(&fix)
             .args(["Viewing the Gantt", "The gate is deliberate:\tthe chart is public."])
             .env("BLUPRINT_CONTEXT", &q)
@@ -1099,7 +1099,7 @@ mod tests {
     fn showing_takes_effect_without_waiting_for_the_turn_to_end() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let show = launcher().unwrap().with_file_name("bluprint-map-show");
+        let show = launcher().unwrap().with_file_name("bluprint-show");
         let run = |args: &[&str]| {
             Command::new(&show).args(args).env("BLUPRINT_CONTEXT", &q).output().unwrap()
         };
@@ -1130,23 +1130,23 @@ mod tests {
     fn the_map_is_listable_only_once_a_tab_has_one() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let list = launcher().unwrap().with_file_name("bluprint-map-list");
+        let list = launcher().unwrap().with_file_name("bluprint-list");
         let run = || Command::new(&list).env("BLUPRINT_CONTEXT", &q).output().unwrap();
 
-        // No map yet: it says so rather than printing nothing, so Claude does
-        // not read an empty outline as an empty map.
+        // No bluprint yet: it says so rather than printing nothing, so Claude does
+        // not read an empty outline as an empty bluprint.
         let out = run();
         assert!(!out.status.success());
-        assert!(String::from_utf8_lossy(&out.stderr).contains("no map yet"));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("no bluprint yet"));
 
-        std::fs::write(q.with_extension("md.map"), "repo: about\n\n- Sign ups — how people join\n").unwrap();
+        std::fs::write(q.with_extension("md.bluprint"), "repo: about\n\n- Sign ups — how people join\n").unwrap();
         let out = run();
         assert!(out.status.success());
         assert!(String::from_utf8_lossy(&out.stdout).contains("Sign ups"));
 
-        // It goes with the tab: a stale outline must never outlive its map.
+        // It goes with the tab: a stale outline must never outlive its bluprint.
         forget(&q);
-        assert!(!q.with_extension("md.map").exists());
+        assert!(!q.with_extension("md.bluprint").exists());
     }
 
     #[cfg(unix)]
@@ -1154,7 +1154,7 @@ mod tests {
     fn a_bad_act_is_refused_or_skipped() {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
-        let show = launcher().unwrap().with_file_name("bluprint-map-show");
+        let show = launcher().unwrap().with_file_name("bluprint-show");
         for args in [vec!["section"], vec!["diff"], vec!["zoom", "in"], vec![]] {
             let out = Command::new(&show).args(&args).env("BLUPRINT_CONTEXT", &q).output().unwrap();
             assert_eq!(out.status.code(), Some(2), "{args:?}");
@@ -1433,12 +1433,12 @@ printf '[%s]' \"$@\" > '{}'\n", args.display())).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("sub/context-1.md");
         assert!(!pending(&q));
-        append(&q, "[Map section: A]").unwrap();
-        append(&q, "[Map section: B]").unwrap();
+        append(&q, "[Bluprint section: A]").unwrap();
+        append(&q, "[Bluprint section: B]").unwrap();
         let text = std::fs::read_to_string(&q).unwrap();
         assert!(text.contains("A]") && text.contains("B]"));
         assert!(pending(&q));
-        replace(&q, "[Map section: B]").unwrap();
+        replace(&q, "[Bluprint section: B]").unwrap();
         assert!(!std::fs::read_to_string(&q).unwrap().contains("A]"));
         replace(&q, "").unwrap();
         assert!(!pending(&q) && !q.exists());

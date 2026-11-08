@@ -1,7 +1,7 @@
-import type { Diagram } from "@/lib/maps";
+import type { Diagram } from "@/lib/bluprints";
 import s from "./landing.module.css";
 
-/** The agents the app opens beside the map (app/components/agent/agents.tsx), with their Simple Icons marks. */
+/** The agents the app opens beside the bluprint (app/components/agent/agents.tsx), with their Simple Icons marks. */
 const AGENTS = [
   {
     name: "Claude Code",
@@ -27,7 +27,7 @@ const at = (b: { col: number; row: number }) => ({ x: 1 + b.col * 204, y: 34 + b
 
 /**
  * The app beside the agent writing the code: the agent's terminal, with the
- * part picked on the map as its context, and the map's top-level picture
+ * part picked on the bluprint as its context, and the bluprint's top-level picture
  * after the edit, drawn as diff mode draws it: the box whose code changed
  * filled, the box that calls into it dashed, the rest receding. Drawn, not
  * live: the frame above has Claude, not the agents.
@@ -43,8 +43,8 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
           <p className={s.eyebrow}>Beside your agent</p>
           <h2 id="agent-title">Works with the agent you use.</h2>
           <p className={s.intro}>
-            Each opens in a tab beside the map. Right-click a part to add it to the agent&rsquo;s context, and when it
-            edits the code, the map marks the parts it changed.
+            Each opens in a tab beside the bluprint. Right-click a part to add it to the agent&rsquo;s context, and when it
+            edits the code, the bluprint marks the parts it changed.
           </p>
           <ul className={s.agents}>
             {AGENTS.map((a) => (

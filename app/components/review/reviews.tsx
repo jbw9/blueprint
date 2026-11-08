@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { undoTurn } from "@/lib/agent/undo";
 import { cn } from "@/lib/client/utils";
-import type { MapDiff } from "@/lib/server/diff";
+import type { BluprintDiff } from "@/lib/server/diff";
 import type { Branch, Pull, Review } from "@/lib/server/review";
 import { claudePath } from "@/lib/client/claude";
 import { ago } from "@/components/review/ago";
@@ -16,20 +16,20 @@ const SELECT =
 /**
  * Something to review as one change: a pull request or a branch, from where
  * it left its base (lib/server/review.ts), or one turn of the agent in the app, as
- * the map saw it before and after (scripts/generate/update.ts).
+ * the bluprint saw it before and after (scripts/generate/update.ts).
  */
-export function ReviewPicker({ map, value, onPick }: { map: string; value?: string; onPick: (spec?: string) => void }) {
+export function ReviewPicker({ bluprint, value, onPick }: { bluprint: string; value?: string; onPick: (spec?: string) => void }) {
   const [got, setGot] = useState<{ branches: Branch[]; base: string; pulls?: Pull[]; why?: string; turns: { id: string; prompt: string; at: string }[] } | null>(null);
   useEffect(() => {
     let live = true;
-    const read = (q: string) => fetch(`/api/diff?map=${encodeURIComponent(map)}&${q}`).then((r) => r.json());
+    const read = (q: string) => fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint)}&${q}`).then((r) => r.json());
     Promise.all([read("branches=1"), read("turns=1")])
       .then(([b, t]) => live && setGot({ branches: b.branches ?? [], base: b.base ?? "", pulls: b.pulls, why: b.why, turns: t.turns ?? [] }))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [map]);
+  }, [bluprint]);
   return (
     <>
       <select value={value ?? ""} aria-label="Review a pull request, branch or agent turn" onChange={(e) => onPick(e.target.value || undefined)} className={SELECT}>
@@ -70,10 +70,10 @@ export function ReviewPicker({ map, value, onPick }: { map: string; value?: stri
 }
 
 /** What is under review: the pull request as its author described it, the branch and its base, or the turn's prompt. */
-export function ReviewCard({ r, map, spec, onMapped }: { r: Review; map: string; spec?: string; onMapped: () => void }) {
+export function ReviewCard({ r, bluprint, spec, onMade }: { r: Review; bluprint: string; spec?: string; onMade: () => void }) {
   return (
     <div className="mt-3 border border-border-gray px-3 py-2">
-      {r.kind !== "turn" && spec ? <MapAfter key={spec} map={map} spec={spec} commit={r.to} pr={r.kind === "pr"} onMapped={onMapped} /> : null}
+      {r.kind !== "turn" && spec ? <BluprintAfter key={spec} bluprint={bluprint} spec={spec} commit={r.to} pr={r.kind === "pr"} onMade={onMade} /> : null}
       {r.kind === "pr" ? (
         <>
           <p className="text-[13px] font-semibold text-ink">
@@ -96,10 +96,10 @@ export function ReviewCard({ r, map, spec, onMapped }: { r: Review; map: string;
       ) : r.kind === "turn" ? (
         <>
           <p className="text-[12.5px] text-ink">
-            The agent, asked: <span className="italic">{r.title || "to correct the map"}</span>
-            <span className="ml-1.5 text-[11.5px] text-muted-slate">· the map before and after it</span>
+            The agent, asked: <span className="italic">{r.title || "to correct the bluprint"}</span>
+            <span className="ml-1.5 text-[11.5px] text-muted-slate">· the bluprint before and after it</span>
           </p>
-          {spec ? <UndoTurn key={spec} map={map} turn={spec.slice(5)} onUndone={onMapped} /> : null}
+          {spec ? <UndoTurn key={spec} bluprint={bluprint} turn={spec.slice(5)} onUndone={onMade} /> : null}
         </>
       ) : (
         <p className="text-[12.5px] text-ink">
@@ -118,15 +118,15 @@ export function ReviewCard({ r, map, spec, onMapped }: { r: Review; map: string;
  * when nothing has touched those files since: otherwise it names them, and
  * changes nothing.
  */
-function UndoTurn({ map, turn, onUndone }: { map: string; turn: string; onUndone: () => void }) {
+function UndoTurn({ bluprint, turn, onUndone }: { bluprint: string; turn: string; onUndone: () => void }) {
   const [stage, setStage] = useState<"idle" | "confirm" | "busy" | "done">("idle");
   const [said, setSaid] = useState<string | null>(null);
   const go = async () => {
     setStage("busy");
-    const r = await undoTurn(map, turn);
+    const r = await undoTurn(bluprint, turn);
     if (r.ok) {
       setStage("done");
-      setSaid(`Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}. The map is catching up.`);
+      setSaid(`Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}. The bluprint is catching up.`);
       onUndone();
     } else {
       setStage("idle");
@@ -165,13 +165,13 @@ function UndoTurn({ map, turn, onUndone }: { map: string; turn: string; onUndone
 }
 
 /**
- * The map as it would be after the review (app/api/review): until it is made
+ * The bluprint as it would be after the review (app/api/review): until it is made
  * the diff shows which levels the change reaches; once it is, their boxes,
  * arrows and rows diff too. Made only when asked, since it is a paid run.
  */
-function MapAfter({ map, spec, commit, pr, onMapped }: { map: string; spec: string; commit: string; pr: boolean; onMapped: () => void }) {
+function BluprintAfter({ bluprint, spec, commit, pr, onMade }: { bluprint: string; spec: string; commit: string; pr: boolean; onMade: () => void }) {
   const [s, setS] = useState<{ status: "none" | "running" | "done" | "failed"; error?: string }>();
-  const q = `map=${encodeURIComponent(map)}&commit=${commit}`;
+  const q = `bluprint=${encodeURIComponent(bluprint)}&commit=${commit}`;
   useEffect(() => {
     if (s && s.status !== "running") return;
     let live = true;
@@ -181,7 +181,7 @@ function MapAfter({ map, spec, commit, pr, onMapped }: { map: string; spec: stri
           .then((r) => r.json())
           .then((j) => {
             if (!live) return;
-            if (s?.status === "running" && j.status === "done") onMapped();
+            if (s?.status === "running" && j.status === "done") onMade();
             setS(j);
           })
           .catch(() => {}),
@@ -191,13 +191,13 @@ function MapAfter({ map, spec, commit, pr, onMapped }: { map: string; spec: stri
       live = false;
       clearTimeout(t);
     };
-  }, [q, s, onMapped]);
+  }, [q, s, onMade]);
   const start = async () => {
     setS({ status: "running" });
     const j = await fetch("/api/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ map, review: spec, claude: await claudePath() }),
+      body: JSON.stringify({ bluprint, review: spec, claude: await claudePath() }),
     })
       .then((r) => r.json())
       .catch(() => ({ status: "failed", error: "Could not start it." }));
@@ -207,13 +207,13 @@ function MapAfter({ map, spec, commit, pr, onMapped }: { map: string; spec: stri
   return (
     <p className="mb-1.5 flex items-center gap-2 text-[11.5px] text-muted-slate">
       {s.status === "done" ? (
-        <span className="text-accent">The map after {pr ? "this PR" : "this branch"} is drawn: its levels diff box by box.</span>
+        <span className="text-accent">The bluprint after {pr ? "this PR" : "this branch"} is drawn: its levels diff box by box.</span>
       ) : s.status === "running" ? (
-        <span className="text-amber-ink">Mapping {pr ? "this PR" : "this branch"}… a few minutes</span>
+        <span className="text-amber-ink">Making the bluprint of {pr ? "this PR" : "this branch"}… a few minutes</span>
       ) : (
         <>
           <button type="button" onClick={() => void start()} className="cursor-pointer text-accent underline">
-            Map {pr ? "this PR" : "this branch"}
+            Make the bluprint of {pr ? "this PR" : "this branch"}
           </button>
           <span>to see its new and changed boxes, not only which levels it reaches (an update run)</span>
           {s.error ? <span className="text-clay-ink">{s.error}</span> : null}
@@ -224,7 +224,7 @@ function MapAfter({ map, spec, commit, pr, onMapped }: { map: string; spec: stri
 }
 
 /** Changed code no level's lines reach: listed with the level nearest it, never dropped. */
-export function Outside({ outside, title, onOpen }: { outside: NonNullable<MapDiff["outside"]>; title: (path: string[]) => string; onOpen: (path: string[]) => void }) {
+export function Outside({ outside, title, onOpen }: { outside: NonNullable<BluprintDiff["outside"]>; title: (path: string[]) => string; onOpen: (path: string[]) => void }) {
   return (
     <>
       <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Changed where no level&apos;s lines reach</h3>
@@ -237,7 +237,7 @@ export function Outside({ outside, title, onOpen }: { outside: NonNullable<MapDi
                 near {o.near.map((_, i) => title(o.near!.slice(0, i + 1))).join(" › ")}
               </button>
             ) : (
-              <span className="shrink-0 text-amber-ink">not on the map yet</span>
+              <span className="shrink-0 text-amber-ink">not on the bluprint yet</span>
             )}
           </li>
         ))}

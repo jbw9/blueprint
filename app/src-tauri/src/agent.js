@@ -657,7 +657,7 @@
     true,
   );
 
-  // A person's right-click offers the thing under it to Claude, as the map's
+  // A person's right-click offers the thing under it to Claude, as the bluprint's
   // does: a control, or the nearest one it is inside, else what was hit;
   // while selecting, exactly what is outlined. A page with a menu of its own
   // keeps it, unless ⌥ is held. Claude's own right-click was kept closed

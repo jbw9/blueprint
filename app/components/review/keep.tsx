@@ -3,18 +3,18 @@
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentIcon, CLAUDE } from "@/components/agent/agents";
-import { ExplainedBlock, isExplained } from "@/components/map/blocks";
+import { ExplainedBlock, isExplained } from "@/components/bluprint/blocks";
 import { DIALOG, Field, INPUT, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { Prose } from "@/components/ui/state";
 import { ask, section } from "@/lib/agent/context";
 import { draftPrompt, parseBlock, revisePrompt, type Exchange } from "@/lib/agent/keep";
 import { cn } from "@/lib/client/utils";
-import type { Anatomy, Origin } from "@/lib/map/schema";
+import type { Anatomy, Origin } from "@/lib/bluprint/schema";
 import { useDesktop } from "@/lib/client/platform";
 
 /**
- * Keeping an answer: it adds something the map never knew, marked as the
+ * Keeping an answer: it adds something the bluprint never knew, marked as the
  * reader's (lib/server/overlay.ts).
  *
  * Desktop only. It needs a Claude tab, and the tabs are the desktop app's.
@@ -72,8 +72,8 @@ function KeepAnswer({
   path: string[];
   onClose: () => void;
 }) {
-  const map = useMap();
-  const where = path.length ? (map.nodeAt(path)?.title ?? map.RUN.repo) : map.RUN.repo;
+  const bluprint = useBluprint();
+  const where = path.length ? (bluprint.nodeAt(path)?.title ?? bluprint.RUN.repo) : bluprint.RUN.repo;
   const [stage, setStage] = useState<Stage>({ at: "asking" });
   const [changes, setChanges] = useState("");
   const [saving, setSaving] = useState(false);
@@ -96,8 +96,8 @@ function KeepAnswer({
   const send = useCallback((text: string) => {
     waiting.current = true;
     setStage({ at: "drafting" });
-    ask(section(map, path), text);
-  }, [map, path]);
+    ask(section(bluprint, path), text);
+  }, [bluprint, path]);
 
   async function keep() {
     if (stage.at !== "preview") return;
@@ -108,7 +108,7 @@ function KeepAnswer({
     const res = await fetch("/api/overlay", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "add", map: map.name, kind: "block", path, block, origin }),
+      body: JSON.stringify({ action: "add", bluprint: bluprint.name, kind: "block", path, block, origin }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) {
@@ -116,7 +116,7 @@ function KeepAnswer({
       return;
     }
     onClose();
-    // The map is read on the server, so the level redraws from the overlay.
+    // The bluprint is read on the server, so the level redraws from the overlay.
     window.location.reload();
   }
 
@@ -124,7 +124,7 @@ function KeepAnswer({
     <Overlay onClose={onClose}>
       <div className={cn(DIALOG, "max-w-[720px]")}>
         <header className="border-b border-border-gray px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold text-ink">Keep this on the map</h2>
+          <h2 className="text-[15px] font-semibold text-ink">Keep this on the bluprint</h2>
           <p className="mt-0.5 text-[12px] text-muted-slate">
             It goes on <span className="font-medium text-ink">{where}</span>, marked as yours — not as something read
             from the code.

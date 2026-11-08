@@ -9,15 +9,15 @@ import { announceAnswer, announceDraft } from "@/components/review/keep";
 import { announceAct, type Act } from "@/lib/agent/act";
 import type { Exchange } from "@/lib/agent/keep";
 import { followTurn, midTurn } from "@/lib/agent/turns";
-import type { Turn } from "@/lib/agent/update-map";
+import type { Turn } from "@/lib/agent/update-bluprint";
 import type { Status } from "@/lib/client/open-projects";
 
 // What is in front in each tab: Claude (the launcher keeps a marker), some
 // other program, or the shell at its prompt. Polled, since programs start
 // and quit inside the shell, unseen.
-// A turn of Claude's that edited the checkout, or found the map wrong,
-// updates that project's map. Separately, EVERY finished turn is offered to
-// the map as an answer worth keeping (components/review/keep.tsx) — a turn that only
+// A turn of Claude's that edited the checkout, or found the bluprint wrong,
+// updates that project's bluprint. Separately, EVERY finished turn is offered to
+// the bluprint as an answer worth keeping (components/review/keep.tsx) — a turn that only
 // explained something edits nothing, so `turn` never fires for the very case
 // a reader most wants to keep.
 export function useTurnFollowing({
@@ -110,7 +110,7 @@ export function useTurnFollowing({
 }
 
 /**
- * Reads back what Claude just asked and answered, and offers it to the map.
+ * Reads back what Claude just asked and answered, and offers it to the bluprint.
  *
  * A draft the reader asked for (components/review/keep.tsx) comes back as an ordinary
  * answer, so it is announced on its own channel first: the dialog is waiting

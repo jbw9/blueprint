@@ -12,7 +12,7 @@ import { signal } from "@/lib/client/signal";
 export type Status = "working" | "waiting" | "done";
 
 interface State {
-  /** Map ids, in tab order. */
+  /** Bluprint ids, in tab order. */
   open: string[];
   /** The project switched away from last, for Ctrl+Tab. */
   last: string | null;

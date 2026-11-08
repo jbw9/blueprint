@@ -222,7 +222,7 @@ fn terminal_menu(app: &tauri::App) -> tauri::Result<()> {
 /// bar and status bar with it, out of view — and tells the page nothing. So
 /// the pinch is taken here, before WebKit's own handler runs, and handed to
 /// the level's zoom (components/chrome/zoom.tsx) as a `bluprint:pinch` event: only the
-/// map magnifies, as a pinch does on a Mac. `scale` is relative to the start
+/// bluprint magnifies, as a pinch does on a Mac. `scale` is relative to the start
 /// of the pinch, which is exactly 1.
 #[cfg(target_os = "linux")]
 fn pinch_to_page(window: &tauri::WebviewWindow) {

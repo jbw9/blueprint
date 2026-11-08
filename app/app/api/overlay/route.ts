@@ -1,16 +1,16 @@
 import { readFileSync } from "node:fs";
-import type { Anatomy, Node, Origin } from "@/lib/map/schema";
-import type { MapFile } from "@/lib/map/build";
+import type { Anatomy, Node, Origin } from "@/lib/bluprint/schema";
+import type { BluprintFile } from "@/lib/bluprint/build";
 import { apply, newId, readHistory, readOverlay, revertTo, writeOverlay, type Entry, type Overlay } from "@/lib/server/overlay";
-import { getProject, mapFileOf } from "@/lib/server/vault";
+import { getProject, bluprintFileOf } from "@/lib/server/vault";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
- * What the reader added to one of their own maps (lib/server/overlay.ts): read it
+ * What the reader added to one of their own bluprints (lib/server/overlay.ts): read it
  * with its history and anything it could not place, or add, edit, remove and
  * revert.
  *
- * Only a vault project has an overlay. An example map is a committed fixture
+ * Only a vault project has an overlay. An example bluprint is a committed fixture
  * shared by every reader of this checkout, so it is read-only by design and
  * every action here refuses one rather than writing into the repository.
  */
@@ -37,7 +37,7 @@ function originOf(v: unknown): Origin | undefined {
 /**
  * One entry, validated down to what `apply` needs to place it. Blocks and
  * nodes are checked for their discriminant and the fields the renderers read
- * rather than their whole shape — the schema is `lib/map/schema.ts`'s and would
+ * rather than their whole shape — the schema is `lib/bluprint/schema.ts`'s and would
  * drift if restated here, and an unknown block kind simply does not render.
  */
 function entryOf(body: Record<string, unknown>): Entry | string {
@@ -84,19 +84,19 @@ function entryOf(body: Record<string, unknown>): Entry | string {
   return "bad request";
 }
 
-/** The project's own map, before the overlay — so `apply` is never run twice over one tree. */
-function authored(id: string): MapFile | undefined {
-  const file = mapFileOf(id);
+/** The project's own bluprint, before the overlay — so `apply` is never run twice over one tree. */
+function authored(id: string): BluprintFile | undefined {
+  const file = bluprintFileOf(id);
   if (!file) return undefined;
   try {
-    return JSON.parse(readFileSync(file, "utf8")) as MapFile;
+    return JSON.parse(readFileSync(file, "utf8")) as BluprintFile;
   } catch {
     return undefined;
   }
 }
 
 /**
- * The map id must name a project in the vault. A caller-supplied path never
+ * The bluprint id must name a project in the vault. A caller-supplied path never
  * reaches the filesystem: `projectDir` is derived from the id the vault holds.
  */
 function projectOf(v: unknown) {
@@ -105,13 +105,13 @@ function projectOf(v: unknown) {
 }
 
 export async function GET(request: Request) {
-  const project = projectOf(new URL(request.url).searchParams.get("map"));
+  const project = projectOf(new URL(request.url).searchParams.get("bluprint"));
   if (!project) return bad("No such project.");
   const overlay = readOverlay(project.id);
-  const map = authored(project.id);
-  // Without a map yet there is nothing to place against, so nothing is
+  const bluprint = authored(project.id);
+  // Without a bluprint yet there is nothing to place against, so nothing is
   // orphaned — not even the entries that will be once one exists.
-  const orphans = map ? apply(map, overlay).orphans : [];
+  const orphans = bluprint ? apply(bluprint, overlay).orphans : [];
   return Response.json({ overlay, history: readHistory(project.id), orphans });
 }
 
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
   const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
-  const project = projectOf(body.map);
+  const project = projectOf(body.bluprint);
   if (!project) return bad("No such project.");
   const { entries } = readOverlay(project.id);
   const id = line(body.id);

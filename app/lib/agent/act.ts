@@ -1,15 +1,15 @@
-import type { BuiltMap } from "@/lib/map/build";
-import type { Node } from "@/lib/map/schema";
+import type { BuiltBluprint } from "@/lib/bluprint/build";
+import type { Node } from "@/lib/bluprint/schema";
 
 /**
  * What Claude asked the app to show.
  *
- * The reverse of lib/agent/context.ts: that hands the map to Claude, this lets
- * Claude move the map. A reader who asks "how do sign ups work?" wants to be
+ * The reverse of lib/agent/context.ts: that hands the bluprint to Claude, this lets
+ * Claude move the bluprint. A reader who asks "how do sign ups work?" wants to be
  * looking at sign-ups while the answer arrives, and the one thing that knows
  * which section that is — having just read it — is Claude.
  *
- * The channel is `bluprint-map-show`, a script on the tab's PATH that appends a
+ * The channel is `bluprint-show`, a script on the tab's PATH that appends a
  * line beside the tab's queue (src-tauri/src/claude.rs), drained on every
  * `pty_state` poll rather than at the end of the turn: navigation that lands
  * after the explanation has finished is navigation the reader has already done
@@ -25,7 +25,7 @@ import type { Node } from "@/lib/map/schema";
 /**
  * One act, as src-tauri/src/claude.rs serializes it — tagged on `verb`.
  *
- * `from` empty means the map's own commit and `to` null means the working
+ * `from` empty means the bluprint's own commit and `to` null means the working
  * tree, which are the same two defaults the diff API already has for an
  * absent parameter.
  */
@@ -67,7 +67,7 @@ function only<T extends { node: Node }>(all: T[], want: string[]): T | undefined
  * The section Claude named, by id, by its trail of titles, or by its own
  * title. Deliberately the same ladder as `named()` in
  * scripts/generate/update.ts, which resolves the section names Claude writes
- * into `bluprint-map-fix`: the two take names from the same model in the same
+ * into `bluprint-fix`: the two take names from the same model in the same
  * vocabulary, so a name that works in one must work in the other.
  *
  * A title matched further down the tree beats one matched at the top only by
@@ -75,8 +75,8 @@ function only<T extends { node: Node }>(all: T[], want: string[]): T | undefined
  * specific answer, and `flatten` walks parents first so the shallowest exact
  * match still wins over a deep partial one.
  */
-export function findSection(map: BuiltMap, name: string): string[] | null {
-  const all = flatten(map.L0);
+export function findSection(bluprint: BuiltBluprint, name: string): string[] | null {
+  const all = flatten(bluprint.L0);
   const want = name.trim().toLowerCase();
   if (!want) return null;
   const last = want.split("›").pop()!.trim();
@@ -101,7 +101,7 @@ export function findSection(map: BuiltMap, name: string): string[] | null {
 
 /**
  * Acts arrive on the workspace's existing poll, where nothing knows about the
- * map, and are applied on the canvas, which has the tree to resolve a name
+ * bluprint, and are applied on the canvas, which has the tree to resolve a name
  * against. The same event-bus hop as `announceAnswer` (components/review/keep.tsx),
  * for the same reason.
  */

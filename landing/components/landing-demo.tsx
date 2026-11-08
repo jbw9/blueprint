@@ -4,21 +4,21 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import s from "./landing.module.css";
 import { Drawn, type Drawing } from "./landing-features";
 
-export interface DemoMap {
+export interface DemoBluprint {
   id: string;
   label: string;
   files: number;
-  /** The commit the map describes. */
+  /** The commit the bluprint describes. */
   commit: string;
 }
 
-// Built, each map's own export beside this page; in dev, the live app on this origin (next.config.ts).
-const src = (id: string) => (process.env.NODE_ENV === "production" ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${id}/` : `/?map=${id}&embed`);
+// Built, each bluprint's own export beside this page; in dev, the live app on this origin (next.config.ts).
+const src = (id: string) => (process.env.NODE_ENV === "production" ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${id}/` : `/?bluprint=${id}&embed`);
 
 /**
  * What the app does, a tab each. The first is the app itself; the rest need
  * the desktop app, so they are drawn (landing-features.tsx). `project` names
- * the drawing's map in the window's bar.
+ * the drawing's bluprint in the window's bar.
  */
 const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?: string }[] = [
   { id: "explore", label: "Explore a codebase" },
@@ -26,7 +26,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
     id: "claude",
     label: "Ask Claude Code",
     project: "flask",
-    cap: "In the desktop app, Claude Code runs in a tab beside the map. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
+    cap: "In the desktop app, Claude Code runs in a tab beside the bluprint. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
   },
   {
     id: "plan",
@@ -38,7 +38,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
     id: "review",
     label: "Review diffs",
     project: "flask",
-    cap: "In the desktop app, a commit, branch or pull request is drawn on the map you already know: the parts it touched, by how much, and the lines under each.",
+    cap: "In the desktop app, a commit, branch or pull request is drawn on the bluprint you already know: the parts it touched, by how much, and the lines under each.",
   },
   {
     id: "run",
@@ -62,17 +62,17 @@ function walk(e: React.KeyboardEvent<HTMLElement>, ids: string[], at: string, go
 
 /**
  * The app, one tab per thing it does. Exploring is the real canvas, framed:
- * the window's own tabs point the frame at another committed map, so what a
+ * the window's own tabs point the frame at another committed bluprint, so what a
  * visitor explores is the product itself, not a recording. The page is static
- * and has no server to read maps, so each opens that map's own export,
+ * and has no server to read bluprints, so each opens that bluprint's own export,
  * published beside it, and the button under the frame starts a guided tour
  * that points at the real cards inside it. The other tabs are drawn.
  */
-export function LandingDemo({ maps }: { maps: DemoMap[] }) {
+export function LandingDemo({ bluprints }: { bluprints: DemoBluprint[] }) {
   const [feature, setFeature] = useState(FEATURES[0].id);
-  const [open, setOpen] = useState(maps[0].id);
+  const [open, setOpen] = useState(bluprints[0].id);
   const [loaded, setLoaded] = useState<string | null>(null);
-  const current = maps.find((m) => m.id === open)!;
+  const current = bluprints.find((m) => m.id === open)!;
   const shown = FEATURES.find((x) => x.id === feature)!;
   const exploring = shown.id === "explore";
   const frame = useRef<HTMLIFrameElement>(null);
@@ -81,7 +81,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
   const pill = useRef<HTMLSpanElement>(null);
   const replay = useRef<HTMLButtonElement>(null);
   const guide = useRef<Tour>(null);
-  const shownMap = useRef(open);
+  const shownBluprint = useRef(open);
 
   // The page is always the white sheet, so the app in it is always Classic, the sheet's own cobalt, whatever the reader picked in the app.
   // The frame shows the demos as its own tabs, one per repository (app/components/chrome/tabs.tsx).
@@ -93,7 +93,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
   };
   const tell = () =>
     frame.current?.contentWindow?.postMessage(
-      { type: "bluprint:repos", repos: maps.map(({ id, label }) => ({ id, label })), open },
+      { type: "bluprint:repos", repos: bluprints.map(({ id, label }) => ({ id, label })), open },
       location.origin,
     );
 
@@ -120,13 +120,13 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
 
   // Another repository, whether picked by click or by arrow key, or another of the app's tools, ends the tour.
   useEffect(() => {
-    if (shownMap.current === open && exploring) return;
-    shownMap.current = open;
+    if (shownBluprint.current === open && exploring) return;
+    shownBluprint.current = open;
     guide.current?.away();
   }, [open, exploring]);
 
   // Keys go only to the focused document, so Esc pressed on the page around
-  // the demo never reached the map. Hand it on while the demo is on screen.
+  // the demo never reached the bluprint. Hand it on while the demo is on screen.
   useEffect(() => {
     if (!exploring) return;
     const onKey = (e: KeyboardEvent) => {
@@ -200,7 +200,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
         style={{ "--i": 4 } as React.CSSProperties}
       >
         <div className={s.canvas} data-drawn={!exploring}>
-          {/* The app brings its own strip along the top; only a drawing needs a bar to name its map. */}
+          {/* The app brings its own strip along the top; only a drawing needs a bar to name its bluprint. */}
           {exploring ? null : (
             <div className={s.bar}>
               <div aria-hidden className={s.lights}>
@@ -213,7 +213,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
           )}
           <div ref={stage} className={s.stage} data-ready={loaded === open}>
             {exploring && loaded !== open ? <p className={s.loading}>loading {current.id}…</p> : null}
-            {/* Kept while another tab is open, so coming back finds the map where it was left. */}
+            {/* Kept while another tab is open, so coming back finds the bluprint where it was left. */}
             <iframe
               ref={frame}
               src={src(open)}
@@ -248,7 +248,7 @@ export function LandingDemo({ maps }: { maps: DemoMap[] }) {
         <p className={s.cap}>
           {exploring ? (
             <>
-              This is the app, running on maps of real repositories. Click a step to open it, and press <kbd>Esc</kbd> to
+              This is the app, running on bluprints of real repositories. Click a step to open it, and press <kbd>Esc</kbd> to
               go back.
             </>
           ) : (
@@ -595,7 +595,7 @@ function tour(frame: HTMLIFrameElement, stage: HTMLElement, replay: HTMLButtonEl
     root.hidden = false;
     finished++;
     const d = doc();
-    // Deep in a map, the tour starts over from its top level.
+    // Deep in a bluprint, the tour starts over from its top level.
     if (d && stepOf(d) > 0) {
       mode = "off";
       hide();

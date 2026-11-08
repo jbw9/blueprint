@@ -148,8 +148,8 @@ docs as text; they stay out of the preview. `device` does the same on an iOS Sim
 Android emulator running in the app. `read_terminal` reads the project's terminals, the dev \
 server's logs by default: read it when the page misbehaves, a build fails or a request errors. When a page \
 needs an account (a login wall on Instagram, X, a private dashboard), call `sign_in` and let the user sign in \
-themselves; never type a password. Sign-ins are kept, so a site signed in to once opens signed in later. `map_search`, `map_section` and `map_where` read the project's \
-map in Bluprint: what each part of the code is for and which section explains it. Ask `map_where` about a \
+themselves; never type a password. Sign-ins are kept, so a site signed in to once opens signed in later. `bluprint_search`, `bluprint_section` and `bluprint_where` read the project's \
+bluprint in Bluprint: what each part of the code is for and which section explains it. Ask `bluprint_where` about a \
 file before changing it, and name sections by the id path these tools give.";
 
 /// One JSON-RPC message; nothing back for a notification.
@@ -210,7 +210,7 @@ fn call(name: &str, args: &Value, tab: u32, app: &AppHandle) -> Result<Vec<Value
         "resize_preview" => ask(app, tab, on(json!({ "op": "resize", "args": args }))).map(said),
         "read_console_messages" => ask(app, tab, on(json!({ "op": "console", "args": args }))).map(said),
         "device" => crate::devices::tool(args, app),
-        "map_search" | "map_section" | "map_where" => ask(app, tab, json!({ "op": "map", "name": name, "args": args })).map(said),
+        "bluprint_search" | "bluprint_section" | "bluprint_where" => ask(app, tab, json!({ "op": "bluprint", "name": name, "args": args })).map(said),
         "read_terminal" => ask(app, tab, json!({ "op": "terminal", "args": args })).map(said),
         _ => Err(format!("No tool called {name}.")),
     }
@@ -483,8 +483,8 @@ fn tools() -> Value {
             }
         },
         {
-            "name": "map_search",
-            "description": "Search the project's map in Bluprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and that section's id path.",
+            "name": "bluprint_search",
+            "description": "Search the project's bluprint in Bluprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and that section's id path.",
             "inputSchema": {
                 "type": "object",
                 "properties": { "query": { "type": "string", "description": "Words, a symbol name, or part of a path." } },
@@ -492,17 +492,17 @@ fn tools() -> Value {
             }
         },
         {
-            "name": "map_section",
-            "description": "One section of the map: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.",
+            "name": "bluprint_section",
+            "description": "One section of the bluprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.",
             "inputSchema": {
                 "type": "object",
-                "properties": { "name": { "type": "string", "description": "An id path from map_search, an id, or a title." } },
+                "properties": { "name": { "type": "string", "description": "An id path from bluprint_search, an id, or a title." } },
                 "required": ["name"]
             }
         },
         {
-            "name": "map_where",
-            "description": "Which sections of the map explain a file, or one line of it, deepest first; or why none does (left out, not source, new since the map was made).",
+            "name": "bluprint_where",
+            "description": "Which sections of the bluprint explain a file, or one line of it, deepest first; or why none does (left out, not source, new since the bluprint was made).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -515,7 +515,7 @@ fn tools() -> Value {
     ]);
     for t in all.as_array_mut().into_iter().flatten() {
         let name = t["name"].as_str().unwrap_or("");
-        if !["device", "read_terminal", "map_search", "map_section", "map_where"].contains(&name) {
+        if !["device", "read_terminal", "bluprint_search", "bluprint_section", "bluprint_where"].contains(&name) {
             t["inputSchema"]["properties"]["tab"] = json!({
                 "type": "number",
                 "description": "Which Preview tab, by its number (\"Preview 2\" is 2), when the project has more than one. Left out, your own: the one you used last, else one no other agent is using, opened for you when every one is. Replies name the tab used and list every Preview with the page it shows."

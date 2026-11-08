@@ -16,7 +16,7 @@ export interface Settings {
   theme: Theme;
   /** The agent a tab opens into when the app opens one for you (components/agent/agents.tsx). */
   agent: string;
-  /** What the map is drawn on. */
+  /** What the bluprint is drawn on. */
   ground: Ground;
   /** Start a project's dev server when it opens, and show it in a Preview tab. */
   devServer: boolean;

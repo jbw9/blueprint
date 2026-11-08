@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 /**
- * The pieces the app's dialogs share: a dimmed layer over the map that closes
+ * The pieces the app's dialogs share: a dimmed layer over the bluprint that closes
  * on Escape or a click outside (Escape stops here rather than also leaving the
  * level), and the form parts inside one.
  */

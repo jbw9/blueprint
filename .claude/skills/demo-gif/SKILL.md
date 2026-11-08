@@ -77,7 +77,7 @@ Do not ask the user each time. Decide, and say what you decided.
    ```
 
    The scenario must:
-   - start from a clean, known state. Bluprint keeps reader state in `localStorage` under `bluprint:` keys (`bluprint:tabs:<map>`, `bluprint:settings`). Clear the keys the change touches, then reload.
+   - start from a clean, known state. Bluprint keeps reader state in `localStorage` under `bluprint:` keys (`bluprint:tabs:<bluprint>`, `bluprint:settings`). Clear the keys the change touches, then reload.
    - show the start state for about 0.7 s, then the change, then the end state for about 1 s
    - move the pointer with `glide`, so the viewer can follow it
    - stay between 5 and 15 s

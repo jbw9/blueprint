@@ -1,9 +1,9 @@
 /**
- * What a commit did to the map.
+ * What a commit did to the bluprint.
  *
  * Reviewing a diff by reading hunks is reading the change in the code's own
- * terms. This answers it in the map's terms instead: which sections the change
- * touched, and — where there are two maps to compare — which boxes, rows and
+ * terms. This answers it in the bluprint's terms instead: which sections the change
+ * touched, and — where there are two bluprints to compare — which boxes, rows and
  * columns went away and which arrived, so a dropped database column reads as a
  * red row beside the green ones rather than as a `-` in a migration file.
  *
@@ -13,21 +13,21 @@
  * would have left alone.
  *
  * Two comparisons, both the reader's to pick:
- *   - the map's commit → the working tree, the default, which is the one that
- *     answers "what have I done since the map was made" and the only one that
+ *   - the bluprint's commit → the working tree, the default, which is the one that
+ *     answers "what have I done since the bluprint was made" and the only one that
  *     can see uncommitted work;
  *   - any two commits, for reviewing someone else's.
  *
- * Section verdicts need the map's line references to mean something on the
- * `from` side. From the map's own commit they do as written; from any other,
- * they are carried there first through the diff between the two (`mapDiff`).
- * Only a map whose commit the checkout no longer has gets `basis: "files"`,
+ * Section verdicts need the bluprint's line references to mean something on the
+ * `from` side. From the bluprint's own commit they do as written; from any other,
+ * they are carried there first through the diff between the two (`bluprintDiff`).
+ * Only a bluprint whose commit the checkout no longer has gets `basis: "files"`,
  * and says so, rather than citing sections against numbering they were never
  * written for.
  */
 
-import type { Anatomy, Node } from "@/lib/map/schema";
-import type { MapFile } from "@/lib/map/build";
+import type { Anatomy, Node } from "@/lib/bluprint/schema";
+import type { BluprintFile } from "@/lib/bluprint/build";
 import type { Review } from "@/lib/server/review";
 import { changes, diffOf, git, hasAt, moved, refs, touches, type Base, type Change } from "@/scripts/generate/gitdiff";
 
@@ -40,7 +40,7 @@ export interface FileChange {
   verdict: Exclude<Verdict, "untouched">;
   /** A unified diff with context, as `git diff` prints it. */
   diff: string;
-  /** The path the map knows this file by, where a rename since makes it another. */
+  /** The path the bluprint knows this file by, where a rename since makes it another. */
   mapped?: string;
   added: number;
   removed: number;
@@ -54,19 +54,19 @@ export interface SectionDiff {
   verdict: Verdict;
   /**
    * The files behind the verdict, and the lines in each this section cites,
-   * as the map numbers them; `at` is where they were on the `from` side, where
-   * that is not the map's own text.
+   * as the bluprint numbers them; `at` is where they were on the `from` side, where
+   * that is not the bluprint's own text.
    */
   files: { path: string; lines: { s: number; e: number; at?: { s: number; e: number } }[] }[];
   /** How many sections under this one changed: a level is worth opening when something below it moved, even where its own lines did not. */
   inside?: number;
 }
 
-/** One row of a `schema`, `table` or `facts` block, matched across the two maps by its key. */
+/** One row of a `schema`, `table` or `facts` block, matched across the two bluprints by its key. */
 export interface RowDiff {
   key: string;
   verdict: Verdict;
-  /** The cells as the `from` map had them, kept so a removed row can still be drawn. */
+  /** The cells as the `from` bluprint had them, kept so a removed row can still be drawn. */
   before?: string[];
   after?: string[];
 }
@@ -89,10 +89,10 @@ export interface BlockDiff {
   arrows?: PartDiff[];
 }
 
-export interface MapDiff {
+export interface BluprintDiff {
   /**
-   * `sections` when the verdicts are the map's own sections, `files` when the
-   * two commits asked for leave the map's line references meaningless and only
+   * `sections` when the verdicts are the bluprint's own sections, `files` when the
+   * two commits asked for leave the bluprint's line references meaningless and only
    * the file list can be trusted. The view says which it is showing; it never
    * dresses one up as the other.
    */
@@ -109,13 +109,13 @@ export interface MapDiff {
   read?: { from?: string; to?: string };
   files: FileChange[];
   sections: SectionDiff[];
-  /** Only where a second map was given to compare against. */
+  /** Only where a second bluprint was given to compare against. */
   blocks: BlockDiff[];
-  /** The `at` of every diagram arrow whose line changed, as the map cites it: the path itself was edited. */
+  /** The `at` of every diagram arrow whose line changed, as the bluprint cites it: the path itself was edited. */
   arrows?: string[];
   /**
    * Changed files no section's lines cover: new code, or edits between the
-   * lines the map cites. Each with the section citing that file nearest the
+   * lines the bluprint cites. Each with the section citing that file nearest the
    * change, where one does; a review is never silent about code it cannot place.
    */
   outside?: { path: string; near?: string[] }[];
@@ -205,12 +205,12 @@ function walk(roots: Node[]): Placed[] {
 /**
  * A section's verdict from its own references, the same test `targets()` makes:
  * `changed` where a reference overlaps a changed line, `removed` where every
- * file it cites is gone. `added` is never reached from one map — a section the
+ * file it cites is gone. `added` is never reached from one bluprint — a section the
  * `to` side has and the `from` side does not can only be seen by comparing two
  * trees, which `treeDiff` does.
  */
-function verdicts(map: MapFile, byPath: Map<string, Change>, carry?: (file: string) => Change | undefined): SectionDiff[] {
-  return walk(map.AUTHORED).map(({ node, path }) => {
+function verdicts(bluprint: BluprintFile, byPath: Map<string, Change>, carry?: (file: string) => Change | undefined): SectionDiff[] {
+  return walk(bluprint.AUTHORED).map(({ node, path }) => {
     const files = new Map<string, { s: number; e: number }[]>();
     let gone = 0;
     let cited = 0;
@@ -220,7 +220,7 @@ function verdicts(map: MapFile, byPath: Map<string, Change>, carry?: (file: stri
       cited++;
       const c = byPath.get(ref.file);
       if (!c) continue;
-      // A ref numbered to the map's text, carried to the `from` side's.
+      // A ref numbered to the bluprint's text, carried to the `from` side's.
       const k = carry?.(ref.file);
       const r = k ? { ...ref, s: moved(k, ref.s), e: moved(k, ref.e) } : ref;
       if (c.after === null) gone++;
@@ -240,9 +240,9 @@ function verdicts(map: MapFile, byPath: Map<string, Change>, carry?: (file: stri
 const AT = /^(.+):(\d+)(?:-(\d+))?$/;
 
 /** The `at` of each diagram arrow whose cited line a change landed on. */
-function arrowsChanged(map: MapFile, byPath: Map<string, Change>, carry?: (file: string) => Change | undefined): string[] {
+function arrowsChanged(bluprint: BluprintFile, byPath: Map<string, Change>, carry?: (file: string) => Change | undefined): string[] {
   const out: string[] = [];
-  for (const { node } of walk(map.AUTHORED))
+  for (const { node } of walk(bluprint.AUTHORED))
     for (const b of node.anatomy ?? [])
       if (b.kind === "diagram")
         for (const a of b.arrows) {
@@ -267,10 +267,10 @@ function rollUp(sections: SectionDiff[]): SectionDiff[] {
 }
 
 /** Changed files whose changes no section covers, each with the section citing that file nearest its first change. */
-function outsideOf(map: MapFile, byPath: Map<string, Change>, sections: SectionDiff[]): MapDiff["outside"] {
+function outsideOf(bluprint: BluprintFile, byPath: Map<string, Change>, sections: SectionDiff[]): BluprintDiff["outside"] {
   const covered = new Set(sections.flatMap((s) => s.files.map((f) => f.path)));
-  const all = walk(map.AUTHORED);
-  const out: NonNullable<MapDiff["outside"]> = [];
+  const all = walk(bluprint.AUTHORED);
+  const out: NonNullable<BluprintDiff["outside"]> = [];
   for (const [path, c] of byPath) {
     if (covered.has(path) || c.after === null) continue;
     const at = c.hunks[0]?.os ?? 1;
@@ -286,7 +286,7 @@ function outsideOf(map: MapFile, byPath: Map<string, Change>, sections: SectionD
   return out;
 }
 
-/* ── two maps, block by block ────────────────────────────────── */
+/* ── two bluprints, block by block ────────────────────────────────── */
 
 /** The key a row is matched by: a schema column's name, a table row's first cell, a pair's label. */
 function rowsOf(b: Anatomy): { key: string; cells: string[] }[] | undefined {
@@ -320,7 +320,7 @@ const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, 
  * a first cell is not unique. The `explorify-example › ex-lifecycle` table
  * names `launch` and `create-event` twice each, as the start of two different
  * hops; matching on the bare key collapsed each pair to its last row and made
- * two byte-identical maps report four changed rows.
+ * two byte-identical bluprints report four changed rows.
  */
 function rowDiff(a: Anatomy, b: Anatomy): RowDiff[] | undefined {
   const was = rowsOf(a);
@@ -393,15 +393,15 @@ function blockDiff(path: string[], at: number, a: Anatomy, b: Anatomy): BlockDif
 }
 
 /**
- * Two maps' section trees, matched by id: sections that arrived, sections that
+ * Two bluprints' section trees, matched by id: sections that arrived, sections that
  * went, and within the ones both have, the blocks whose rows or boxes moved.
  *
  * Exported because this is the half that does not need git at all: given any
- * two `MapFile`s — two commits' maps, or a map before and after an update —
- * it says what changed on the map itself. A block's `at` is its index in
- * `b`'s section, the map the canvas draws; a block only `a` had keeps `a`'s.
+ * two `BluprintFile`s — two commits' bluprints, or a bluprint before and after an update —
+ * it says what changed on the bluprint itself. A block's `at` is its index in
+ * `b`'s section, the bluprint the canvas draws; a block only `a` had keeps `a`'s.
  */
-function treeDiff(a: MapFile, b: MapFile): { sections: SectionDiff[]; blocks: BlockDiff[] } {
+function treeDiff(a: BluprintFile, b: BluprintFile): { sections: SectionDiff[]; blocks: BlockDiff[] } {
   const was = walk(a.AUTHORED);
   const now = new Map(walk(b.AUTHORED).map((p) => [p.node.id, p]));
   const sections: SectionDiff[] = [];
@@ -423,7 +423,7 @@ function treeDiff(a: MapFile, b: MapFile): { sections: SectionDiff[]; blocks: Bl
         blocks.push({ path: ids, at: i, kind: block.kind, verdict: "removed" });
         continue;
       }
-      // Indexed where `b` has it: `b` is the map on screen.
+      // Indexed where `b` has it: `b` is the bluprint on screen.
       const d = blockDiff(ids, theirs.indexOf(other), block, other);
       if (d) blocks.push(d);
     }
@@ -558,56 +558,56 @@ function movesBetween(root: string, a: string, b: string): Map<string, string> {
 /* ── the answer ──────────────────────────────────────────────── */
 
 /**
- * What changed in `root` between `from` and `to`, in the map's terms.
+ * What changed in `root` between `from` and `to`, in the bluprint's terms.
  *
  * `to` undefined is the working tree, uncommitted work included. `other` is the
- * `to` side's own map where one exists, and then `map` is the `from` side's:
+ * `to` side's own bluprint where one exists, and then `bluprint` is the `from` side's:
  * the boxes, rows and sections between the two are compared as well. Without
- * it there is one map, so the answer is section verdicts off the code and no
+ * it there is one bluprint, so the answer is section verdicts off the code and no
  * block diff.
  *
- * `seen` is the project's base.json: once an update has run, the map's lines
+ * `seen` is the project's base.json: once an update has run, the bluprint's lines
  * are numbered to the code as that update saw it, not to its commit, so the
  * working-tree diff starts from that text exactly as the updater's does.
  */
-export function mapDiff(root: string, from: string | undefined, to: string | undefined, map: MapFile, seen: Base = {}, other?: MapFile): MapDiff {
-  const base = resolve(root, from ?? map.RUN.commit);
+export function bluprintDiff(root: string, from: string | undefined, to: string | undefined, bluprint: BluprintFile, seen: Base = {}, other?: BluprintFile): BluprintDiff {
+  const base = resolve(root, from ?? bluprint.RUN.commit);
   const head = to ? resolve(root, to) : null;
-  if (!base) throw new RangeError(`no such commit: ${from ?? map.RUN.commit}`);
+  if (!base) throw new RangeError(`no such commit: ${from ?? bluprint.RUN.commit}`);
   if (to && !head) throw new RangeError(`no such commit: ${to}`);
 
-  const mapped = resolve(root, map.RUN.commit);
-  // `seen` is the map's text, so it is the starting point only from the map's commit.
-  const found = head ? between(root, base, head) : changes(root, base, base === mapped ? seen : {});
-  if (!mapped) {
+  const made = resolve(root, bluprint.RUN.commit);
+  // `seen` is the bluprint's text, so it is the starting point only from the bluprint's commit.
+  const found = head ? between(root, base, head) : changes(root, base, base === made ? seen : {});
+  if (!made) {
     const files = found.map(counted);
     return {
       basis: "files",
       from: base,
       to: head,
-      why: `The map was made at ${map.RUN.commit}, which this checkout no longer has, so its line references cannot be carried to ${base}. Comparing files instead.`,
+      why: `The bluprint was made at ${bluprint.RUN.commit}, which this checkout no longer has, so its line references cannot be carried to ${base}. Comparing files instead.`,
       files,
       sections: [],
       blocks: [],
     };
   }
 
-  // The map's line references are numbered to the text it was made from: its
+  // The bluprint's line references are numbered to the text it was made from: its
   // commit, or base.json after an update. A diff starting anywhere else is
   // checked against them only once they are carried through the change from
   // that text to `from`, file by file, the same arithmetic the updater moves
   // refs with. A ref whose own lines changed on the way lands near, not on.
   //
-  // A file may also have moved between `from` and the map's commit, so a
+  // A file may also have moved between `from` and the bluprint's commit, so a
   // commit made under its old path is still held to the sections citing it.
-  const exact = base === mapped && (!head || !Object.keys(seen).length);
-  const renamed = exact ? new Map<string, string>() : movesBetween(root, base, mapped);
+  const exact = base === made && (!head || !Object.keys(seen).length);
+  const renamed = exact ? new Map<string, string>() : movesBetween(root, base, made);
   const back = new Map([...renamed].map(([was, now]) => [now, was]));
   const files = found.map((c) => ({ ...counted(c), ...(renamed.has(c.path) ? { mapped: renamed.get(c.path) } : {}) }));
   const byPath = new Map(found.map((c) => [renamed.get(c.path) ?? c.path, c]));
 
   const carried = new Map<string, Change | undefined>();
-  const start = (path: string) => (path in seen ? seen[path] : hasAt(root, mapped, path) ? git(root, "show", `${mapped}:${path}`) : null);
+  const start = (path: string) => (path in seen ? seen[path] : hasAt(root, made, path) ? git(root, "show", `${made}:${path}`) : null);
   const carry = (path: string) => {
     if (!carried.has(path)) {
       const before = start(path);
@@ -617,19 +617,19 @@ export function mapDiff(root: string, from: string | undefined, to: string | und
     }
     return carried.get(path);
   };
-  const sections = rollUp(verdicts(map, byPath, exact ? undefined : carry));
-  const arrows = arrowsChanged(map, byPath, exact ? undefined : carry);
-  const outside = outsideOf(map, byPath, sections);
+  const sections = rollUp(verdicts(bluprint, byPath, exact ? undefined : carry));
+  const arrows = arrowsChanged(bluprint, byPath, exact ? undefined : carry);
+  const outside = outsideOf(bluprint, byPath, sections);
   if (!other) return { basis: "sections", from: base, to: head, files, sections, blocks: [], arrows, outside };
-  const both = overTree(sections, map, other);
+  const both = overTree(sections, bluprint, other);
   return { basis: "sections", from: base, to: head, files, ...both, arrows, outside };
 }
 
 /**
- * Two maps: what the pictures say changed, over what the code says did,
+ * Two bluprints: what the pictures say changed, over what the code says did,
  * keeping the files the code verdict found behind each section.
  */
-function overTree(code: SectionDiff[], a: MapFile, b: MapFile): Pick<MapDiff, "sections" | "blocks"> {
+function overTree(code: SectionDiff[], a: BluprintFile, b: BluprintFile): Pick<BluprintDiff, "sections" | "blocks"> {
   const tree = treeDiff(a, b);
   const byId = new Map(code.map((s) => [s.id, s]));
   const merged = tree.sections.map((t) => {
@@ -641,11 +641,11 @@ function overTree(code: SectionDiff[], a: MapFile, b: MapFile): Pick<MapDiff, "s
 
 /**
  * What one agent turn did, from the snapshot the updater kept before it ran
- * (scripts/generate/update.ts): the code as that update read it, and the map
+ * (scripts/generate/update.ts): the code as that update read it, and the bluprint
  * before and after. No git is involved, so a turn's diff stays exact however
  * far the checkout has moved on since.
  */
-export function turnDiff(before: MapFile, after: MapFile, texts: { path: string; before: string | null; after: string | null }[]): MapDiff {
+export function turnDiff(before: BluprintFile, after: BluprintFile, texts: { path: string; before: string | null; after: string | null }[]): BluprintDiff {
   const found: Change[] = texts.filter((t) => t.before !== t.after).map((t) => ({ ...t, ...diffOf(t.path, t.before, t.after) }));
   const byPath = new Map(found.map((c) => [c.path, c]));
   const code = verdicts(before, byPath);

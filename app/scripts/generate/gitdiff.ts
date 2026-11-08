@@ -1,20 +1,20 @@
 /**
- * Reading what changed in a checkout, and moving a map's line references with
+ * Reading what changed in a checkout, and moving a bluprint's line references with
  * it. Extracted from scripts/generate/update.ts, which still owns deciding
  * which sections to redo and redoing them; this is only the git and
  * line-arithmetic half.
  *
  * It is shared because the visual diff (lib/diff.ts) asks the same questions
- * an update asks — what changed since the map was made, and where did each
+ * an update asks — what changed since the bluprint was made, and where did each
  * cited line go — and two implementations of `moved` would drift into two
  * different answers about the same commit.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any -- walks map JSON, typed or not */
+/* eslint-disable @typescript-eslint/no-explicit-any -- walks bluprint JSON, typed or not */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Node } from "@/lib/map/schema";
+import type { Node } from "@/lib/bluprint/schema";
 
 /** A run of changed lines: `ol` old lines from `os` became `nl` new ones from `ns`. With `ol` 0, lines were inserted after `os`. */
 export interface Hunk {
@@ -43,7 +43,7 @@ export const git = (repo: string, ...args: string[]) => {
 
 /* ── 1. what changed ─────────────────────────────────────────── */
 
-/** The text the map was made from, per path: null where the file did not exist. */
+/** The text the bluprint was made from, per path: null where the file did not exist. */
 export type Base = Record<string, string | null>;
 
 export function readText(path: string): string | null {
@@ -81,7 +81,7 @@ export function diffOf(path: string, before: string | null, after: string | null
   }
 }
 
-/** Every file whose text differs from what the map last saw. */
+/** Every file whose text differs from what the bluprint last saw. */
 export function changes(repo: string, commit: string, base: Base): Change[] {
   const paths = new Set([
     ...git(repo, "diff", "--name-only", commit).split("\n"),

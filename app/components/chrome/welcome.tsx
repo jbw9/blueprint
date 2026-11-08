@@ -6,7 +6,7 @@ import { Button, Kbd } from "@/components/ui/button";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { cn } from "@/lib/client/utils";
 import { readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
-import type { MapEntry } from "@/lib/server/maps";
+import type { BluprintEntry } from "@/lib/server/bluprints";
 
 /**
  * The blank page: what the window shows with no project open — none asked
@@ -14,19 +14,19 @@ import type { MapEntry } from "@/lib/server/maps";
  * as VS Code's welcome is: Start on one side, Recent on the other, which with
  * no projects yet is just Start.
  */
-export function NoProject({ maps }: { maps: MapEntry[] }) {
+export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
   const router = useRouter();
   const { onboarded } = useSettings();
   // The saved settings are only known in the browser: until then show
   // nothing, so a returning reader never sees the tour flash by.
   const ready = useSyncExternalStore(noop, () => true, () => false);
   if (!ready) return <main className="flex-1 bg-paper" />;
-  if (!onboarded && !maps.length) return <Tour />;
+  if (!onboarded && !bluprints.length) return <Tour />;
   return (
     <main className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-paper px-6 py-16">
       <div className="w-full max-w-[640px]">
-        <h1 className="font-display text-[32px] font-normal leading-[1.05] tracking-[-0.016em] text-ink">Map a repository</h1>
-        <p className="mt-1 text-[14px] text-on-surface-variant">Claude Code reads it and writes a map you can open a level at a time, down to the line.</p>
+        <h1 className="font-display text-[32px] font-normal leading-[1.05] tracking-[-0.016em] text-ink">Make a bluprint of a repository</h1>
+        <p className="mt-1 text-[14px] text-on-surface-variant">Claude Code reads it and writes a bluprint you can open a level at a time, down to the line.</p>
         <div className="mt-8 grid gap-10 sm:grid-cols-2">
           <section>
             <h2 className="mb-2 text-[13px] font-semibold text-ink">Start</h2>
@@ -41,7 +41,7 @@ export function NoProject({ maps }: { maps: MapEntry[] }) {
                   New Project…
                 </button>
               </li>
-              {maps.length ? (
+              {bluprints.length ? (
                 <li>
                   <button type="button" onClick={() => openProjects()} className={LINK}>
                     Manage Projects…
@@ -50,13 +50,13 @@ export function NoProject({ maps }: { maps: MapEntry[] }) {
               ) : null}
             </ul>
           </section>
-          {maps.length ? (
+          {bluprints.length ? (
             <section>
               <h2 className="mb-2 text-[13px] font-semibold text-ink">Recent</h2>
               <ul className="flex flex-col gap-1.5 text-[13px]">
-                {maps.map((m) => (
+                {bluprints.map((m) => (
                   <li key={m.id}>
-                    <button type="button" onClick={() => router.push(`/?map=${encodeURIComponent(m.id)}`)} className={cn(LINK, "max-w-full truncate font-mono")}>
+                    <button type="button" onClick={() => router.push(`/?bluprint=${encodeURIComponent(m.id)}`)} className={cn(LINK, "max-w-full truncate font-mono")}>
                       {m.label}
                     </button>
                   </li>
@@ -66,7 +66,7 @@ export function NoProject({ maps }: { maps: MapEntry[] }) {
           ) : null}
         </div>
         <p className="mt-10 flex items-center gap-1.5 text-[12px] text-faint">
-          Once it is mapped, <Kbd>Ctrl K</Kbd> goes to any level.
+          Once its bluprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
         </p>
       </div>
     </main>
@@ -77,15 +77,15 @@ const noop = () => () => {};
 const finish = () => saveSettings({ ...readSettings(), onboarded: true });
 
 /**
- * The first run: what a map is, shown by opening one, then the theme, then
+ * The first run: what a bluprint is, shown by opening one, then the theme, then
  * the way in. Three steps, any of them skippable.
  */
 function Tour() {
   const [step, setStep] = useState(0);
   const steps = [
-    { title: "Your code, as a map", body: "Bluprint reads a repository and draws it a level at a time. Click a box to go down a level.", view: <Demo /> },
+    { title: "Your code, as a bluprint", body: "Bluprint reads a repository and draws it a level at a time. Click a box to go down a level.", view: <Demo /> },
     { title: "Pick a look", body: "It changes as you choose. Settings can change it later.", view: <Themes /> },
-    { title: "Map your first project", body: "Open a folder on this machine, or clone one from GitHub. Claude Code writes the map. When it finishes, Bluprint sends us how long it took and what it cost, never your code; Settings turns that off.", view: <Begin /> },
+    { title: "Make your first bluprint", body: "Open a folder on this machine, or clone one from GitHub. Claude Code writes the bluprint. When it finishes, Bluprint sends us how long it took and what it cost, never your code; Settings turns that off.", view: <Begin /> },
   ];
   const last = step === steps.length - 1;
   return (
@@ -120,7 +120,7 @@ function Tour() {
   );
 }
 
-/* ── step 1: a map you can open ───────────────────────────────── */
+/* ── step 1: a bluprint you can open ───────────────────────────────── */
 
 type Node = { label: string; sub: string; kids?: Node[]; code?: string[] };
 
@@ -280,10 +280,10 @@ function Begin() {
       </button>
       <button type="button" onClick={go(newProject)} className={CARD}>
         <span className="block text-[14px] font-semibold text-ink">New Project…</span>
-        <span className="mt-1 block text-[12.5px] text-muted-slate">Clone one from GitHub, then map it.</span>
+        <span className="mt-1 block text-[12.5px] text-muted-slate">Clone one from GitHub, then make its bluprint.</span>
       </button>
       <p className="flex items-center gap-1.5 text-[12px] text-faint sm:col-span-2">
-        Once it is mapped, <Kbd>Ctrl K</Kbd> goes to any level.
+        Once its bluprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
       </p>
     </div>
   );

@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { auditOf } from "@/lib/server/maps";
+import { auditOf } from "@/lib/server/bluprints";
 import { bad, notJson } from "@/lib/server/route";
-import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, mapFileOf, progressOf, projectDir, removeProject, setPaused, updateMap, VAULT, type Turn } from "@/lib/server/vault";
+import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, bluprintFileOf, progressOf, projectDir, removeProject, setPaused, updateBluprint, VAULT, type Turn } from "@/lib/server/vault";
 
 /**
  * The reader's projects (lib/server/vault.ts): list them, start, import or clone one, regenerate,
- * cancel or forget one, or bring one's map up to its code after an edit. Paths arrive from the page, but only as the reader's
+ * cancel or forget one, or bring one's bluprint up to its code after an edit. Paths arrive from the page, but only as the reader's
  * own choice of a directory on their own machine — nothing here reads or
  * writes inside it except the generator, which only reads, starting a
  * project, which makes it as an empty git checkout, and cloning one into it.
@@ -33,7 +33,7 @@ function turnOf(v: unknown): Turn | undefined {
 
 /**
  * The section ids a running update is redoing, as its log names them
- * (scripts/generate/update.ts, "N sections to redo: a, b"), so the open map can
+ * (scripts/generate/update.ts, "N sections to redo: a, b"), so the open bluprint can
  * mark them while they are rewritten. None until the updater has picked them.
  */
 function redoingOf(id: string): string[] {
@@ -47,26 +47,26 @@ function redoingOf(id: string): string[] {
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
-  // How one map was made, for the audit view: a project's or an example's.
+  // How one bluprint was made, for the audit view: a project's or an example's.
   const audit = params.get("audit");
   if (audit) return Response.json({ markdown: auditOf(audit) });
-  // One project's state, polled by the open map to follow its updates.
+  // One project's state, polled by the open bluprint to follow its updates.
   const id = params.get("id");
   if (id) {
     const p = listProjects().find((x) => x.id === id);
     return Response.json(
-      p ? { id: p.id, update: p.update ?? null, redoing: p.update?.status === "running" ? redoingOf(p.id) : [], progress: p.map.status === "generating" ? progressOf(p.id) : null } : null,
+      p ? { id: p.id, update: p.update ?? null, redoing: p.update?.status === "running" ? redoingOf(p.id) : [], progress: p.bluprint.status === "generating" ? progressOf(p.id) : null } : null,
     );
   }
   const projects = listProjects().map((p) => {
     const head = headOf(p.root);
     return {
       ...p,
-      // A map from an earlier run still opens while a new one is being made.
-      hasMap: Boolean(mapFileOf(p.id)),
-      // The code moved on since the map was made.
-      stale: Boolean(p.map.status === "ready" && p.map.commit && head && head !== p.map.commit),
-      progress: p.map.status === "generating" ? progressOf(p.id) : undefined,
+      // A bluprint from an earlier run still opens while a new one is being made.
+      hasBluprint: Boolean(bluprintFileOf(p.id)),
+      // The code moved on since the bluprint was made.
+      stale: Boolean(p.bluprint.status === "ready" && p.bluprint.commit && head && head !== p.bluprint.commit),
+      progress: p.bluprint.status === "generating" ? progressOf(p.id) : undefined,
     };
   });
   return Response.json({ vault: VAULT, projects });
@@ -97,8 +97,8 @@ export async function POST(request: Request) {
         return Response.json(generate(id as string, str(claude), level, full === true) ?? null);
       case "update":
         if (!str(root)) return bad("bad request");
-        // A checkout no project of the user's maps (an example's) cannot follow it.
-        return Response.json(updateMap(root as string, str(claude), turnOf(turn)) ?? { skipped: true });
+        // A checkout no project of the user's bluprints (an example's) cannot follow it.
+        return Response.json(updateBluprint(root as string, str(claude), turnOf(turn)) ?? { skipped: true });
       case "pause":
         if (!str(id)) return bad("bad request");
         setPaused(id as string, paused === true);

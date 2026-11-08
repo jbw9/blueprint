@@ -6,10 +6,10 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { onFocusClaude } from "@/lib/agent/context";
 import { screens } from "@/lib/agent/dictate";
-import { outline } from "@/lib/map/build";
+import { outline } from "@/lib/bluprint/build";
 import { readSettings } from "@/lib/client/settings";
 import { themeOf, type Theme } from "@/lib/client/theme";
 import { cn } from "@/lib/client/utils";
@@ -18,7 +18,7 @@ import { findClaude } from "@/lib/client/claude";
 
 /**
  * One tab's program: the user's shell, or their Claude Code, on a real pty in
- * the open map's checkout (src-tauri/src/pty.rs), drawn by xterm. The
+ * the open bluprint's checkout (src-tauri/src/pty.rs), drawn by xterm. The
  * workspace window (components/agent/workspace.tsx) holds a row of these. A Shell
  * lives as long as its tab: hiding the window or switching tabs only takes it
  * out of sight, so scrollback and a running process survive.
@@ -262,12 +262,12 @@ export function Shell({
   useEffect(() => {
     handlers.current = { claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
   });
-  // The map's sections, for `bluprint-map-list`. Through a ref for the same
-  // reason: a map that updates must not restart the shell.
-  const map = useMap();
-  const sections = useRef(map);
+  // The bluprint's sections, for `bluprint-list`. Through a ref for the same
+  // reason: a bluprint that updates must not restart the shell.
+  const bluprint = useBluprint();
+  const sections = useRef(bluprint);
   useEffect(() => {
-    sections.current = map;
+    sections.current = bluprint;
   });
 
   useEffect(() => {

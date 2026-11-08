@@ -1,6 +1,6 @@
 /**
  * The same calls as bedrock.ts, made through the reader's own Claude Code
- * (`claude -p`) instead of an AWS account — so someone with a Claude plan maps
+ * (`claude -p`) instead of an AWS account — so someone with a Claude plan bluprints
  * a repository without a second bill. SLOP_BACKEND=claude-code selects it.
  *
  * Parity with the API path is the point, so the request is held to the same
@@ -241,7 +241,7 @@ async function claude(args: string[], prompt: string, stage: string, effort?: st
         delete env.CLAUDECODE;
         // Nor of the session's MCP: a Claude Code session (Bluprint's) hands its
         // own servers to children through these, and a run handed the reader's
-        // map tools spent its turns looking up ids in the live map, not answering.
+        // bluprint tools spent its turns looking up ids in the live bluprint, not answering.
         for (const k of Object.keys(env)) if (k.startsWith("CLAUDE_CODE_") || /^SLOP_(MCP_URL|CLAUDE_MCP|CLAUDE_SETTINGS|CLAUDE_SYSTEM|CONTEXT)$/.test(k)) delete env[k];
         env.MAX_THINKING_TOKENS = effort ? "16000" : "0";
         const p = spawn(process.env.SLOP_CLAUDE || "claude", ["-p", ...format, "--setting-sources", "", "--strict-mcp-config", ...flags], { cwd: cwd(), env, windowsHide: true }) as ChildProcessWithoutNullStreams;

@@ -70,7 +70,7 @@ Install those, then run this again."
   sh scripts/install-app.sh
 
   command -v claude >/dev/null ||
-    say "Bluprint makes maps through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
+    say "Bluprint makes bluprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
 }
 
 report() {

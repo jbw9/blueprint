@@ -473,7 +473,7 @@ export function Preview({
       ref={whole}
       className={cn("absolute inset-0 flex flex-col", !visible && "pointer-events-none invisible")}
       // In the main view, clear of the window floating over its right, as the
-      // map is (components/agent/workspace.tsx): a page from the web would hide
+      // bluprint is (components/agent/workspace.tsx): a page from the web would hide
       // wherever the window covers it, and a screenshot would take the window in.
       style={docked ? { paddingRight: "var(--workspace-inset, 0px)" } : undefined}
     >

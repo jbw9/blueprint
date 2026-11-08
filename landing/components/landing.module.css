@@ -1015,7 +1015,7 @@
   opacity: 1;
   transform: none;
 }
-/* A map's diagram, small, as the app draws it, in the page's one ink. */
+/* A bluprint's diagram, small, as the app draws it, in the page's one ink. */
 .chart {
   display: block;
   width: 100%;
@@ -1206,10 +1206,10 @@
   height: 12px;
   fill: currentColor;
 }
-/* The agent's terminal over the map, as the app stacks its workspace beside it. */
+/* The agent's terminal over the bluprint, as the app stacks its workspace beside it. */
 .desk {
   display: grid;
-  /* The map on the left and the agent on the right, as the app lays them out. */
+  /* The bluprint on the left and the agent on the right, as the app lays them out. */
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 10px;
 }
@@ -1218,7 +1218,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-/* On a phone the map keeps a readable size and scrolls inside its panel. */
+/* On a phone the bluprint keeps a readable size and scrolls inside its panel. */
 @media (max-width: 600px) {
   .mini {
     overflow-x: auto;
@@ -1296,7 +1296,7 @@
 .miniBar .winName {
   color: var(--ink);
 }
-/* The map's top level in diff mode: the changed box filled, the one calling into it dashed, the rest receding. */
+/* The bluprint's top level in diff mode: the changed box filled, the one calling into it dashed, the rest receding. */
 .roots {
   display: block;
   width: 100%;

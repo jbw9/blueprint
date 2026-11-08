@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/client/utils";
 import { Eyebrow } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import type { Progress } from "@/lib/server/vault";
 import { claudePath } from "@/lib/client/claude";
 import { projectAction } from "@/lib/client/api";
 
 /*
- * A map being made, shown as it is made (D69): the files being read, then a
+ * A bluprint being made, shown as it is made (D69): the files being read, then a
  * box per part the code was divided into, each filling in as its author hands
  * it in and the checker accepts it, then the real picture of how the parts
- * connect drawn over those boxes. A first map takes 15–30 minutes; this is
+ * connect drawn over those boxes. A first bluprint takes 15–30 minutes; this is
  * what the reader watches instead of a spinner.
  */
 
@@ -23,10 +23,10 @@ const STAGES = [
   ["author", "Writing each part"],
   ["overview", "Drawing how they connect"],
 ] as const;
-/** A quick map first, then each part written in full in its place (scripts/generate/pipeline.ts, --fast). */
+/** A quick bluprint first, then each part written in full in its place (scripts/generate/pipeline.ts, --fast). */
 const FAST_STAGES = [
   ["summarize", "Reading the code"],
-  ["author", "Drawing a quick map"],
+  ["author", "Drawing a quick bluprint"],
   ["deepen", "Writing each part in full"],
   ["overview", "Drawing how they connect"],
 ] as const;
@@ -42,11 +42,11 @@ export function Building({ progress, onOpen }: { progress: Progress; onOpen: (pa
   const stage = progress.stage;
   const ended = stage === "failed" || stage === "cancelled";
   return (
-    <section data-pick="The map being made" className="flex flex-col gap-8">
+    <section data-pick="The bluprint being made" className="flex flex-col gap-8">
       <Stages progress={progress} />
       {ended ? (
         <p className="max-w-[720px] text-[13.5px] leading-relaxed text-clay-ink">
-          {stage === "cancelled" ? "This run was cancelled." : "This run stopped before the map was made."}
+          {stage === "cancelled" ? "This run was cancelled." : "This run stopped before the bluprint was made."}
           {progress.line ? <span className="mt-1 block font-mono text-[11.5px]">{progress.line}</span> : null}
           <span className="mt-1 block text-on-surface-variant">Open Projects to run it again.</span>
         </p>
@@ -62,12 +62,12 @@ export function Building({ progress, onOpen }: { progress: Progress; onOpen: (pa
 }
 
 /*
- * How long each stage takes on a typical first map, in minutes, which is all
+ * How long each stage takes on a typical first bluprint, in minutes, which is all
  * the run's share of the bar and its time-left guess go on until a stage
  * reports how far it has got.
  */
 const TYPICAL: Record<string, number> = { summarize: 6, cut: 2, author: 10, overview: 3, verify: 4 };
-/** The same for a quick map and its deepening: the quick map is a minute or two, the deepening most of the run. */
+/** The same for a quick bluprint and its deepening: the quick bluprint is a minute or two, the deepening most of the run. */
 const FAST_TYPICAL: Record<string, number> = { summarize: 2, author: 1.5, deepen: 5, overview: 1.5 };
 const typicalOf = (progress: Progress) => (progress.fast ? FAST_TYPICAL : TYPICAL);
 
@@ -263,7 +263,7 @@ function Dividing() {
  * its draft while it is checked, then the part itself.
  */
 function Skeleton({ progress, onOpen }: { progress: Progress; onOpen: (path: string[]) => void }) {
-  const { nodeAt } = useMap();
+  const { nodeAt } = useBluprint();
   const ready = progress.roots.filter((r) => r.status === "done").length;
   const of = progress.roots.length;
   return (
@@ -329,15 +329,15 @@ function Skeleton({ progress, onOpen }: { progress: Progress; onOpen: (path: str
   );
 }
 
-/* ── no map yet ──────────────────────────────────────────────── */
+/* ── no bluprint yet ──────────────────────────────────────────────── */
 
 /**
- * A project opened without a map: the shape of what its page will hold, drawn
+ * A project opened without a bluprint: the shape of what its page will hold, drawn
  * empty, and the button that makes it. Starting the run turns the project's
- * map back on (lib/server/vault.ts, generate); the map's poll then brings the run in,
+ * bluprint back on (lib/server/vault.ts, generate); the bluprint's poll then brings the run in,
  * which replaces this.
  */
-export function Unmapped({ id }: { id: string }) {
+export function NoBluprint({ id }: { id: string }) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
@@ -351,15 +351,15 @@ export function Unmapped({ id }: { id: string }) {
     }
   };
   return (
-    <section data-pick="No map yet" className="flex flex-col gap-8">
+    <section data-pick="No bluprint yet" className="flex flex-col gap-8">
       <div className="flex max-w-[720px] flex-col items-start gap-3">
-        <Eyebrow>No map yet</Eyebrow>
+        <Eyebrow>No bluprint yet</Eyebrow>
         <p className="text-[13.5px] leading-relaxed text-on-surface-variant">
-          This project is open without a map. Generate one and the code is read, divided into the parts someone does
+          This project is open without a bluprint. Generate one and the code is read, divided into the parts someone does
           something with, and drawn here as the picture of how they connect.
         </p>
         <Button variant="primary" onClick={() => void start()} disabled={starting}>
-          {starting ? "Starting…" : "Generate map"}
+          {starting ? "Starting…" : "Generate bluprint"}
         </Button>
         {error ? <p className="text-[12.5px] text-clay-ink">{error}</p> : null}
       </div>
@@ -378,7 +378,7 @@ const WIRE_BOXES = [
 ];
 const WIRE_ARROWS = ["M190 70 H244", "M420 70 H474", "M650 70 H704", "M335 110 V184", "M565 110 V184", "M420 230 H474"];
 
-/** The page a map makes, as an empty wireframe: a diagram of parts, then the parts. */
+/** The page a bluprint makes, as an empty wireframe: a diagram of parts, then the parts. */
 function Wireframe() {
   return (
     <div aria-hidden className="flex max-w-[1100px] flex-col gap-8 opacity-80">
@@ -413,7 +413,7 @@ function Wireframe() {
   );
 }
 
-/** Over a part that is still a draft: what the reader is looking at, before they take it as the map. */
+/** Over a part that is still a draft: what the reader is looking at, before they take it as the bluprint. */
 export function DraftNote({ detail }: { detail?: string }) {
   return (
     <div className="max-w-[820px] border border-amber-line bg-amber-surface px-4 py-3 text-[13.5px] leading-relaxed text-amber-ink">
@@ -429,7 +429,7 @@ export function DraftNote({ detail }: { detail?: string }) {
 /**
  * When the overview lands over the boxes the reader was watching, it is drawn
  * rather than swapped in: the boxes settle, then each arrow is traced from one
- * part to the next, its label after it. Once, on arrival; a map opened later
+ * part to the next, its label after it. Once, on arrival; a bluprint opened later
  * just shows its picture.
  */
 export function useDrawIn(root: React.RefObject<HTMLElement | null>, on: boolean) {

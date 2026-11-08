@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { Acts } from "@/components/agent/acts";
-import { Canvas } from "@/components/map/canvas";
+import { Canvas } from "@/components/bluprint/canvas";
 import { DiffMode } from "@/components/review/diff";
 import { DiffPanel } from "@/components/review/diff-panel";
-import { FilesPanel } from "@/components/map/files";
-import { MapProvider } from "@/components/map/map-context";
+import { FilesPanel } from "@/components/bluprint/files";
+import { BluprintProvider } from "@/components/bluprint/bluprint-context";
 import { ProjectsDialog } from "@/components/projects/projects";
-import { AuditDialog } from "@/components/map/audit";
+import { AuditDialog } from "@/components/bluprint/audit";
 import { HistoryDialog } from "@/components/review/additions";
 import { SettingsDialog } from "@/components/chrome/settings";
 import { Dictation } from "@/components/chrome/dictation";
@@ -16,16 +16,16 @@ import { NoProject } from "@/components/chrome/welcome";
 import { Palette } from "@/components/chrome/palette";
 import { StatusBar } from "@/components/chrome/statusbar";
 import { ReviewTray } from "@/components/review/review-tray";
-import { listMaps, loadDemo, loadMap, remoteOf, rootOf } from "@/lib/server/maps";
+import { listBluprints, loadDemo, loadBluprint, remoteOf, rootOf } from "@/lib/server/bluprints";
 import { ClaudeWeb } from "@/components/agent/claude-web";
-import { STATIC_MAP } from "@/lib/map/source";
+import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import type { Progress } from "@/lib/server/vault";
 
 // The open level lives in the URL, and `useSearchParams` needs a Suspense
-// boundary to prerender. `?map=` picks which repository's map is read. In the
-// desktop app the title bar sits above the map and the status bar under it;
-// the workspace (Claude Code and terminal tabs) floats over the map's right.
-// All of them live inside the provider, so they know which map (and checkout)
+// boundary to prerender. `?bluprint=` picks which repository's bluprint is read. In the
+// desktop app the title bar sits above the bluprint and the status bar under it;
+// the workspace (Claude Code and terminal tabs) floats over the bluprint's right.
+// All of them live inside the provider, so they know which bluprint (and checkout)
 // is open. `?none`, a project that is gone, or no project at all is the
 // blank page instead (components/chrome/welcome.tsx).
 export default async function Home({
@@ -33,45 +33,45 @@ export default async function Home({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // A static export serves one map and must not read the request.
-  const asked = STATIC_MAP ?? (await searchParams).map;
-  // The landing page frames one map at a time and switches between them itself.
-  const embed = !STATIC_MAP && (await searchParams).embed !== undefined;
+  // A static export serves one bluprint and must not read the request.
+  const asked = STATIC_BLUPRINT ?? (await searchParams).bluprint;
+  // The landing page frames one bluprint at a time and switches between them itself.
+  const embed = !STATIC_BLUPRINT && (await searchParams).embed !== undefined;
   const wanted = typeof asked === "string" ? asked : undefined;
-  const none = !STATIC_MAP && !embed && (await searchParams).none !== undefined;
+  const none = !STATIC_BLUPRINT && !embed && (await searchParams).none !== undefined;
   // A project asked for by name and since deleted is not quietly swapped for
   // another one: the window shows the blank page.
-  const gone = !STATIC_MAP && !embed && wanted !== undefined && !listMaps().some((m) => m.id === wanted);
+  const gone = !STATIC_BLUPRINT && !embed && wanted !== undefined && !listBluprints().some((m) => m.id === wanted);
   // The landing frames only its own demos (D63), never one of this machine's
   // projects; a static export is a demo or a project.
-  const open = none || gone ? null : embed ? loadDemo(wanted) : (STATIC_MAP ? loadDemo(wanted) : null) ?? loadMap(wanted);
+  const open = none || gone ? null : embed ? loadDemo(wanted) : (STATIC_BLUPRINT ? loadDemo(wanted) : null) ?? loadBluprint(wanted);
   if (!open)
     return (
       <div className="flex h-full flex-col">
         <Titlebar bare />
-        <NoProject maps={listMaps()} />
+        <NoProject bluprints={listBluprints()} />
         <SettingsDialog />
         <ProjectsDialog />
       </div>
     );
   const { name, file } = open;
-  // Only a project of the reader's has one: its map follows its file as it is rewritten.
+  // Only a project of the reader's has one: its bluprint follows its file as it is rewritten.
   const version = "version" in open ? (open.version as string | undefined) : undefined;
-  // A project's map still being made carries how far its run has got (D69).
+  // A project's bluprint still being made carries how far its run has got (D69).
   const progress = "progress" in open ? (open.progress as Progress | undefined) : undefined;
   file.RUN.url ??= remoteOf(file.RUN);
   // A published page has no checkout to read, and must not carry this machine's paths.
   // The desktop app's tabs start in the checkout, so it is named in full.
-  if (STATIC_MAP) delete file.RUN.root;
+  if (STATIC_BLUPRINT) delete file.RUN.root;
   else file.RUN.root = rootOf(file.RUN);
   return (
-    <MapProvider name={name} file={file} version={version} progress={progress} maps={STATIC_MAP || embed ? [{ id: name, label: name, local: false }] : listMaps()}>
+    <BluprintProvider name={name} file={file} version={version} progress={progress} bluprints={STATIC_BLUPRINT || embed ? [{ id: name, label: name, local: false }] : listBluprints()}>
       <div className="flex h-full flex-col">
-        {/* Keyed by map: a switch starts fresh, never mid-transition from the
+        {/* Keyed by bluprint: a switch starts fresh, never mid-transition from the
             old tree. Around the title bar too, whose version-control button
             shows when a change is on. */}
-        <DiffMode key={name} map={name}>
-          {/* The title bar reads the open level from the URL, as the map does. */}
+        <DiffMode key={name} bluprint={name}>
+          {/* The title bar reads the open level from the URL, as the bluprint does. */}
           <Suspense>
             <Titlebar />
           </Suspense>
@@ -79,7 +79,7 @@ export default async function Home({
             <Suspense>
               <Canvas key={name} />
               {/* Inside the provider: the panel is the diff's own list, and
-                  what Claude shows needs both the map and the diff's range. */}
+                  what Claude shows needs both the bluprint and the diff's range. */}
               <DiffPanel />
               <FilesPanel />
               <Acts />
@@ -88,18 +88,18 @@ export default async function Home({
           </div>
         </DiffMode>
         <Suspense>
-          {STATIC_MAP ? <ClaudeWeb /> : <Workspace />}
+          {STATIC_BLUPRINT ? <ClaudeWeb /> : <Workspace />}
         </Suspense>
         {embed ? null : <StatusBar />}
         <Suspense>
           <Palette />
         </Suspense>
         <SettingsDialog />
-        {STATIC_MAP ? null : <Dictation />}
+        {STATIC_BLUPRINT ? null : <Dictation />}
         <ProjectsDialog />
         <HistoryDialog />
         <AuditDialog />
       </div>
-    </MapProvider>
+    </BluprintProvider>
   );
 }

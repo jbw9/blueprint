@@ -1,11 +1,11 @@
 import { readSlice, writeSlice, Refused } from "@/lib/server/repo";
-import { demoSource, loadMap, rootOf } from "@/lib/server/maps";
-import { sliceOf } from "@/lib/map/source";
+import { demoSource, loadBluprint, rootOf } from "@/lib/server/bluprints";
+import { sliceOf } from "@/lib/bluprint/source";
 import { notJson } from "@/lib/server/route";
 
-/** The checkout behind the map the reader has open (`?map=`); null with no project yet. */
-const rootFor = (map: string | null | undefined) => {
-  const open = loadMap(map ?? undefined);
+/** The checkout behind the bluprint the reader has open (`?bluprint=`); null with no project yet. */
+const rootFor = (bluprint: string | null | undefined) => {
+  const open = loadBluprint(bluprint ?? undefined);
   return open ? rootOf(open.file.RUN) : null;
 };
 
@@ -36,16 +36,16 @@ export async function GET(request: Request) {
   }
 
   const fixture = q.get("fixture") ?? undefined;
-  // A landing demo reads the code it was mapped from, committed beside it (D63).
-  const demo = demoSource(q.get("map") ?? undefined);
+  // A landing demo reads the code its bluprint was made from, committed beside it (D63).
+  const demo = demoSource(q.get("bluprint") ?? undefined);
   if (demo) {
     const text = demo[file];
     return text === undefined ? bad("unreadable") : Response.json(sliceOf(text, { file, start, end, fixture }));
   }
-  const root = rootFor(q.get("map"));
+  const root = rootFor(q.get("bluprint"));
   if (!root) return bad("unreadable");
   try {
-    // `fixture` is the text the map claims is at these lines. Passing it is
+    // `fixture` is the text the bluprint claims is at these lines. Passing it is
     // what lets the answer say "this has drifted" instead of quietly showing
     // fresh code under a stale explanation.
     return Response.json(await readSlice({ file, start, end }, fixture, root));
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
   const body = await request.json().catch(() => null);
-  const { file, start, end, code, expected, map } = body ?? {};
+  const { file, start, end, code, expected, bluprint } = body ?? {};
   if (
     typeof file !== "string" ||
     !Number.isInteger(start) ||
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     return bad("bad request");
   }
 
-  const root = rootFor(typeof map === "string" ? map : null);
+  const root = rootFor(typeof bluprint === "string" ? bluprint : null);
   if (!root) return bad("unreadable");
   const result = await writeSlice({ file, start, end, code, expected }, root);
   return Response.json(result, { status: result.ok ? 200 : 409 });

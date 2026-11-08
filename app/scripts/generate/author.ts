@@ -6,7 +6,7 @@
  * what it does, and who calls whom, at which line. So every box, arrow and
  * line it draws is one the graph has, and the checker proves its arrows
  * against the same graph. It hands in the finished node through `submit`,
- * which runs the checks the map is held to; problems come back as the tool's
+ * which runs the checks the bluprint is held to; problems come back as the tool's
  * answer, so the repair loop is the conversation itself.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
@@ -14,8 +14,8 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve, sep } from "node:path";
-import { citations, required, symbolsOf, TRIVIAL_LINES, type Sym } from "@/lib/map/coverage";
-import type { Node } from "@/lib/map/schema";
+import { citations, required, symbolsOf, TRIVIAL_LINES, type Sym } from "@/lib/bluprint/coverage";
+import type { Node } from "@/lib/bluprint/schema";
 import { ask, BACKEND, invoke, callsOf, type Block, type Message, type Tool } from "./bedrock";
 import { ccAgent, type Handled, type Turn } from "./claude-code";
 import { activeGraph, type Def } from "./graph";
@@ -114,9 +114,9 @@ export function authorTool(call: { name: string; input: any }): string {
 }
 
 /**
- * The worked example: one root of the hand-authored explorify map, kept as a
- * prompt file now that the example maps are gone. It was cut from that map
- * with figures and screenshots stripped, which generated maps may not use.
+ * The worked example: one root of the hand-authored explorify bluprint, kept as a
+ * prompt file now that the example bluprints are gone. It was cut from that bluprint
+ * with figures and screenshots stripped, which generated bluprints may not use.
  */
 function exemplar(): string {
   const text = readFileSync("scripts/generate/prompts/exemplar.json", "utf8").trimEnd();
@@ -138,10 +138,10 @@ function exemplar(): string {
   return JSON.stringify(cut(JSON.parse(text)), null, 2);
 }
 
-/** The rules at the map's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
+/** The rules at the bluprint's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
 const BRIEF_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this map knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
+The reader of this bluprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one or two sentences, at most 60 words: what this part is for in this project, naming any word the project uses in its own sense ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -149,7 +149,7 @@ The reader of this map knows the field; what they lack is this project. Every no
 `;
 const MINIMAL_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this map knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown under an Explain toggle:
+The reader of this bluprint knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one sentence, at most 30 words: what this project means by this part where the title alone would not say ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -157,7 +157,7 @@ The reader of this map knows the field and has used this project; what they lack
 `;
 const DETAILED_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this map knows a little of the field and nothing of this project. Every node has an \`explain\`, shown under an Explain toggle:
+The reader of this bluprint knows a little of the field and nothing of this project. Every node has an \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one or two short paragraphs, a blank line between them, at most 120 words (a leaf's is often 20–60).
   - Start from what this part is for, then how it works, in everyday words.
@@ -180,7 +180,7 @@ export function system(): Block[] {
     { type: "text", text: rules() },
     {
       type: "text",
-      text: `# The types (lib/map/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored map, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
+      text: `# The types (lib/bluprint/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored bluprint, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
       cache_control: { type: "ephemeral" },
     },
   ];
@@ -304,8 +304,8 @@ export function brief(root: Root, cut: Cut, inv: Inventory, sums: Record<string,
     `## README (excerpt)\n${inv.readme.slice(0, 2500) || "(none)"}`,
     ...(inv.instructions ? [`## What the repository tells coding agents\nIts own conventions and rules (AGENTS.md, CLAUDE.md). They say what its parts are meant to be; where the code departs from them, that is worth an issue.\n\n${inv.instructions}`] : []),
     ...(inv.docs.length ? [`## Its docs (${inv.docs.length}): path, lines, first heading\n${inv.docs.slice(0, 80).map((d) => `${d.path} (${d.lines})${d.title ? ` — ${d.title}` : ""}`).join("\n")}`] : []),
-    ...(inv.scope ? [`## Scope\nThis map covers only part of the repository. Its reader: ${inv.scope.focus} Code outside it is still in the graph and can be cited.`] : []),
-    `## The whole map's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
+    ...(inv.scope ? [`## Scope\nThis bluprint covers only part of the repository. Its reader: ${inv.scope.focus} Code outside it is still in the graph and can be cited.`] : []),
+    `## The whole bluprint's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
     `Code another root explains is not unknown: look it up in the graph if you need it, and draw it as a box with no \`opens\` labelled with that root's title. Never mark a node unsure because something lies outside your root.`,
     `## Your root\nid: ${root.id}\ntitle: ${root.title}\nsub: ${root.sub}\nscope: ${root.why}\nEvery node id under it starts with "${root.prefix}-".`,
     `Brand marks you may use: ${inv.marks.length ? inv.marks.join(", ") : "none"}.`,
@@ -402,7 +402,7 @@ const tryJson = (s: string) => {
  * null is removed. Authors send only what they changed — replacing the node
  * whole wiped its title and sub and cost a round of "title missing" (as many
  * as 68 problems in one rejection). The tool's wording is left as it was, so
- * the API path's requests still replay from the committed maps' caches.
+ * the API path's requests still replay from the committed bluprints' caches.
  */
 function merged(old: Node, fix: Node): Node {
   const out: any = { ...old, ...fix, children: fix.children ?? old.children };
@@ -491,7 +491,7 @@ export async function authorRoot(
     // Coverage is asked beside the other problems as soon as the tree's shape
     // holds: held back until a tree was down to ten, it took a round of its
     // own after the last fix in most roots. A tree whose shape is broken is
-    // not asked yet; the map cannot be shown with it.
+    // not asked yet; the bluprint cannot be shown with it.
     const sound = !missing.length && (!problems.length || !shapeProblems(structuredClone(node), root.prefix).length);
     if (sound) {
       const gaps = gapsIn(node);
@@ -570,7 +570,7 @@ export async function converse<T>(a: Agent): Promise<{ value: T | null; turns: n
     for (const c of calls) {
       const h = a.handle(c.name, c.input);
       if (h.done) return { value: h.done as T, turns, log };
-      // Key order as before, so the requests of maps already made still replay from cache.
+      // Key order as before, so the requests of bluprints already made still replay from cache.
       results.push(h.isError ? { type: "tool_result", tool_use_id: c.id, is_error: true, content: h.content } : { type: "tool_result", tool_use_id: c.id, content: h.content });
     }
     if (turns === a.maxTurns - 6) results.push({ type: "text", text: "You are almost out of turns. Submit the complete root now." });
@@ -646,7 +646,7 @@ export function prefixFor(id: string, taken: Set<string>): string {
 /**
  * A section's own files cut into 2-4 parts by one short call with no tools
  * and no thinking: the outline its parts are then written from, side by side.
- * The repository's cut (cutRepo) does the same job for the whole map, but
+ * The repository's cut (cutRepo) does the same job for the whole bluprint, but
  * with rounds of checks at high effort; for a section it took minutes, and
  * once ran out of turns. A file the answer leaves out goes to the part it
  * shares the most imports with. Null when fewer than two parts come back.
@@ -668,7 +668,7 @@ async function outlineParts(root: Root, cut: Cut, inv: Inventory, sums: Record<s
     model,
     stage: "author-outline",
     maxTokens: 4000,
-    system: "You divide one section of a map of a codebase into the parts it is written in. Answer only with the structure asked for.",
+    system: "You divide one section of a bluprint of a codebase into the parts it is written in. Answer only with the structure asked for.",
     messages: [{ role: "user", content: prompt }],
     tool: PARTS_TOOL,
   });
@@ -698,13 +698,13 @@ async function outlineParts(root: Root, cut: Cut, inv: Inventory, sums: Record<s
 /** The repository as a cut of one root sees it: only that root's files are source. */
 function scoped(root: Root, cut: Cut, inv: Inventory): Inventory {
   const files = inv.files.map((f) => (isSource(f) && owners(cut, f.path).includes(root.id) ? f : { ...f, code: false, outside: true }));
-  return { ...inv, files, scope: { paths: root.files, focus: `${inv.scope ? `${inv.scope.focus} ` : ""}This is one part of the map, "${root.title}" (${root.sub}): ${root.why} Cut it into the 2-6 parts a reader of that part opens first.` } };
+  return { ...inv, files, scope: { paths: root.files, focus: `${inv.scope ? `${inv.scope.focus} ` : ""}This is one part of the bluprint, "${root.title}" (${root.sub}): ${root.why} Cut it into the 2-6 parts a reader of that part opens first.` } };
 }
 
 /** The parts' cut, its ids and prefixes put under the root's, as the briefs of its parts read it. */
 function partsCut(root: Root, sub: Cut, cut: Cut): Cut {
   return {
-    about: `${root.title} — ${root.sub}, one part of a map whose top level is ${cut.roots.map((r) => r.title).join(", ")}. ${sub.about}`,
+    about: `${root.title} — ${root.sub}, one part of a bluprint whose top level is ${cut.roots.map((r) => r.title).join(", ")}. ${sub.about}`,
     roots: sub.roots.map((p) => ({ ...p, id: `${root.prefix}-${p.id}`, prefix: `${root.prefix}-${p.prefix}`, why: `${p.why} It is one part of ${root.title}: ${root.why}` })),
     excluded: [...cut.excluded, ...sub.excluded],
   };

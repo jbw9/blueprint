@@ -1,5 +1,5 @@
 import { hasClaude, pick } from "@/lib/agent/context";
-import { updateMap } from "@/lib/agent/update-map";
+import { updateBluprint } from "@/lib/agent/update-bluprint";
 
 export type Undone =
   | { ok: true; restored: string[] }
@@ -7,19 +7,19 @@ export type Undone =
 
 /**
  * Puts the files one agent turn edited back as they were (app/api/undo). Then
- * the map is brought back up to the code, and Claude is told with its next
+ * the bluprint is brought back up to the code, and Claude is told with its next
  * prompt, since its session still remembers making the edits.
  */
-export async function undoTurn(map: string, turn: string): Promise<Undone> {
+export async function undoTurn(bluprint: string, turn: string): Promise<Undone> {
   const r = await fetch("/api/undo", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ map, turn }),
+    body: JSON.stringify({ bluprint, turn }),
   })
     .then((x) => x.json())
     .catch(() => ({ ok: false, error: "The app could not be reached." }));
   if (!r.ok) return r;
-  void updateMap(r.root);
+  void updateBluprint(r.root);
   // A session that is not running has nothing to forget; none is opened to say so.
   if (hasClaude())
     pick({

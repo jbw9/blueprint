@@ -1,5 +1,5 @@
 //! The workspace's tabs. Each one is a real pty running the user's shell in the
-//! open map's checkout; its output streams to the webview over a `Channel` as
+//! open bluprint's checkout; its output streams to the webview over a `Channel` as
 //! raw bytes (xterm decodes UTF-8 itself, so a character split across two
 //! reads is fine), and one final JSON `{"exit": code}` says it ended.
 //!
@@ -66,7 +66,7 @@ pub struct Spawned {
     shell: String,
 }
 
-/// `outline` is the open map's sections, so Claude in this tab can name one it
+/// `outline` is the open bluprint's sections, so Claude in this tab can name one it
 /// was not handed (claude.rs's LIST).
 #[tauri::command]
 pub fn pty_spawn(
@@ -160,7 +160,7 @@ pub fn pty_spawn(
                 break;
             }
         }
-        // Gone from the map already if it was killed from the UI.
+        // Gone from the bluprint already if it was killed from the UI.
         let code = open
             .lock()
             .unwrap()
@@ -260,10 +260,10 @@ pub struct State {
     busy: bool,
     /// What Claude is doing: `working`, `waiting` for the user, or `done`.
     status: Option<String>,
-    /// Claude finished a turn the map should follow; reported once.
+    /// Claude finished a turn the bluprint should follow; reported once.
     turn: Option<claude::Turn>,
     /// The transcript of the turn Claude just finished, whatever it did, so the
-    /// app can offer to keep the answer on the map; reported once.
+    /// app can offer to keep the answer on the bluprint; reported once.
     ended: Option<String>,
     /// What Claude asked the app to show — a section, a diff — taken mid-turn
     /// so the user is looking at it while the answer streams; reported once.
@@ -318,7 +318,7 @@ pub fn context_set(id: u32, text: String, ptys: tauri::State<Ptys>) -> Result<()
     claude::replace(&queue_of(&ptys, id)?, &text).map_err(|e| e.to_string())
 }
 
-/// Where the user is on the map, for every prompt to say (claude::place).
+/// Where the user is on the bluprint, for every prompt to say (claude::place).
 #[tauri::command]
 pub fn context_where(id: u32, text: String, ptys: tauri::State<Ptys>) -> Result<(), String> {
     claude::place(&queue_of(&ptys, id)?, &text).map_err(|e| e.to_string())

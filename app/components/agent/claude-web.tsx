@@ -8,20 +8,20 @@ import { goTo, useLocation } from "@/components/chrome/crumbs";
 import { AgentIcon } from "@/components/agent/agents";
 import { TOGGLE } from "@/lib/agent/workspace-toggle";
 import { cn } from "@/lib/client/utils";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { findSection } from "@/lib/agent/act";
 import { WEB_TAB, onOpenClaude, onWebPrompt, section, tabEnded, tabStarted, takePicks, unpick, usePicks } from "@/lib/agent/context";
 import { GAP, STATUSBAR } from "@/lib/client/layout";
 
 /**
- * A published map's stand-in for the workspace: no shell to run on a static
- * page, so the panel is Claude alone, answering about this map's code. It
- * talks to a Lambda (scripts/pages-claude/index.mjs) that holds the map and
+ * A published bluprint's stand-in for the workspace: no shell to run on a static
+ * page, so the panel is Claude alone, answering about this bluprint's code. It
+ * talks to a Lambda (scripts/pages-claude/index.mjs) that holds the bluprint and
  * the cited files and calls Bedrock; the page itself holds no credentials.
- * As in the app (components/agent/acts.tsx), Claude moves the map to what it is
+ * As in the app (components/agent/acts.tsx), Claude moves the bluprint to what it is
  * explaining: its show_section arrives here by name and is resolved the same way.
  * And as the app's prompt hook does (src-tauri/src/claude.rs), each question
- * goes with where the reader is and whatever they picked on the map.
+ * goes with where the reader is and whatever they picked on the bluprint.
  */
 const URL_ = process.env.NEXT_PUBLIC_CLAUDE_URL;
 
@@ -39,8 +39,8 @@ const PROSE =
 type Line = { role: "user"; text: string; sent: string } | { role: "assistant" | "tool" | "error"; text: string };
 
 export function ClaudeWeb() {
-  const map = useMap();
-  const { RUN } = map;
+  const bluprint = useBluprint();
+  const { RUN } = bluprint;
   const { path, crumbs } = useLocation();
   const picks = usePicks(WEB_TAB).filter((p) => p.status === "queued");
   // The section last sent in full: after that only its first line goes, until it changes.
@@ -85,7 +85,7 @@ export function ClaudeWeb() {
   }, [open]);
   useEffect(() => end.current?.scrollIntoView({ block: "end" }), [lines]);
 
-  // The map keeps clear of the panel, as it does of the workspace (components/map/canvas.tsx).
+  // The bluprint keeps clear of the panel, as it does of the workspace (components/bluprint/canvas.tsx).
   useEffect(() => {
     const root = document.documentElement.style;
     if (open) root.setProperty("--workspace-inset", `calc(min(${WIDTH}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)`);
@@ -97,7 +97,7 @@ export function ClaudeWeb() {
     if (!q || busy || !URL_) return;
     setBusy(true);
     const where = `[Reading now: ${[RUN.repo, ...crumbs.map((c) => c.title)].join(" › ")}]`;
-    const here = section(map, path).text;
+    const here = section(bluprint, path).text;
     const sent = [where, here === told.current ? "" : here, ...takePicks(WEB_TAB), q].filter(Boolean).join("\n\n");
     told.current = here;
     // Only the conversation goes back: what Claude read is its own, and is read again if needed.
@@ -141,9 +141,9 @@ export function ClaudeWeb() {
           if (!p) continue;
           const { t, v } = JSON.parse(p) as { t: "text" | "tool" | "show" | "error"; v: string };
           if (t === "show") {
-            const path = findSection(map, v);
+            const path = findSection(bluprint, v);
             if (path) goTo(path);
-            append("tool", path ? `Showing ${v}` : `No section on this map is called “${v}”`);
+            append("tool", path ? `Showing ${v}` : `No section on this bluprint is called “${v}”`);
           } else append(t === "text" ? "assistant" : t, v);
         }
       }
@@ -153,7 +153,7 @@ export function ClaudeWeb() {
     setBusy(false);
     input.current?.focus();
   };
-  // For a question asked from the map (lib/agent/context.ts, ask), which arrives outside React.
+  // For a question asked from the bluprint (lib/agent/context.ts, ask), which arrives outside React.
   const asking = useRef(ask);
   useEffect(() => {
     asking.current = ask;

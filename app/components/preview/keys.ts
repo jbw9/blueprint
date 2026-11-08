@@ -17,7 +17,7 @@ export const touch = (id: number) => {
   touched = id;
 };
 
-/** The Preview the keyboard is in; none while it is in a terminal or the map. */
+/** The Preview the keyboard is in; none while it is in a terminal or the bluprint. */
 export const focused = () => (touched !== null && onScreen.has(touched) ? touched : null);
 
 if (typeof window !== "undefined") {

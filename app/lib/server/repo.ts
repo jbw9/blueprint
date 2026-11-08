@@ -1,13 +1,13 @@
 /**
- * Binding the map to a real repository: read a cited slice and check that the
- * map's quote still holds, write an edited slice back, and undo an agent turn.
+ * Binding the bluprint to a real repository: read a cited slice and check that the
+ * bluprint's quote still holds, write an edited slice back, and undo an agent turn.
  * A quote drifts silently the moment the real file changes, which is exactly
  * the failure this project exists to study.
  */
 
 /**
- * Where the mapped repository lives: absolute, one per map, resolved by
- * `rootOf` in `lib/server/maps.ts` from the map the reader has open. The route hands
+ * Where the repository a bluprint is of lives: absolute, one per bluprint, resolved by
+ * `rootOf` in `lib/server/bluprints.ts` from the bluprint the reader has open. The route hands
  * it in; nothing caller-supplied ever chooses it.
  */
 export type RepoRoot = string;
@@ -28,7 +28,7 @@ export interface Slice extends SliceRequest {
   total: number;
   /**
    * True when the file on disk still matches what the fixture quoted.
-   * A false here is a FINDING, not an error: it means the map has drifted from
+   * A false here is a FINDING, not an error: it means the bluprint has drifted from
    * the code, and the UI must say so rather than quietly showing fresh text
    * under a stale explanation.
    */
@@ -138,7 +138,7 @@ const IMAGE_TYPES: Record<string, string> = {
   ico: "image/x-icon",
 };
 
-/** An image a doc in the repository shows (components/map/docs.tsx), behind the same containment as the code. */
+/** An image a doc in the repository shows (components/bluprint/docs.tsx), behind the same containment as the code. */
 export async function readImage(root: RepoRoot, file: string): Promise<{ body: Buffer; type: string }> {
   const type = IMAGE_TYPES[file.split(".").pop()?.toLowerCase() ?? ""];
   if (!type) throw new Refused("not an image");
@@ -150,7 +150,7 @@ export async function readImage(root: RepoRoot, file: string): Promise<{ body: B
 }
 
 /**
- * `fixture` is what the MAP claims sits at these lines, which the repository
+ * `fixture` is what the BLUPRINT claims sits at these lines, which the repository
  * itself has no opinion about; undefined when the caller made no claim.
  */
 export const readSlice: ReadSlice = async (req, fixture, root) => {
@@ -254,7 +254,7 @@ function unified(file: string, start: number, before: string, after: string) {
 
 /**
  * Puts files back as they were before an agent turn (app/api/undo), from the
- * snapshot the map updater kept (scripts/generate/update.ts).
+ * snapshot the bluprint updater kept (scripts/generate/update.ts).
  *
  * All or nothing, and only over the turn's own work: a file whose contents
  * are no longer what the turn left (`after`) has been changed since, by hand

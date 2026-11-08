@@ -86,7 +86,7 @@ export interface Request {
 
 /* ── the bill ───────────────────────────────────────────────── */
 
-/** `usd` is spent this run; `fullUsd` and the token counts are the whole work, replayed calls included, so a replayed map still reports its size and price. */
+/** `usd` is spent this run; `fullUsd` and the token counts are the whole work, replayed calls included, so a replayed bluprint still reports its size and price. */
 export const bill: Record<string, { calls: number; cached: number; input: number; output: number; cacheRead: number; usd: number; fullUsd: number }> = {};
 
 const charge = (stage: string, model: string, r: Reply, fromCache: boolean) => chargeUsage(stage, model, r.usage, fromCache);
@@ -100,7 +100,7 @@ export function chargeUsage(stage: string, model: string, u: Reply["usage"], fro
   const read = u.cache_read_input_tokens ?? 0;
   const usd = (u.input_tokens * p.in + write * p.in * 1.25 + read * p.cacheRead + u.output_tokens * p.out) / 1e6;
   b.fullUsd += usd;
-  // Tokens are the work the map takes, so a replayed call counts too.
+  // Tokens are the work the bluprint takes, so a replayed call counts too.
   b.input += u.input_tokens + write;
   b.output += u.output_tokens;
   b.cacheRead += read;
@@ -130,7 +130,7 @@ const used = new Set<string>();
 /**
  * Drops the cached replies a full run never asked for. Their keys hash the
  * prompts and files they were made from, so once those change nothing can
- * ask for them again. Only after a whole map, never a partial run (--roots,
+ * ask for them again. Only after a whole bluprint, never a partial run (--roots,
  * an update), which leaves the other roots' replies unasked but still live.
  * Named files beside them (cut.json, summaries.json) are not replies and stay.
  */
@@ -179,7 +179,7 @@ export async function invoke(req: Request): Promise<Reply> {
   };
   const json = JSON.stringify(body);
   // Keyed on one spelling of the model whatever the routing — the `us.` one
-  // the first maps were cached under — so a routing switch replays them.
+  // the first bluprints were cached under — so a routing switch replays them.
   const key = createHash("sha256").update(`us.${bare(req.model)}\n${json}`).digest("hex");
   const file = cacheDir ? join(cacheDir, `${key}.json`) : null;
   if (file) used.add(`${key}.json`);

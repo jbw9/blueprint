@@ -3,7 +3,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
 import { LandingAgent } from "@/components/landing-agent";
 import { LandingCover } from "@/components/landing-cover";
 import { LandingEvolution } from "@/components/landing-evolution";
-import { LandingDemo, StarCount, type DemoMap } from "@/components/landing-demo";
+import { LandingDemo, StarCount, type DemoBluprint } from "@/components/landing-demo";
 import { LandingHow } from "@/components/landing-how";
 import { LandingInstall } from "@/components/landing-install";
 import { LandingNav } from "@/components/landing-nav";
@@ -11,7 +11,7 @@ import { LandingStart } from "@/components/landing-start";
 import { LandingVisit } from "@/components/landing-visit";
 import { LandingVoices, type Voice } from "@/components/landing-voices";
 import s from "@/components/landing.module.css";
-import { loadMap } from "@/lib/maps";
+import { loadBluprint } from "@/lib/bluprints";
 
 export const metadata: Metadata = {
   title: "Bluprint",
@@ -56,16 +56,16 @@ const MAKE_CONFIG = [
   "return self.config_class(root_path, defaults)",
 ];
 
-/** A map's subtitle up to its first aside, as one sentence. */
+/** A bluprint's subtitle up to its first aside, as one sentence. */
 const sentence = (sub: string) => `${sub.split(" — ")[0].replace(/\.$/, "")}.`;
 
 export default function Landing() {
-  const maps: DemoMap[] = DEMOS.map(({ id, label }) => {
-    const file = loadMap(id);
+  const bluprints: DemoBluprint[] = DEMOS.map(({ id, label }) => {
+    const file = loadBluprint(id);
     return { id, label, files: file.RUN.files ?? 0, commit: file.RUN.commit ?? "" };
   });
 
-  const flask = loadMap("flask");
+  const flask = loadBluprint("flask");
   const first = flask.AUTHORED[0];
   const config = first.children!.find((c) => c.id === "ca-config")!;
 
@@ -100,7 +100,7 @@ export default function Landing() {
               <h2>And now there&rsquo;s you.</h2>
             </header>
             <section aria-label="Live demo" className={s.demo}>
-              <LandingDemo maps={maps} />
+              <LandingDemo bluprints={bluprints} />
             </section>
           </div>
         </div>

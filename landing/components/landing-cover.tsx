@@ -2,7 +2,7 @@
 import { LandingInstall } from "./landing-install";
 import s from "./landing.module.css";
 
-// Published under the site's base path, like the demo maps beside it.
+// Published under the site's base path, like the demo bluprints beside it.
 const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/${name}.png`;
 
 /**
@@ -16,7 +16,7 @@ export function LandingCover() {
       <div className={s.plate} aria-hidden>
         <div className={s.note}>
           <Rows />
-          <p>A map of any repository, drawn from its own code.</p>
+          <p>A bluprint of any repository, drawn from its own code.</p>
           <p>
             &mdash; every sentence <span className={s.ring2}>checked</span> against the lines it cites.
           </p>
@@ -76,7 +76,7 @@ function Spark() {
   );
 }
 
-/** A map's steps, small: one picked. */
+/** A bluprint's steps, small: one picked. */
 function Rows() {
   return (
     <svg className={s.rows} viewBox="0 0 104 22" aria-hidden>

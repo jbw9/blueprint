@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
 import { openPalette } from "@/components/chrome/palette";
-import { useMap } from "@/components/map/map-context";
+import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { openProjects } from "@/components/projects/projects";
 import { keys } from "@/components/ui/button";
 import { openHistory } from "@/components/review/additions";
@@ -15,16 +15,16 @@ import { StatusDot } from "@/components/agent/status-dot";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { TabClose } from "@/components/chrome/tabs";
 import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/open-projects";
-import { DocIcon } from "@/components/map/docs";
+import { DocIcon } from "@/components/bluprint/docs";
 import { LOGOS } from "@/components/agent/agents";
-import { STATIC_MAP } from "@/lib/map/source";
+import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
- * tauri.conf.json), so this draws the map's name, which switches maps, the tools, and the window
- * buttons, in the page's palette rather than the desktop's. The map below has no header of its
+ * tauri.conf.json), so this draws the bluprint's name, which switches bluprints, the tools, and the window
+ * buttons, in the page's palette rather than the desktop's. The bluprint below has no header of its
  * own in the desktop app.
  *
  * Everything marked `data-tauri-drag-region` moves the window, and a double
@@ -40,7 +40,7 @@ import { useDesktop } from "@/lib/client/platform";
 
 
 /**
- * `bare` is the window with no map open (components/chrome/welcome.tsx): the frame,
+ * `bare` is the window with no bluprint open (components/chrome/welcome.tsx): the frame,
  * settings and the window buttons, so it can still be moved and closed. The
  * page itself offers Open Folder there, as VS Code's welcome does.
  */
@@ -67,7 +67,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
   const win = getCurrentWindow();
   return (
     // Two columns: the right one never gives up its buttons; when the window
-    // is too narrow for both, the map's name truncates first.
+    // is too narrow for both, the bluprint's name truncates first.
     <header
       data-tauri-drag-region
       data-chrome="bar"
@@ -84,15 +84,15 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         )}
       </div>
       <div data-tauri-drag-region className="flex h-full items-center justify-end">
-        {bare ? null : <MapTools />}
+        {bare ? null : <BluprintTools />}
         <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
         {bare ? null : (
           <Control
-            label={STATIC_MAP ? `Claude (${keys(mac, "`", { ctrl: true })})` : `Claude Code & terminal (${keys(mac, "`")})`}
+            label={STATIC_BLUPRINT ? `Claude (${keys(mac, "`", { ctrl: true })})` : `Claude Code & terminal (${keys(mac, "`")})`}
             onClick={toggleWorkspace}
           >
             {/* A published page has no terminal, only Claude (components/agent/claude-web.tsx). */}
-            {STATIC_MAP ? (
+            {STATIC_BLUPRINT ? (
               <path d={LOGOS.claude.d} transform="scale(0.6667)" fill={LOGOS.claude.color} stroke="none" />
             ) : (
               <>
@@ -141,22 +141,22 @@ export function Titlebar({ bare }: { bare?: boolean }) {
  * Claude among its workspace tabs (components/agent/workspace.tsx); + opens another,
  * imports one, or manages them. Switching keeps every terminal running, and
  * the workspace shows the tabs of the project switched to. Cmd+1–9 (Ctrl+1–9
- * off a Mac) picks one, Ctrl+Tab the last. Where you are inside the map is
- * the map tabs' to say (components/chrome/tabs.tsx).
+ * off a Mac) picks one, Ctrl+Tab the last. Where you are inside the bluprint is
+ * the bluprint tabs' to say (components/chrome/tabs.tsx).
  */
 function Where({ mac }: { mac: boolean }) {
-  const { name, maps } = useMap();
+  const { name, bluprints } = useBluprint();
   const router = useRouter();
   const { open, last, status } = useOpenProjects();
-  const shown = open.flatMap((id) => maps.filter((m) => m.id === id));
-  const go = useCallback((id: string | null | undefined) => id && id !== name && router.push(`/?map=${encodeURIComponent(id)}`), [name, router]);
+  const shown = open.flatMap((id) => bluprints.filter((m) => m.id === id));
+  const go = useCallback((id: string | null | undefined) => id && id !== name && router.push(`/?bluprint=${encodeURIComponent(id)}`), [name, router]);
 
   const was = useRef<string | null>(null);
   useEffect(() => {
     arrived(name, was.current);
     was.current = name;
   }, [name]);
-  useEffect(() => keepOnly(maps.map((m) => m.id)), [maps]);
+  useEffect(() => keepOnly(bluprints.map((m) => m.id)), [bluprints]);
 
   // Off a Mac here; on one the menu bar takes the keys (src-tauri/src/lib.rs),
   // so they work from inside a Preview's page too.
@@ -231,13 +231,13 @@ function Where({ mac }: { mac: boolean }) {
   );
 }
 
-/** The tools that act on the open map. */
-function MapTools() {
+/** The tools that act on the open bluprint. */
+function BluprintTools() {
   const diff = useDiff();
   return (
     <>
       <Control
-        label={diff?.diff || diff?.loading ? "Version control — showing changes on the map. Open the history" : "Version control — the commit history, and what each changed"}
+        label={diff?.diff || diff?.loading ? "Version control — showing changes on the bluprint. Open the history" : "Version control — the commit history, and what each changed"}
         onClick={openDiff}
         active={Boolean(diff?.diff || diff?.loading)}
       >
@@ -252,7 +252,7 @@ function MapTools() {
       <Control label="Docs — read the project's Markdown" onClick={() => openPalette("docs")}>
         <DocIcon />
       </Control>
-      <Control label="What you added to this map — and a way back" onClick={openHistory}>
+      <Control label="What you added to this bluprint — and a way back" onClick={openHistory}>
         {/* A clock turned back: the history of the reader's own additions. */}
         <circle cx="8" cy="8" r="6" />
         <path d="M8 4.5V8l2.5 1.5" />

@@ -32,7 +32,7 @@ export interface Cut {
 
 const TOOL = {
   name: "cut",
-  description: "Record the top level of the map.",
+  description: "Record the top level of the bluprint.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -49,7 +49,7 @@ const TOOL = {
             id: { type: "string", description: "kebab-case, short: 'sign-up', 'billing'." },
             prefix: { type: "string", description: "2-3 lowercase letters, unique per root; every node id under this root starts with '<prefix>-'." },
             title: { type: "string", description: "1-4 words, Title Case, everyday words." },
-            sub: { type: "string", description: "At most 8 words, plainly: what someone does here. 'Add a repo and watch it get mapped.' Not a list of its parts. No file paths." },
+            sub: { type: "string", description: "At most 8 words, plainly: what someone does here. 'Add a repo and watch its bluprint get made.' Not a list of its parts. No file paths." },
             why: { type: "string", description: "One sentence for the author of this root: what it covers and where its boundary with the neighbouring roots is." },
             files: { type: "array", items: { type: "string" }, description: "Paths this root owns. A path ending in '/' claims every file under it. A shared file may appear in more than one root." },
           },
@@ -64,7 +64,7 @@ const TOOL = {
   },
 };
 
-const INSTRUCTIONS = `Choose the top level of the map: 4 to 10 roots.
+const INSTRUCTIONS = `Choose the top level of the bluprint: 4 to 10 roots.
 
 - Roots are what someone DOES with the product, in the order they do it — a journey, not a stack of layers. For a library, the someone is the caller.
 - Title a journey root as the action, the way a user would say it: "Signing Up", "Writing A Post", "Making A Request" — not a layer or module name like "Authentication" or "Post Dashboard". Roots that are not steps may be nouns ("The Database").
@@ -150,7 +150,7 @@ export async function cutRepo(inv: Inventory, sums: Record<string, FileSummary>,
       content: [
         `# Repository: ${inv.name} @ ${inv.commit}`,
         `## README\n${inv.readme.slice(0, 12000) || "(none)"}`,
-        ...(inv.scope ? [`## Scope\nThis map covers only part of the repository: ${inv.scope.paths.join(", ")}. Its reader: ${inv.scope.focus} Cut the roots by what that reader does with this part. Code outside the scope is not listed and needs no root.`] : []),
+        ...(inv.scope ? [`## Scope\nThis bluprint covers only part of the repository: ${inv.scope.paths.join(", ")}. Its reader: ${inv.scope.focus} Cut the roots by what that reader does with this part. Code outside the scope is not listed and needs no root.`] : []),
         `## Dependencies\n${inv.deps.join(", ") || "(none)"}`,
         listing.folded
           ? `## Source files (${inv.files.filter(isSource).length}), one line each where there was room\nThe repository is too large to list file by file, so its deepest directories are folded: a line ending in \`/ (N files …)\` stands for every file under that directory, with its largest few named. Claim a folded directory whole, by that \`/\`-terminated path or a parent's; a root of a repository this size will own far more than 60 files.\n${listing.text}`
@@ -189,7 +189,7 @@ export const unclaimed = (cut: Cut, inv: Inventory) =>
 
 const PLACE_TOOL = {
   name: "place",
-  description: "Place the new files in the map's top level.",
+  description: "Place the new files in the bluprint's top level.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -250,7 +250,7 @@ export async function place(
       role: "user",
       content: [
         `# Repository: ${inv.name} @ ${inv.commit}`,
-        `## The map's top level — ${cut.about}\n${cut.roots
+        `## The bluprint's top level — ${cut.about}\n${cut.roots
           .map((r) => `- ${r.id} (prefix ${r.prefix}): ${r.title} — ${r.sub}\n  ${r.why}\n  owns: ${r.files.slice(0, 25).join(", ")}${r.files.length > 25 ? `, … ${r.files.length - 25} more` : ""}`)
           .join("\n")}`,
         ((listed) => `## New source files (${files.length}), in no root yet${listed.folded ? "\nToo many to list one by one, so the deepest directories are folded into a line each; place a folded directory whole by its path ending in '/'." : ""}\n${listed.text}`)(
@@ -318,7 +318,7 @@ Call the place tool once.`,
     if (!added.includes(root)) gained.set(root.id, [...(gained.get(root.id) ?? []), ...mine]);
   }
   for (const x of p.excluded) if ([...wanted].filter((f) => covers(x.path, f)).map((f) => wanted.delete(f)).length) next.excluded.push(x);
-  next.excluded.push(...[...wanted].map((path) => ({ path, reason: "left unplaced when it was added to the map" })));
+  next.excluded.push(...[...wanted].map((path) => ({ path, reason: "left unplaced when it was added to the bluprint" })));
   // A new root nothing went into has nothing to explain.
   next.roots = next.roots.filter((r) => r.files.length || !added.includes(r));
   return { cut: next, gained, added: added.filter((r) => r.files.length) };

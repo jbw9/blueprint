@@ -1,20 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { commitLog, mapDiff, resolveRef, turnDiff, type Resolved } from "@/lib/server/diff";
-import { loadMap, rootOf } from "@/lib/server/maps";
+import { commitLog, bluprintDiff, resolveRef, turnDiff, type Resolved } from "@/lib/server/diff";
+import { loadBluprint, rootOf } from "@/lib/server/bluprints";
 import { apply, readOverlay } from "@/lib/server/overlay";
-import { projectDir, reviewMap } from "@/lib/server/vault";
+import { projectDir, reviewBluprint } from "@/lib/server/vault";
 import { summariesOf, summarize } from "@/lib/server/history";
 import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/server/review";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
- * What a commit did to the map the reader has open.
+ * What a commit did to the bluprint the reader has open.
  *
- * `GET ?map=&from=&to=` — `from` defaults to the commit the map was made at and
+ * `GET ?bluprint=&from=&to=` — `from` defaults to the commit the bluprint was made at and
  * `to` to the working tree, which is the comparison that answers "what have I
- * changed since". `GET ?map=&commits=1` is the commit list the panel offers.
- * `GET ?map=&review=pr:<n>|<base>...<branch>` reviews a pull request or a
+ * changed since". `GET ?bluprint=&commits=1` is the commit list the panel offers.
+ * `GET ?bluprint=&review=pr:<n>|<base>...<branch>` reviews a pull request or a
  * branch from where it left its base (lib/server/review.ts); `?branches=1` lists
  * both to pick from.
  *
@@ -23,8 +23,8 @@ import { bad, notJson } from "@/lib/server/route";
  * the reading comes back in `read`, so the page can show what the phrase was
  * taken to mean instead of diffing against a guess.
  *
- * The checkout is resolved from the map, exactly as app/api/source/route.ts
- * does: a caller names a map, never a path. `from` and `to` go to `git
+ * The checkout is resolved from the bluprint, exactly as app/api/source/route.ts
+ * does: a caller names a bluprint, never a path. `from` and `to` go to `git
  * rev-parse` to be resolved, which is the only thing done with them — an
  * unknown revision is a 400, not an argument passed on to another command.
  */
@@ -33,11 +33,11 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   let open;
   try {
-    open = loadMap(q.get("map") ?? undefined);
+    open = loadBluprint(q.get("bluprint") ?? undefined);
   } catch {
     open = null;
   }
-  if (!open) return bad("No such map.", 404);
+  if (!open) return bad("No such bluprint.", 404);
   const root = rootOf(open.file.RUN);
 
   if (q.get("commits")) return Response.json({ commits: commitLog(root, 200), at: open.file.RUN.commit });
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const sha = q.get("summary");
   if (sha) return Response.json({ summary: /^[0-9a-f]{40}$/.test(sha) ? summariesOf(projectDir(open.name))[sha] : undefined });
   if (q.get("branches")) return Response.json({ branches: branches(root), base: defaultBase(root), ...pulls(root) });
-  // The agent turns the map has followed, newest first (scripts/generate/update.ts).
+  // The agent turns the bluprint has followed, newest first (scripts/generate/update.ts).
   const dir = projectDir(open.name);
   const changes = () => (existsSync(join(dir, "changes.json")) ? (JSON.parse(readFileSync(join(dir, "changes.json"), "utf8")) as { id: string; prompt: string; at: string }[]) : []);
   if (q.get("turns")) return Response.json({ turns: changes().reverse() });
@@ -62,18 +62,18 @@ export async function GET(request: Request) {
   const spec = rev("review");
   const turn = spec?.startsWith("turn:") ? spec.slice(5) : null;
   if (turn !== null) {
-    // An id, never a path: it names one of this map's own snapshots.
+    // An id, never a path: it names one of this bluprint's own snapshots.
     const entry = turn === "latest" ? changes().at(-1) : /^[\w-]{1,64}$/.test(turn) ? changes().find((c) => c.id === turn) : undefined;
     const file = join(dir, "snapshots", `${entry?.id}.json`);
     if (!entry || !existsSync(file)) return bad("That turn's before-and-after is no longer kept.", 404);
     const snap = JSON.parse(readFileSync(file, "utf8"));
-    // The map right after this turn is the one the next turn started from; the
+    // The bluprint right after this turn is the one the next turn started from; the
     // reader's additions go on both sides, so they never read as the turn's.
     const all = changes();
     const next = all[all.findIndex((c) => c.id === entry.id) + 1];
     const nextFile = next && join(dir, "snapshots", `${next.id}.json`);
-    const after = nextFile && existsSync(nextFile) ? apply(JSON.parse(readFileSync(nextFile, "utf8")).map, readOverlay(open.name)).file : open.file;
-    const before = apply(snap.map, readOverlay(open.name)).file;
+    const after = nextFile && existsSync(nextFile) ? apply(JSON.parse(readFileSync(nextFile, "utf8")).bluprint, readOverlay(open.name)).file : open.file;
+    const before = apply(snap.bluprint, readOverlay(open.name)).file;
     const diff = turnDiff({ ...before, RUN: { ...before.RUN, root } }, { ...after, RUN: { ...after.RUN, root } }, snap.files);
     return Response.json({ ...diff, review: { kind: "turn", base: "", head: "", from: entry.at, to: entry.at, title: entry.prompt } satisfies Review });
   }
@@ -116,10 +116,10 @@ export async function GET(request: Request) {
 
   try {
     const json = (f: string) => (existsSync(join(dir, f)) ? JSON.parse(readFileSync(join(dir, f), "utf8")) : undefined);
-    // Since the map was made, and it has been updated since: the map as it was
+    // Since the bluprint was made, and it has been updated since: the bluprint as it was
     // then is the other picture, so its diagrams and tables diff box by box.
     // The reader's own additions are on both, so they never read as a change.
-    const snapshot = !from && !to ? json("map.base.json") : undefined;
+    const snapshot = !from && !to ? json("bluprint.base.json") : undefined;
     // A file no section cites still has a root that owns it (index.json): the
     // way in for new code that no level explains yet.
     // Only code: a lockfile or an icon changing is not something a level could explain.
@@ -131,14 +131,14 @@ export async function GET(request: Request) {
         .filter((o) => !index || (index.files[o.path] ? index.files[o.path].status === "source" : code.has(ext(o.path))))
         .map((o) => (o.near || !index?.files[o.path]?.roots[0] ? o : { ...o, near: [index.files[o.path].roots[0]] }));
     const before = snapshot && { ...apply(snapshot, readOverlay(open.name)).file, RUN: { ...snapshot.RUN, root } };
-    // A review whose map after was made: the reader's additions go on it too,
+    // A review whose bluprint after was made: the reader's additions go on it too,
     // so they never read as removed.
-    const after = review && reviewMap(open.name, review.to).status === "done" ? json(`reviews/${review.to}/map.json`) : undefined;
+    const after = review && reviewBluprint(open.name, review.to).status === "done" ? json(`reviews/${review.to}/bluprint.json`) : undefined;
     const diff = before
-      ? mapDiff(root, from, to, before, {}, open.file)
+      ? bluprintDiff(root, from, to, before, {}, open.file)
       : after
-        ? mapDiff(root, from, to, open.file, {}, { ...apply(after, readOverlay(open.name)).file, RUN: { ...after.RUN, root } })
-        : mapDiff(root, from, to, open.file, json("base.json") ?? {});
+        ? bluprintDiff(root, from, to, open.file, {}, { ...apply(after, readOverlay(open.name)).file, RUN: { ...after.RUN, root } })
+        : bluprintDiff(root, from, to, open.file, json("base.json") ?? {});
     // A review's ends are the commits it resolved to, so they need no reading back.
     if (review) return Response.json({ ...diff, review, outside: rooted(diff.outside) });
     return Response.json(read.from || read.to ? { ...diff, read, outside: rooted(diff.outside) } : { ...diff, outside: rooted(diff.outside) });
@@ -148,7 +148,7 @@ export async function GET(request: Request) {
 }
 
 /**
- * `POST ?map=` with `{sha, claude}`: what that commit did, in a few sentences
+ * `POST ?bluprint=` with `{sha, claude}`: what that commit did, in a few sentences
  * (lib/server/history.ts `summarize`). A paid model run, so only on the reader's
  * click; kept by sha, so each commit is told once.
  */
@@ -157,11 +157,11 @@ export async function POST(request: Request) {
   if (refused) return refused;
   let open;
   try {
-    open = loadMap(new URL(request.url).searchParams.get("map") ?? undefined);
+    open = loadBluprint(new URL(request.url).searchParams.get("bluprint") ?? undefined);
   } catch {
     open = null;
   }
-  if (!open) return bad("No such map.", 404);
+  if (!open) return bad("No such bluprint.", 404);
   const { sha, claude } = (await request.json().catch(() => ({}))) as { sha?: unknown; claude?: unknown };
   if (typeof sha !== "string" || !/^[0-9a-f]{7,40}$/.test(sha)) return bad("No such commit.");
   try {

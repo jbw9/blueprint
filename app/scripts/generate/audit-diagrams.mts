@@ -1,16 +1,16 @@
-// usage (from app/): npx -y tsx --tsconfig tsconfig.json scripts/generate/audit-diagrams.mts [map…]
-//   Lays out every diagram in every map (or the named ones) exactly as the page does and reports
+// usage (from app/): npx -y tsx --tsconfig tsconfig.json scripts/generate/audit-diagrams.mts [bluprint…]
+//   Lays out every diagram in every bluprint (or the named ones) exactly as the page does and reports
 //   text drawn over text or over a box, lines drawn through a box they do not connect, and pictures
 //   too wide to read. A label across another line is counted, not failed: it is drawn with a halo.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import type { Anatomy, Node } from "@/lib/map/schema";
+import type { Anatomy, Node } from "@/lib/bluprint/schema";
 import { layoutProblems } from "./check";
 
-const names = process.argv.slice(2).length ? process.argv.slice(2) : (existsSync("maps") ? readdirSync("maps") : []).filter((d) => existsSync(`maps/${d}/map.json`)).sort();
+const names = process.argv.slice(2).length ? process.argv.slice(2) : (existsSync("bluprints") ? readdirSync("bluprints") : []).filter((d) => existsSync(`bluprints/${d}/bluprint.json`)).sort();
 
 let total = 0;
 for (const name of names) {
-  const map = JSON.parse(readFileSync(`maps/${name}/map.json`, "utf8"));
+  const bluprint = JSON.parse(readFileSync(`bluprints/${name}/bluprint.json`, "utf8"));
   const problems: string[] = [];
   let count = 0, crossings = 0;
   const walk = (n: Node) => {
@@ -23,7 +23,7 @@ for (const name of names) {
     }
     (n.children ?? []).forEach(walk);
   };
-  map.AUTHORED.forEach(walk);
+  bluprint.AUTHORED.forEach(walk);
   total += problems.length;
   console.log(`${name}: ${count} diagrams, ${problems.length} problems, ${crossings} labels across a line (haloed)`);
   for (const p of problems) console.log(`  ${p}`);

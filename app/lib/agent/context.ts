@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
-import { describe, type BuiltMap } from "@/lib/map/build";
+import { describe, type BuiltBluprint } from "@/lib/bluprint/build";
 import { signal } from "@/lib/client/signal";
 
 /**
- * What the user has handed to Claude from the map: whole sections, or any one
+ * What the user has handed to Claude from the bluprint: whole sections, or any one
  * thing on a level — a row, a box, a message, a line of the screen, a problem,
  * a place in the code.
  *
@@ -39,10 +39,10 @@ interface State {
 }
 
 /**
- * A published map has no tabs: its one Claude is the panel (components/agent/claude-web.tsx),
+ * A published bluprint has no tabs: its one Claude is the panel (components/agent/claude-web.tsx),
  * which holds the queue itself and sends it with the reader's next question.
  */
-const WEB = !!process.env.NEXT_PUBLIC_STATIC_MAP;
+const WEB = !!process.env.NEXT_PUBLIC_STATIC_BLUPRINT;
 export const WEB_TAB = 0;
 const PROMPT = "bluprint:web-prompt";
 export const onWebPrompt = (f: (text: string) => void) => {
@@ -60,7 +60,7 @@ const set = (next: State) => {
 
 export const sectionKey = (path: string[]) => path.join("/");
 
-export const section = (m: BuiltMap, path: string[]): Target => ({
+export const section = (m: BuiltBluprint, path: string[]): Target => ({
   key: sectionKey(path),
   title: path.length ? (m.nodeAt(path)?.title ?? sectionKey(path)) : m.RUN.repo,
   text: describe(m, path),
@@ -163,7 +163,7 @@ export function pick(t: Target) {
  * is: `[button "Sign up"]` goes in at the cursor, and what it stands for goes
  * with that prompt through the hook, saying the name it goes by. Typed only
  * while Claude is not asking the user something, which typing would answer.
- * A published map's panel keeps its own list instead.
+ * A published bluprint's panel keeps its own list instead.
  */
 export function mention(t: Target) {
   if (WEB) return pick(t);

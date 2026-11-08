@@ -4,7 +4,7 @@
  * The cut sees the whole repo only through these, so they record what a file
  * DOES for the product (what it reads, writes, shows, calls), with line ranges
  * the author can jump to. Keyed by content: an unchanged file is never re-read,
- * which is also what an incremental map will need.
+ * which is also what an incremental bluprint will need.
  */
 
 import { ask, BACKEND, MODELS } from "./bedrock";
@@ -51,7 +51,7 @@ const TOOL = {
   },
 };
 
-const SYSTEM = `You read one source file from a repository and record what it does, for someone mapping the whole codebase.
+const SYSTEM = `You read one source file from a repository and record what it does, for someone making a bluprint of the whole codebase.
 Be concrete and literal: real table names, real routes, real env var names, real line numbers as shown in the left margin.
 Never guess at code you cannot see. Call the summary tool once.`;
 
@@ -65,7 +65,7 @@ async function one(inv: Inventory, f: RepoFile): Promise<FileSummary> {
   try {
     const read = (content: string) => ask<Omit<FileSummary, "path">>({ model: MODELS.haiku, stage: "summarize", maxTokens: 4000, system: SYSTEM, messages: [{ role: "user", content }], tool: TOOL });
     const s = await read(`Repository: ${inv.name}\n${shown(inv, f)}`);
-    // The rest of a long file, part by part: a 4,000-line class's later methods are as much the map's as its first.
+    // The rest of a long file, part by part: a 4,000-line class's later methods are as much the bluprint's as its first.
     const parts = await Promise.all(
       Array.from({ length: Math.ceil(f.lines / MAX_LINES) - 1 }, (_, i) => {
         const start = (i + 1) * MAX_LINES + 1;

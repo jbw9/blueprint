@@ -373,7 +373,7 @@
   body[data-dragging] {
     user-select: none;
   }
-  /* A part dragged off the map toward its tabs (components/map/canvas.tsx), whose
+  /* A part dragged off the bluprint toward its tabs (components/bluprint/canvas.tsx), whose
      strip shows only where it would land, not what the pointer hovers. */
   [data-drag-source] {
     opacity: 0.4;
@@ -388,7 +388,7 @@
 }
 
 @layer components {
-  /* A doc in the reader (components/map/docs.tsx): set for reading at length,
+  /* A doc in the reader (components/bluprint/docs.tsx): set for reading at length,
      in the page's own type, not a second design. */
   .doc-prose {
     color: var(--color-on-surface-variant);
@@ -510,7 +510,7 @@
     accent-color: var(--color-accent);
   }
 
-  /* A plan's numbered steps, drawn as the map draws a sequence of parts:
+  /* A plan's numbered steps, drawn as the bluprint draws a sequence of parts:
      numbered dots on one line (components/agent/plan.tsx). */
   .plan-prose ol {
     list-style: none;
@@ -669,7 +669,7 @@
   }
 }
 
-/* A map tab opened from inside the page (components/chrome/tabs.tsx TAB_OPENED). */
+/* A bluprint tab opened from inside the page (components/chrome/tabs.tsx TAB_OPENED). */
 @keyframes tab-opened {
   0% {
     transform: translateY(6px);

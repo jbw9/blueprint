@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DIALOG, INPUT, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
-import { useMaybeMap } from "@/components/map/map-context";
+import { useMaybeBluprint } from "@/components/bluprint/bluprint-context";
 import { Menu, type MenuItem } from "@/components/ui/menu";
 import { cloneUrl, repoName } from "@/lib/client/clone";
 import type { Explain, Progress, Project } from "@/lib/server/vault";
@@ -16,9 +16,9 @@ import { claudePath } from "@/lib/client/claude";
  * The project list: the reader's own projects, imported from this machine and
  * kept in the app's vault (lib/server/vault.ts). Starting one works as VS Code's Open
  * Folder does: the system's folder picker first, then one screen to confirm
- * before the map is made through the reader's Claude Code. New Project makes
+ * before the bluprint is made through the reader's Claude Code. New Project makes
  * an empty folder instead, or clones one from GitHub when given a repository.
- * The list follows the run, and the map opens from here or the picker once it
+ * The list follows the run, and the bluprint opens from here or the picker once it
  * is made.
  */
 
@@ -46,13 +46,13 @@ async function pickFolder(title: string): Promise<string | undefined> {
  */
 export async function openFolder() {
   if (!isTauri()) return show({ mode: "open" });
-  const root = await pickFolder("Open a folder to map");
+  const root = await pickFolder("Open a folder to bluprint");
   if (root) show({ mode: "open", root });
 }
 
 export const newProject = () => show({ mode: "new" });
 
-type Listed = Project & { hasMap: boolean; stale: boolean; progress?: Progress };
+type Listed = Project & { hasBluprint: boolean; stale: boolean; progress?: Progress };
 interface List {
   vault: string;
   projects: Listed[];
@@ -60,7 +60,7 @@ interface List {
 
 export function ProjectsDialog() {
   const router = useRouter();
-  const current = useMaybeMap()?.name;
+  const current = useMaybeBluprint()?.name;
   const [open, setOpen] = useState(false);
   const [list, setList] = useState<List | null>(null);
   const [root, setRoot] = useState("");
@@ -72,11 +72,11 @@ export function ProjectsDialog() {
   const [mode, setMode] = useState<Mode | null>(null);
   const close = useCallback(() => setOpen(false), []);
 
-  // Which maps were ready last time, so a run finishing refreshes the picker.
+  // Which bluprints were ready last time, so a run finishing refreshes the picker.
   const ready = useRef<Set<string>>(new Set());
   const refresh = useCallback(async () => {
     const next: List = await fetch("/api/projects").then((r) => r.json());
-    const now = new Set(next.projects.filter((p) => p.map.status === "ready").map((p) => p.id));
+    const now = new Set(next.projects.filter((p) => p.bluprint.status === "ready").map((p) => p.id));
     if ([...now].some((id) => !ready.current.has(id))) router.refresh();
     ready.current = now;
     setList(next);
@@ -98,7 +98,7 @@ export function ProjectsDialog() {
   }, [refresh]);
 
   // Follow a run while the list is open.
-  const running = list?.projects.some((p) => p.map.status === "generating");
+  const running = list?.projects.some((p) => p.bluprint.status === "generating");
   useEffect(() => {
     if (!open || !running) return;
     const t = setInterval(() => void refresh(), 3000);
@@ -136,7 +136,7 @@ export function ProjectsDialog() {
   };
 
   const browse = async () => {
-    const dir = await pickFolder(mode === "new" ? "Choose where the new folder goes" : "Open a folder to map");
+    const dir = await pickFolder(mode === "new" ? "Choose where the new folder goes" : "Open a folder to bluprint");
     if (dir) changeRoot(dir);
   };
 
@@ -156,19 +156,19 @@ export function ProjectsDialog() {
         setLabel("");
         setUrl("");
         setMode(null);
-        // A map being made opens to watch it build (D69); one without a map opens for its tabs.
-        if (made.id) openMap(made.id);
+        // A bluprint being made opens to watch it build (D69); one without a bluprint opens for its tabs.
+        if (made.id) openBluprint(made.id);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  // `full` makes the whole map again; without it a finished map at the same
+  // `full` makes the whole bluprint again; without it a finished bluprint at the same
   // depth is only brought up to its code (lib/server/vault.ts, generate).
   const regenerate = async (id: string, explain?: Explain, full?: boolean) => {
     try {
-      if (await act({ action: "regenerate", id, claude: await claudePath(), explain, ...(full ? { full: true } : {}) })) openMap(id);
+      if (await act({ action: "regenerate", id, claude: await claudePath(), explain, ...(full ? { full: true } : {}) })) openBluprint(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -184,8 +184,8 @@ export function ProjectsDialog() {
 
   // `at` is the level to open at, as chrome.tsx's goTo spells it: a finished
   // root is explorable from the list while the rest are still being made.
-  const openMap = (id: string, at?: string) => {
-    router.push(`/?map=${encodeURIComponent(id)}${at ? `&at=${encodeURIComponent(at)}` : ""}`);
+  const openBluprint = (id: string, at?: string) => {
+    router.push(`/?bluprint=${encodeURIComponent(id)}${at ? `&at=${encodeURIComponent(at)}` : ""}`);
     close();
   };
 
@@ -236,7 +236,7 @@ export function ProjectsDialog() {
                       home={home}
                       current={p.id === current}
                       busy={busy}
-                      onOpen={(at) => openMap(p.id, at)}
+                      onOpen={(at) => openBluprint(p.id, at)}
                       onRegenerate={(explain, full) => void regenerate(p.id, explain, full)}
                       onCancel={() => void act({ action: "cancel", id: p.id })}
                       onPause={(paused) => void act({ action: "pause", id: p.id, paused })}
@@ -247,7 +247,7 @@ export function ProjectsDialog() {
               ) : list ? (
                 <div className="px-3 py-10 text-center">
                   <p className="text-[13.5px] font-medium text-ink">No projects yet</p>
-                  <p className="mt-1 text-[12.5px] text-muted-slate">Open a folder of code to map it, or start a new one, empty or cloned from GitHub.</p>
+                  <p className="mt-1 text-[12.5px] text-muted-slate">Open a folder of code to make its bluprint, or start a new one, empty or cloned from GitHub.</p>
                 </div>
               ) : (
                 <p className="px-3 py-10 text-center text-[12.5px] text-faint">Loading…</p>
@@ -269,7 +269,7 @@ const homeOf = (vault: string) => vault.match(/^(\/Users\/[^/]+|\/home\/[^/]+|[A
 const tilde = (path: string, home?: string) => (home && path.startsWith(home) ? `~${path.slice(home.length)}` : path);
 
 /**
- * How much the map explains (D70), from how well the reader says they
+ * How much the bluprint explains (D70), from how well the reader says they
  * understand the repo: each stop of the slider is one level, the less they
  * know the more it says.
  */
@@ -282,7 +282,7 @@ const UNDERSTAND: { label: string; explain: Explain }[] = [
 ];
 
 const EXPLAINS: Record<Explain, { label: string; note: string }> = {
-  none: { label: "No explanations", note: "The map alone: parts, pictures and the code behind each step." },
+  none: { label: "No explanations", note: "The bluprint alone: parts, pictures and the code behind each step." },
   minimal: { label: "Minimal explanations", note: "One line per level on what this project calls it, a few of its own words defined, a short walkthrough." },
   brief: { label: "Brief explanations", note: "A sentence or two per level on what it is for, a short glossary and walkthrough." },
   detailed: { label: "Detailed explanations", note: "A paragraph or two per level in plain words, the odd picture, a glossary and a walkthrough." },
@@ -310,7 +310,7 @@ function Understanding({ value, onChange }: { value: number; onChange: (v: numbe
         <span id="understand-q" className="text-[13px] font-semibold text-ink">
           How well do you understand this repo?
         </span>
-        <span className="mt-0.5 block text-[12px] text-muted-slate">So the map says as much as you need, and no more.</span>
+        <span className="mt-0.5 block text-[12px] text-muted-slate">So the bluprint says as much as you need, and no more.</span>
       </div>
       <div className="px-8">
         <div
@@ -386,8 +386,8 @@ const joinPath = (parent: string, name: string) => `${parent.trim().replace(/[\\
 /**
  * Confirming a project, on one screen: for a new one the repository to clone,
  * if any, and where it goes; for an existing one the folder (already picked
- * when the picker was there to pick it); its name; and for code to map how
- * much the map explains and what making it costs. Folders and repositories
+ * when the picker was there to pick it); its name; and for code to bluprint how
+ * much the bluprint explains and what making it costs. Folders and repositories
  * are checked by the server, so a bad one comes back here to fix.
  */
 function StartProject({
@@ -420,9 +420,9 @@ function StartProject({
   const fresh = mode === "new";
   const clone = fresh && Boolean(url.trim());
   const known = Boolean(cloneUrl(url));
-  // A new empty folder has nothing to map yet: it is mapped from Projects once it has code.
-  const mappable = !fresh || clone;
-  const [mapped, setMapped] = useState(true);
+  // A new empty folder has nothing to make a bluprint of yet: it gets one from Projects once it has code.
+  const canBluprint = !fresh || clone;
+  const [making, setMaking] = useState(true);
   const [understand, setUnderstand] = useState(2);
   const explain = UNDERSTAND[understand].explain;
   const name = label.trim() || (clone ? repoName(url) : fresh ? "" : folderName(root));
@@ -432,7 +432,7 @@ function StartProject({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) onStart(mappable && mapped ? explain : undefined, mappable && !mapped);
+        if (ready) onStart(canBluprint && making ? explain : undefined, canBluprint && !making);
       }}
       className="flex min-h-0 flex-col"
     >
@@ -506,21 +506,21 @@ function StartProject({
           ) : null}
         </label>
 
-        {mappable ? (
+        {canBluprint ? (
           <div className="flex items-start gap-4 border-t border-border-gray pt-5">
             <div className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold text-ink">Make a map</span>
+              <span className="block text-[13px] font-semibold text-ink">Make a bluprint</span>
               <span className="mt-0.5 block text-[12px] leading-snug text-muted-slate">
-                {mapped
+                {making
                   ? "Your Claude Code reads it now. About 20 minutes for a mid-sized repo, on your plan's usage."
-                  : "It opens with just your tabs. Nothing is read or spent until you make a map."}
+                  : "It opens with just your tabs. Nothing is read or spent until you make a bluprint."}
               </span>
             </div>
-            <Switch on={mapped} onChange={setMapped} label="Make a map" />
+            <Switch on={making} onChange={setMaking} label="Make a bluprint" />
           </div>
         ) : null}
 
-        {mappable && mapped ? <Understanding value={understand} onChange={setUnderstand} /> : null}
+        {canBluprint && making ? <Understanding value={understand} onChange={setUnderstand} /> : null}
       </div>
 
       <footer className="flex items-center justify-end gap-2 border-t border-border-gray bg-surface px-5 py-3">
@@ -529,7 +529,7 @@ function StartProject({
           Cancel
         </button>
         <button type="submit" disabled={busy || !ready} className={PRIMARY}>
-          {clone ? (busy ? "Cloning…" : mapped ? "Clone and map" : "Clone") : fresh ? "Create" : mapped ? "Start mapping" : "Open"}
+          {clone ? (busy ? "Cloning…" : making ? "Clone and make bluprint" : "Clone") : fresh ? "Create" : making ? "Make bluprint" : "Open"}
         </button>
       </footer>
     </form>
@@ -575,9 +575,9 @@ function stageLine(g?: Progress) {
 const GLYPH = { done: "✓", drafting: "◷", failed: "✗", queued: "○" } as const;
 
 /**
- * The parts of a map being made, in the order the cut put them. A finished one
+ * The parts of a bluprint being made, in the order the cut put them. A finished one
  * opens straight away: it passed the same check inside the author's submit that
- * a root of a finished map passes, so there is nothing provisional about it.
+ * a root of a finished bluprint passes, so there is nothing provisional about it.
  */
 function Roots({ roots, onOpen }: { roots: Progress["roots"]; onOpen: (at: string) => void }) {
   return (
@@ -603,16 +603,16 @@ function Roots({ roots, onOpen }: { roots: Progress["roots"]; onOpen: (at: strin
 
 /** The row's one-word state, and its tone; the detail is in the title. */
 function statusOf(p: Listed): { text: string; title?: string; tone: string } {
-  const { status, commit, seconds } = p.map;
-  if (status === "generating") return { text: `Mapping · ${minutes(p.map.startedAt)} min`, tone: "text-amber-ink" };
+  const { status, commit, seconds } = p.bluprint;
+  if (status === "generating") return { text: `Mapping · ${minutes(p.bluprint.startedAt)} min`, tone: "text-amber-ink" };
   if (status === "failed" && !p.paused) return { text: "Mapping failed", tone: "text-clay-ink" };
-  if (p.paused) return p.hasMap ? { text: "Updates off", title: `The map from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No map", tone: "text-faint" };
+  if (p.paused) return p.hasBluprint ? { text: "Updates off", title: `The bluprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No bluprint", tone: "text-faint" };
   if (status === "ready")
     return p.stale
-      ? { text: "Out of date", title: `Mapped at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
-      : { text: commit ? `Mapped · ${commit}` : "Mapped", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
+      ? { text: "Out of date", title: `Bluprint made at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
+      : { text: commit ? `Bluprint · ${commit}` : "Bluprint ready", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
   if (status === "cancelled") return { text: "Cancelled", tone: "text-faint" };
-  return { text: "Empty", title: "Map it once it has code.", tone: "text-faint" };
+  return { text: "Empty", title: "Make its bluprint once it has code.", tone: "text-faint" };
 }
 
 function ProjectRow({
@@ -636,24 +636,24 @@ function ProjectRow({
   onPause: (paused: boolean) => void;
   onRemove: () => void;
 }) {
-  // What opens under the row: making the map (again), or confirming removal,
-  // which deletes the map but never the code.
+  // What opens under the row: making the bluprint (again), or confirming removal,
+  // which deletes the bluprint but never the code.
   const [panel, setPanel] = useState<"make" | "remove" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [understand, setUnderstand] = useState(() => Math.max(0, UNDERSTAND.findIndex((u) => u.explain === (p.explain ?? "full"))));
-  const { status } = p.map;
+  const { status } = p.bluprint;
   const generating = status === "generating";
-  const openable = p.hasMap || p.paused || status === "empty";
+  const openable = p.hasBluprint || p.paused || status === "empty";
   const s = statusOf(p);
 
   const items: MenuItem[] = [];
   if (openable) items.push({ label: "Open", onClick: () => onOpen() });
-  if (generating) items.push({ label: "Cancel mapping", onClick: onCancel, disabled: busy });
+  if (generating) items.push({ label: "Cancel bluprint", onClick: onCancel, disabled: busy });
   else {
-    if (status === "ready") items.push({ label: "Update map to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    if (status === "failed" || status === "cancelled") items.push({ label: "Retry mapping", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
-    items.push({ label: p.hasMap ? "Remake map…" : "Make a map…", onClick: () => setPanel("make") });
-    if (p.hasMap) items.push({ label: p.paused ? "Keep the map updated" : "Stop updating the map", onClick: () => onPause(!p.paused), disabled: busy });
+    if (status === "ready") items.push({ label: "Update bluprint to the code", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
+    if (status === "failed" || status === "cancelled") items.push({ label: "Retry bluprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
+    items.push({ label: p.hasBluprint ? "Remake bluprint…" : "Make a bluprint…", onClick: () => setPanel("make") });
+    if (p.hasBluprint) items.push({ label: p.paused ? "Keep the bluprint updated" : "Stop updating the bluprint", onClick: () => onPause(!p.paused), disabled: busy });
   }
   items.push({ label: "Remove from Projects…", onClick: () => setPanel("remove"), separated: true });
 
@@ -708,9 +708,9 @@ function ProjectRow({
         </div>
       ) : null}
 
-      {status === "failed" && !p.paused && p.map.error ? (
+      {status === "failed" && !p.paused && p.bluprint.error ? (
         <pre className="mx-3 mb-2 max-h-28 overflow-auto whitespace-pre-wrap bg-clay-surface/60 px-2.5 py-2 font-mono text-[11px] text-clay-ink">
-          {p.map.error}
+          {p.bluprint.error}
         </pre>
       ) : null}
 
@@ -727,11 +727,11 @@ function ProjectRow({
               disabled={busy}
               onClick={() => {
                 setPanel(null);
-                onRegenerate(UNDERSTAND[understand].explain, p.hasMap);
+                onRegenerate(UNDERSTAND[understand].explain, p.hasBluprint);
               }}
               className={PRIMARY}
             >
-              {p.hasMap ? "Remake map" : "Make map"}
+              {p.hasBluprint ? "Remake bluprint" : "Make bluprint"}
             </button>
           </div>
         </div>
@@ -740,7 +740,7 @@ function ProjectRow({
       {panel === "remove" ? (
         <div className="mx-3 mb-2 mt-1 flex items-center gap-2 border border-clay-line bg-clay-surface/40 px-4 py-2.5">
           <p className="mr-auto text-[12.5px] text-ink">
-            Remove <span className="font-semibold">{p.name}</span>? This deletes its map, not the folder.
+            Remove <span className="font-semibold">{p.name}</span>? This deletes its bluprint, not the folder.
           </p>
           <button type="button" onClick={() => setPanel(null)} className={QUIET}>
             Cancel

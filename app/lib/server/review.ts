@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import { git } from "@/scripts/generate/gitdiff";
 
 export interface Review {
-  /** `pr` names a pull request; `branch` a local or remote branch against its base; `turn` one agent turn the map followed. */
+  /** `pr` names a pull request; `branch` a local or remote branch against its base; `turn` one agent turn the bluprint followed. */
   kind: "pr" | "branch" | "turn";
   base: string;
   head: string;

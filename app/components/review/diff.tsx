@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { BOX_H, layoutDiagram } from "@/lib/map/diagram";
-import type { Anatomy } from "@/lib/map/schema";
-import type { BlockDiff, Commit, FileChange, MapDiff, PartDiff, RowDiff, Verdict } from "@/lib/server/diff";
+import { BOX_H, layoutDiagram } from "@/lib/bluprint/diagram";
+import type { Anatomy } from "@/lib/bluprint/schema";
+import type { BlockDiff, Commit, FileChange, BluprintDiff, PartDiff, RowDiff, Verdict } from "@/lib/server/diff";
 import { hunksOf, type HunkLines } from "@/lib/client/hunks";
 import { TOKEN_COLOR, highlight, langOf } from "@/lib/client/highlight";
 import { cn } from "@/lib/client/utils";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/client/utils";
 /**
  * Diff mode: the same level, saying what a commit did to it.
  *
- * Not a separate screen. A diff view beside the map would be a second thing to
+ * Not a separate screen. A diff view beside the bluprint would be a second thing to
  * learn and would lose the one property that makes this worth building — that
  * the reader already knows where everything on this level is, so a red row and
  * a green row in a place they recognise is a review they can do at a glance.
@@ -46,7 +46,7 @@ export const WORD: Record<Verdict, string> = { added: "new", removed: "gone", ch
 
 export interface DiffState {
   /** null while off: diff mode is the presence of an answer, not a flag beside one. */
-  diff: MapDiff | null;
+  diff: BluprintDiff | null;
   loading: boolean;
   error?: string;
   from?: string;
@@ -56,7 +56,7 @@ export interface DiffState {
   commits: Commit[];
   setRange: (from?: string, to?: string) => void;
   setReview: (spec?: string) => void;
-  /** Asks again for the same diff, when something it is drawn from was made since (a review's map after). */
+  /** Asks again for the same diff, when something it is drawn from was made since (a review's bluprint after). */
   reload: () => void;
   off: () => void;
 }
@@ -112,7 +112,7 @@ export const openReview = (spec: string) => {
  * "Leave diff" calls — one way in and one way out, rather than a flip whose
  * meaning depends on state the title bar cannot see.
  */
-export function DiffMode({ map, children }: { map: string; children: React.ReactNode }) {
+export function DiffMode({ bluprint, children }: { bluprint: string; children: React.ReactNode }) {
   const [on, setOn] = useState(false);
   useEffect(() => {
     const go = () => setOn(true);
@@ -120,18 +120,18 @@ export function DiffMode({ map, children }: { map: string; children: React.React
     return () => window.removeEventListener(OPEN_DIFF, go);
   }, []);
   return (
-    <DiffProvider map={map} on={on} onOff={() => setOn(false)}>
+    <DiffProvider bluprint={bluprint} on={on} onOff={() => setOn(false)}>
       {children}
     </DiffProvider>
   );
 }
 
-function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; onOff: () => void; children: React.ReactNode }) {
+function DiffProvider({ bluprint, on, onOff, children }: { bluprint: string; on: boolean; onOff: () => void; children: React.ReactNode }) {
   const [range, setR] = useState<{ from?: string; to?: string; review?: string }>({});
   const [commits, setCommits] = useState<Commit[]>([]);
   const [listed, setListed] = useState(false);
   // Nothing asked for is the newest commit, as a history opens (D76) — read
-  // here, so the panel, the bar and the map all mean the same change.
+  // here, so the panel, the bar and the bluprint all mean the same change.
   const idle = !range.from && !range.to && !range.review;
   const newest = commits[0];
   const shown = idle && newest ? { from: `${newest.sha}~1`, to: newest.sha } : range;
@@ -142,8 +142,8 @@ function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; 
    * is the cascading render `react-hooks/set-state-in-effect` is about and
    * which `useInstalled` (components/agent/agents.tsx) avoids the same way.
    */
-  const [got, setGot] = useState<{ q: string; diff?: MapDiff; error?: string }>();
-  const q = new URLSearchParams({ map });
+  const [got, setGot] = useState<{ q: string; diff?: BluprintDiff; error?: string }>();
+  const q = new URLSearchParams({ bluprint });
   if (shown.from) q.set("from", shown.from);
   if (shown.to) q.set("to", shown.to);
   if (range.review) q.set("review", range.review);
@@ -159,7 +159,7 @@ function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; 
     let live = true;
     fetch(`/api/diff?${asked}`)
       .then((r) => r.json())
-      .then((j) => live && setGot(j.error ? { q: asked, error: j.error } : { q: asked, diff: j as MapDiff }))
+      .then((j) => live && setGot(j.error ? { q: asked, error: j.error } : { q: asked, diff: j as BluprintDiff }))
       .catch(() => live && setGot({ q: asked, error: "Could not read the checkout." }));
     return () => {
       live = false;
@@ -169,7 +169,7 @@ function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; 
   useEffect(() => {
     if (!on || listed) return;
     let live = true;
-    fetch(`/api/diff?map=${encodeURIComponent(map)}&commits=1`)
+    fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint)}&commits=1`)
       .then((r) => r.json())
       .then((j) => live && setCommits(j.commits ?? []))
       .catch(() => {})
@@ -177,7 +177,7 @@ function DiffProvider({ map, on, onOff, children }: { map: string; on: boolean; 
     return () => {
       live = false;
     };
-  }, [map, on, listed]);
+  }, [bluprint, on, listed]);
 
   const setRange = useCallback((from?: string, to?: string) => setR({ from, to }), []);
   const setReview = useCallback((review?: string) => setR({ review }), []);
@@ -209,7 +209,7 @@ function Pill({ verdict, children }: { verdict: Exclude<Verdict, "untouched">; c
 }
 
 /**
- * A file's hunks as the code pane draws code (components/map/source-view.tsx
+ * A file's hunks as the code pane draws code (components/bluprint/source-view.tsx
  * `SourceView`): real line numbers, old and new, and the code coloured by
  * lib/client/highlight.ts. Each line is coloured on its own, so a block comment
  * spanning a hunk boundary reads as code; that is the price of drawing only
@@ -433,7 +433,7 @@ export function DiagramDiff({
   const arrowOf = new Map(arrows.map((a) => [a.key, a.verdict]));
   // Boxes only the other side has are not in this block — added ones when it
   // is the `from` side's (a plan), gone ones when it is the `to` side's (the
-  // map on screen) — so they are placed after the ones that are, on a row of
+  // bluprint on screen) — so they are placed after the ones that are, on a row of
   // their own. Arrows the other side had between boxes now drawn come back
   // the same way, so a dropped hand-off is a red line where it used to run.
   const extra = boxes.filter((b) => b.verdict !== "untouched" && !block.boxes.some((x) => x.id === b.key));

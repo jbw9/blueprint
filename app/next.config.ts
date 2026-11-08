@@ -1,8 +1,8 @@
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import type { NextConfig } from "next";
 
-// scripts/export-static.mts builds one map as a static site; otherwise this is the dev app.
-const exporting = !!process.env.NEXT_PUBLIC_STATIC_MAP;
+// scripts/export-static.mts builds one bluprint as a static site; otherwise this is the dev app.
+const exporting = !!process.env.NEXT_PUBLIC_STATIC_BLUPRINT;
 
 export default function config(phase: string): NextConfig {
   if (exporting) return { output: "export", basePath: process.env.NEXT_PUBLIC_BASE_PATH, distDir: process.env.BLUPRINT_EXPORT_DIR };

@@ -1,4 +1,4 @@
--- Bluprint admin: installs, landing visits and map runs, for blpr.dev/admin.
+-- Bluprint admin: installs, landing visits and bluprint runs, for blpr.dev/admin.
 -- Run once in Supabase → SQL Editor. Safe to run again.
 -- It shares the movies site's Supabase project, so every table and function here is prefixed bp_.
 --
@@ -40,7 +40,7 @@ create table if not exists public.bp_visits (
     primary key (visitor, day)
 );
 
--- One row per finished map run on anyone's machine that has run reports on.
+-- One row per finished bluprint run on anyone's machine that has run reports on.
 create table if not exists public.bp_runs (
     id bigint generated always as identity primary key,
     at timestamptz not null default now(),
@@ -113,7 +113,7 @@ language sql stable security definer set search_path = public, extensions as $$
 $$;
 revoke execute on function public.bp_admin_ok(text) from public, anon, authenticated;
 
--- The updates a new map went on to get: same machine, same repo, until that repo was mapped anew there.
+-- The updates a new bluprint went on to get: same machine, same repo, until a new bluprint of that repo was made there.
 create or replace function public.bp_updates_of(g public.bp_runs) returns setof public.bp_runs
 language sql stable security definer set search_path = public, extensions as $$
     select u.* from bp_runs u
@@ -172,7 +172,7 @@ begin
         'updates_30', (select count(*) from bp_runs where kind = 'update' and at > now() - interval '30 days'),
         'usd_30', (select coalesce(sum(usd), 0) from bp_runs where at > now() - interval '30 days'),
         'machines', (select count(distinct install_id) from bp_runs),
-        -- New maps only; each one's updates are counted here and listed by bp_admin_run.
+        -- New bluprints only; each one's updates are counted here and listed by bp_admin_run.
         'recent', (select coalesce(jsonb_agg(to_jsonb(r) order by r.at desc), '[]') from (
             select g.id, g.at, g.install_id, g.mapper_version, g.kind, g.status, g.repo, g.repo_commit, g.backend, g.mode,
                 g.files, g.quick_s, g.total_s, g.usd,
@@ -181,7 +181,7 @@ begin
             from bp_runs g where g.kind is distinct from 'update' order by g.at desc limit 200) r));
 end $$;
 
--- One map's report and log, and its updates (with a log only for those that failed).
+-- One bluprint's report and log, and its updates (with a log only for those that failed).
 create or replace function public.bp_admin_run(pw text, run_id bigint) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare
@@ -201,7 +201,7 @@ begin
             from bp_updates_of(g) u));
 end $$;
 
--- Every new map of one repo, oldest first, with what the dashboard compares across mapping versions.
+-- Every new bluprint of one repo, oldest first, with what the dashboard compares across generator versions.
 create or replace function public.bp_admin_repo(pw text, repo_name text) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 begin

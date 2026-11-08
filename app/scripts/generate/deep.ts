@@ -1,6 +1,6 @@
 /**
  * A section written in full where code builds the structure and a model only
- * writes the words: the deepen stage of a --fast map, in place of an agent
+ * writes the words: the deepen stage of a --fast bluprint, in place of an agent
  * per section that read the code with tools and was sent back by the checker
  * until its tree came back clean.
  *
@@ -23,11 +23,11 @@
  * the entry points through the sections, the model picks the walkthroughs
  * among them and writes them.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any -- model answers and map JSON */
+/* eslint-disable @typescript-eslint/no-explicit-any -- model answers and bluprint JSON */
 import { basename } from "node:path";
-import type { Node } from "@/lib/map/schema";
-import type { Overview } from "@/lib/map/build";
-import { citations, nodesAt } from "@/lib/map/coverage";
+import type { Node } from "@/lib/bluprint/schema";
+import type { Overview } from "@/lib/bluprint/build";
+import { citations, nodesAt } from "@/lib/bluprint/coverage";
 import type { Authored } from "./author";
 import { ask, type Tool } from "./bedrock";
 import { autofix, bareLines, BOUNDS, check, fileReader, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";
@@ -61,7 +61,7 @@ const NAMED = {
   detail: { type: "string", description: "At most two sentences and 40 words: what it does and how, naming the functions that do it in `backticks`." },
 };
 
-/** What a model's words break of the map's limits: the check's rules on titles, subs, details and explainers. */
+/** What a model's words break of the bluprint's limits: the check's rules on titles, subs, details and explainers. */
 function nodeWordProblems(id: string, x: any, withExplain: boolean, explainMax = ex?.max ?? 0): string[] {
   const out = wordProblems([
     [`${id}'s title`, x?.title, 4],
@@ -78,7 +78,7 @@ function nodeWordProblems(id: string, x: any, withExplain: boolean, explainMax =
 
 /** Words cut to fit what the model still had over its limits after the retry: whole words from the front. */
 const cutWords = (s: string, n: number) => s.split(/\s+/).filter(Boolean).slice(0, n).join(" ");
-/** A detail within the map's 40 words: its sentences while they fit, else its first 39 words. */
+/** A detail within the bluprint's 40 words: its sentences while they fit, else its first 39 words. */
 const fit40 = (d: string) => (words(within40(d)) <= 40 ? within40(d) : `${cutWords(d, 39).replace(/[,;:.]$/, "")}…`);
 function fitted(x: any, fallback: { title: string; sub: string; detail: string }, explainMax = ex?.max ?? 0) {
   const ok = (s: unknown): s is string => typeof s === "string" && s.trim().length > 0 && !looksLikePath(s);
@@ -104,7 +104,7 @@ async function askEntries(o: {
   prompt: (only: string[] | null) => string;
   wanting: (id: string, entry: any) => string[];
 }): Promise<{ entries: Map<string, any>; answer: any; calls: number }> {
-  const system = "You write the words of one part of a map of a codebase. Its structure is already built from the code: write only what is asked, for the ids given, from what you are shown.";
+  const system = "You write the words of one part of a bluprint of a codebase. Its structure is already built from the code: write only what is asked, for the ids given, from what you are shown.";
   const entries = new Map<string, any>();
   const take = (a: any) => {
     for (const y of Array.isArray(a?.[o.key]) ? a[o.key] : [])
@@ -261,7 +261,7 @@ function chunksOf(p: string, n: number, sums: Record<string, FileSummary>, g: Gr
   return out.map(({ ranges, names }) => ({ ranges, names }));
 }
 
-/** A file's name as an id, its directory's for a name every directory has: `api/map/route.ts` → map. */
+/** A file's name as an id, its directory's for a name every directory has: `api/bluprint/route.ts` → bluprint. */
 const GENERIC = /^(route|page|layout|index|main|mod|lib|__init__|init|handler|server|client|types?|utils?)$/;
 function fileSlug(p: string): string {
   const name = slug(basename(p));
@@ -393,7 +393,7 @@ const LEVELS_TOOL: Tool = {
       arrows: {
         type: "array",
         description: "A label for each arrow listed, and only those.",
-        items: { type: "object", additionalProperties: false, required: ["from", "to", "label"], properties: { from: { type: "string" }, to: { type: "string" }, label: { type: "string", description: "2-4 words, at most 24 characters: what the call does ('loads the map', 'checks a submit')." } } },
+        items: { type: "object", additionalProperties: false, required: ["from", "to", "label"], properties: { from: { type: "string" }, to: { type: "string" }, label: { type: "string", description: "2-4 words, at most 24 characters: what the call does ('loads the bluprint', 'checks a submit')." } } },
       },
     },
   },
@@ -407,7 +407,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
   const draw = diagramOf(g);
   let calls = 0;
 
-  // The quick map's words for each file: what a part keeps when its words call fails.
+  // The quick bluprint's words for each file: what a part keeps when its words call fails.
   const quickByFile = new Map<string, Node>();
   const index = (n: Node) => {
     if (!n.children?.length && n.code?.[0]) quickByFile.set(n.code[0].file, n);
@@ -426,7 +426,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       groups = await groupFiles(quick, files, inv, sums, models.group);
       calls++;
     } catch (e) {
-      // No groups from the model: along imports, as the quick map splits a flat directory.
+      // No groups from the model: along imports, as the quick bluprint splits a flat directory.
       say(`${root.id}: grouping failed, split along imports — ${(e as Error).message.slice(0, 120)}`);
       if (files.length > MAX_FILES) groups = splitFlat("", files, inv).map((x, i) => ({ title: `${cutWords(quick.title, 3)} ${i + 1}`, sub: quick.sub, detail: "", files: x.files }));
     }
@@ -499,7 +499,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
       const arrowList = only ? [] : batch.flatMap((lv) => arrowsOf(lv).map((a) => `- ${a.from.slice(2)} → ${a.to.slice(2)} (${a.label}, at ${a.at})`));
       return [
         `# Repository: ${inv.name}`,
-        `## Section "${root.id}" as the quick map has it: ${quick.title} — ${quick.sub}\n${quick.detail ?? ""}`,
+        `## Section "${root.id}" as the quick bluprint has it: ${quick.title} — ${quick.sub}\n${quick.detail ?? ""}`,
         `## Levels to write, each with the parts it opens\n${shown.map((lv) => `### ${lv.node.id}${lv.node.id === root.id ? " (the section itself)" : ""}: ${lv.about}\n${lv.kids.map((k) => `- ${kidLine(k)}`).join("\n")}`).join("\n\n")}`,
         arrowList.length ? `## Arrows, from the call graph (from → to, what is called, the line)\n${arrowList.join("\n")}` : "",
         `## Task\nWrite each level's words: what it does as a whole, from its parts.${arrowList.length ? " Then label each arrow with what that call does." : ""}`,
@@ -623,7 +623,7 @@ export async function deepRoot(root: Root, quick: Node, inv: Inventory, sums: Re
 
 const OVERVIEW_TOOL: Tool = {
   name: "overview",
-  description: "Record the map's walkthroughs and its way in.",
+  description: "Record the bluprint's walkthroughs and its way in.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -638,7 +638,7 @@ const OVERVIEW_TOOL: Tool = {
           required: ["path", "title", "steps"],
           properties: {
             path: { type: "integer", description: "The number of the path it follows." },
-            title: { type: "string", description: "A short sentence: what is being followed ('A reader opens a map')." },
+            title: { type: "string", description: "A short sentence: what is being followed ('A reader opens a bluprint')." },
             steps: {
               type: "array",
               description: `${WALK_STEPS[0]}-${WALK_STEPS[1]} of the path's stops, in its order; leave out stops that add nothing.`,
@@ -652,7 +652,7 @@ const OVERVIEW_TOOL: Tool = {
             explain: { type: "string", description: `${ex.min}-${ex.max} words (${ex.say}): what this system is for and who uses it, the problem it solves, and the idea behind how it works, each word of its field defined the first time.` },
             glossary: {
               type: "array",
-              description: `${ex.terms[0]}-${ex.terms[1]} terms the map's titles and details lean on: the words ${ex.words}. Use the exact word the map uses.`,
+              description: `${ex.terms[0]}-${ex.terms[1]} terms the bluprint's titles and details lean on: the words ${ex.words}. Use the exact word the bluprint uses.`,
               items: { type: "object", additionalProperties: false, required: ["term", "meaning"], properties: { term: { type: "string" }, meaning: { type: "string", description: "One plain sentence of at most 25 words." } } },
             },
           }

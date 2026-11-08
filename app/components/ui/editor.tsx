@@ -80,7 +80,7 @@ const look = EditorView.theme({
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: v("accent"), color: v("on-accent") },
 });
 
-// The line the view opened on, lit in amber like the map's citations.
+// The line the view opened on, lit in amber like the bluprint's citations.
 const litLine = (line: number | undefined) =>
   EditorView.decorations.compute(["doc"], (s) => {
     const b = new RangeSetBuilder<Decoration>();

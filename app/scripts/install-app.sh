@@ -84,7 +84,7 @@ else
   cp src-tauri/target/release/bluprint "$bin/.bluprint.new"
   mv "$bin/.bluprint.new" "$bin/bluprint"
   cp src-tauri/icons/128x128.png "$icons/bluprint.png"
-  printf '[Desktop Entry]\nType=Application\nName=Bluprint\nComment=A visual map of a codebase\nExec=%s\nIcon=bluprint\nCategories=Development;\n' \
+  printf '[Desktop Entry]\nType=Application\nName=Bluprint\nComment=A visual bluprint of a codebase\nExec=%s\nIcon=bluprint\nCategories=Development;\n' \
     "$bin/bluprint" >"$apps/bluprint.desktop"
   echo "Installed $bin/bluprint, with Bluprint in your applications menu. Quit Bluprint if it's open, then open it again."
 fi
