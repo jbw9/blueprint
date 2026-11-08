@@ -13,9 +13,29 @@ import { LandingVoices, type Voice } from "@/components/landing-voices";
 import s from "@/components/landing.module.css";
 import { loadBluprint } from "@/lib/bluprints";
 
+const TITLE = "Blueprint: understand the code you didn't write";
+const DESCRIPTION =
+  "Blueprint splits a repository into the steps the program takes. Open any step, and keep going until you reach the code. For macOS and Linux.";
+
 export const metadata: Metadata = {
-  title: "Bluprint",
-  description: "A visual way to explore a codebase: start broad, go deeper, down to the line.",
+  metadataBase: new URL("https://blpr.dev"),
+  title: TITLE,
+  description: DESCRIPTION,
+  applicationName: "Blueprint",
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", url: "/", siteName: "Blueprint", title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+};
+
+// Tells search engines the page is a product, not an article.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Blueprint",
+  url: "https://blpr.dev",
+  description: DESCRIPTION,
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "macOS, Linux",
 };
 
 // A light slab for the lettering, Plex Mono for the labels on the sheet, Plex Sans for reading.
@@ -77,6 +97,7 @@ export default function Landing() {
     // The layout locks the body, as the app's does for its canvas; this page scrolls itself.
     <div className={`${s.page} ${display.variable} ${sans.variable} ${mono.variable}`}>
       <div className={s.paper}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <LandingNav github={GITHUB} />
       <LandingVisit />
       <main>
