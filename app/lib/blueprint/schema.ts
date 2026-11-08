@@ -338,6 +338,11 @@ export interface DiagramBox {
    * section (nodesAt), so the box leads somewhere without this level owning it.
    */
   ref?: string;
+  /**
+   * Most of the other boxes call this one, so the arrows into it are left out
+   * (scripts/generate/thin.ts) and the box says it is used by all instead.
+   */
+  shared?: boolean;
 }
 
 export interface DiagramArrow {

@@ -112,6 +112,19 @@ export function callLine(g: Graph, from: Range[], to: Range[]): string | null {
   return best?.at ?? null;
 }
 
+/** How many lines in `from` call (or inherit from) code in `to`: how strong the arrow between two boxes is. */
+export function callSites(g: Graph, from: Range[], to: Range[]): number {
+  const ix = defsOf(g);
+  const fileOf = (id: string) => ix.get(id)?.file ?? id;
+  const at = new Set<string>();
+  for (const e of g.edges) {
+    if (e.kind === "imports" || !e.lines.length || !landsIn(ix, e.to, to) || landsIn(ix, e.to, from)) continue;
+    const file = fileOf(e.from);
+    for (const l of e.lines) if (from.some((r) => r.file === file && r.start <= l && l <= r.end)) at.add(`${file}:${l}`);
+  }
+  return at.size;
+}
+
 function arrowOffGraph(g: Graph, owner: string, box: any, arrow: any, nodes: Map<string, any>, file: string, start: number, end: number): string | null {
   if (!g.files.includes(file) || !box) return null;
   const ix = defsOf(g);

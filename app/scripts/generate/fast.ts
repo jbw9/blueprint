@@ -33,6 +33,7 @@ import { check, LEAF, looksLikePath, SUB_WORDS, words } from "./check";
 import type { Graph } from "./graph";
 import { isSource, type Inventory } from "./inventory";
 import { oneLine, type FileSummary } from "./summarize";
+import { thinArrows } from "./thin";
 
 /** Files one group holds at most: one diagram a reader takes in. SLOP_FAST_MAX. */
 export const MAX_FILES = Number(process.env.SLOP_FAST_MAX ?? 12);
@@ -463,9 +464,12 @@ export function diagramOf(g: Graph) {
       return holder.get(file);
     };
     const best = new Map<string, Arrow & { score: number }>();
+    const sites = new Map<string, Set<string>>();
     for (const e of calls) {
       const a = boxOf(e.from, e.lines[0]), b = boxOf(e.to);
       if (!a || !b || a === b) continue;
+      const k = `${a.id}\n${b.id}`;
+      for (const l of e.lines) (sites.get(k) ?? sites.set(k, new Set()).get(k)!).add(`${fileOfDef(e.from)}:${l}`);
       const def = defById.get(e.to);
       const lands = !def || (b.code ?? []).some((r) => r.file === def.file && r.start <= def.end && def.start <= r.end);
       const cand: Arrow = {
@@ -475,15 +479,26 @@ export function diagramOf(g: Graph) {
         at: `${fileOfDef(e.from)}:${e.lines[0]}`,
         ...(e.how !== "extracted" || !lands ? { inferred: true } : {}),
       };
-      const k = `${a.id}\n${b.id}`;
       // A call to the name the label describes, then a call the source states.
       const score = (prefer && def?.name === prefer(a, b) ? 2 : 0) + (cand.inferred ? 0 : 1);
       const prev = best.get(k);
       if (!prev || score > prev.score) best.set(k, { ...cand, score });
     }
-    const arrows: Arrow[] = [...best.values()].map(({ score, ...x }) => (void score, x));
-    const place = layered(nodes.map(({ node }) => `${boxPrefix}${node.id}`), arrows);
-    return { kind: "diagram", caption: short(caption, 30), boxes: nodes.map(({ node }) => ({ id: `${boxPrefix}${node.id}`, label: node.title, sub: node.sub, ...place.get(`${boxPrefix}${node.id}`)!, opens: node.id })), arrows };
+    const ids = nodes.map(({ node }) => `${boxPrefix}${node.id}`);
+    const weight = new Map([...best].map(([k, x]) => [x, sites.get(k)?.size ?? 1]));
+    const thinned = thinArrows(ids, [...best.values()], (a) => weight.get(a)!);
+    const arrows: Arrow[] = thinned.arrows.map(({ score, ...x }) => (void score, x));
+    const shared = thinned.shared;
+    const place = layered(ids, arrows);
+    return {
+      kind: "diagram",
+      caption: short(caption, 30),
+      boxes: nodes.map(({ node }) => {
+        const id = `${boxPrefix}${node.id}`;
+        return { id, label: node.title, sub: node.sub, ...place.get(id)!, opens: node.id, ...(shared.includes(id) ? { shared: true } : {}) };
+      }),
+      arrows,
+    };
   };
 }
 

@@ -16,6 +16,10 @@ const LANE_GAP = 12;
 const PAIR_GAP = 7;
 const LABEL_CHAR = 6.6;
 const LABEL_H = 14;
+/** The tag on a shared box's bottom edge, in place of the arrows into it. */
+export const SHARED_TAG = "used by all";
+export const SHARED_W = SHARED_TAG.length * 6.2 + 16;
+export const sharedTagRect = ({ x, y, w }: Placed): Rect => ({ x: x + w - 8 - SHARED_W, y: y + BOX_H - 7, w: SHARED_W, h: 16 });
 
 type Block = Extract<Anatomy, { kind: "diagram" }>;
 type Placed = { x: number; y: number; w: number };
@@ -142,7 +146,8 @@ export function layoutDiagram(block: Block) {
 
   // A label that lands on a box, another label or another arrow's line
   // moves until it is clear, to the nearest spot still beside its own line.
-  const taken: Rect[] = [];
+  const tags = [...at.values()].filter((p) => p.b.shared).map(sharedTagRect);
+  const taken: Rect[] = [...tags];
   const W0 = W;
   const runsOf = routes.map((r) => segmentsOf(r.pts));
   arrows.forEach((a, i) => {
@@ -174,7 +179,7 @@ export function layoutDiagram(block: Block) {
     W = Math.max(W, r.x + r.w + PAD);
   });
 
-  return { W, H, gap, boxes: [...at.values()], boxRects, arrows, labels: taken };
+  return { W, H, gap, boxes: [...at.values()], boxRects, arrows, labels: taken.filter((r) => !tags.includes(r)) };
 }
 
 type Pt = [number, number];

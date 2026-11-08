@@ -10,15 +10,18 @@
  *   becomes its file:line (a step's lines are clamped by autofix);
  * - a diagram whose boxes lack `col`/`row` is laid out along its arrows;
  * - an arrow with no `at`, or one whose `at` has no call into its target, gets
- *   the line of a call the graph has between the two boxes' code.
+ *   the line of a call the graph has between the two boxes' code;
+ * - a diagram with more arrows than a reader can follow is thinned (thin.ts),
+ *   weighing each arrow by the calls the graph has between its boxes' code.
  * What cannot be filled is left as it was, for the checker to name. Notes say
  * what was filled, so the author's next `replace` starts from the tree as it
  * now stands; problems name a graph id that matches nothing.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
-import { boxRanges, callLine } from "./check";
+import { boxRanges, callLine, callSites } from "./check";
 import type { Graph } from "./graph";
 import { resolveDef } from "./graph-tools";
+import { thinArrows } from "./thin";
 
 const FILE_LINE = /^(.+?):(\d+)(?:-(\d+))?$/;
 
@@ -139,6 +142,17 @@ export function fillFromGraph(root: any, g: Graph | null): { notes: string[]; pr
           notes.push(`${n.id}: arrow ${a.from}→${a.to} ${a.at ? `re-cited from ${a.at} to` : "cites"} ${at}, the call the graph has between them`);
           a.at = at;
         }
+        if (!Array.isArray(b.arrows) || !b.boxes.every((x: any) => typeof x?.id === "string")) continue;
+        const box = (id: string) => b.boxes.find((x: any) => x.id === id);
+        const { arrows, shared } = thinArrows(b.boxes.map((x: any) => x.id), b.arrows, (a: any) => {
+          const from = boxRanges(g, box(a.from), nodes);
+          const to = boxRanges(g, box(a.to), nodes);
+          return from.length && to.length ? callSites(g, from, to) : Infinity;
+        });
+        if (arrows.length < b.arrows.length)
+          notes.push(`${n.id}: ${b.arrows.length - arrows.length} of ${b.arrows.length} arrows left out, the weakest past the ${arrows.length} a reader can follow${shared.length ? `; ${shared.join(", ")} drawn as used by all instead of an arrow from each` : ""}`);
+        b.arrows = arrows;
+        for (const x of b.boxes) if (shared.includes(x.id)) x.shared = true;
       }
     (Array.isArray(n.children) ? n.children : []).forEach(draw);
   };

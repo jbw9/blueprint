@@ -9,7 +9,7 @@ import { useChangedCode, useBlueprint } from "@/components/blueprint/blueprint-c
 import { useMayBeStale } from "@/components/chrome/crumbs";
 import { readSource } from "@/lib/blueprint/source";
 import { openDoc } from "@/components/blueprint/docs";
-import { BOX_H, layoutDiagram } from "@/lib/blueprint/diagram";
+import { BOX_H, layoutDiagram, SHARED_TAG, sharedTagRect } from "@/lib/blueprint/diagram";
 import { TINT, WORD as WORD_OF, useDiff } from "@/components/review/diff";
 import { DiagramChanges, changesUnder } from "@/components/review/diagram-diff";
 
@@ -282,6 +282,7 @@ function Diagram({
             const fill = v ? TINT[v].surface : sec >= 0 ? sectionTone(sec).surface : t.fill;
             const stroke = v ? TINT[v].line : near ? TINT.changed.line : sec >= 0 ? sectionTone(sec).ink : t.stroke;
             const ink = v ? TINT[v].ink : sec >= 0 ? sectionTone(sec).ink : t.ink;
+            const sharedTag = b.shared ? sharedTagRect({ x, y, w }) : null;
             return (
               <Box
                 key={b.id}
@@ -351,6 +352,16 @@ function Diagram({
                   <text x={x + w / 2} y={y + 43} textAnchor="middle" fontSize="12" fill="var(--color-faint)">
                     {b.sub}
                   </text>
+                ) : null}
+                {/* Most boxes here call this one: one tag on its bottom edge instead of an arrow from each (scripts/generate/thin.ts). */}
+                {sharedTag ? (
+                  <g opacity={moved && !v && !near ? 0.5 : 1}>
+                    <title>Most of the other parts here call this one, so those arrows are left out.</title>
+                    <rect x={sharedTag.x} y={sharedTag.y} width={sharedTag.w} height={sharedTag.h} rx={sharedTag.h / 2} fill={fill} stroke={stroke} strokeOpacity={sec >= 0 ? 0.55 : 1} />
+                    <text x={sharedTag.x + sharedTag.w / 2} y={sharedTag.y + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill={ink}>
+                      {SHARED_TAG}
+                    </text>
+                  </g>
                 ) : null}
               </Box>
             );
