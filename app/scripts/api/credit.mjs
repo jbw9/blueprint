@@ -38,14 +38,17 @@ export const DEFAULTS = {
   new_accounts_per_ip_day: 5,
   window_hours: 5,
   week_hours: 168,
-  tab_usd_5h: 3,
-  tab_usd_week: 12,
-  gen_usd_week: 12,
+  // About half of Claude Pro: its 5-hour session runs to roughly $6–8 of Claude Code at list price.
+  tab_usd_5h: 4,
+  tab_usd_week: 40,
+  gen_usd_week: 15,
   tab_inflight: 3,
   gen_inflight: 4,
   usd_per_minute: 1,
   max_tokens: 32000,
-  daily_usd_ceiling: 200,
+  // Everyone's spend this calendar month, kept under the AWS Budget's own cut-off (80% of $6,000), so
+  // the credit stops with a clear message before Bedrock is taken away from this function.
+  monthly_usd_ceiling: 4500,
 };
 let cached = null;
 /** The settings, read at most every 30 seconds per running copy of this function. */
@@ -149,6 +152,7 @@ async function settle(account, lane, held, micro) {
     ...held.windows.map((w) => quiet(update(`win#acct:${account}`, w, "ADD micro :d", { ":d": d }, "attribute_exists(started)"))),
     held.minute && quiet(update(`rate#${account}`, held.minute, "ADD micro :d", { ":d": d })),
     held.day && quiet(update("creditday", held.day, "ADD usd :u, #lane :u", { ":u": d / MICRO }, undefined, { "#lane": `${lane}_usd` })),
+    held.month && quiet(update("creditmonth", held.month, "ADD usd :u", { ":u": d / MICRO })),
     held.slot && quiet(del(`slot#${account}`, held.slot.sk, "lease_id = :l", { ":l": held.slot.lease })),
   ]);
 }
@@ -157,13 +161,13 @@ const until = (iso) => Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 1
 
 /**
  * Whether this account may make a call now, reserving `guess` against every limit it meets: a call
- * slot, the account's spend this minute, everyone's spend today, and the lane's windows. A refusal
+ * slot, the account's spend this minute, everyone's spend this month, and the lane's windows. A refusal
  * gives back whatever was reserved before it. `wait` refusals are a throttle the caller retries;
  * the others last until `resets`.
  */
 async function admit(c, account, a, lane, guess) {
   if (!open(c, a)) return { ok: false, reason: ended(c) && !a?.allowed ? "Blueprint's free Claude Code promotion has ended." : "Blueprint credit isn't available to this account." };
-  const held = { guess, windows: [], minute: null, day: null, slot: null };
+  const held = { guess, windows: [], minute: null, day: null, month: null, slot: null };
   const no = async (r) => (await settle(account, lane, held, 0), { ok: false, ...r });
 
   held.slot = await takeSlot(account, lane, pick(c, a, lane === "tab" ? "tab_inflight" : "gen_inflight"));
@@ -181,19 +185,23 @@ async function admit(c, account, a, lane, guess) {
   }
 
   const day = today();
+  const month = day.slice(0, 7);
   try {
-    // An uncapped account's spend still counts toward the day, but the day's ceiling doesn't stop it.
-    if (a.uncapped) await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO }, undefined, { "#lane": `${lane}_usd` });
-    else await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO, ":cap": c.daily_usd_ceiling }, "attribute_not_exists(usd) OR usd < :cap", { "#lane": `${lane}_usd` });
-    held.day = day;
+    // An uncapped account's spend still counts toward the month, but the month's ceiling doesn't stop it.
+    if (a.uncapped) await update("creditmonth", month, "ADD usd :u", { ":u": guess / MICRO });
+    else await update("creditmonth", month, "ADD usd :u", { ":u": guess / MICRO, ":cap": c.monthly_usd_ceiling }, "attribute_not_exists(usd) OR usd < :cap");
+    held.month = month;
   } catch (e) {
     if (!refused(e)) throw e;
-    return no({ reason: "Blueprint credit has reached its daily limit for everyone. It opens again at midnight UTC.", resets: `${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}T00:00:00.000Z` });
+    return no({ reason: "Blueprint credit has run out for this month. Switch to your own Claude Code in Settings.", resets: new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 1)).toISOString() });
   }
+  // The day's spend, for the admin page.
+  await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO }, undefined, { "#lane": `${lane}_usd` });
+  held.day = day;
 
   for (const w of WINDOWS[lane]) {
     const resets = await charge(account, w, hoursOf(c, w), capOf(c, a, w), guess);
-    if (resets) return no({ reason: w === "genweek" ? "This week's Blueprint credit for maps is used up." : "Your Blueprint credit for Claude Code is used up for now.", resets });
+    if (resets) return no({ reason: w === "genweek" ? "This week's Blueprint credit for maps is used up." : "Your Blueprint credit for Claude Code is used up for now. New Claude tabs open on your own Claude Code; run `claude --continue` in one to pick this conversation up.", resets });
     held.windows.push(w);
   }
   return { ok: true, held };

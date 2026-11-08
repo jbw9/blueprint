@@ -10,6 +10,7 @@
 //   ipreg#<network> / <day>      accounts new to the credit from that network that day
 //   win#acct:<id> / tab5h|tabweek|genweek   an account's open window, in millionths of a dollar
 //   slot#<acct> / <lane>#<n>     one call of the account's in flight; rate#<acct> / <minute> its spend that minute
+//   creditmonth / <YYYY-MM>      everyone's credit spend that month, held under its ceiling
 //   creditday / <day>            the credit's spend that day; use#<day> / <acct> one account's tokens and spend
 //   req#<acct> / <at>            one call, kept 30 days for review
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
