@@ -227,6 +227,19 @@ pub(crate) fn read_head(r: &mut impl BufRead) -> std::io::Result<Head> {
 /// the stream, which is how a response with neither ends.
 pub(crate) fn read_body(r: &mut impl BufRead, head: &Head, to_eof: bool) -> std::io::Result<Vec<u8>> {
     let mut body = Vec::new();
+    let framed = head.has_token("transfer-encoding", "chunked") || head.get("content-length").is_some_and(|v| v.parse::<usize>().is_ok());
+    if framed || to_eof {
+        stream_body(r, head, &mut |b| {
+            body.extend_from_slice(b);
+            Ok(())
+        })?;
+    }
+    Ok(body)
+}
+
+/// A body as its head frames it (chunked, a length, or the rest of the stream),
+/// handed to `each` piece by piece as it arrives rather than once it has all come.
+fn stream_body(r: &mut impl BufRead, head: &Head, each: &mut impl FnMut(&[u8]) -> std::io::Result<()>) -> std::io::Result<()> {
     if head.has_token("transfer-encoding", "chunked") {
         loop {
             let mut size = String::new();
@@ -241,22 +254,33 @@ pub(crate) fn read_body(r: &mut impl BufRead, head: &Head, to_eof: bool) -> std:
                         break;
                     }
                 }
-                return Ok(body);
+                return Ok(());
             }
-            let at = body.len();
-            body.resize(at + n, 0);
-            r.read_exact(&mut body[at..])?;
+            copy_out(r, Some(n), each)?;
             let mut crlf = [0u8; 2];
             r.read_exact(&mut crlf)?;
         }
     }
-    if let Some(n) = head.get("content-length").and_then(|v| v.parse::<usize>().ok()) {
-        body.resize(n, 0);
-        r.read_exact(&mut body)?;
-    } else if to_eof {
-        r.read_to_end(&mut body)?;
+    copy_out(r, head.get("content-length").and_then(|v| v.parse::<usize>().ok()), each)
+}
+
+/// `left` bytes of `r` (all of it, when None) to `each`, a read at a time.
+fn copy_out(r: &mut impl Read, mut left: Option<usize>, each: &mut impl FnMut(&[u8]) -> std::io::Result<()>) -> std::io::Result<()> {
+    let mut buf = [0u8; 16 * 1024];
+    loop {
+        let want = left.map_or(buf.len(), |n| n.min(buf.len()));
+        if want == 0 {
+            return Ok(());
+        }
+        let n = r.read(&mut buf[..want])?;
+        if n == 0 {
+            return if left.is_some() { Err(std::io::ErrorKind::UnexpectedEof.into()) } else { Ok(()) };
+        }
+        each(&buf[..n])?;
+        if let Some(l) = left.as_mut() {
+            *l -= n;
+        }
     }
-    Ok(body)
 }
 
 pub(crate) fn respond(w: &mut impl Write, status: &str, kind: &str, body: &[u8], extra: &[(&str, &str)]) -> std::io::Result<()> {
@@ -377,12 +401,31 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
         .collect();
 
     if inject {
-        let page = with_agent(&read_body(&mut back, &res, true)?);
+        // The page goes on as it arrives: a dev server streams it, each part as it
+        // is ready, and held whole the frame would show nothing until the slowest
+        // had come. Only its start waits, until the head the agent goes in has
+        // come. Its length is no longer the server's, so the close ends it.
         let mut headers = headers;
-        headers.push(("Content-Length".into(), page.len().to_string()));
         headers.push(("Cache-Control".into(), "no-store".into()));
         write_head(&mut client, &res.line, &headers)?;
-        client.write_all(&page)?;
+        let mut start = Some(Vec::new());
+        stream_body(&mut back, &res, &mut |b| {
+            if let Some(held) = start.as_mut() {
+                held.extend_from_slice(b);
+                if after_tag(&held.to_ascii_lowercase(), b"<head").is_none() && held.len() < HOLD {
+                    return Ok(());
+                }
+                let page = with_agent(held);
+                start = None;
+                client.write_all(&page)?;
+            } else {
+                client.write_all(b)?;
+            }
+            client.flush()
+        })?;
+        if let Some(held) = start {
+            client.write_all(&with_agent(&held))?;
+        }
     } else {
         write_head(&mut client, &res.line, &headers)?;
         client.write_all(back.buffer())?;
@@ -410,17 +453,23 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
 /// there as the page's own first one, and call the page mismatched.
 fn with_agent(page: &[u8]) -> Vec<u8> {
     let script = format!("<script data-bluprint-agent>document.currentScript.remove();\n{AGENT}</script>");
-    let lower = String::from_utf8_lossy(page).to_ascii_lowercase();
-    let after_tag = |tag: &str| lower.find(tag).and_then(|at| lower[at..].find('>').map(|end| at + end + 1));
-    let at = after_tag("<head").or_else(|| after_tag("<html")).or_else(|| after_tag("<!doctype")).unwrap_or(0);
-    // `lower` is the same length as `page` only when the page was valid UTF-8;
-    // anything else gets the script up front, where it still runs.
-    let at = if lower.len() == page.len() { at } else { 0 };
+    let lower = page.to_ascii_lowercase();
+    let at = after_tag(&lower, b"<head").or_else(|| after_tag(&lower, b"<html")).or_else(|| after_tag(&lower, b"<!doctype")).unwrap_or(0);
     let mut out = Vec::with_capacity(page.len() + script.len());
     out.extend_from_slice(&page[..at]);
     out.extend_from_slice(script.as_bytes());
     out.extend_from_slice(&page[at..]);
     out
+}
+
+/// How much of a page's start is held for its head: a page with none by then
+/// gets the agent where with_agent can put it, and the rest is passed on.
+const HOLD: usize = 64 * 1024;
+
+/// Just past the end of the first `tag` in `lower` (a lowercased page), if it has come.
+fn after_tag(lower: &[u8], tag: &[u8]) -> Option<usize> {
+    let at = lower.windows(tag.len()).position(|w| w == tag)?;
+    lower[at..].iter().position(|&c| c == b'>').map(|end| at + end + 1)
 }
 
 /// What the frame shows while the dev server is not answering: it tries again
@@ -501,6 +550,45 @@ mod tests {
         assert!(seen.contains(&format!("Host: 127.0.0.1:{port}")));
         assert!(seen.contains(&format!("Origin: http://127.0.0.1:{port}")));
         assert!(seen.contains("Accept-Encoding: identity") && !seen.contains("gzip"));
+    }
+
+    /// A dev server streams a page: its head at once, the rest as each part of
+    /// it is ready. The frame starts on the head without waiting for the rest.
+    #[test]
+    fn a_page_is_passed_on_as_it_arrives() {
+        let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = l.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (s, _) = l.accept().unwrap();
+            let _ = read_head(&mut BufReader::new(s.try_clone().unwrap())).unwrap();
+            let mut s = s;
+            s.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\n\r\n16\r\n<html><head></head><p>\r\n").unwrap();
+            s.flush().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            s.write_all(b"5\r\nlater\r\n0\r\n\r\n").unwrap();
+        });
+        let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let me = l.local_addr().unwrap().port();
+        let mut c = TcpStream::connect(("127.0.0.1", me)).unwrap();
+        let (conn, _) = l.accept().unwrap();
+        let to = Upstream { host: "127.0.0.1".into(), port };
+        let h = std::thread::spawn(move || serve(conn, &to, me).unwrap());
+        c.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n").unwrap();
+        let t0 = std::time::Instant::now();
+        let mut first = String::new();
+        let mut r = BufReader::new(c);
+        while !first.contains("<p>") {
+            let mut buf = [0u8; 4096];
+            let n = r.read(&mut buf).unwrap();
+            assert!(n > 0, "the page ended before its start came");
+            first.push_str(&String::from_utf8_lossy(&buf[..n]));
+        }
+        assert!(t0.elapsed().as_millis() < 1000, "the page's start waited {} ms for its end", t0.elapsed().as_millis());
+        assert!(first.contains("<head><script data-bluprint-agent>"));
+        let mut rest = String::new();
+        r.read_to_string(&mut rest).unwrap();
+        h.join().unwrap();
+        assert!(format!("{first}{rest}").ends_with("<p>later"));
     }
 
     #[test]
