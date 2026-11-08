@@ -12,9 +12,9 @@ import { useMac } from "@/lib/client/platform";
 import { onCreditChanged, readCredit, setCredit, type Credit } from "@/lib/client/credit";
 
 /**
- * Settings, as a dialog over the bluprint. There is little to set: the theme,
+ * Settings, as a dialog over the blueprint. There is little to set: the theme,
  * the agent new tabs open into, where Claude Code is when it was not found by
- * itself, which model it runs, and what the bluprint is drawn on. Every change is
+ * itself, which model it runs, and what the blueprint is drawn on. Every change is
  * saved as it is made, so there is nothing to confirm and nothing to undo.
  */
 
@@ -283,7 +283,7 @@ export function SettingsDialog() {
               ))}
             </div>
           </Field>
-          <BluprintCredit />
+          <BlueprintCredit />
           <p className="text-[12px] text-faint">Claude Code changes apply to Claude tabs opened from now on.</p>
           <Field
             group
@@ -338,10 +338,10 @@ export function SettingsDialog() {
 export const tokens = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 
 /**
- * Bluprint credit (lib/server/credit.ts): Claude on Bluprint's own Bedrock in place of the user's
+ * Blueprint credit (lib/server/credit.ts): Claude on Blueprint's own Bedrock in place of the user's
  * Claude Code. Shown only on machines it is open to.
  */
-function BluprintCredit() {
+function BlueprintCredit() {
   const [c, setC] = useState<Credit | null>(null);
   useEffect(() => {
     const read = () => void readCredit().then(setC);

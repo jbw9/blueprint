@@ -32,7 +32,7 @@ export interface Cut {
 
 const TOOL = {
   name: "cut",
-  description: "Record the top level of the bluprint.",
+  description: "Record the top level of the blueprint.",
   input_schema: {
     type: "object",
     additionalProperties: false,

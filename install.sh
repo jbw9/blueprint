@@ -1,8 +1,8 @@
 #!/bin/sh
-# Installs Bluprint on macOS or Linux, built from source:
+# Installs Blueprint on macOS or Linux, built from source:
 #   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
-# The source is kept in ~/.bluprint/src (BLUPRINT_DIR moves it); running this again updates and rebuilds.
-# When it ends it tells us the OS and whether it worked, nothing else; BLUPRINT_NO_TELEMETRY=1 skips that.
+# The source is kept in ~/.blueprint/src (BLUEPRINT_DIR moves it); running this again updates and rebuilds.
+# When it ends it tells us the OS and whether it worked, nothing else; BLUEPRINT_NO_TELEMETRY=1 skips that.
 set -e
 
 # The admin dashboard's backend (app/scripts/api).
@@ -11,9 +11,14 @@ API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
   trap report EXIT
-  repo=${BLUPRINT_REPO:-https://github.com/jbw9/blueprint.git}
-  ref=${BLUPRINT_REF:-main}
-  dir=${BLUPRINT_DIR:-$HOME/.bluprint}/src
+  # Their names while the app was called Bluprint.
+  BLUEPRINT_DIR=${BLUEPRINT_DIR:-$BLUPRINT_DIR}
+  BLUEPRINT_NO_TELEMETRY=${BLUEPRINT_NO_TELEMETRY:-$BLUPRINT_NO_TELEMETRY}
+  repo=${BLUEPRINT_REPO:-https://github.com/jbw9/blueprint.git}
+  ref=${BLUEPRINT_REF:-main}
+  dir=${BLUEPRINT_DIR:-$HOME/.blueprint}/src
+  # Kept in ~/.bluprint while the app had that name.
+  if [ -z "$BLUEPRINT_DIR" ] && [ -d "$HOME/.bluprint" ] && [ ! -e "$HOME/.blueprint" ]; then mv "$HOME/.bluprint" "$HOME/.blueprint"; fi
   os=$(uname)
   case $os in
   Darwin | Linux) ;;
@@ -75,7 +80,7 @@ Install those, then run this again."
 report() {
   status=$?
   ok=$([ "$status" = 0 ] && echo true || echo false)
-  [ -z "$BLUPRINT_NO_TELEMETRY" ] || return 0
+  [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
     -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$ok}" 2>/dev/null || true

@@ -1,4 +1,4 @@
-/** Bluprint credit as this machine has it (app/api/credit, lib/server/credit.ts). */
+/** Blueprint credit as this machine has it (app/api/credit, lib/server/credit.ts). */
 export interface Credit {
   available: boolean;
   on: boolean;
@@ -11,7 +11,7 @@ export interface Credit {
   relay: { url: string; token: string } | null;
 }
 
-const CHANGED = "bluprint:credit-changed";
+const CHANGED = "blueprint:credit-changed";
 
 export const readCredit = () =>
   fetch("/api/credit")

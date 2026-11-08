@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Kbd, keys } from "@/components/ui/button";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openReview } from "@/components/review/diff";
-import { openFiles, useFiles } from "@/components/bluprint/files";
+import { openFiles, useFiles } from "@/components/blueprint/files";
 import { openPalette } from "@/components/chrome/palette";
 import { openProjects } from "@/components/projects/projects";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
-import type { Node } from "@/lib/bluprint/schema";
-import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
+import type { Node } from "@/lib/blueprint/schema";
+import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
 import { onCreditChanged, readCredit, type Credit } from "@/lib/client/credit";
 import { tokens } from "@/components/chrome/settings";
 import { openSettings } from "@/lib/client/settings";
@@ -18,14 +18,14 @@ import { cn } from "@/lib/client/utils";
 import { useMac } from "@/lib/client/platform";
 
 /**
- * The line along the bottom of the window: what is true of the whole bluprint,
+ * The line along the bottom of the window: what is true of the whole blueprint,
  * whatever level is open. Which commit it describes, the problems it found,
  * whether an update is running, and the two keys that get you
  * anywhere. It is the one place this lives, so no level has to repeat it.
  */
 export function StatusBar() {
-  const { name, bluprints, RUN, L0, TOP } = useBluprint();
-  const local = bluprints.some((m) => m.id === name && m.local);
+  const { name, blueprints, RUN, L0, TOP } = useBlueprint();
+  const local = blueprints.some((m) => m.id === name && m.local);
 
   const problems = useMemo(() => {
     let problems = 0;
@@ -64,12 +64,12 @@ export function StatusBar() {
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <BluprintUpdates key={name} id={name} root={RUN.root} local={local} />
-      {STATIC_BLUPRINT ? null : <CreditLeft />}
+      <BlueprintUpdates key={name} id={name} root={RUN.root} local={local} />
+      {STATIC_BLUEPRINT ? null : <CreditLeft />}
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
       </Item>
-      {STATIC_BLUPRINT ? null : (
+      {STATIC_BLUEPRINT ? null : (
         <Item title="Claude Code & terminal" onClick={toggleWorkspace}>
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
@@ -82,7 +82,7 @@ export function StatusBar() {
   );
 }
 
-/** What is left of this window's Bluprint credit, while tabs run on it (lib/server/credit.ts). */
+/** What is left of this window's Blueprint credit, while tabs run on it (lib/server/credit.ts). */
 function CreditLeft() {
   const [c, setC] = useState<Credit | null>(null);
   useEffect(() => {
@@ -149,7 +149,7 @@ interface Update {
 
 /**
  * The section ids an update is rewriting right now, for the open level to say
- * so where the reader is looking (components/bluprint/canvas.tsx): the status bar alone
+ * so where the reader is looking (components/blueprint/canvas.tsx): the status bar alone
  * was missed, and a minute with nothing changing read as the update not working.
  */
 let redoing: string[] = [];
@@ -169,21 +169,21 @@ export function useRedoing(): string[] {
 }
 
 /**
- * Follows the open bluprint while an agent changes its code: an update redoing
- * the touched sections (lib/server/vault.ts) shows here while it runs. The bluprint takes
- * each section as it lands by itself (components/bluprint/bluprint-context.tsx); this only
+ * Follows the open blueprint while an agent changes its code: an update redoing
+ * the touched sections (lib/server/vault.ts) shows here while it runs. The blueprint takes
+ * each section as it lands by itself (components/blueprint/blueprint-context.tsx); this only
  * says what is happening. Only the user's own projects update; an
  * example describes some other copy of its code, so when an agent edits its
  * checkout this says so and offers to import it.
  *
- * The bluprint updates once per commit. Between commits this says how far the
- * code has moved from what the bluprint describes (lib/server/live.ts, followed
- * with the bluprint each second), and asks for an update when HEAD moves. Not
+ * The blueprint updates once per commit. Between commits this says how far the
+ * code has moved from what the blueprint describes (lib/server/live.ts, followed
+ * with the blueprint each second), and asks for an update when HEAD moves. Not
  * while Claude is mid-turn in the checkout: its turn asks when it ends, with its
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
-function BluprintUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
+function BlueprintUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
   const [u, setU] = useState<Update | null>(null);
   const [unfollowed, setUnfollowed] = useState(false);
 
@@ -217,14 +217,14 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
     return () => (clearInterval(timer), setRedoing([]));
   }, [id, local]);
 
-  const { live } = useBluprint();
+  const { live } = useBlueprint();
   const behind = local ? (live?.files ?? []) : [];
   const head = local ? live?.head : undefined;
   // Updating by hand runs whatever is committed.
   const follow = () => {
     if (root) void followTurn(root, { transcript: null, corrections: [] }, true);
   };
-  // A new commit updates the bluprint; the server runs it only for a HEAD it
+  // A new commit updates the blueprint; the server runs it only for a HEAD it
   // has not updated at (lib/server/vault.ts). Claude mid-turn asks with its turn when it ends.
   useEffect(() => {
     if (!head || !root || claudeMidTurnIn(root)) return;
@@ -258,7 +258,7 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
         </button>
       </span>
     );
-  // A turn that changed nothing the bluprint covers passes silently.
+  // A turn that changed nothing the blueprint covers passes silently.
   if (!u || (u.status === "done" && (!fresh || !u.sections?.length)))
     return behind.length && root ? (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">

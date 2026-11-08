@@ -225,7 +225,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bluprint"
+name = "blueprint"
 version = "0.1.0"
 dependencies = [
  "block2",

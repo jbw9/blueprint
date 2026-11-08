@@ -27,7 +27,7 @@ const QUESTIONS = [
   },
 ];
 
-/** What people ask before they bluprint their own repository. */
+/** What people ask before they blueprint their own repository. */
 export function LandingStart() {
   return (
     <section id="questions" className={s.section} aria-labelledby="questions-title">

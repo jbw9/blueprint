@@ -54,10 +54,10 @@ pub async fn browser_open(
     let (own, mine) = (app.clone(), label.clone());
     let mut builder = WebviewBuilder::new(&label, WebviewUrl::External(web(&url)?))
         // Told that it is asked, rather than posting to a page around it.
-        .initialization_script(format!("(function (BLUPRINT_NATIVE) {{\n{AGENT}\n}})(true);"))
+        .initialization_script(format!("(function (BLUEPRINT_NATIVE) {{\n{AGENT}\n}})(true);"))
         .on_page_load(move |_, load| {
             let done = matches!(load.event(), PageLoadEvent::Finished);
-            let _ = tell.emit_to("main", "bluprint:browser", json!({ "label": me, "url": load.url().as_str(), "done": done }));
+            let _ = tell.emit_to("main", "blueprint:browser", json!({ "label": me, "url": load.url().as_str(), "done": done }));
         })
         // The preview is one page: what would open a window opens here.
         .on_new_window(move |url, _| {

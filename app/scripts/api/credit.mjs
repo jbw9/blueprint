@@ -1,9 +1,9 @@
-// Bluprint credit: Claude on Bluprint's own Bedrock, for machines running Bluprint. Answers as Bedrock
+// Blueprint credit: Claude on Blueprint's own Bedrock, for machines running Blueprint. Answers as Bedrock
 // does, so Claude Code (in Bedrock mode) and the generator (scripts/generate/bedrock.ts) talk to it
 // unchanged. Each call is checked against the machine's allowance (db.mjs), forwarded byte for byte
 // to one of the project's tagged inference profiles, and its tokens are written back.
 //
-// `tab` is Claude Code in a Bluprint tab and is capped per window; `gen` is bluprint generation.
+// `tab` is Claude Code in a Blueprint tab and is capped per window; `gen` is blueprint generation.
 // The settings are the `credit / config` item, changed in the DynamoDB console, never in the app:
 // enabled (false: only machines marked `allowed`), window_hours, tab_tokens, gen_tokens (absent: no
 // cap), ip_factor, new_devices_per_ip_day, daily_usd_ceiling. A machine's own `tab_tokens` or

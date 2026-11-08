@@ -4,13 +4,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DIALOG, Overlay } from "@/components/ui/dialog";
 import { OPEN_DIFF, TINT, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import type { Commit, SectionDiff } from "@/lib/server/diff";
 import { ReviewCard, ReviewPicker, Outside } from "@/components/review/reviews";
 import { FileRow, Rail, Row } from "@/components/review/commits";
-import { Comparing, Details, EndTag, OnTheBluprint, Refs } from "@/components/review/commit-detail";
+import { Comparing, Details, EndTag, OnTheBlueprint, Refs } from "@/components/review/commit-detail";
 import { setDiffFile, useDiffFile } from "@/components/review/diff-file";
-import { showBluprint } from "@/lib/agent/workspace-toggle";
+import { showBlueprint } from "@/lib/agent/workspace-toggle";
 import { ago } from "@/components/review/ago";
 import { openTimeline } from "@/components/review/timeline";
 
@@ -21,7 +21,7 @@ import { openTimeline } from "@/components/review/timeline";
  * away). A file picked opens in a tab of the workspace window
  * (components/review/diff-file.tsx), so this stays a small popup; it closes
  * with the panel unless moved to the main view. The right side is the
- * commit itself — who, when, and which sections of the bluprint it moved, each
+ * commit itself — who, when, and which sections of the blueprint it moved, each
  * opening its level, where the red and green are drawn in place
  * (components/review/diff.tsx).
  *
@@ -29,7 +29,7 @@ import { openTimeline } from "@/components/review/timeline";
  * key and nothing else. Comparing is any two commits, as an editor's history
  * does it: "Compare with selected" on a row, or ⇧/⌘-click it; the right side
  * then names both ends and can swap them. It opens on the newest commit —
- * the bluprint keeps itself current, so "since the bluprint was made" is not a
+ * the blueprint keeps itself current, so "since the blueprint was made" is not a
  * question worth a row (D76).
  *
  * Mounted once beside the other dialogs and opened by the same event that
@@ -40,7 +40,7 @@ type Item = { k: "commit"; c: Commit } | { k: "file"; path: string };
 
 export function DiffPanel() {
   const d = useDiff();
-  const { nodeAt, name: bluprint } = useBluprint();
+  const { nodeAt, name: blueprint } = useBlueprint();
   const [shown, setShownRaw] = useState(false);
   // A commit clicked again folds its files away.
   const [folded, setFolded] = useState<string | null>(null);
@@ -155,7 +155,7 @@ export function DiffPanel() {
               setShown(false);
               openTimeline();
               // A tab docked in the main view would hide the timeline it opens on.
-              showBluprint();
+              showBlueprint();
             }}
             title="How the code got here — every commit on the blueprint's sections, over time"
             className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
@@ -194,7 +194,7 @@ export function DiffPanel() {
           {/* ── history ── */}
           <aside className={reading?.open ? "flex min-w-0 flex-1 flex-col" : "flex w-[320px] shrink-0 flex-col border-r border-border-gray"}>
             <div className="shrink-0 border-b border-border-gray p-2">
-              <ReviewPicker bluprint={bluprint} value={d.review} onPick={d.setReview} />
+              <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -289,7 +289,7 @@ export function DiffPanel() {
           <main className={reading?.open ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 {picked ? (
-                  <Details key={picked.sha} bluprint={bluprint} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
+                  <Details key={picked.sha} blueprint={blueprint} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
                 ) : pair?.base && pair.with ? (
                   <Comparing
                     base={pair.base}
@@ -301,7 +301,7 @@ export function DiffPanel() {
                 ) : (
                   <h3 className="text-[17px] font-semibold leading-snug text-ink">{caption}</h3>
                 )}
-                {diff?.review ? <ReviewCard r={diff.review} bluprint={bluprint} spec={d.review} onMade={d.reload} /> : null}
+                {diff?.review ? <ReviewCard r={diff.review} blueprint={blueprint} spec={d.review} onMade={d.reload} /> : null}
                 {d.loading ? <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p> : null}
                 {d.error ? (
                   <p className="mt-4 text-[13px]" style={{ color: TINT.removed.ink }}>
@@ -327,7 +327,7 @@ export function DiffPanel() {
                       <p className="mt-1.5 text-[13px] text-muted-slate">Nothing changed.</p>
                     )}
                     {diff.basis === "files" ? <p className="mt-4 text-[12.5px] leading-snug text-on-surface-variant">{diff.why}</p> : null}
-                    {diff.basis === "sections" ? <OnTheBluprint sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
+                    {diff.basis === "sections" ? <OnTheBlueprint sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
                     {diff.outside?.length ? <Outside outside={diff.outside} title={(p) => nodeAt(p)?.title ?? p.at(-1)!} onOpen={(p) => (goTo(p), setShown(false))} /> : null}
                   </>
                 ) : null}

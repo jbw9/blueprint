@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Bluprint credit: Claude on Bluprint's own Bedrock instead of the reader's Claude Code, metered per
+ * Blueprint credit: Claude on Blueprint's own Bedrock instead of the reader's Claude Code, metered per
  * machine by the proxy (scripts/api/credit.mjs). The machine is a hash of the hardware's own id,
  * which this never stores, so reinstalling the app or clearing its data does not make it a new one.
  * Its token stays in this server's memory; a Claude tab gets only the relay's secret, which works
@@ -31,7 +31,7 @@ function hardwareId(): string | null {
 
 // Route handlers can be bundled apart, so what one sets the others must find on the global.
 // `ready` is the last status this server saw, kept so a generator spawn can read it without waiting.
-const state = ((globalThis as { __bluprintCredit?: { device?: string | null; token?: Promise<Registered>; secret: string; ready?: string | null } }).__bluprintCredit ??= {
+const state = ((globalThis as { __blueprintCredit?: { device?: string | null; token?: Promise<Registered>; secret: string; ready?: string | null } }).__blueprintCredit ??= {
   secret: randomBytes(32).toString("hex"),
 });
 

@@ -45,5 +45,5 @@ next-env.d.ts
 # tauri
 /src-tauri/target
 /src-tauri/gen
-# bluprints the generator writes by default (scripts/generate/run.mts); the app ships none
-bluprints/
+# blueprints the generator writes by default (scripts/generate/run.mts); the app ships none
+blueprints/

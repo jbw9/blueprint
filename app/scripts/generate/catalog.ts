@@ -1,19 +1,19 @@
 /**
- * `<out>/index.json`: every file of the checkout and what the bluprint knows about
+ * `<out>/index.json`: every file of the checkout and what the blueprint knows about
  * it — which roots own it, why it was left out, its top-level symbols. The
  * app finds things by it and measures coverage against it (lib/coverage.ts),
- * so a file the bluprint does not explain is still listed, with the reason, rather
+ * so a file the blueprint does not explain is still listed, with the reason, rather
  * than simply absent.
  */
-import type { IndexFile, BluprintIndex } from "@/lib/bluprint/coverage";
+import type { IndexFile, BlueprintIndex } from "@/lib/blueprint/coverage";
 import { excludedBy, owners, type Cut } from "./cut";
 import { isSource, type Inventory } from "./inventory";
 import type { FileSummary } from "./summarize";
 
-export function catalogOf(inv: Inventory, sums: Record<string, FileSummary>, cut: Cut): BluprintIndex {
+export function catalogOf(inv: Inventory, sums: Record<string, FileSummary>, cut: Cut): BlueprintIndex {
   const files: Record<string, IndexFile> = {};
   for (const f of inv.files) {
-    // Listed, so the app never takes a file outside a scoped bluprint for one added since.
+    // Listed, so the app never takes a file outside a scoped blueprint for one added since.
     if (f.outside) {
       files[f.path] = { roots: [], status: "excluded", reason: "Outside the part of the repository this blueprint covers", kind: f.test ? "test" : "other", lines: f.lines, symbols: [] };
       continue;

@@ -4,9 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { goTo } from "@/components/chrome/crumbs";
-import { sectionTone } from "@/components/bluprint/blocks";
+import { sectionTone } from "@/components/blueprint/blocks";
 import { TINT, openDiff, useDiff } from "@/components/review/diff";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { Eyebrow } from "@/components/ui/state";
 import type { Chapter, Story, Timeline as Data, TimelineCommit } from "@/lib/server/history";
 import { claudePath } from "@/lib/client/claude";
@@ -16,18 +16,18 @@ const ELSEWHERE = "";
 
 /**
  * How the code got here (D73): every commit, as a dot on the rows of the
- * bluprint's own top-level sections, left to right in time. It takes the level's
+ * blueprint's own top-level sections, left to right in time. It takes the level's
  * place while `?timeline` is in the URL, as the docs reader does (D66), so
  * Back and Escape close it and the level it was opened over is still there.
  *
  * It routes, as the diff panel does (D58): a dot opens what that commit did,
  * a dragged span what that stretch did, and a chapter what it covered — each
- * as diff mode on the bluprint, never as a screen of its own (D56).
+ * as diff mode on the blueprint, never as a screen of its own (D56).
  */
 
 export function openTimeline() {
   const q = new URLSearchParams(window.location.search);
-  // A doc or file open over the level outranks the timeline (components/bluprint/canvas.tsx), so it gives way.
+  // A doc or file open over the level outranks the timeline (components/blueprint/canvas.tsx), so it gives way.
   q.delete("doc");
   q.delete("file");
   q.delete("line");
@@ -58,7 +58,7 @@ const fit = (text: string, px: number) => {
 const size = (c: TimelineCommit) => Math.sqrt(c.added + c.removed);
 
 export function TimelineView() {
-  const { name } = useBluprint();
+  const { name } = useBlueprint();
   const diff = useDiff();
   const [got, setGot] = useState<{ timeline: Data; story: Story | null; telling: boolean } | { error: string } | null>(null);
   const [asked, setAsked] = useState(false);
@@ -71,7 +71,7 @@ export function TimelineView() {
   useEffect(() => {
     let live = true;
     const read = () =>
-      fetch(`/api/timeline?bluprint=${encodeURIComponent(name)}`)
+      fetch(`/api/timeline?blueprint=${encodeURIComponent(name)}`)
         .then((r) => r.json())
         .then((j) => {
           if (!live) return;
@@ -109,7 +109,7 @@ export function TimelineView() {
     return { w, step, x: (c: TimelineCommit) => LABEL_W + (index.get(c.sha)! + 0.5) * step, at: (x: number) => Math.floor((x - LABEL_W) / step) };
   }, [data, width]);
 
-  /** A range of commits, as diff mode on the bluprint. */
+  /** A range of commits, as diff mode on the blueprint. */
   const show = (from: TimelineCommit, to: TimelineCommit, root?: string) => {
     diff?.setRange(`${from.sha}~1`, to.sha);
     goTo(root ? [root] : []);
@@ -119,7 +119,7 @@ export function TimelineView() {
   const tell = async () => {
     setAsked(true);
     const claude = await claudePath().catch(() => undefined);
-    await fetch(`/api/timeline?bluprint=${encodeURIComponent(name)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ claude }) }).catch(() => setAsked(false));
+    await fetch(`/api/timeline?blueprint=${encodeURIComponent(name)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ claude }) }).catch(() => setAsked(false));
   };
 
   const header = (

@@ -377,7 +377,7 @@
   body[data-dragging] {
     user-select: none;
   }
-  /* A part dragged off the bluprint toward its tabs (components/bluprint/canvas.tsx), whose
+  /* A part dragged off the blueprint toward its tabs (components/blueprint/canvas.tsx), whose
      strip shows only where it would land, not what the pointer hovers. */
   [data-drag-source] {
     opacity: 0.4;
@@ -400,7 +400,7 @@
 }
 
 @layer components {
-  /* A doc in the reader (components/bluprint/docs.tsx): set for reading at length,
+  /* A doc in the reader (components/blueprint/docs.tsx): set for reading at length,
      in the page's own type, not a second design. */
   .doc-prose {
     color: var(--color-on-surface-variant);
@@ -522,7 +522,7 @@
     accent-color: var(--color-accent);
   }
 
-  /* A plan's numbered steps, drawn as the bluprint draws a sequence of parts:
+  /* A plan's numbered steps, drawn as the blueprint draws a sequence of parts:
      numbered dots on one line (components/agent/plan.tsx). */
   .plan-prose ol {
     list-style: none;
@@ -681,7 +681,7 @@
   }
 }
 
-/* A bluprint tab opened from inside the page (components/chrome/tabs.tsx TAB_OPENED). */
+/* A blueprint tab opened from inside the page (components/chrome/tabs.tsx TAB_OPENED). */
 @keyframes tab-opened {
   0% {
     transform: translateY(6px);
@@ -707,7 +707,7 @@
 }
 
 /* A popup lifted off the page (components/review/diff-panel.tsx): a deep shadow
-   and a short rise, so it reads as in front of the bluprint, not part of it.
+   and a short rise, so it reads as in front of the blueprint, not part of it.
    Unlayered, to win over DIALOG's own shadow utility. */
 .pop {
   box-shadow:

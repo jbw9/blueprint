@@ -13,7 +13,7 @@ import { cn } from "@/lib/client/utils";
  * breadcrumb over the path with a dot while there are unsaved changes, the
  * editor in all the room left, and a status line under it with where the
  * caret is, the language and whether it is saved. The same frame for a file
- * from the bluprint, a doc and a file a terminal named, so they read as one editor.
+ * from the blueprint, a doc and a file a terminal named, so they read as one editor.
  */
 
 /** The language CodeMirror knows the file as, by its name. */
@@ -132,7 +132,7 @@ export function TextStatus({
   );
 }
 
-const VIEW_KEY = "bluprint:markdown-view";
+const VIEW_KEY = "blueprint:markdown-view";
 
 /** The Markdown view, kept from one file to the next as an editor keeps it. */
 export function useMarkdownView() {

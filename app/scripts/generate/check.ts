@@ -1,15 +1,15 @@
 /**
- * Every mechanical rule a bluprint must pass, as one function: hand-authored bluprints
- * through scripts/check-bluprint.mts, generated ones inside the pipeline, where the
+ * Every mechanical rule a blueprint must pass, as one function: hand-authored blueprints
+ * through scripts/check-blueprint.mts, generated ones inside the pipeline, where the
  * problems go back to the model that wrote the node.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any -- walks bluprint JSON, typed or not */
+/* eslint-disable @typescript-eslint/no-explicit-any -- walks blueprint JSON, typed or not */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildBluprint, type BluprintFile } from "@/lib/bluprint/build";
-import { MARK_IDS } from "@/components/bluprint/shapes";
-import type { Anatomy } from "@/lib/bluprint/schema";
-import { layoutDiagram, overlaps, segmentsOf } from "@/lib/bluprint/diagram";
+import { buildBlueprint, type BlueprintFile } from "@/lib/blueprint/build";
+import { MARK_IDS } from "@/components/blueprint/shapes";
+import type { Anatomy } from "@/lib/blueprint/schema";
+import { layoutDiagram, overlaps, segmentsOf } from "@/lib/blueprint/diagram";
 import { activeGraph, type Def, type Graph } from "./graph";
 
 export interface CheckResult {
@@ -142,8 +142,8 @@ export function dedupeIssues(root: any) {
   walk(root);
 }
 
-/** How many of a bluprint's code diagrams' arrows the graph shows, and how many are drawn as inferred. */
-export function arrowStats(bluprint: unknown): { total: number; inferred: number } {
+/** How many of a blueprint's code diagrams' arrows the graph shows, and how many are drawn as inferred. */
+export function arrowStats(blueprint: unknown): { total: number; inferred: number } {
   const out = { total: 0, inferred: 0 };
   const walk = (x: any) => {
     if (!x || typeof x !== "object") return;
@@ -152,7 +152,7 @@ export function arrowStats(bluprint: unknown): { total: number; inferred: number
       for (const a of x.arrows) if (a?.at) { out.total++; if (a.inferred) out.inferred++; }
     Object.values(x).forEach(walk);
   };
-  walk(bluprint);
+  walk(blueprint);
   return out;
 }
 
@@ -206,13 +206,13 @@ export function bareLines(lines: string[]): boolean[] {
 }
 
 /**
- * `generated` adds the rules a generated bluprint lives under (D45): no hand-drawn
+ * `generated` adds the rules a generated blueprint lives under (D45): no hand-drawn
  * figures, no screenshots, no pasted source, only brand marks that have a
  * drawing, every diagram arrow citing the line it happens on, and at least
  * three levels under every root.
  */
 export function check(
-  bluprint: Pick<BluprintFile, "AUTHORED" | "OVERVIEW"> & { RUN?: Pick<BluprintFile["RUN"], "explain"> },
+  blueprint: Pick<BlueprintFile, "AUTHORED" | "OVERVIEW"> & { RUN?: Pick<BlueprintFile["RUN"], "explain"> },
   repo: string,
   opts: { generated?: boolean; only?: Set<string> } = {},
 ): CheckResult {
@@ -222,7 +222,7 @@ export function check(
   const sources = { ok: 0, bad: 0 };
   let refs = 0;
   const gen = Boolean(opts.generated);
-  const level = bluprint.RUN?.explain ?? EXPLAIN_LEVEL;
+  const level = blueprint.RUN?.explain ?? EXPLAIN_LEVEL;
   const inRange = (file: string, start: number, end: number) => {
     const lines = linesOf(file);
     return lines !== null && start >= 1 && start <= end && end <= lines.length;
@@ -233,13 +233,13 @@ export function check(
   const nodes = new Map<string, any>();
   const index = (ns: any[]) => ns.forEach((n) => { built.set(n.id, new Set((n.children ?? []).map((c: any) => c.id))); nodes.set(n.id, n); index(n.children ?? []); });
   const graph = gen ? activeGraph() : null;
-  const tree = buildBluprint({ RUN: {} as any, AUTHORED: bluprint.AUTHORED }, "");
+  const tree = buildBlueprint({ RUN: {} as any, AUTHORED: blueprint.AUTHORED }, "");
   const L0 = tree.L0;
   index(L0);
   // The overview's boxes open the roots, as a node's open its children.
   built.set(OVERVIEW_ID, new Set(L0.map((n) => n.id)));
 
-  // `explain`: an Explainer's pictures (lib/bluprint/schema.ts), which draw an idea
+  // `explain`: an Explainer's pictures (lib/blueprint/schema.ts), which draw an idea
   // rather than the code — so their boxes open nothing and their arrows cite
   // no line, and every other rule still holds.
   const walkBlocks = (owner: string, blocks: any[] = [], d: number, explain = false): number => {
@@ -330,7 +330,7 @@ export function check(
     // to this. Every rule below is about generated prose: a label is short
     // because a model will ramble, a node cites code because a model must show
     // its work. A person writing their own sentence about their own repository
-    // has already decided, and failing their words here would make a bluprint they
+    // has already decided, and failing their words here would make a blueprint they
     // had deliberately corrected report itself as broken. Their children are
     // still walked, and everything structural — ids, edges, diagram layout —
     // still applies to the blocks they added.
@@ -371,7 +371,7 @@ export function check(
     return deepest;
   };
 
-  const roots = (opts.only ? bluprint.AUTHORED.filter((r) => opts.only!.has(r.id)) : bluprint.AUTHORED).map((r) => {
+  const roots = (opts.only ? blueprint.AUTHORED.filter((r) => opts.only!.has(r.id)) : blueprint.AUTHORED).map((r) => {
     const before = ids.size;
     const depth = walk(r, 1);
     if (gen && depth < 2) problems.push(`DEPTH ${r.id} reaches ${depth} level (min 2)`);
@@ -380,8 +380,8 @@ export function check(
   for (const [id, c] of ids) if (c > 1) problems.push(`DUP id ${id}`);
   if (!opts.only) {
     // The repository's own level (D60) is held to what any level is.
-    if (bluprint.OVERVIEW) walk({ ...bluprint.OVERVIEW, id: OVERVIEW_ID, title: "Overview", sub: bluprint.OVERVIEW.sub ?? "", children: [] }, 0);
-    if (gen && bluprint.OVERVIEW) problems.push(...startProblems(bluprint.OVERVIEW, (p) => p.length > 0 && tree.nodeAt(p) !== null, level, L0.length));
+    if (blueprint.OVERVIEW) walk({ ...blueprint.OVERVIEW, id: OVERVIEW_ID, title: "Overview", sub: blueprint.OVERVIEW.sub ?? "", children: [] }, 0);
+    if (gen && blueprint.OVERVIEW) problems.push(...startProblems(blueprint.OVERVIEW, (p) => p.length > 0 && tree.nodeAt(p) !== null, level, L0.length));
   }
   return { problems, roots, refs, sources };
 }
@@ -396,7 +396,7 @@ export const LEAF = { refs: 3, files: 2, lines: 200, blocks: 2 };
 export const PARENT_BLOCKS = 3;
 
 /**
- * The two kinds of level a generated bluprint has. A level with parts is a picture
+ * The two kinds of level a generated blueprint has. A level with parts is a picture
  * whose boxes open every part, so each part leads somewhere; a leaf is one
  * piece of code — one function, handler, screen or config — framed by one or
  * two blocks, so digging into any part ends at that part's own lines.
@@ -429,12 +429,12 @@ function levelProblems(n: any): string[] {
 /** A clicked step shows its own lines; past this it is the function, not the step. */
 export const STEP_LINES = 40;
 /**
- * How much a bluprint explains for a newcomer (D70), asked when the project is
- * imported: `none` is the bluprint without the plain-words layer, `minimal` one
+ * How much a blueprint explains for a newcomer (D70), asked when the project is
+ * imported: `none` is the blueprint without the plain-words layer, `minimal` one
  * sentence per level for a reader who has used the project, `brief` a
  * sentence or two for one who knows the field, `detailed` a paragraph or two
  * for one who knows a little of it, `full` the layer as D68 made it. A
- * finished bluprint records its level in `RUN.explain`.
+ * finished blueprint records its level in `RUN.explain`.
  */
 export type ExplainLevel = "none" | "minimal" | "brief" | "detailed" | "full";
 export const EXPLAIN_LEVEL: ExplainLevel = (["none", "minimal", "brief", "detailed", "full"] as const).find((l) => l === process.env.SLOP_EXPLAIN) ?? "full";
@@ -473,7 +473,7 @@ function explainProblems(n: any, level: ExplainLevel): string[] {
   return [...out, ...stepProblems(n)];
 }
 
-/** Every step of a leaf cites the lines it describes, whatever the bluprint explains (D68). */
+/** Every step of a leaf cites the lines it describes, whatever the blueprint explains (D68). */
 function stepProblems(n: any): string[] {
   const out: string[] = [];
   if (!n.children?.length)
@@ -492,7 +492,7 @@ export const WALK_STEPS = [3, 8];
 /**
  * The repository level's way in: a glossary for a first-time reader, and at
  * every explain level 2-3 walkthroughs whose steps open real parts. They are
- * the bluprint's answer to "what happens end to end", so none is left to one root.
+ * the blueprint's answer to "what happens end to end", so none is left to one root.
  */
 function startProblems(o: any, resolves: (path: string[]) => boolean, level: ExplainLevel, roots: number): string[] {
   const out: string[] = [];

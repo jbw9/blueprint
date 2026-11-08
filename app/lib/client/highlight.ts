@@ -3,12 +3,12 @@
  *
  * The viewer used to draw every line in one ink, which is the one place the
  * app asked a reader to do work a code editor does for free: find the string,
- * find the comment, find where the call starts. The bluprint is supposed to make
+ * find the comment, find where the call starts. The blueprint is supposed to make
  * code legible, so its own code pane cannot be the least legible pane in the
  * product.
  *
  * Deliberately a tokenizer, not a parser, and deliberately no dependency:
- * the bluprints cite nine languages (.ts/.tsx/.py/.java/.go/.js/.scala/.vue/.sql
+ * the blueprints cite nine languages (.ts/.tsx/.py/.java/.go/.js/.scala/.vue/.sql
  * and friends), and shipping a grammar per language to colour a 14-line slice
  * costs more than it returns. Everything here is the lexical layer those
  * languages share — strings, comments, numbers, keywords, call sites — which

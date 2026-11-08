@@ -87,7 +87,7 @@ export function caretOf(s: EditorState, start = 1) {
   return { line: start + line.number - 1, col: head - line.from + 1 };
 }
 
-// The line the view opened on, lit in amber like the bluprint's citations.
+// The line the view opened on, lit in amber like the blueprint's citations.
 const litLine = (line: number | undefined) =>
   EditorView.decorations.compute(["doc"], (s) => {
     const b = new RangeSetBuilder<Decoration>();

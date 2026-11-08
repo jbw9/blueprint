@@ -13,7 +13,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { BluprintFile } from "@/lib/bluprint/build";
+import type { BlueprintFile } from "@/lib/blueprint/build";
 import { chapterProblems, cutOf, ELSEWHERE, timelineOf, type Chapter, type Story } from "@/lib/server/history";
 import { parseArgs } from "./args";
 import { ask, bill, cacheIn, MODELS, type Message } from "./bedrock";
@@ -54,8 +54,8 @@ export async function story(args: string[]) {
   const repo = resolve(dir!);
   const out = opt("--out")!;
   const t0 = Date.now();
-  const bluprint: BluprintFile = JSON.parse(readFileSync(`${out}/bluprint.json`, "utf8"));
-  const t = timelineOf(repo, bluprint, cutOf(out));
+  const blueprint: BlueprintFile = JSON.parse(readFileSync(`${out}/blueprint.json`, "utf8"));
+  const t = timelineOf(repo, blueprint, cutOf(out));
   cacheIn(`${out}/.cache`);
   const model = MODELS[(process.env.SLOP_STORY ?? "sonnet") as keyof typeof MODELS] ?? MODELS.sonnet;
 
@@ -63,7 +63,7 @@ export async function story(args: string[]) {
   const day = (iso: string) => iso.slice(0, 10);
   const lines = shown.map((c) => `${c.short} ${day(c.at)} ${c.author} +${c.added} −${c.removed} [${c.roots.map((r) => r || "elsewhere").join(",")}] ${c.subject}`);
   const prompt = [
-    `# ${bluprint.RUN.repo}: its history, oldest commit first`,
+    `# ${blueprint.RUN.repo}: its history, oldest commit first`,
     `## The blueprint's roots\n${t.roots.filter((r) => r.id !== ELSEWHERE).map((r) => `- ${r.id}: ${r.title}`).join("\n")}`,
     `## Commits (${shown.length}${shown.length < t.commits.length ? ` most recent of ${t.commits.length}` : ""}): sha, date, author, lines added and removed, roots touched, subject\n${lines.join("\n")}`,
     `## Task

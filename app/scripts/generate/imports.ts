@@ -11,7 +11,7 @@
  * top-level name of the one file used as a word in the other.
  *
  * An import of anything outside the repository is not an edge: a package is
- * not a part of the bluprint. Parsed imports are precise (D2 measured 98–100% for
+ * not a part of the blueprint. Parsed imports are precise (D2 measured 98–100% for
  * TS/JS); the name edges are what `PRECISION` is sampled for.
  */
 import { readFileSync } from "node:fs";

@@ -1,16 +1,16 @@
-// Bluprint's preview agent (src-tauri/src/preview.rs puts it in every
+// Blueprint's preview agent (src-tauri/src/preview.rs puts it in every
 // page the preview frames). It answers the window around the frame
 // (components/preview/preview.tsx): reads the page, and clicks, types and scrolls in it
 // the way a person would, for the user's tools and for Claude's, and draws
 // Claude's pointer where it acts. It does nothing in a page that is not framed.
 //
 // A page from the web is not framed but has a webview of its own
-// (src-tauri/src/browser.rs), where this runs wrapped with BLUPRINT_NATIVE set: it
-// keeps what it has to say until the tab collects it, through window.__bluprint.
+// (src-tauri/src/browser.rs), where this runs wrapped with BLUEPRINT_NATIVE set: it
+// keeps what it has to say until the tab collects it, through window.__blueprint.
 (() => {
-  const native = typeof BLUPRINT_NATIVE !== "undefined";
-  if (window.__bluprintAgent || (!native && window.parent === window)) return;
-  window.__bluprintAgent = true;
+  const native = typeof BLUEPRINT_NATIVE !== "undefined";
+  if (window.__blueprintAgent || (!native && window.parent === window)) return;
+  window.__blueprintAgent = true;
   let outbox = [];
   const post = (m) => {
     if (native) {
@@ -20,7 +20,7 @@
       return;
     }
     try {
-      window.parent.postMessage({ __bluprint: true, ...m }, "*");
+      window.parent.postMessage({ __blueprint: true, ...m }, "*");
     } catch {}
   };
 
@@ -107,11 +107,11 @@
   const refs = new Map();
   let nextRef = 1;
   const refOf = (el) => {
-    if (!el.__bluprintRef) {
-      el.__bluprintRef = `ref_${nextRef++}`;
-      refs.set(el.__bluprintRef, new WeakRef(el));
+    if (!el.__blueprintRef) {
+      el.__blueprintRef = `ref_${nextRef++}`;
+      refs.set(el.__blueprintRef, new WeakRef(el));
     }
-    return el.__bluprintRef;
+    return el.__blueprintRef;
   };
   const byRef = (ref) => {
     const el = refs.get(ref)?.deref();
@@ -293,7 +293,7 @@
     '<svg width="22" height="24" viewBox="0 0 22 24"><path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" fill="#d97757" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   const draw = () => {
     if (pointer?.host.isConnected) return pointer;
-    const host = document.createElement("bluprint-pointer");
+    const host = document.createElement("blueprint-pointer");
     host.setAttribute("popover", "manual");
     host.style.cssText =
       "all:initial;position:fixed;inset:0;width:100vw;height:100vh;margin:0;padding:0;border:0;background:transparent;overflow:visible;pointer-events:none;z-index:2147483647";
@@ -522,18 +522,18 @@
   // their menu is open (components/preview/preview.tsx). A page from the web has no
   // menu over it: there a pick is taken at once, and its outline only flashes.
   const place = (b) => {
-    const r = b.__bluprintFor.getBoundingClientRect();
-    b.style.cssText = `all:initial;position:fixed;box-sizing:border-box;left:${r.x - 2}px;top:${r.y - 2}px;width:${r.width + 4}px;height:${r.height + 4}px;margin:0;padding:0;overflow:visible;border:2px ${b.__bluprintDashed ? "dashed" : "solid"} #d97757;border-radius:3px;background:rgba(217,119,87,${b.__bluprintDashed ? ".12" : ".08"});pointer-events:none;z-index:2147483647`;
+    const r = b.__blueprintFor.getBoundingClientRect();
+    b.style.cssText = `all:initial;position:fixed;box-sizing:border-box;left:${r.x - 2}px;top:${r.y - 2}px;width:${r.width + 4}px;height:${r.height + 4}px;margin:0;padding:0;overflow:visible;border:2px ${b.__blueprintDashed ? "dashed" : "solid"} #d97757;border-radius:3px;background:rgba(217,119,87,${b.__blueprintDashed ? ".12" : ".08"});pointer-events:none;z-index:2147483647`;
     // The label above the box, or inside it where the page's top leaves no room.
     b.firstChild.style.cssText = `all:initial;position:absolute;left:-2px;${r.y < 22 ? "top:0" : "bottom:100%"};margin:2px 0;padding:1px 6px;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:#d97757;color:#fff;font:500 11px/16px ui-sans-serif,system-ui,sans-serif;pointer-events:none`;
   };
   const box = (el, label, dashed) => {
-    const b = document.createElement("bluprint-mark");
+    const b = document.createElement("blueprint-mark");
     b.setAttribute("popover", "manual");
     b.append(document.createElement("span"));
     b.firstChild.textContent = label;
-    b.__bluprintFor = el;
-    b.__bluprintDashed = dashed;
+    b.__blueprintFor = el;
+    b.__blueprintDashed = dashed;
     place(b);
     (document.body || document.documentElement).appendChild(b);
     try {
@@ -564,9 +564,9 @@
     unmark();
     post({ type: "unpick" });
   };
-  const relabel = () => chosen.forEach((b, i) => (b.firstChild.textContent = chosen.length > 1 ? String(i + 1) : describe(b.__bluprintFor)));
+  const relabel = () => chosen.forEach((b, i) => (b.firstChild.textContent = chosen.length > 1 ? String(i + 1) : describe(b.__blueprintFor)));
   const toggle = (el) => {
-    const at = chosen.findIndex((b) => b.__bluprintFor === el);
+    const at = chosen.findIndex((b) => b.__blueprintFor === el);
     if (at >= 0) chosen.splice(at, 1)[0].remove();
     else chosen.push(box(el, "", false));
     relabel();
@@ -596,11 +596,11 @@
   // the set and this one are offered to Claude together.
   const take = (el, x, y, more) => {
     if (more) return toggle(el);
-    if (!chosen.some((b) => b.__bluprintFor === el)) toggle(el);
+    if (!chosen.some((b) => b.__blueprintFor === el)) toggle(el);
     removeEventListener("pointerdown", dismiss, true);
     if (native) setTimeout(unmark, 1200);
     else addEventListener("pointerdown", dismiss, true);
-    post({ type: "pick", x, y, targets: chosen.map((b) => targetOf(b.__bluprintFor)) });
+    post({ type: "pick", x, y, targets: chosen.map((b) => targetOf(b.__blueprintFor)) });
   };
 
   // Selecting (the preview's toolbar): the element under the pointer is
@@ -622,11 +622,11 @@
     }
     post({ type: "selecting", on });
   };
-  const own = (e) => e.isTrusted && e.target instanceof Element && e.target.localName !== "bluprint-mark";
+  const own = (e) => e.isTrusted && e.target instanceof Element && e.target.localName !== "blueprint-mark";
   addEventListener(
     "pointermove",
     (e) => {
-      if (!selecting || !own(e) || hovered?.__bluprintFor === e.target) return;
+      if (!selecting || !own(e) || hovered?.__blueprintFor === e.target) return;
       hovered?.remove();
       hovered = box(e.target, `${describe(e.target)} · click to add · ⇧ click for several · esc to stop`, true);
     },
@@ -657,7 +657,7 @@
     true,
   );
 
-  // A person's right-click offers the thing under it to Claude, as the bluprint's
+  // A person's right-click offers the thing under it to Claude, as the blueprint's
   // does: a control, or the nearest one it is inside, else what was hit;
   // while selecting, exactly what is outlined. A page with a menu of its own
   // keeps it, unless ⌥ is held. Claude's own right-click was kept closed
@@ -987,7 +987,7 @@
 
   if (native) {
     // Fixed in place before the page's own scripts run, so a page cannot answer for it.
-    Object.defineProperty(window, "__bluprint", {
+    Object.defineProperty(window, "__blueprint", {
       value: Object.freeze({
         run: (id, name, args) => void answer(id, name, args),
         drain: () => {
@@ -1001,7 +1001,7 @@
   }
 
   addEventListener("message", (e) => {
-    if (e.source !== window.parent || !e.data || !e.data.__bluprintCmd) return;
+    if (e.source !== window.parent || !e.data || !e.data.__blueprintCmd) return;
     void answer(e.data.id, e.data.name, e.data.args);
   });
 

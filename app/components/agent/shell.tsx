@@ -7,10 +7,10 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { showCopied } from "@/components/chrome/copied";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { onFocusClaude, unmention } from "@/lib/agent/context";
 import { screens } from "@/lib/agent/dictate";
-import { outline } from "@/lib/bluprint/build";
+import { outline } from "@/lib/blueprint/build";
 import { readSettings } from "@/lib/client/settings";
 import { themeOf, type Theme } from "@/lib/client/theme";
 import { cn } from "@/lib/client/utils";
@@ -20,7 +20,7 @@ import { creditRelay } from "@/lib/client/credit";
 
 /**
  * One tab's program: the user's shell, or their Claude Code, on a real pty in
- * the open bluprint's checkout (src-tauri/src/pty.rs), drawn by xterm. The
+ * the open blueprint's checkout (src-tauri/src/pty.rs), drawn by xterm. The
  * workspace window (components/agent/workspace.tsx) holds a row of these. A Shell
  * lives as long as its tab: hiding the window or switching tabs only takes it
  * out of sight, so scrollback and a running process survive.
@@ -187,9 +187,9 @@ const quote = (path: string) =>
     : path.replace(/[^\w\-.,/:@+%=\u0080-\uffff]/g, "\\$&");
 
 /** One font size for every tab, kept per machine like the window's width. */
-const FONT_KEY = "bluprint.terminal.fontSize";
+const FONT_KEY = "blueprint.terminal.fontSize";
 const FONT = { min: 9, base: 13, max: 24 };
-const ZOOMED = "bluprint:terminal-zoom";
+const ZOOMED = "blueprint:terminal-zoom";
 
 function storedFont() {
   try {
@@ -282,12 +282,12 @@ export function Shell({
   useEffect(() => {
     handlers.current = { claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
   });
-  // The bluprint's sections, for `bluprint-list`. Through a ref for the same
-  // reason: a bluprint that updates must not restart the shell.
-  const bluprint = useBluprint();
-  const sections = useRef(bluprint);
+  // The blueprint's sections, for `blueprint-list`. Through a ref for the same
+  // reason: a blueprint that updates must not restart the shell.
+  const blueprint = useBlueprint();
+  const sections = useRef(blueprint);
   useEffect(() => {
-    sections.current = bluprint;
+    sections.current = blueprint;
   });
 
   useEffect(() => {

@@ -31,7 +31,7 @@ fn up() -> bool {
 }
 
 /// Returns once the server answers. A server already answering is one a crashed
-/// Bluprint left behind, and is used as it is.
+/// Blueprint left behind, and is used as it is.
 pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     if up() {
         return Ok(());

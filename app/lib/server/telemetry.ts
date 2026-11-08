@@ -5,7 +5,7 @@ import { API_URL } from "@/lib/server/api";
 
 /**
  * Run reports for the admin dashboard (blpr.dev/admin, scripts/api/admin.mjs).
- * Each finished bluprint run sends what its report says, the end of its log and the
+ * Each finished blueprint run sends what its report says, the end of its log and the
  * generator version, under an id that names this install and nothing else. On
  * unless turned off in Settings; the choice lives beside the vault so the
  * server, which sends them, can read it.
@@ -62,22 +62,22 @@ export async function sendRun(dir: string, kind: "generate" | "update", status: 
     const t = await readTelemetry();
     if (t.off) return;
     const report = json(join(dir, "report.json"));
-    const bluprint = json(join(dir, "bluprint.json"));
+    const blueprint = json(join(dir, "blueprint.json"));
     const last = kind === "update" ? report?.updates?.at(-1) : null;
     const r = {
       install_id: t.installId,
-      mapper_version: (last ?? report)?.mapperVersion ?? bluprint?.RUN?.mapperVersion,
+      mapper_version: (last ?? report)?.mapperVersion ?? blueprint?.RUN?.mapperVersion,
       kind,
       status,
-      repo: report?.repo ?? bluprint?.RUN?.repo,
-      repo_commit: report?.commit ?? bluprint?.RUN?.commit,
+      repo: report?.repo ?? blueprint?.RUN?.repo,
+      repo_commit: report?.commit ?? blueprint?.RUN?.commit,
       backend: report?.backend,
       mode: kind === "update" ? "update" : report?.mode,
-      files: bluprint?.RUN?.files,
+      files: blueprint?.RUN?.files,
       quick_s: kind === "update" ? undefined : report?.elapsed?.quick,
       total_s: kind === "update" ? last?.seconds : report?.elapsed?.total,
       usd: kind === "update" ? last?.usd : report?.usd,
-      models: report?.models ?? bluprint?.RUN?.models,
+      models: report?.models ?? blueprint?.RUN?.models,
       report: kind === "update" ? last : report,
       log_tail: tail(join(dir, kind === "update" ? "update.log" : "generate.log")),
     };

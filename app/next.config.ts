@@ -1,13 +1,13 @@
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import type { NextConfig } from "next";
 
-// scripts/export-static.mts builds one bluprint as a static site; otherwise this is the dev app.
-const exporting = !!process.env.NEXT_PUBLIC_STATIC_BLUPRINT;
+// scripts/export-static.mts builds one blueprint as a static site; otherwise this is the dev app.
+const exporting = !!process.env.NEXT_PUBLIC_STATIC_BLUEPRINT;
 
 export default function config(phase: string): NextConfig {
-  if (exporting) return { output: "export", basePath: process.env.NEXT_PUBLIC_BASE_PATH, distDir: process.env.BLUPRINT_EXPORT_DIR };
+  if (exporting) return { output: "export", basePath: process.env.NEXT_PUBLIC_BASE_PATH, distDir: process.env.BLUEPRINT_EXPORT_DIR };
   // In dev the landing page (../landing) frames this app through its own
   // origin, and both are Next apps with chunks of the same names under
   // /_next. Its own prefix lets the landing's proxy tell this app's apart.
-  return phase === PHASE_DEVELOPMENT_SERVER ? { assetPrefix: "/bluprint-app" } : {};
+  return phase === PHASE_DEVELOPMENT_SERVER ? { assetPrefix: "/blueprint-app" } : {};
 }

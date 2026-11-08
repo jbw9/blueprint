@@ -16,7 +16,7 @@ export interface Settings {
   theme: Theme;
   /** The agent a tab opens into when the app opens one for you (components/agent/agents.tsx). */
   agent: string;
-  /** What the bluprint is drawn on. */
+  /** What the blueprint is drawn on. */
   ground: Ground;
   /** Start a project's dev server when it opens, and show it in a Preview tab. */
   devServer: boolean;
@@ -31,8 +31,8 @@ export interface Settings {
 }
 
 const KEY = SETTINGS_KEY;
-const CHANGED = "bluprint:settings-changed";
-const OPEN = "bluprint:settings";
+const CHANGED = "blueprint:settings-changed";
+const OPEN = "blueprint:settings";
 const DEFAULTS: Settings = { claudePath: "", model: "", theme: "classic", agent: "claude", ground: "plain", devServer: true, voice: true, research: true, quietMedia: null, onboarded: false };
 
 /** Anything can ask for the settings dialog: the chrome's gear dispatches this. */

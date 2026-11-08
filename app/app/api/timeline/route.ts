@@ -1,22 +1,22 @@
 import { cachedTimeline, storyOf } from "@/lib/server/history";
-import { loadBluprint, rootOf } from "@/lib/server/bluprints";
+import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
 import { projectDir, tellStory, telling } from "@/lib/server/vault";
 import { notJson } from "@/lib/server/route";
 
 /**
- * The history of the bluprint the reader has open (lib/server/history.ts).
+ * The history of the blueprint the reader has open (lib/server/history.ts).
  *
- * `GET ?bluprint=` — the timeline, the chapters a story run wrote (if any), and
- * whether one is running. `POST ?bluprint=` with `{claude}` — start telling the
+ * `GET ?blueprint=` — the timeline, the chapters a story run wrote (if any), and
+ * whether one is running. `POST ?blueprint=` with `{claude}` — start telling the
  * story; it costs a model run, so only ever on the reader's click.
  *
- * As app/api/diff/route.ts: a caller names a bluprint, never a path, and the
+ * As app/api/diff/route.ts: a caller names a blueprint, never a path, and the
  * checkout is the project's own.
  */
 
 function opened(request: Request) {
   try {
-    return loadBluprint(new URL(request.url).searchParams.get("bluprint") ?? undefined);
+    return loadBlueprint(new URL(request.url).searchParams.get("blueprint") ?? undefined);
   } catch {
     return null;
   }

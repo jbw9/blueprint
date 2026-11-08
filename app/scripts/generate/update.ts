@@ -1,14 +1,14 @@
 /**
- * Keeping a bluprint up with its code, a few sections at a time.
+ * Keeping a blueprint up with its code, a few sections at a time.
  *
- * A full run bluprints a checkout once. After that, code moves: an agent edits a
- * file, a user saves one. An update finds what changed since the bluprint last
+ * A full run blueprints a checkout once. After that, code moves: an agent edits a
+ * file, a user saves one. An update finds what changed since the blueprint last
  * looked, and redoes only the sections it touches:
  *
- *   1. What changed: every file whose text differs from what the bluprint was made
- *      from — the bluprint's commit, or the copy this kept at the last update
+ *   1. What changed: every file whose text differs from what the blueprint was made
+ *      from — the blueprint's commit, or the copy this kept at the last update
  *      (<out>/base.json), new and deleted files included.
- *   2. Every line reference in the bluprint moves with the code (a ref below an
+ *   2. Every line reference in the blueprint moves with the code (a ref below an
  *      inserted line shifts down), so the sections left alone stay true.
  *   3. The sections touched: the deepest ones whose own references overlap a
  *      changed line. A change no reference covers goes to the section nearest
@@ -27,18 +27,18 @@
  * The coding agent's turns that asked for the update wait in
  * <out>/turns.json (lib/vault.ts). Each brings its transcript — what the
  * agent did and why, so a fix or a deletion is redone knowing it was one —
- * and the sections it reported wrong with slop-bluprint-fix, which are redone
+ * and the sections it reported wrong with slop-blueprint-fix, which are redone
  * with its notes even where no code changed.
  *
- * Writes <out>/bluprint.json, <out>/bluprint.base.json (once, before the first update), <out>/base.json, <out>/update.json (what this run
+ * Writes <out>/blueprint.json, <out>/blueprint.base.json (once, before the first update), <out>/base.json, <out>/update.json (what this run
  * did, read by the app) and adds the run to <out>/report.json's `updates`.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import type { Node } from "@/lib/bluprint/schema";
+import type { Node } from "@/lib/blueprint/schema";
 import { lastExchange } from "@/lib/agent/keep";
-import type { BluprintFile } from "@/lib/bluprint/build";
+import type { BlueprintFile } from "@/lib/blueprint/build";
 import { parseArgs } from "./args";
 import { authorRoot, authorTool, converse, submitLine } from "./author";
 import { catalogOf } from "./catalog";
@@ -54,7 +54,7 @@ import { full, oneLine, summarize, type FileSummary } from "./summarize";
 import { activeGraph, buildGraph, setGraph, withSummaries } from "./graph";
 import { MAPPER_VERSION } from "./version";
 
-/** Written whole and renamed into place, so the open bluprint never reads half a file. */
+/** Written whole and renamed into place, so the open blueprint never reads half a file. */
 function atomic(path: string, body: string) {
   const tmp = `${path}.${process.pid}.tmp`;
   writeFileSync(tmp, body);
@@ -88,8 +88,8 @@ const shared = (a: string, b: string) => {
 };
 
 /** The sections to redo — the ones the code changes touch, and `also` — and the changed files no section could take. */
-function targets(bluprint: BluprintFile, cut: Cut, byPath: Map<string, Change>, also: Placed[], isCode: (path: string) => boolean): { picked: Placed[]; homeless: string[] } {
-  const all = walk(bluprint.AUTHORED);
+function targets(blueprint: BlueprintFile, cut: Cut, byPath: Map<string, Change>, also: Placed[], isCode: (path: string) => boolean): { picked: Placed[]; homeless: string[] } {
+  const all = walk(blueprint.AUTHORED);
   const picked = new Set<Placed>(also.map((a) => all.find((p) => p.node === a.node)!).filter(Boolean));
   const covered = new Set<string>();
   for (const p of all)
@@ -190,8 +190,8 @@ function account(transcript: string, n: number): string {
 }
 
 /** The section a correction names: by id, by title, or by the end of a "A › B" trail. */
-function named(bluprint: BluprintFile, name: string): Placed | null {
-  const all = walk(bluprint.AUTHORED);
+function named(blueprint: BlueprintFile, name: string): Placed | null {
+  const all = walk(blueprint.AUTHORED);
   const want = name.trim().toLowerCase();
   const last = want.split("›").pop()!.trim();
   return (
@@ -232,7 +232,7 @@ The code under this section changed, or the coding agent found the section wrong
 - Keep what is still true as it is: the same id for this section ("${t.node.id}"), the same ids, titles and wording for children that still describe real code. Change what the diff makes wrong, add what it adds, remove what it removes.
 - Problems (\`issues\`, and \`alarm\`/\`unsure\` where they name one) are part of this: look up what each one points at again in the graph. Drop one the change fixed, rewrite one it changed, add one it introduced. Keep only what the code still does wrong.
 - Every line reference must point at the code as it is now: cite the line ranges and call lines the graph gives.
-- New ids start with "${root.prefix}-" and must not reuse an id from elsewhere in the bluprint.
+- New ids start with "${root.prefix}-" and must not reuse an id from elsewhere in the blueprint.
 - You cannot open files: the graph tools are how you see the code. An arrow the graph cannot follow (an event, a decorator, a queue) is drawn \`inferred: true\`.
 - If the code this section describes is gone altogether, submit \`{ "id": "${t.node.id}", "removed": true }\` instead, and the section is taken out.
 Budget: about 15 tool calls before you submit.`,
@@ -241,7 +241,7 @@ Budget: about 15 tool calls before you submit.`,
 
 async function redo(
   t: Placed,
-  bluprint: BluprintFile,
+  blueprint: BlueprintFile,
   cut: Cut,
   inv: Inventory,
   sums: Record<string, FileSummary>,
@@ -265,7 +265,7 @@ async function redo(
   const list = inv.files.map((f) => f.path).filter((p) => reach.has(p)).sort();
   // Ids taken outside this section, which a new one may not reuse.
   const mineIds = idsOf(t.node);
-  const elsewhere = new Set([...bluprint.AUTHORED.flatMap((r) => [...idsOf(r)])].filter((id) => !mineIds.has(id)));
+  const elsewhere = new Set([...blueprint.AUTHORED.flatMap((r) => [...idsOf(r)])].filter((id) => !mineIds.has(id)));
   let submits = 0;
   const handle = (name: string, input: any): Handled => {
     if (name !== "submit") return { content: authorTool({ name, input }) };
@@ -312,26 +312,26 @@ function spliced(root: Node, t: Placed, node: Node): Node {
 
 /* ── the run ─────────────────────────────────────────────────── */
 
-/** How many turns keep their before-and-after: each snapshot is the whole bluprint. */
+/** How many turns keep their before-and-after: each snapshot is the whole blueprint. */
 const SNAPSHOTS = 30;
 
 export async function update(args: string[]) {
   const { opt, has, repo: dir } = parseArgs(args);
   const repo = resolve(dir!);
-  const out = opt("--out") ?? `bluprints/${opt("--name") ?? basename(repo).toLowerCase()}`;
+  const out = opt("--out") ?? `blueprints/${opt("--name") ?? basename(repo).toLowerCase()}`;
   const t0 = Date.now();
   const result = (r: Record<string, unknown>) =>
     writeFileSync(`${out}/update.json`, JSON.stringify({ finishedAt: new Date().toISOString(), seconds: Math.round((Date.now() - t0) / 1000), ...r }, null, 1) + "\n");
 
-  if (!existsSync(`${out}/bluprint.json`) || !existsSync(`${out}/.cache/cut.json`)) {
+  if (!existsSync(`${out}/blueprint.json`) || !existsSync(`${out}/.cache/cut.json`)) {
     result({ ok: false, error: "This blueprint has no cut to update from; regenerate it." });
     process.exitCode = 1;
     return;
   }
-  const bluprint: BluprintFile = JSON.parse(readFileSync(`${out}/bluprint.json`, "utf8"));
-  // The bluprint as it was at its commit, kept once before the first update
+  const blueprint: BlueprintFile = JSON.parse(readFileSync(`${out}/blueprint.json`, "utf8"));
+  // The blueprint as it was at its commit, kept once before the first update
   // changes it: the other side the diff draws the pictures against (D74).
-  if (!existsSync(`${out}/bluprint.base.json`)) writeFileSync(`${out}/bluprint.base.json`, readFileSync(`${out}/bluprint.json`));
+  if (!existsSync(`${out}/blueprint.base.json`)) writeFileSync(`${out}/blueprint.base.json`, readFileSync(`${out}/blueprint.json`));
   let cut: Cut = JSON.parse(readFileSync(`${out}/.cache/cut.json`, "utf8"));
   const base: Base = existsSync(`${out}/base.json`) ? JSON.parse(readFileSync(`${out}/base.json`, "utf8")) : {};
   cacheIn(`${out}/.cache`);
@@ -363,7 +363,7 @@ export async function update(args: string[]) {
   const wrong = new Map<Placed, string[]>();
   const unmatched: string[] = [];
   for (const c of corrections) {
-    const p = named(bluprint, c.section);
+    const p = named(blueprint, c.section);
     if (!p) unmatched.push(c.section);
     else wrong.set(p, [...(wrong.get(p) ?? []), c.note]);
   }
@@ -371,20 +371,20 @@ export async function update(args: string[]) {
 
   const inv = inventory(repo);
   setGraph(await buildGraph(inv));
-  // A scoped bluprint keeps to its part. One made before the scope was saved covers
+  // A scoped blueprint keeps to its part. One made before the scope was saved covers
   // far fewer files than the checkout holds; what its cut claims is its part.
-  // Without this, an update of a bluprint of Kafka's controller tried to place the
+  // Without this, an update of a blueprint of Kafka's controller tried to place the
   // other 3,490 files of Kafka, and failed on the prompt's length. Counted in
-  // code files, as a quick bluprint counts its own: against every file, a whole
+  // code files, as a quick blueprint counts its own: against every file, a whole
   // repo with many docs and assets read as a part, and never took a new file in.
-  const legacy = !bluprint.RUN.scope && bluprint.RUN.files < inv.files.filter(isSource).length / 2;
-  const scope = bluprint.RUN.scope ?? (legacy ? { paths: [...new Set(cut.roots.flatMap((r) => r.files))], focus: "" } : undefined);
+  const legacy = !blueprint.RUN.scope && blueprint.RUN.files < inv.files.filter(isSource).length / 2;
+  const scope = blueprint.RUN.scope ?? (legacy ? { paths: [...new Set(cut.roots.flatMap((r) => r.files))], focus: "" } : undefined);
   if (scope) scopeTo(inv, scope);
-  if (legacy) console.log(`a scoped bluprint from before scopes were saved: keeping to the ${scope!.paths.length} paths its roots claim`);
+  if (legacy) console.log(`a scoped blueprint from before scopes were saved: keeping to the ${scope!.paths.length} paths its roots claim`);
   const isCode = new Map(inv.files.map((f) => [f.path, isSource(f)]));
-  const citedAnywhere = new Set(walk(bluprint.AUTHORED).flatMap((p) => refs(p.node).map((r) => r.file)));
-  // Only code the bluprint covers or could, and docs it cites: a lockfile or a test changing moves nothing.
-  const found = changes(repo, bluprint.RUN.commit, base).filter((c) => (c.after === null ? citedAnywhere.has(c.path) : isCode.get(c.path) || citedAnywhere.has(c.path)));
+  const citedAnywhere = new Set(walk(blueprint.AUTHORED).flatMap((p) => refs(p.node).map((r) => r.file)));
+  // Only code the blueprint covers or could, and docs it cites: a lockfile or a test changing moves nothing.
+  const found = changes(repo, blueprint.RUN.commit, base).filter((c) => (c.after === null ? citedAnywhere.has(c.path) : isCode.get(c.path) || citedAnywhere.has(c.path)));
   console.log(`${found.length} changed code files${found.length ? `: ${found.map((c) => c.path).join(", ")}` : ""}`);
   // Code no root claims — added since the cut, or left out by an earlier
   // update — is placed in the cut as a full remake places it (cut.ts, place).
@@ -394,16 +394,16 @@ export async function update(args: string[]) {
     result({ ok: true, changed: [], sections: [], unmatched });
     return;
   }
-  // Opening a bluprint asks for this without anyone choosing it. One far behind
+  // Opening a blueprint asks for this without anyone choosing it. One far behind
   // its code would be most of it redone in the background, eight Claudes at a
   // time, on every open until a run got through: it waits to be asked for.
-  if (has("--opened") && !turns.length && (found.length > bluprint.RUN.files / 2 || unplaced.length > 100)) {
+  if (has("--opened") && !turns.length && (found.length > blueprint.RUN.files / 2 || unplaced.length > 100)) {
     result({
       ok: false,
       changed: [],
       sections: [],
       unmatched,
-      error: `This bluprint is far behind its code (${found.length} files changed${unplaced.length ? `, ${unplaced.length} not in it` : ""}), too much to redo in the background. Update it to the code from Projects, or remake it.`,
+      error: `This blueprint is far behind its code (${found.length} files changed${unplaced.length ? `, ${unplaced.length} not in it` : ""}), too much to redo in the background. Update it to the code from Projects, or remake it.`,
     });
     return;
   }
@@ -419,7 +419,7 @@ export async function update(args: string[]) {
     for (const [id, files] of placed.gained) console.log(`  ${id} takes ${files.join(", ")}`);
     for (const r of added) console.log(`  new root ${r.id}: ${r.files.join(", ")}`);
     // A file an earlier update saw but could not place is in base already, so
-    // it reads as unchanged: it is new to the bluprint, so it comes in as new.
+    // it reads as unchanged: it is new to the blueprint, so it comes in as new.
     for (const files of placed.gained.values())
       for (const path of files) {
         const after = byPath.has(path) ? null : readText(join(repo, path));
@@ -432,20 +432,20 @@ export async function update(args: string[]) {
   // A new root's files are written from scratch with it, not into a section.
   const isNew = (path: string) => added.some((r) => owners(cut, path).includes(r.id));
 
-  // The bluprint and the code as they stand before this update, so what one turn
+  // The blueprint and the code as they stand before this update, so what one turn
   // changed can be shown afterwards as a before and after (changes.json).
   const turnId = new Date().toISOString().replace(/[:.]/g, "-");
   if (!has("--dry-run")) {
     mkdirSync(`${out}/snapshots`, { recursive: true });
-    writeFileSync(`${out}/snapshots/${turnId}.json`, JSON.stringify({ bluprint: JSON.parse(readFileSync(`${out}/bluprint.json`, "utf8")), files: found.map(({ path, before, after }) => ({ path, before, after })) }));
+    writeFileSync(`${out}/snapshots/${turnId}.json`, JSON.stringify({ blueprint: JSON.parse(readFileSync(`${out}/blueprint.json`, "utf8")), files: found.map(({ path, before, after }) => ({ path, before, after })) }));
   }
 
   // Which sections, read off the references as they were; then every
   // reference moves to where its code is now.
-  const { picked, homeless } = targets(bluprint, cut, new Map([...byPath].filter(([p]) => !isNew(p))), [...wrong.keys()], (p) => Boolean(isCode.get(p)));
-  for (const p of walk(bluprint.AUTHORED)) refs(p.node, (f, line) => (byPath.has(f) ? moved(byPath.get(f)!, line) : line));
-  // The code as this update found it: once the bluprint is next written it cites
-  // that, so the open page shifts the bluprint's lines from it (lib/live.ts).
+  const { picked, homeless } = targets(blueprint, cut, new Map([...byPath].filter(([p]) => !isNew(p))), [...wrong.keys()], (p) => Boolean(isCode.get(p)));
+  for (const p of walk(blueprint.AUTHORED)) refs(p.node, (f, line) => (byPath.has(f) ? moved(byPath.get(f)!, line) : line));
+  // The code as this update found it: once the blueprint is next written it cites
+  // that, so the open page shifts the blueprint's lines from it (lib/live.ts).
   if (!has("--dry-run")) writeFileSync(`${out}/moved.json`, JSON.stringify(Object.fromEntries(found.map((c) => [c.path, c.after]))) + "\n");
   console.log(`${picked.length} sections to redo: ${picked.map((p) => p.node.id).join(", ")}`);
   // A section redone takes the notes on it and on anything inside it.
@@ -455,7 +455,7 @@ export async function update(args: string[]) {
     if (said) console.log(`the agent's account:\n${said}`);
     if (homeless.length) console.log(`  no section can take: ${homeless.join(", ")}`);
     if (unplaced.length) console.log(`  to place in the cut first: ${unplaced.join(", ")}`);
-    const after = check(bluprint, repo, { generated: true }).problems;
+    const after = check(blueprint, repo, { generated: true }).problems;
     console.log(`references moved: ${after.length} check problems`);
     after.slice(0, 10).forEach((p) => console.log(`  ${p}`));
     return;
@@ -464,7 +464,7 @@ export async function update(args: string[]) {
   const say = (s: string) => console.log(`  ${s}`);
   const failed: string[] = [];
   const removed: string[] = [];
-  // Each changed file's sections still to land. Once they all have, the bluprint
+  // Each changed file's sections still to land. Once they all have, the blueprint
   // describes the file as it is and base.json says so then, not only when the
   // whole run ends: a run that dies keeps what it finished, and the next starts there.
   const waiting = new Map<string, Set<Placed>>();
@@ -485,23 +485,23 @@ export async function update(args: string[]) {
     }
     if (any) atomic(`${out}/base.json`, JSON.stringify(base) + "\n");
   };
-  // Each section goes into the bluprint the moment it is redone, and the bluprint is
+  // Each section goes into the blueprint the moment it is redone, and the blueprint is
   // written then, so the open page shows it while the others are still being
-  // worked on (components/bluprint-context.tsx). The sections are redone
+  // worked on (components/blueprint-context.tsx). The sections are redone
   // concurrently, but each one is spliced in without an await in between, so
   // no write ever sees half of one.
   const done: { t: Placed; node: Awaited<ReturnType<typeof redo>> }[] = new Array(picked.length);
   const land = (t: Placed, node: Awaited<ReturnType<typeof redo>>) => {
     done[picked.indexOf(t)] = { t, node };
     const at = t.path.length === 1 ? null : t.path[t.path.length - 2];
-    const siblings = at ? at.children! : bluprint.AUTHORED;
+    const siblings = at ? at.children! : blueprint.AUTHORED;
     const i = siblings.findIndex((c) => c.id === t.node.id);
     if (node && isRemoved(node)) {
       siblings.splice(i, 1);
       removed.push(t.node.id);
       // A root goes with the lines drawn to it.
       if (!at) {
-        const pic = bluprint.OVERVIEW?.anatomy?.find((b) => b.kind === "diagram");
+        const pic = blueprint.OVERVIEW?.anatomy?.find((b) => b.kind === "diagram");
         if (pic?.kind === "diagram") {
           const gone = new Set(pic.boxes.filter((x) => x.opens === t.node.id).map((x) => x.id));
           pic.boxes = pic.boxes.filter((x) => !gone.has(x.id));
@@ -517,13 +517,13 @@ export async function update(args: string[]) {
       siblings[i] = { ...t.node, state: "partial", unsure: "This section was due an update — its code changed, or it was found wrong — and the update failed; parts of it may be out of date." };
       say(`${t.node.id}: FAILED, kept as it was`);
     }
-    atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
+    atomic(`${out}/blueprint.json`, JSON.stringify(blueprint, null, 1) + "\n");
     caughtUp(t, Boolean(node));
   };
   const fresh: { id: string; title: string; ok: boolean }[] = [];
   await Promise.all([
     ...picked.map(async (t) => {
-      const node = await redo(t, bluprint, cut, inv, sums, byPath, { account: said, notes: notesFor(t) }, model, say);
+      const node = await redo(t, blueprint, cut, inv, sums, byPath, { account: said, notes: notesFor(t) }, model, say);
       land(t, node);
     }),
     // A root the placing added is written whole, as a full run writes one.
@@ -537,24 +537,24 @@ export async function update(args: string[]) {
       }
       const node = plain(a.root);
       // Below the last root: rows can have gaps where a root was taken out.
-      bluprint.AUTHORED.push({ ...node, col: 0, row: Math.max(-1, ...bluprint.AUTHORED.map((n) => n.row ?? 0)) + 1 });
+      blueprint.AUTHORED.push({ ...node, col: 0, row: Math.max(-1, ...blueprint.AUTHORED.map((n) => n.row ?? 0)) + 1 });
       fresh.push({ id: r.id, title: node.title, ok: true });
-      atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
+      atomic(`${out}/blueprint.json`, JSON.stringify(blueprint, null, 1) + "\n");
       say(`${r.id}: added`);
     }),
   ]);
   // The top level draws how the roots connect, so a new one needs it drawn again.
   if (fresh.some((f) => f.ok)) {
-    const problems = await redrawOverview(bluprint, cut, inv, model, sums);
+    const problems = await redrawOverview(blueprint, cut, inv, model, sums);
     say(problems ? `overview: kept as it was — ${problems.slice(0, 3).join("; ")}` : "overview: redrawn");
   }
 
-  const final = check(bluprint, repo, { generated: true });
-  atomic(`${out}/bluprint.json`, JSON.stringify(bluprint, null, 1) + "\n");
+  const final = check(blueprint, repo, { generated: true });
+  atomic(`${out}/blueprint.json`, JSON.stringify(blueprint, null, 1) + "\n");
   // Summaries of the changed files are fresh now, so the index (and every
   // file added since the cut) follows the code too.
   atomic(`${out}/index.json`, JSON.stringify(catalogOf(inv, sums, cut)) + "\n");
-  // The bluprint now describes these files as they are: the next update starts here.
+  // The blueprint now describes these files as they are: the next update starts here.
   for (const c of found) base[c.path] = c.after;
   writeFileSync(`${out}/base.json`, JSON.stringify(base) + "\n");
   rmSync(`${out}/moved.json`, { force: true });
@@ -581,6 +581,6 @@ export async function update(args: string[]) {
   // By the log, not by count: a run that died after its snapshot leaves one no turn names.
   const listed = new Set(kept.map((c: { id: string }) => `${c.id}.json`));
   for (const f of readdirSync(`${out}/snapshots`)) if (!listed.has(f)) rmSync(`${out}/snapshots/${f}`);
-  console.log(`\n${out}/bluprint.json — ${sections.length - failed.length}/${sections.length} sections updated, ${final.problems.length} check problems, $${usd}`);
+  console.log(`\n${out}/blueprint.json — ${sections.length - failed.length}/${sections.length} sections updated, ${final.problems.length} check problems, $${usd}`);
   await ccClose();
 }

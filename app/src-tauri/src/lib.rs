@@ -8,6 +8,7 @@ mod popup;
 mod preview;
 mod proc;
 mod pty;
+mod rename;
 mod server;
 mod signins;
 
@@ -40,9 +41,11 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // What the app kept under its old name moves over before anything reads it.
+            rename::migrate(app.handle());
             // Claude's way into the preview, for every Claude tab (mcp.rs).
             mcp::start(app.handle().clone());
-            // Tab files a crashed or killed Bluprint left in the temp folder.
+            // Tab files a crashed or killed Blueprint left in the temp folder.
             std::thread::spawn(claude::sweep_stale);
             // Plans Claude Code wrote and nothing has touched in a month.
             std::thread::spawn(claude::prune_plans);
@@ -158,7 +161,7 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::Emitter;
     let menu = Menu::default(app.handle())?;
-    // Items that open something in the page (components/chrome/menubar.tsx), each sent as `bluprint:menu`.
+    // Items that open something in the page (components/chrome/menubar.tsx), each sent as `blueprint:menu`.
     let open = |id: &str, text: &str, key: Option<&str>| MenuItem::with_id(app, format!("open-{id}"), text, true, key);
     let named = |name: &str| -> tauri::Result<Option<Submenu<tauri::Wry>>> {
         Ok(menu.items()?.into_iter().filter_map(|i| i.as_submenu().cloned()).find(|s| s.text().is_ok_and(|t| t == name)))
@@ -178,7 +181,7 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
             &open("palette-code", "Find File or Symbol", Some("Cmd+K"))?,
             &open("palette-actions", "Actions", Some("Cmd+Shift+P"))?,
             &PredefinedMenuItem::separator(app)?,
-            &open("bluprint", "Show Blueprint", None)?,
+            &open("blueprint", "Show Blueprint", None)?,
             &open("diff", "Changes", Some("Cmd+Shift+D"))?,
             &open("history", "History", None)?,
             &open("files", "Files", None)?,
@@ -220,7 +223,7 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
     let close = MenuItem::with_id(app, "tab-close", "Close Tab", true, Some("Cmd+W"))?;
     menu.append(&Submenu::with_items(app, "Tabs", true, &[&next, &prev, &next_cmd, &prev_cmd, &close])?)?;
     // Cmd+W closes a tab, never the window: the default Close Window took the
-    // key first and, Bluprint being one window, quit the app.
+    // key first and, Blueprint being one window, quit the app.
     for item in menu.items()? {
         if let Some(sub) = item.as_submenu() {
             for inner in sub.items()? {
@@ -234,17 +237,17 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
     app.on_menu_event(|app, e| {
         let id = e.id().as_ref();
         if let Some(what) = id.strip_prefix("open-") {
-            let _ = app.emit_to("main", "bluprint:menu", what.to_string());
+            let _ = app.emit_to("main", "blueprint:menu", what.to_string());
         } else if id == "terminal" || id == "terminal-ctrl" {
-            let _ = app.emit_to("main", "bluprint:toggle-workspace", ());
+            let _ = app.emit_to("main", "blueprint:toggle-workspace", ());
         } else if id == "send-now" {
-            let _ = app.emit_to("main", "bluprint:send-now", ());
+            let _ = app.emit_to("main", "blueprint:send-now", ());
         } else if id == "tab-close" {
-            let _ = app.emit_to("main", "bluprint:tab-close", ());
+            let _ = app.emit_to("main", "blueprint:tab-close", ());
         } else if let Some(dir) = id.strip_prefix("tab-") {
-            let _ = app.emit_to("main", "bluprint:tab-step", if dir.starts_with("next") { 1 } else { -1 });
+            let _ = app.emit_to("main", "blueprint:tab-step", if dir.starts_with("next") { 1 } else { -1 });
         } else if let Some(n) = id.strip_prefix("project-") {
-            let _ = app.emit_to("main", "bluprint:project", n.to_string());
+            let _ = app.emit_to("main", "blueprint:project", n.to_string());
         } else if let Some(key) = id.strip_prefix("preview-") {
             // The address bar is the app's page: the keyboard is taken back from a page's webview.
             if key == "address" {
@@ -252,7 +255,7 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
                     let _ = main.set_focus();
                 }
             }
-            let _ = app.emit_to("main", "bluprint:preview-key", key.to_string());
+            let _ = app.emit_to("main", "blueprint:preview-key", key.to_string());
         }
     });
     Ok(())
@@ -261,8 +264,8 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
 /// WebKitGTK answers a touchpad pinch by magnifying the whole page — the title
 /// bar and status bar with it, out of view — and tells the page nothing. So
 /// the pinch is taken here, before WebKit's own handler runs, and handed to
-/// the level's zoom (components/chrome/zoom.tsx) as a `bluprint:pinch` event: only the
-/// bluprint magnifies, as a pinch does on a Mac. `scale` is relative to the start
+/// the level's zoom (components/chrome/zoom.tsx) as a `blueprint:pinch` event: only the
+/// blueprint magnifies, as a pinch does on a Mac. `scale` is relative to the start
 /// of the pinch, which is exactly 1.
 #[cfg(target_os = "linux")]
 fn pinch_to_page(window: &tauri::WebviewWindow) {
@@ -276,7 +279,7 @@ fn pinch_to_page(window: &tauri::WebviewWindow) {
             };
             let (x, y) = pinch.position();
             let _ = target.eval(format!(
-                "window.dispatchEvent(new CustomEvent('bluprint:pinch',{{detail:{{scale:{},x:{x},y:{y}}}}}))",
+                "window.dispatchEvent(new CustomEvent('blueprint:pinch',{{detail:{{scale:{},x:{x},y:{y}}}}}))",
                 pinch.scale()
             ));
             Propagation::Stop

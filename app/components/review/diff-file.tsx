@@ -36,7 +36,7 @@ export const useDiffFile = () =>
     () => null,
   );
 
-const VIEW_KEY = "bluprint.diff.view";
+const VIEW_KEY = "blueprint.diff.view";
 
 export function DiffTab({ visible, inset }: { visible: boolean; inset?: string }) {
   const d = useDiffFile();

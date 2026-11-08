@@ -99,7 +99,7 @@
   }
 }
 
-/* ── the bluprint's tabs ──────────────────────────────────── */
+/* ── the blueprint's tabs ──────────────────────────────────── */
 .strip {
   display: flex;
   flex-shrink: 0;
@@ -1076,7 +1076,7 @@
   height: 20px;
 }
 
-/* The project's own app: its colours, not the bluprint's. */
+/* The project's own app: its colours, not the blueprint's. */
 .site {
   flex: 1;
   min-height: 0;

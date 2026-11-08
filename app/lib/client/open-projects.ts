@@ -12,7 +12,7 @@ import { signal } from "@/lib/client/signal";
 export type Status = "working" | "waiting" | "done";
 
 interface State {
-  /** Bluprint ids, in tab order. */
+  /** Blueprint ids, in tab order. */
   open: string[];
   /** The project switched away from last, for Ctrl+Tab. */
   last: string | null;
@@ -20,7 +20,7 @@ interface State {
   status: Record<string, Status>;
 }
 
-const KEY = "bluprint.projects.open";
+const KEY = "blueprint.projects.open";
 const read = (): string[] => {
   try {
     const ids = JSON.parse(localStorage.getItem(KEY) ?? "[]");

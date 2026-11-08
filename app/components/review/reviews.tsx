@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { undoTurn } from "@/lib/agent/undo";
 import { cn } from "@/lib/client/utils";
-import type { BluprintDiff } from "@/lib/server/diff";
+import type { BlueprintDiff } from "@/lib/server/diff";
 import type { Branch, Pull, Review } from "@/lib/server/review";
 import { claudePath } from "@/lib/client/claude";
 import { ago } from "@/components/review/ago";
@@ -16,20 +16,20 @@ const SELECT =
 /**
  * Something to review as one change: a pull request or a branch, from where
  * it left its base (lib/server/review.ts), or one turn of the agent in the app, as
- * the bluprint saw it before and after (scripts/generate/update.ts).
+ * the blueprint saw it before and after (scripts/generate/update.ts).
  */
-export function ReviewPicker({ bluprint, value, onPick }: { bluprint: string; value?: string; onPick: (spec?: string) => void }) {
+export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; value?: string; onPick: (spec?: string) => void }) {
   const [got, setGot] = useState<{ branches: Branch[]; base: string; pulls?: Pull[]; why?: string; turns: { id: string; prompt: string; at: string }[] } | null>(null);
   useEffect(() => {
     let live = true;
-    const read = (q: string) => fetch(`/api/diff?bluprint=${encodeURIComponent(bluprint)}&${q}`).then((r) => r.json());
+    const read = (q: string) => fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}&${q}`).then((r) => r.json());
     Promise.all([read("branches=1"), read("turns=1")])
       .then(([b, t]) => live && setGot({ branches: b.branches ?? [], base: b.base ?? "", pulls: b.pulls, why: b.why, turns: t.turns ?? [] }))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [bluprint]);
+  }, [blueprint]);
   return (
     <>
       <select value={value ?? ""} aria-label="Review a pull request, branch or agent turn" onChange={(e) => onPick(e.target.value || undefined)} className={SELECT}>
@@ -70,10 +70,10 @@ export function ReviewPicker({ bluprint, value, onPick }: { bluprint: string; va
 }
 
 /** What is under review: the pull request as its author described it, the branch and its base, or the turn's prompt. */
-export function ReviewCard({ r, bluprint, spec, onMade }: { r: Review; bluprint: string; spec?: string; onMade: () => void }) {
+export function ReviewCard({ r, blueprint, spec, onMade }: { r: Review; blueprint: string; spec?: string; onMade: () => void }) {
   return (
     <div className="mt-3 border border-border-gray px-3 py-2">
-      {r.kind !== "turn" && spec ? <BluprintAfter key={spec} bluprint={bluprint} spec={spec} commit={r.to} pr={r.kind === "pr"} onMade={onMade} /> : null}
+      {r.kind !== "turn" && spec ? <BlueprintAfter key={spec} blueprint={blueprint} spec={spec} commit={r.to} pr={r.kind === "pr"} onMade={onMade} /> : null}
       {r.kind === "pr" ? (
         <>
           <p className="text-[13px] font-semibold text-ink">
@@ -99,7 +99,7 @@ export function ReviewCard({ r, bluprint, spec, onMade }: { r: Review; bluprint:
             The agent, asked: <span className="italic">{r.title || "to correct the blueprint"}</span>
             <span className="ml-1.5 text-[11.5px] text-muted-slate">· the blueprint before and after it</span>
           </p>
-          {spec ? <UndoTurn key={spec} bluprint={bluprint} turn={spec.slice(5)} onUndone={onMade} /> : null}
+          {spec ? <UndoTurn key={spec} blueprint={blueprint} turn={spec.slice(5)} onUndone={onMade} /> : null}
         </>
       ) : (
         <p className="text-[12.5px] text-ink">
@@ -118,12 +118,12 @@ export function ReviewCard({ r, bluprint, spec, onMade }: { r: Review; bluprint:
  * when nothing has touched those files since: otherwise it names them, and
  * changes nothing.
  */
-function UndoTurn({ bluprint, turn, onUndone }: { bluprint: string; turn: string; onUndone: () => void }) {
+function UndoTurn({ blueprint, turn, onUndone }: { blueprint: string; turn: string; onUndone: () => void }) {
   const [stage, setStage] = useState<"idle" | "confirm" | "busy" | "done">("idle");
   const [said, setSaid] = useState<string | null>(null);
   const go = async () => {
     setStage("busy");
-    const r = await undoTurn(bluprint, turn);
+    const r = await undoTurn(blueprint, turn);
     if (r.ok) {
       setStage("done");
       setSaid(`Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}. The blueprint is catching up.`);
@@ -165,13 +165,13 @@ function UndoTurn({ bluprint, turn, onUndone }: { bluprint: string; turn: string
 }
 
 /**
- * The bluprint as it would be after the review (app/api/review): until it is made
+ * The blueprint as it would be after the review (app/api/review): until it is made
  * the diff shows which levels the change reaches; once it is, their boxes,
  * arrows and rows diff too. Made only when asked, since it is a paid run.
  */
-function BluprintAfter({ bluprint, spec, commit, pr, onMade }: { bluprint: string; spec: string; commit: string; pr: boolean; onMade: () => void }) {
+function BlueprintAfter({ blueprint, spec, commit, pr, onMade }: { blueprint: string; spec: string; commit: string; pr: boolean; onMade: () => void }) {
   const [s, setS] = useState<{ status: "none" | "running" | "done" | "failed"; error?: string }>();
-  const q = `bluprint=${encodeURIComponent(bluprint)}&commit=${commit}`;
+  const q = `blueprint=${encodeURIComponent(blueprint)}&commit=${commit}`;
   useEffect(() => {
     if (s && s.status !== "running") return;
     let live = true;
@@ -197,7 +197,7 @@ function BluprintAfter({ bluprint, spec, commit, pr, onMade }: { bluprint: strin
     const j = await fetch("/api/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bluprint, review: spec, claude: await claudePath() }),
+      body: JSON.stringify({ blueprint, review: spec, claude: await claudePath() }),
     })
       .then((r) => r.json())
       .catch(() => ({ status: "failed", error: "Could not start it." }));
@@ -224,7 +224,7 @@ function BluprintAfter({ bluprint, spec, commit, pr, onMade }: { bluprint: strin
 }
 
 /** Changed code no level's lines reach: listed with the level nearest it, never dropped. */
-export function Outside({ outside, title, onOpen }: { outside: NonNullable<BluprintDiff["outside"]>; title: (path: string[]) => string; onOpen: (path: string[]) => void }) {
+export function Outside({ outside, title, onOpen }: { outside: NonNullable<BlueprintDiff["outside"]>; title: (path: string[]) => string; onOpen: (path: string[]) => void }) {
   return (
     <>
       <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Changed where no level&apos;s lines reach</h3>

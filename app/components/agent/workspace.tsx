@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue } from "motion/react";
 import { AgentIcon, CLAUDE, TerminalIcon, agentById, useAgents } from "@/components/agent/agents";
 import { keys } from "@/components/ui/button";
-import { useBluprint } from "@/components/bluprint/bluprint-context";
+import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { Menu } from "@/components/ui/menu";
 import { Shell } from "@/components/agent/shell";
 import { Preview } from "@/components/preview/preview";
@@ -25,7 +25,7 @@ import type { Project, Tab } from "@/components/agent/workspace-tab";
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
 import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
-import { SHOW_BLUPRINT, TOGGLE } from "@/lib/agent/workspace-toggle";
+import { SHOW_BLUEPRINT, TOGGLE } from "@/lib/agent/workspace-toggle";
 import { useLocation } from "@/components/chrome/crumbs";
 import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_OPENED, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
 import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
@@ -37,19 +37,19 @@ import { useDesktop, useMac } from "@/lib/client/platform";
 import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
 
 /**
- * The workspace: one window, floating over the bluprint's right edge, with a row
+ * The workspace: one window, floating over the blueprint's right edge, with a row
  * of tabs. Every tab is a terminal — the user's shell on a pty in the open
- * bluprint's checkout (components/agent/shell.tsx) — opened straight into a coding agent
+ * blueprint's checkout (components/agent/shell.tsx) — opened straight into a coding agent
  * (components/agent/agents.tsx) or as a plain shell, from the `+` menu. Quitting the
  * agent leaves the shell, in the same folder, and the strip under the terminal
  * starts one again. A tab's label says what is in front: Claude, another
  * agent, or the shell.
  *
- * Bluprint context goes to a tab running Claude (lib/agent/context.ts): the strip shows
+ * Blueprint context goes to a tab running Claude (lib/agent/context.ts): the strip shows
  * what is waiting for its next prompt and what has gone.
  *
  * It floats rather than docks, and its width gives way to the window's. The
- * bluprint keeps clear of it, as a plan does: its level is laid out in what the
+ * blueprint keeps clear of it, as a plan does: its level is laid out in what the
  * window leaves (--workspace-inset), so nothing is hidden under it. Hiding it, or switching
  * tabs, never ends a program; a tab ends when it is closed or its shell exits.
  * Tabs belong to the project they were opened in.
@@ -69,9 +69,9 @@ import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
  * design doc it can be accepted from (components/agent/plan.tsx): in the main view
  * beside the window, where Claude is, so the two are read side by side.
  *
- * A tab can be dragged out of the window onto the bluprint, into the main view:
- * there it takes the bluprint's place, with a strip of its own whose first tab is
- * the bluprint, and it is dragged back the same way. A tab is the same tab in
+ * A tab can be dragged out of the window onto the blueprint, into the main view:
+ * there it takes the blueprint's place, with a strip of its own whose first tab is
+ * the blueprint, and it is dragged back the same way. A tab is the same tab in
  * either place: it is moved, never started again.
  */
 
@@ -91,17 +91,17 @@ let nextKey = 1;
 
 
 export function Workspace() {
-  const bluprint = useBluprint();
-  const here = bluprint.RUN.root ?? "";
+  const blueprint = useBlueprint();
+  const here = blueprint.RUN.root ?? "";
   // The section in front (components/chrome/tabs.tsx), which every prompt to Claude
   // here is told about without being shown (src-tauri/src/claude.rs, place).
   const { path, crumbs } = useLocation();
-  const bluprintState = useTabs(bluprint.name);
-  const bluprintTabs = bluprintState?.tabs ?? [{ id: 0, path }];
-  const bluprintActive = bluprintState?.active ?? 0;
-  // A part dragged off the bluprint onto this strip (components/bluprint/canvas.tsx).
+  const blueprintState = useTabs(blueprint.name);
+  const blueprintTabs = blueprintState?.tabs ?? [{ id: 0, path }];
+  const blueprintActive = blueprintState?.active ?? 0;
+  // A part dragged off the blueprint onto this strip (components/blueprint/canvas.tsx).
   const drop = useDropOn("main");
-  const titleOf = (p: string[], file?: string) => tabTitle(bluprint.nodeAt, p, file);
+  const titleOf = (p: string[], file?: string) => tabTitle(blueprint.nodeAt, p, file);
   const desktop = useDesktop();
   const onMac = useMac();
   // Hidden once it has slid away, so it takes no clicks and no focus.
@@ -113,21 +113,21 @@ export function Workspace() {
   // The tab last in view, per project.
   const [active, setActive] = useState<Record<string, number>>({});
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  // The tab in the main view, per project; none, or one moved away, is the bluprint.
+  // The tab in the main view, per project; none, or one moved away, is the blueprint.
   const [front, setFront] = useState<Record<string, number | null>>({});
   const mine = tabs.filter((t) => t.cwd === here);
   const panel = mine.filter((t) => !t.main && !t.dev);
   const docked = mine.filter((t) => t.main && !t.dev);
   const current = panel.find((t) => t.key === active[here]) ?? panel.at(-1);
   const upFront = docked.find((t) => t.key === front[here]);
-  // A bluprint tab just opened (a file from the palette, a level in a new tab) comes
-  // to the front, over any tab docked here, as clicking a bluprint tab does.
-  const seenBluprintTabs = useRef<{ bluprint: string; ids: Set<number> } | null>(null);
+  // A blueprint tab just opened (a file from the palette, a level in a new tab) comes
+  // to the front, over any tab docked here, as clicking a blueprint tab does.
+  const seenBlueprintTabs = useRef<{ blueprint: string; ids: Set<number> } | null>(null);
   useEffect(() => {
-    const seen = seenBluprintTabs.current;
-    if (seen?.bluprint === bluprint.name && !seen.ids.has(bluprintActive)) setFront((f) => ({ ...f, [here]: null }));
-    seenBluprintTabs.current = { bluprint: bluprint.name, ids: new Set((bluprintState?.tabs ?? []).map((t) => t.id)) };
-  }, [bluprint.name, bluprintActive, bluprintState, here]);
+    const seen = seenBlueprintTabs.current;
+    if (seen?.blueprint === blueprint.name && !seen.ids.has(blueprintActive)) setFront((f) => ({ ...f, [here]: null }));
+    seenBlueprintTabs.current = { blueprint: blueprint.name, ids: new Set((blueprintState?.tabs ?? []).map((t) => t.id)) };
+  }, [blueprint.name, blueprintActive, blueprintState, here]);
   // Where tab bodies are drawn: the window's and the main view's.
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
   const [mainSlot, setMainSlot] = useState<HTMLElement | null>(null);
@@ -382,10 +382,10 @@ export function Workspace() {
     const reply = (ok: boolean, value: unknown) => id && void invoke("preview_reply", { id, ok, value });
     try {
       const root = tabsNow.current.find((x) => x.pty === tab)?.cwd ?? latest.current.here;
-      // The bluprint of the tab's own project, read on the server: no preview is involved.
-      if (cmd.op === "bluprint") {
+      // The blueprint of the tab's own project, read on the server: no preview is involved.
+      if (cmd.op === "blueprint") {
         const a = cmd.args;
-        const q = new URLSearchParams({ root, tool: cmd.name.replace(/^bluprint_/, "") });
+        const q = new URLSearchParams({ root, tool: cmd.name.replace(/^blueprint_/, "") });
         if (a.query !== undefined) q.set("q", String(a.query));
         if (a.name !== undefined) q.set("name", String(a.name));
         if (a.file !== undefined) q.set("file", String(a.file));
@@ -495,9 +495,9 @@ export function Workspace() {
   });
   useEffect(() => {
     if (!desktop) return;
-    const off = listen<{ id: number; tab: number; cmd: Call }>("bluprint:preview", (e) => void answering.current(e.payload));
+    const off = listen<{ id: number; tab: number; cmd: Call }>("blueprint:preview", (e) => void answering.current(e.payload));
     // Claude touching a phone brings its tab forward, as acting on a page brings the Preview.
-    const touched = listen<{ platform: Platform }>("bluprint:device-touch", (e) => {
+    const touched = listen<{ platform: Platform }>("blueprint:device-touch", (e) => {
       const { here } = latest.current;
       if (tabsNow.current.some((t) => t.kind === e.payload.platform && t.cwd === here)) touching.current(e.payload.platform);
     });
@@ -610,7 +610,7 @@ export function Workspace() {
 
   // Where the reader is, kept beside every tab of this project, so whatever
   // runs Claude there can say "you are reading X" without a pick in the strip.
-  const reading = `[Reading now: ${[bluprint.RUN.repo, ...crumbs.map((c) => c.title)].join(" › ")}]\n${section(bluprint, path).text}`;
+  const reading = `[Reading now: ${[blueprint.RUN.repo, ...crumbs.map((c) => c.title)].join(" › ")}]\n${section(blueprint, path).text}`;
   const terminals = JSON.stringify(tabs.filter((t) => t.cwd === here && t.pty !== undefined).map((t) => t.pty));
   useEffect(() => {
     for (const id of JSON.parse(terminals) as number[]) void invoke("context_where", { id, text: reading }).catch(() => {});
@@ -652,7 +652,7 @@ export function Workspace() {
       if (gone.pty !== undefined) tabEnded(gone.pty);
       if (dev?.pty !== undefined) tabEnded(dev.pty);
       // The neighbour in the same place takes over: in the window, whose last
-      // one closing hides it; in the main view, where none left is the bluprint.
+      // one closing hides it; in the main view, where none left is the blueprint.
       const near = (x: Tab) => x.cwd === gone.cwd && !x.main === !gone.main && !x.dev;
       const group = tabs.filter(near);
       const left = rest.filter(near);
@@ -691,8 +691,8 @@ export function Workspace() {
   }, [readingOpen, readingPath]);
   useEffect(() => {
     const front = () => setFront((f) => ({ ...f, [latest.current.here]: null }));
-    window.addEventListener(SHOW_BLUPRINT, front);
-    return () => window.removeEventListener(SHOW_BLUPRINT, front);
+    window.addEventListener(SHOW_BLUEPRINT, front);
+    return () => window.removeEventListener(SHOW_BLUEPRINT, front);
   }, []);
 
   // A project closed stops its Claudes rather than leave them working unseen;
@@ -749,7 +749,7 @@ export function Workspace() {
   useEffect(() => {
     // Opening an empty panel starts the default agent; a plain terminal is one menu pick or Ctrl+T away.
     const toggle = () => (open && panel.length ? show(false) : panel.length ? show(true) : add(main));
-    // Asked for from the bluprint: a tab running Claude, shown; or a new one.
+    // Asked for from the blueprint: a tab running Claude, shown; or a new one.
     const toClaude = () => {
       const last = (current?.live ? current : undefined) ?? (upFront?.live ? upFront : undefined) ?? mine.findLast((t) => t.live);
       if (!last) return add(CLAUDE.id);
@@ -778,7 +778,7 @@ export function Workspace() {
       if (mac && e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && (e.code === "KeyT" || e.code === "KeyW")) {
         const into = e.target as globalThis.Node;
         const tab = aside.current?.contains(into) ? current : mainPane.current?.contains(into) ? upFront : undefined;
-        // Cmd+T anywhere; Cmd+W only from inside the window, leaving the bluprint's own tabs theirs.
+        // Cmd+T anywhere; Cmd+W only from inside the window, leaving the blueprint's own tabs theirs.
         if (e.code === "KeyW" && !tab) return;
         e.preventDefault();
         e.stopPropagation();
@@ -788,7 +788,7 @@ export function Workspace() {
       }
       // The next or previous tab of the strip the key was pressed in: Ctrl+Tab
       // as in a browser, Cmd+Shift+] and [ as in a Mac's tabbed apps. Outside
-      // the window and the main view's tabs, the bluprint's own tabs take it (components/chrome/tabs.tsx).
+      // the window and the main view's tabs, the blueprint's own tabs take it (components/chrome/tabs.tsx).
       const by =
         e.code === "Tab" && e.ctrlKey && !e.metaKey && !e.altKey
           ? e.shiftKey ? -1 : 1
@@ -814,7 +814,7 @@ export function Workspace() {
         return;
       }
       // Ctrl+W closes the tab in view, as in a browser — only from inside the
-      // window, so the bluprint never loses a tab to a stray key.
+      // window, so the blueprint never loses a tab to a stray key.
       if (e.code === "KeyW" && !e.shiftKey && !mac) {
         const into = e.target as globalThis.Node;
         const tab = aside.current?.contains(into) ? current : mainPane.current?.contains(into) ? upFront : undefined;
@@ -842,26 +842,26 @@ export function Workspace() {
       const key = add(agent);
       setToPaste((all) => ({ ...all, [key]: { text, send: !!question } }));
     };
-    /** One tab along in the window's strip or the main view's (the bluprint's tabs, then the docked ones), wrapping. */
+    /** One tab along in the window's strip or the main view's (the blueprint's tabs, then the docked ones), wrapping. */
     const step = (where: "window" | "main", by: number) => {
-      const bluprints = bluprintState?.tabs ?? [{ id: 0 }];
-      const list: (number | { bluprint: number })[] = where === "window" ? panel.map((t) => t.key) : [...bluprints.map((m) => ({ bluprint: m.id })), ...docked.map((t) => t.key)];
-      const now = where === "window" ? current?.key : (upFront?.key ?? bluprints.findIndex((m) => m.id === bluprintActive));
+      const blueprints = blueprintState?.tabs ?? [{ id: 0 }];
+      const list: (number | { blueprint: number })[] = where === "window" ? panel.map((t) => t.key) : [...blueprints.map((m) => ({ blueprint: m.id })), ...docked.map((t) => t.key)];
+      const now = where === "window" ? current?.key : (upFront?.key ?? blueprints.findIndex((m) => m.id === blueprintActive));
       const at = where === "main" && !upFront ? (now as number) : list.indexOf(now as number);
       const next = list[(at + by + list.length) % list.length];
       if (typeof next === "number") bring(next);
       else if (next) {
         setFront((f) => ({ ...f, [here]: null }));
-        const p = selectTab(bluprint.name, next.bluprint);
+        const p = selectTab(blueprint.name, next.blueprint);
         if (p) showTab(p);
       }
     };
     // On a Mac the menu bar takes these keys before the page sees them
     // (src-tauri/src/lib.rs). With focus in the page, the key goes back to
-    // what has it, so the strip it is in steps, the bluprint's own included; with
+    // what has it, so the strip it is in steps, the blueprint's own included; with
     // focus in a Preview's page, that Preview's strip steps.
     const fromStep = desktop
-      ? listen<number>("bluprint:tab-step", (e) => {
+      ? listen<number>("blueprint:tab-step", (e) => {
           if (document.hasFocus()) {
             const key = { code: "Tab", key: "Tab", ctrlKey: true, shiftKey: e.payload < 0, bubbles: true, cancelable: true };
             (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
@@ -870,14 +870,14 @@ export function Workspace() {
       : undefined;
     // Ctrl+Enter from the menu bar, to the terminal with focus (components/agent/shell.tsx).
     const fromSend = desktop
-      ? listen("bluprint:send-now", () => {
+      ? listen("blueprint:send-now", () => {
           const key = { code: "Enter", key: "Enter", ctrlKey: true, bubbles: true, cancelable: true };
           (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
         })
       : undefined;
     // Cmd+W from the menu bar, the same way.
     const fromClose = desktop
-      ? listen("bluprint:tab-close", () => {
+      ? listen("blueprint:tab-close", () => {
           if (document.hasFocus()) {
             const key = { code: "KeyW", key: "w", metaKey: true, bubbles: true, cancelable: true };
             (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", key));
@@ -890,7 +890,7 @@ export function Workspace() {
     window.addEventListener("keydown", onKey, true);
     window.addEventListener(TOGGLE, toggle);
     // The menu bar's Cmd+`/Ctrl+`, for when focus is in a Preview's page (src-tauri/src/lib.rs).
-    const fromMenu = desktop ? listen("bluprint:toggle-workspace", toggle) : undefined;
+    const fromMenu = desktop ? listen("blueprint:toggle-workspace", toggle) : undefined;
     const off = onOpenClaude(toClaude);
     const offHand = onHand(toAgent);
     return () => {
@@ -903,7 +903,7 @@ export function Workspace() {
       off();
       offHand();
     };
-  }, [open, mine, panel, docked, current, upFront, main, add, close, bring, show, desktop, bluprintState, bluprintActive, here, bluprint.name]);
+  }, [open, mine, panel, docked, current, upFront, main, add, close, bring, show, desktop, blueprintState, blueprintActive, here, blueprint.name]);
 
   const drag = (e: React.PointerEvent) => dragWidth(e, aside, setWidth);
 
@@ -915,9 +915,9 @@ export function Workspace() {
     setSettled(false);
   }
   // What the window covers of the main view's right, gap included. The plan
-  // keeps clear of it, and so does the bluprint (components/bluprint/canvas.tsx), which is
+  // keeps clear of it, and so does the blueprint (components/blueprint/canvas.tsx), which is
   // not drawn here and reads it as --workspace-inset.
-  // Kept until the window has slid away, so the bluprint widens once, after, not under it.
+  // Kept until the window has slid away, so the blueprint widens once, after, not under it.
   // With no tab left the window is not drawn at all, so it never finishes sliding away.
   const inset = tabs.length && (shown || !settled) ? `calc(min(${width}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)` : undefined;
   useEffect(() => {
@@ -986,13 +986,13 @@ export function Workspace() {
         : t.kind !== "shell"
         ? PLATFORM[t.kind].label
         : front
-          ? `${front.command.replace(/^bluprint-/, "")} ${i + 1}`
+          ? `${front.command.replace(/^blueprint-/, "")} ${i + 1}`
           : (t.label ?? `${t.title} ${i + 1}`);
   };
 
   /** A tab in either strip, drawn as an editor draws one. */
   // A tab in the window is drawn as an editor draws one; in the main view, as
-  // the bluprint's own tabs are (components/chrome/tabs.tsx).
+  // the blueprint's own tabs are (components/chrome/tabs.tsx).
   const tabView = (t: Tab, selected: boolean, inMain = false) =>
     inMain ? (
       <div
@@ -1166,57 +1166,57 @@ export function Workspace() {
       style={{ top: desktop ? TITLEBAR : 0, bottom: STATUSBAR }}
       className={cn("pointer-events-none fixed inset-x-0 z-30 flex flex-col", !docked.length && "invisible")}
     >
-      {/* The bluprint's own tabs, as its strip draws them (components/chrome/tabs.tsx),
+      {/* The blueprint's own tabs, as its strip draws them (components/chrome/tabs.tsx),
           then the tabs dragged here, drawn the same way: with a tab here the
           strip reads as it does without one, just longer. */}
       <header role="tablist" data-chrome="bar" data-section-tabs="main" className={cn(TAB_STRIP, "pointer-events-auto relative")}>
-        {bluprintTabs.map((m) => {
+        {blueprintTabs.map((m) => {
           const label = titleOf(m.path, m.file);
-          const selected = !upFront && m.id === bluprintActive;
-          const closable = bluprintTabs.length > 1;
-          const toBluprint = () => {
+          const selected = !upFront && m.id === blueprintActive;
+          const closable = blueprintTabs.length > 1;
+          const toBlueprint = () => {
             setFront((f) => ({ ...f, [here]: null }));
-            const p = selectTab(bluprint.name, m.id);
+            const p = selectTab(blueprint.name, m.id);
             if (p) showTab(p);
           };
-          const closeBluprint = () => {
-            const p = closeTab(bluprint.name, m.id);
+          const closeBlueprint = () => {
+            const p = closeTab(blueprint.name, m.id);
             if (p) showTab(p);
           };
           return (
             <div
-              key={`bluprint-${m.id}`}
+              key={`blueprint-${m.id}`}
               role="tab"
               data-tab-id={m.id}
               aria-selected={selected}
               tabIndex={0}
               title={label}
-              onClick={selected ? undefined : toBluprint}
+              onClick={selected ? undefined : toBlueprint}
               onKeyDown={(e) => {
                 if (!selected && (e.key === "Enter" || e.key === " ")) {
                   e.preventDefault();
-                  toBluprint();
+                  toBlueprint();
                 }
               }}
               onAuxClick={(e) => {
                 if (e.button === 1 && closable) {
                   e.preventDefault();
-                  closeBluprint();
+                  closeBlueprint();
                 }
               }}
               className={cn(tabLook(selected, closable), !selected && "cursor-pointer", drop !== null && "on" in drop && drop.on === m.id && DROP_TARGET, justOpened(m.id) && TAB_OPENED)}
             >
               {!m.path.length && !m.file ? <BlueprintIcon /> : null}
               <TabLabel>{label}</TabLabel>
-              {closable ? <TabClose label={label} active={selected} onClose={closeBluprint} /> : null}
+              {closable ? <TabClose label={label} active={selected} onClose={closeBlueprint} /> : null}
             </div>
           );
         })}
         {docked.map((t) => tabView(t, t.key === upFront?.key, true))}
         <NewTab
-          onBluprint={() => {
+          onBlueprint={() => {
             setFront((f) => ({ ...f, [here]: null }));
-            openInTab(bluprint.name, []);
+            openInTab(blueprint.name, []);
           }}
         />
         <DropMarker drop={drop} />

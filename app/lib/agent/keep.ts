@@ -1,16 +1,16 @@
 /**
- * Keeping an answer on the bluprint.
+ * Keeping an answer on the blueprint.
  *
  * A reader asks Claude how something works, in a workspace tab, with a section
- * of the bluprint attached (lib/agent/context.ts). The answer explains it and then
- * scrolls away — the one thing that made it land is the one thing the bluprint does
+ * of the blueprint attached (lib/agent/context.ts). The answer explains it and then
+ * scrolls away — the one thing that made it land is the one thing the blueprint does
  * not keep.
  *
  * So: when a turn ends, the tab reports its transcript (`ended` in
  * src-tauri/src/pty.rs, written by the Stop hook for EVERY turn, not only the
  * ones that edited code). `lastExchange` reads the question and the answer back
  * out of it. `draftPrompt` then asks Claude to turn its own answer into one
- * block of the bluprint's own vocabulary, which the reader previews and accepts
+ * block of the blueprint's own vocabulary, which the reader previews and accepts
  * (components/review/keep.tsx).
  *
  * Claude drafts the block rather than the answer being pasted in verbatim,
@@ -19,7 +19,7 @@
  * answer — that is what the `note` kind is for.
  */
 
-import type { Anatomy } from "@/lib/bluprint/schema";
+import type { Anatomy } from "@/lib/blueprint/schema";
 
 /** What a turn asked and what it answered, read from Claude Code's transcript. */
 export interface Exchange {
@@ -83,10 +83,10 @@ export function lastExchange(transcript: string, read: (f: string) => string): E
     if (t.trim()) answer = t;
   }
   if (!answer.trim()) return null;
-  // The bluprint context the hook prepended is not the reader's question; it is
-  // already on the bluprint, and repeating it back would have Claude draft a block
+  // The blueprint context the hook prepended is not the reader's question; it is
+  // already on the blueprint, and repeating it back would have Claude draft a block
   // about the block it was given.
-  const clean = question.replace(/\[Bluprint (?:section|element|problems):[\s\S]*?\]\s*/g, "").trim();
+  const clean = question.replace(/\[Blueprint (?:section|element|problems):[\s\S]*?\]\s*/g, "").trim();
   return { asked: clean.slice(0, 2000), said: answer.trim().slice(0, 12000) };
 }
 
@@ -98,7 +98,7 @@ const KINDS = `- "diagram": how things connect. boxes[{id,label,sub?,col,row}] o
 - "note": prose, 1-2 short paragraphs. {body}. Use where the answer's substance really is sentences — a reason, a caveat, a piece of history. Do not force a picture onto one.`;
 
 /**
- * Asks Claude to turn the answer it just gave into one block of the bluprint.
+ * Asks Claude to turn the answer it just gave into one block of the blueprint.
  *
  * Sent through the same tab the reader is already talking to
  * (`lib/agent/context.ts`), so this costs no second backend and no API key. The

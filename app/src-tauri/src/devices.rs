@@ -207,7 +207,7 @@ fn windows_dir(var: &str, under_home: &str) -> PathBuf {
 
 /// The app's data folder, where Tauri keeps it.
 fn data() -> PathBuf {
-    let id = "dev.bluprint.app";
+    let id = "dev.blueprint.app";
     if cfg!(target_os = "macos") {
         home().join("Library/Application Support").join(id)
     } else if cfg!(windows) {
@@ -301,7 +301,7 @@ fn avds(sdk: &Path) -> Vec<String> {
         .map(String::from)
         .collect();
     // The one the setup made comes first. It keeps the name it was given before
-    // the rename to Bluprint: a new one would make every machine build a second phone.
+    // the rename to Blueprint: a new one would make every machine build a second phone.
     all.sort_by_key(|a| a != "slop_phone");
     all
 }
@@ -320,7 +320,7 @@ fn booted(sdk: &Path, serial: &str) -> bool {
 }
 
 const ANDROID_SETUP: &str = r#"#!/bin/sh
-# Sets up the Android emulator for Bluprint, without Android Studio
+# Sets up the Android emulator for Blueprint, without Android Studio
 # (src-tauri/src/devices.rs). Safe to run again: it skips what is there.
 set -e
 SDK=__SDK__
@@ -389,7 +389,7 @@ fn idb() -> Option<PathBuf> {
 }
 
 const IOS_SETUP: &str = r#"#!/bin/sh
-# Sets up the iOS Simulator for Bluprint (src-tauri/src/devices.rs).
+# Sets up the iOS Simulator for Blueprint (src-tauri/src/devices.rs).
 # The simulator comes only with Xcode; it is installed once and never opened.
 XCODE=$(mdfind "kMDItemCFBundleIdentifier == 'com.apple.dt.Xcode'" 2>/dev/null | head -n 1)
 [ -n "$XCODE" ] || XCODE=/Applications/Xcode.app
@@ -699,7 +699,7 @@ fn frame(platform: &str) -> Result<Vec<u8>, String> {
         }
         out.stdout
     } else {
-        let file = std::env::temp_dir().join(format!("bluprint-sim-{}.png", std::process::id()));
+        let file = std::env::temp_dir().join(format!("blueprint-sim-{}.png", std::process::id()));
         ok(crate::proc::command("xcrun").args(["simctl", "io", &id, "screenshot", "--type=png"]).arg(&file)).ok_or("The simulator did not send its screen.")?;
         std::fs::read(&file).map_err(|e| e.to_string())?
     };
@@ -1027,7 +1027,7 @@ pub fn device_run(platform: String, root: String) -> Result<String, String> {
                 .min_by_key(|(f, _)| *f != "-workspace")
                 .ok_or("This project has no Xcode project.")?;
             let scheme = file.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            let build = std::env::temp_dir().join("bluprint-ios-build");
+            let build = std::env::temp_dir().join("blueprint-ios-build");
             format!(
                 "xcodebuild {flag} {file} -scheme {scheme} -destination id={id} -derivedDataPath {build} build && app=$(find {products} -maxdepth 2 -name '*.app' | head -n 1) && xcrun simctl install {id} \"$app\" && xcrun simctl launch {id} \"$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' \"$app/Info.plist\")\"",
                 file = q(&file),
@@ -1069,7 +1069,7 @@ fn shrink(png: &[u8], w: u32, h: u32) -> (Vec<u8>, u32) {
     static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let tmp = std::env::temp_dir();
-    let (from, to) = (tmp.join(format!("bluprint-shot-{}-{n}.png", std::process::id())), tmp.join(format!("bluprint-shot-{}-{n}-small.png", std::process::id())));
+    let (from, to) = (tmp.join(format!("blueprint-shot-{}-{n}.png", std::process::id())), tmp.join(format!("blueprint-shot-{}-{n}-small.png", std::process::id())));
     let small = std::fs::write(&from, png).ok().and_then(|_| {
         ok(crate::proc::command("sips").args(["--resampleWidth", &(w / d).to_string()]).arg(&from).arg("--out").arg(&to))?;
         std::fs::read(&to).ok()
@@ -1139,7 +1139,7 @@ pub fn tool(args: &serde_json::Value, app: &tauri::AppHandle) -> Result<Vec<serd
     // Claude's pointer goes there first, in the phone's tab (components/preview/device.tsx), as it does on a page.
     if matches!(action, "tap" | "swipe") {
         use tauri::Emitter;
-        let _ = app.emit_to("main", "bluprint:device-touch", json!({ "platform": platform, "x": i.x, "y": i.y, "x2": i.x2, "y2": i.y2, "swipe": action == "swipe" }));
+        let _ = app.emit_to("main", "blueprint:device-touch", json!({ "platform": platform, "x": i.x, "y": i.y, "x2": i.x2, "y2": i.y2, "swipe": action == "swipe" }));
         std::thread::sleep(Duration::from_millis(450));
     }
     input(&platform, &i)?;

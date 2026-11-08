@@ -1,10 +1,10 @@
 import { NotAnImage, remoteImage } from "@/lib/server/assets";
-import { loadBluprint, rootOf } from "@/lib/server/bluprints";
+import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
 import { Refused, readImage } from "@/lib/server/repo";
 
 /**
- * The images a doc shows (components/bluprint/docs.tsx): `?bluprint=&file=` one from the
- * open bluprint's checkout, through the same containment as the code; `?url=` one
+ * The images a doc shows (components/blueprint/docs.tsx): `?blueprint=&file=` one from the
+ * open blueprint's checkout, through the same containment as the code; `?url=` one
  * from the web, through the offline cache (lib/server/assets.ts).
  *
  * An SVG is served as an image and nothing else: the policy below stops one
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       return new Response(new Uint8Array(img.body), { headers: { ...HEADERS, "content-type": img.type, "cache-control": "private, max-age=86400" } });
     }
     const file = q.get("file");
-    const open = loadBluprint(q.get("bluprint") ?? undefined);
+    const open = loadBlueprint(q.get("blueprint") ?? undefined);
     if (!file || !open) return new Response(null, { status: 404 });
     const img = await readImage(rootOf(open.file.RUN), file);
     return new Response(new Uint8Array(img.body), { headers: { ...HEADERS, "content-type": img.type, "cache-control": "no-cache" } });

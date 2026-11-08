@@ -2,9 +2,9 @@ import { timingSafeEqual } from "node:crypto";
 import { CREDIT_URL, deviceToken, relaySecret } from "@/lib/server/credit";
 
 /**
- * A Claude tab's calls on Bluprint credit (Claude Code in Bedrock mode, src-tauri/src/claude.rs),
+ * A Claude tab's calls on Blueprint credit (Claude Code in Bedrock mode, src-tauri/src/claude.rs),
  * passed to the proxy's capped lane under this machine's token, which the tab never sees. They
- * answer only to the secret this server made when it started, so the credit works through Bluprint
+ * answer only to the secret this server made when it started, so the credit works through Blueprint
  * while it runs and nowhere else.
  */
 export async function POST(request: Request) {

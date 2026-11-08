@@ -1,4 +1,4 @@
-# bluprint
+# blueprint
 
 ## Commits
 

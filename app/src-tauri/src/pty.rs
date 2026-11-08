@@ -1,5 +1,5 @@
 //! The workspace's tabs. Each one is a real pty running the user's shell in the
-//! open bluprint's checkout; its output streams to the webview over a `Channel` as
+//! open blueprint's checkout; its output streams to the webview over a `Channel` as
 //! raw bytes (xterm decodes UTF-8 itself, so a character split across two
 //! reads is fine), and one final JSON `{"exit": code}` says it ended.
 //!
@@ -137,7 +137,7 @@ pub struct Spawned {
     shell: String,
 }
 
-/// `outline` is the open bluprint's sections, so Claude in this tab can name one it
+/// `outline` is the open blueprint's sections, so Claude in this tab can name one it
 /// was not handed (claude.rs's LIST).
 #[tauri::command]
 pub fn pty_spawn(
@@ -172,15 +172,15 @@ pub fn pty_spawn(
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
         if start_claude {
             if cfg!(unix) {
-                cmd.args(["-c", if login { r#""$BLUPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUPRINT_LAUNCHER"; exec "$SHELL""# }]);
+                cmd.args(["-c", if login { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL""# }]);
                 cmd.env("SHELL", &program);
                 if let Some(id) = &resume {
                     claude::resuming(&context, id).map_err(|e| e.to_string())?;
                 }
             } else if name.eq_ignore_ascii_case("cmd") {
-                cmd.args(["/k", "bluprint-claude"]);
+                cmd.args(["/k", "blueprint-claude"]);
             } else {
-                cmd.args(["-NoExit", "-Command", "bluprint-claude"]);
+                cmd.args(["-NoExit", "-Command", "blueprint-claude"]);
             }
         }
     }
@@ -231,7 +231,7 @@ pub fn pty_spawn(
                 break;
             }
         }
-        // Gone from the bluprint already if it was killed from the UI.
+        // Gone from the blueprint already if it was killed from the UI.
         let ended = open.lock().unwrap().remove(&id);
         let code = ended
             .and_then(|mut p| {
@@ -328,10 +328,10 @@ pub struct State {
     busy: bool,
     /// What Claude is doing: `working`, `waiting` for the user, or `done`.
     status: Option<String>,
-    /// Claude finished a turn the bluprint should follow; reported once.
+    /// Claude finished a turn the blueprint should follow; reported once.
     turn: Option<claude::Turn>,
     /// The transcript of the turn Claude just finished, whatever it did, so the
-    /// app can offer to keep the answer on the bluprint; reported once.
+    /// app can offer to keep the answer on the blueprint; reported once.
     ended: Option<String>,
     /// What Claude asked the app to show — a section, a diff — taken mid-turn
     /// so the user is looking at it while the answer streams; reported once.
@@ -386,7 +386,7 @@ pub fn context_set(id: u32, text: String, ptys: tauri::State<Ptys>) -> Result<()
     claude::replace(&queue_of(&ptys, id)?, &text).map_err(|e| e.to_string())
 }
 
-/// Where the user is on the bluprint, for every prompt to say (claude::place).
+/// Where the user is on the blueprint, for every prompt to say (claude::place).
 #[tauri::command]
 pub fn context_where(id: u32, text: String, ptys: tauri::State<Ptys>) -> Result<(), String> {
     claude::place(&queue_of(&ptys, id)?, &text).map_err(|e| e.to_string())
@@ -418,7 +418,7 @@ mod tests {
             while reader.read(&mut buf).is_ok_and(|n| n > 0) {}
         });
         let writer = pair.master.take_writer().unwrap();
-        let pty = Pty::new(pair.master, writer, child, std::env::temp_dir().join("bluprint-test-context.md"));
+        let pty = Pty::new(pair.master, writer, child, std::env::temp_dir().join("blueprint-test-context.md"));
         std::thread::sleep(std::time::Duration::from_secs(2));
         let (done, ended) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
