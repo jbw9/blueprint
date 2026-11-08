@@ -514,7 +514,13 @@ fn tools() -> Value {
         }
     ]);
     for t in all.as_array_mut().into_iter().flatten() {
-        let name = t["name"].as_str().unwrap_or("");
+        let name = t["name"].as_str().unwrap_or("").to_string();
+        let name = name.as_str();
+        // Plan mode prompts for MCP tools despite the allow rule and the
+        // PLAN_READS hook in claude.rs; it runs read-only ones without asking.
+        if ["read_page", "find", "get_page_text", "read_terminal", "blueprint_search", "blueprint_section", "blueprint_where"].contains(&name) {
+            t["annotations"] = json!({ "readOnlyHint": true });
+        }
         if !["device", "read_terminal", "blueprint_search", "blueprint_section", "blueprint_where"].contains(&name) {
             t["inputSchema"]["properties"]["tab"] = json!({
                 "type": "number",
