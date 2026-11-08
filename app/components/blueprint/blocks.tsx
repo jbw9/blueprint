@@ -9,8 +9,9 @@ import { useChangedCode, useBlueprint } from "@/components/blueprint/blueprint-c
 import { useMayBeStale } from "@/components/chrome/crumbs";
 import { readSource } from "@/lib/blueprint/source";
 import { openDoc } from "@/components/blueprint/docs";
-import { BOX_H, layoutDiagram, SHARED_TAG, sharedTagRect } from "@/lib/blueprint/diagram";
-import { layoutDagre, type DagreArrow } from "@/lib/blueprint/dagre";
+import { SHARED_TAG, sharedTagRect } from "@/lib/blueprint/diagram";
+import { dagreLayout, gridLayout } from "@/lib/blueprint/diagram-elk";
+import { useDiagramLayout } from "@/components/blueprint/use-diagram-layout";
 import { useDagre } from "@/components/blueprint/dagre-style";
 import { TINT, WORD as WORD_OF, useDiff } from "@/components/review/diff";
 import { DiagramChanges, changesUnder } from "@/components/review/diagram-diff";
@@ -140,9 +141,14 @@ function Diagram({
   /** Shows the line an arrow cites (`DiagramArrow.at`), from its label. */
   onCode?: (at: string, heading: string, detail?: string) => void;
 }) {
-  // The landing's frames draw the picture as dagre would; the app keeps its grid router.
-  const L: Omit<ReturnType<typeof layoutDiagram>, "arrows"> & { arrows: DagreArrow[]; band?: number } = useDagre() ? layoutDagre(block) : layoutDiagram(block);
-  const { W, H, boxes, arrows, band } = L;
+  // The landing's frames draw the picture as dagre would; the app lays it out with ELK.
+  const dagre = useDagre();
+  const elk = useDiagramLayout(block, !dagre);
+  const fallback = useMemo(() => (elk ? null : dagre ? dagreLayout(block) : gridLayout(block)), [elk, dagre, block]);
+  // Until the worker answers, the grid layout holds the space unseen, so the
+  // page below does not jump twice; it shows only where ELK failed.
+  const waiting = !dagre && elk === undefined;
+  const { W, H, boxes, arrows, rules, frames } = elk ?? fallback!;
   // Only a picture that actually leads somewhere dims its scenery: on a
   // diagram where nothing opens, every box is equally "inert" and dimming
   // them all would just make the picture grey.
@@ -212,7 +218,14 @@ function Diagram({
           aria-label={block.caption}
           className={navigable ? "dg-nav block h-auto" : "block h-auto"}
           // Visible: a change's tag rides the top edge of a box in the first row.
-          style={{ width: "100%", maxWidth: W * DIAGRAM_MAX_SCALE, minWidth: W * 0.7, overflow: "visible" }}
+          style={{
+            width: "100%",
+            maxWidth: W * DIAGRAM_MAX_SCALE,
+            minWidth: W * 0.7,
+            overflow: "visible",
+            opacity: waiting ? 0 : 1,
+            transition: "opacity 160ms ease-out",
+          }}
         >
           <defs>
             {(["plain", "good", "warn"] as const).map((t) => (
@@ -230,69 +243,74 @@ function Diagram({
               </marker>
             ))}
           </defs>
-          {band !== undefined ? <line x1={0} x2={W} y1={band} y2={band} stroke="var(--color-border-gray)" /> : null}
-          {arrows.map(({ d, tone, label, from, to, both, pill }, i) => {
-            // Arrows between the same two boxes are drawn as one; its label opens the first one's line.
-            const at = block.arrows.find((a) => a.from === from && a.to === to && a.at)?.at;
-            const name = (id: string) => block.boxes.find((x) => x.id === id)?.label ?? id;
-            const show = at && onCode ? () => onCode(at, `${name(from)} → ${name(to)}`, label?.text) : undefined;
-            // Dotted when the code links these two only in a way the fact graph cannot follow (DiagramArrow.inferred).
-            const pair = block.arrows.filter((a) => a.from === from && a.to === to);
+          {/* Boxes no arrow touches sit apart: a faint frame in a free corner, or a rule between them and the rest. */}
+          {frames.map((f, i) => (
+            <rect key={`f${i}`} x={f.x} y={f.y} width={f.w} height={f.h} rx="6" fill="var(--color-card)" />
+          ))}
+          {rules.map((r, i) => (
+            <line key={`r${i}`} x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2} stroke="var(--color-border-gray)" />
+          ))}
+          {arrows.map(({ d, tone, label, from, to, start, end }, i) => {
+            const ways = new Set((label?.lines ?? [{ from, to }]).map((l) => `${l.from}→${l.to}`));
+            const isHot = [...ways].some((k) => hot.has(k));
+            // Lighter, not dotted, when the code links these two only in a way
+            // the fact graph cannot follow (DiagramArrow.inferred): on a level
+            // where every link crosses apps, dots on every line were noise.
+            const pair = block.arrows.filter((a) => ways.has(`${a.from}→${a.to}`));
             const inferred = pair.length > 0 && pair.every((a) => a.inferred);
             return (
-            <g key={i}>
               <path
+                key={i}
                 d={d}
                 fill="none"
-                stroke={hot.has(`${from}→${to}`) ? TINT.changed.line : TONE[tone].line}
-                strokeWidth={hot.has(`${from}→${to}`) ? 2.5 : 1.5}
-                strokeDasharray={tone === "warn" ? "5 4" : inferred ? "1 4" : undefined}
-                strokeLinecap={inferred && tone !== "warn" ? "round" : undefined}
-                markerStart={both ? `url(#dg-${tone})` : undefined}
-                markerEnd={`url(#dg-${tone})`}
-              />
-              {label && !pill ? (
-                <text
-                  x={label.x}
-                  y={label.y}
-                  textAnchor={label.anchor}
-                  fontSize="12"
-                  fill="var(--color-muted-slate)"
-                  stroke="var(--color-paper)"
-                  strokeWidth="4"
-                  strokeLinejoin="round"
-                  paintOrder="stroke"
-                  onClick={show}
-                  className={show ? "cursor-pointer hover:fill-accent" : undefined}
-                >
-                  {at ? <title>{at}</title> : null}
-                  {label.text}
-                </text>
-              ) : null}
-            </g>
+                stroke={isHot ? TINT.changed.line : TONE[tone].line}
+                strokeWidth={isHot ? 2.5 : 1.5}
+                strokeOpacity={inferred && !isHot ? 0.5 : 1}
+                strokeDasharray={tone === "warn" ? "5 4" : undefined}
+                strokeLinejoin="round"
+                markerStart={start ? `url(#dg-${tone})` : undefined}
+                markerEnd={end ? `url(#dg-${tone})` : undefined}
+              >
+                {inferred ? <title>Read from the code, not a call the code graph confirms</title> : null}
+              </path>
             );
           })}
-          {/* Pills go over every line, so no other line runs through a label. */}
-          {arrows.map(({ label, from, to, pill, lines }, i) => {
-            if (!label || !pill) return null;
-            const at = block.arrows.find((a) => a.at && ((a.from === from && a.to === to) || (a.from === to && a.to === from)))?.at;
+          {/* Labels go over every line, so no other line runs through one. */}
+          {arrows.map(({ label }, i) => {
+            if (!label) return null;
             const name = (id: string) => block.boxes.find((x) => x.id === id)?.label ?? id;
-            const show = at && onCode ? () => onCode(at, `${name(from)} → ${name(to)}`, label.text) : undefined;
+            // Arrows between the same two boxes are drawn as one, and a pair
+            // that calls both ways too; each line of the label opens the line
+            // of code its own direction cites.
+            const atOf = (f: string, t: string) =>
+              block.arrows.find((a) => a.from === f && a.to === t && a.at)?.at ??
+              block.arrows.find((a) => a.from === t && a.to === f && a.at)?.at;
             return (
-              <g key={`pill-${i}`} onClick={show} className={show ? "cursor-pointer [&:hover>text]:fill-accent" : undefined}>
-                <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={Math.min(11, pill.h / 2)} fill="var(--color-paper)" />
-                <text textAnchor="middle" fontSize="12" fill="var(--color-muted-slate)">
-                  {at ? <title>{at}</title> : null}
-                  {(lines ?? [label.text]).map((l, k) => (
-                    <tspan key={k} x={label.x} y={pill.y + 15 + k * 16}>
-                      {l}
-                    </tspan>
-                  ))}
-                </text>
+              <g key={`l${i}`}>
+                <rect x={label.x} y={label.y} width={label.w} height={label.h} rx={label.pill ? Math.min(11, label.h / 2) : 4} fill="var(--color-paper)" />
+                {label.lines.map((l, k) => {
+                  const at = atOf(l.from, l.to);
+                  const show = at && onCode ? () => onCode(at, `${name(l.from)} → ${name(l.to)}`, l.text) : undefined;
+                  return (
+                    <text
+                      key={k}
+                      x={label.x + label.w / 2}
+                      y={label.y + (label.pill ? 15 : 14) + k * 16}
+                      textAnchor="middle"
+                      fontSize="12"
+                      fill="var(--color-muted-slate)"
+                      onClick={show}
+                      className={show ? "cursor-pointer hover:fill-accent" : undefined}
+                    >
+                      {at ? <title>{at}</title> : null}
+                      {l.text}
+                    </text>
+                  );
+                })}
               </g>
             );
           })}
-          {boxes.map(({ x, y, w, b }) => {
+          {boxes.map(({ x, y, w, h, b }) => {
             // Live where the author named the part this box belongs to, or the code another section explains.
             const go = b.opens && onOpen ? () => onOpen(b.opens!) : b.ref && onRef ? () => onRef(b.ref!) : undefined;
             const authored = b.tone && b.tone !== "plain";
@@ -322,7 +340,7 @@ function Diagram({
                   x={x}
                   y={y}
                   width={w}
-                  height={BOX_H}
+                  height={h}
                   rx="3"
                   fill={fill}
                   stroke={stroke}
@@ -336,7 +354,7 @@ function Diagram({
                 />
                 <text
                   x={x + w / 2}
-                  y={b.sub ? y + 26 : y + BOX_H / 2 + 6}
+                  y={b.sub ? y + 26 : y + h / 2 + 6}
                   textAnchor="middle"
                   fontFamily="var(--font-display), Georgia, serif"
                   fontSize="18"
