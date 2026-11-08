@@ -10,6 +10,8 @@ import { useMayBeStale } from "@/components/chrome/crumbs";
 import { readSource } from "@/lib/blueprint/source";
 import { openDoc } from "@/components/blueprint/docs";
 import { BOX_H, layoutDiagram, SHARED_TAG, sharedTagRect } from "@/lib/blueprint/diagram";
+import { layoutDagre, type DagreArrow } from "@/lib/blueprint/dagre";
+import { useDagre } from "@/components/blueprint/dagre-style";
 import { TINT, WORD as WORD_OF, useDiff } from "@/components/review/diff";
 import { DiagramChanges, changesUnder } from "@/components/review/diagram-diff";
 
@@ -138,7 +140,9 @@ function Diagram({
   /** Shows the line an arrow cites (`DiagramArrow.at`), from its label. */
   onCode?: (at: string, heading: string, detail?: string) => void;
 }) {
-  const { W, H, boxes, arrows } = layoutDiagram(block);
+  // The landing's frames draw the picture as dagre would; the app keeps its grid router.
+  const L: Omit<ReturnType<typeof layoutDiagram>, "arrows"> & { arrows: DagreArrow[]; band?: number } = useDagre() ? layoutDagre(block) : layoutDiagram(block);
+  const { W, H, boxes, arrows, band } = L;
   // Only a picture that actually leads somewhere dims its scenery: on a
   // diagram where nothing opens, every box is equally "inert" and dimming
   // them all would just make the picture grey.
@@ -226,7 +230,8 @@ function Diagram({
               </marker>
             ))}
           </defs>
-          {arrows.map(({ d, tone, label, from, to }, i) => {
+          {band !== undefined ? <line x1={0} x2={W} y1={band} y2={band} stroke="var(--color-border-gray)" /> : null}
+          {arrows.map(({ d, tone, label, from, to, both, pill }, i) => {
             // Arrows between the same two boxes are drawn as one; its label opens the first one's line.
             const at = block.arrows.find((a) => a.from === from && a.to === to && a.at)?.at;
             const name = (id: string) => block.boxes.find((x) => x.id === id)?.label ?? id;
@@ -243,9 +248,10 @@ function Diagram({
                 strokeWidth={hot.has(`${from}→${to}`) ? 2.5 : 1.5}
                 strokeDasharray={tone === "warn" ? "5 4" : inferred ? "1 4" : undefined}
                 strokeLinecap={inferred && tone !== "warn" ? "round" : undefined}
+                markerStart={both ? `url(#dg-${tone})` : undefined}
                 markerEnd={`url(#dg-${tone})`}
               />
-              {label ? (
+              {label && !pill ? (
                 <text
                   x={label.x}
                   y={label.y}
@@ -264,6 +270,26 @@ function Diagram({
                 </text>
               ) : null}
             </g>
+            );
+          })}
+          {/* Pills go over every line, so no other line runs through a label. */}
+          {arrows.map(({ label, from, to, pill, lines }, i) => {
+            if (!label || !pill) return null;
+            const at = block.arrows.find((a) => a.at && ((a.from === from && a.to === to) || (a.from === to && a.to === from)))?.at;
+            const name = (id: string) => block.boxes.find((x) => x.id === id)?.label ?? id;
+            const show = at && onCode ? () => onCode(at, `${name(from)} → ${name(to)}`, label.text) : undefined;
+            return (
+              <g key={`pill-${i}`} onClick={show} className={show ? "cursor-pointer [&:hover>text]:fill-accent" : undefined}>
+                <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={Math.min(11, pill.h / 2)} fill="var(--color-paper)" />
+                <text textAnchor="middle" fontSize="12" fill="var(--color-muted-slate)">
+                  {at ? <title>{at}</title> : null}
+                  {(lines ?? [label.text]).map((l, k) => (
+                    <tspan key={k} x={label.x} y={pill.y + 15 + k * 16}>
+                      {l}
+                    </tspan>
+                  ))}
+                </text>
+              </g>
             );
           })}
           {boxes.map(({ x, y, w, b }) => {

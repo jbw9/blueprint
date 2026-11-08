@@ -18,6 +18,7 @@ import { NoProject } from "@/components/chrome/welcome";
 import { Palette } from "@/components/chrome/palette";
 import { StatusBar } from "@/components/chrome/statusbar";
 import { ReviewTray } from "@/components/review/review-tray";
+import { DagreDiagrams } from "@/components/blueprint/dagre-style";
 import { listBlueprints, loadDemo, loadBlueprint, remoteOf, rootOf } from "@/lib/server/blueprints";
 import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
 import type { Progress } from "@/lib/server/vault";
@@ -68,6 +69,7 @@ export default async function Home({
   else file.RUN.root = rootOf(file.RUN);
   return (
     <BlueprintProvider name={name} file={file} version={version} progress={progress} blueprints={STATIC_BLUEPRINT || embed ? [{ id: name, label: name, local: false }] : listBlueprints()}>
+      <DagreDiagrams on={embed || Boolean(STATIC_BLUEPRINT)}>
       <div className="flex h-full flex-col">
         {/* Keyed by blueprint: a switch starts fresh, never mid-transition from the
             old tree. Around the title bar too, whose version-control button
@@ -104,6 +106,7 @@ export default async function Home({
         <AuditDialog />
         {STATIC_BLUEPRINT ? null : <MenuBar />}
       </div>
+      </DagreDiagrams>
     </BlueprintProvider>
   );
 }
