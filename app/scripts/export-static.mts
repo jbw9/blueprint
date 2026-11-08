@@ -20,14 +20,21 @@ const baked = demoSource(name);
 // --root: the checkout to read, when it is not where the blueprint was made.
 const root = opt("--root") ?? rootOf(file.RUN);
 const cited = new Set<string>();
+// A step's own lines open from the step, and an arrow's label from the arrow; either
+// may sit in a file the node does not cite.
+const anatomy = (blocks: Node["anatomy"]) => {
+  for (const b of blocks ?? []) {
+    const at = b.kind === "flow" || b.kind === "sequence" ? b.rows.map((r) => r.at) : b.kind === "diagram" ? b.arrows.map((a) => a.at) : [];
+    for (const f of at) if (f) cited.add(f.replace(/:[\d-]+$/, ""));
+  }
+};
 const walk = (n: Node) => {
   for (const c of n.code ?? []) cited.add(c.file);
-  // A step's own lines open from the step, and may sit in a file the node does not cite.
-  for (const b of n.anatomy ?? [])
-    if (b.kind === "flow" || b.kind === "sequence") for (const r of b.rows) if (r.at) cited.add(r.at.replace(/:[\d-]+$/, ""));
+  anatomy(n.anatomy);
   (n.children ?? []).forEach(walk);
 };
 file.AUTHORED.forEach(walk);
+anatomy(file.OVERVIEW?.anatomy);
 // A demo carries its cited files; a project's are read from its checkout.
 const source = Object.fromEntries([...cited].sort().map((f) => [f, baked?.[f] ?? readFileSync(join(root, f), "utf8")]));
 
