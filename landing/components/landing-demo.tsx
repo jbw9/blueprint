@@ -25,7 +25,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
   {
     id: "claude",
     label: "Ask Claude Code",
-    project: "flask",
+    project: "bluprint",
     cap: "In the desktop app, Claude Code runs in a tab beside the bluprint. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
   },
   {
@@ -37,13 +37,13 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
   {
     id: "review",
     label: "Review diffs",
-    project: "flask",
+    project: "bluprint",
     cap: "In the desktop app, a commit, branch or pull request is drawn on the bluprint you already know: the parts it touched, by how much, and the lines under each.",
   },
   {
     id: "run",
     label: "Preview your app",
-    project: "habits",
+    project: "bluprint",
     cap: "In the desktop app, your web app runs in a Preview tab and your phone app on the iOS Simulator or Android emulator. Claude can see both, and tap through them too.",
   },
 ];

@@ -1,15 +1,13 @@
 #!/bin/sh
 # usage: sh scripts/build-site.sh <site>
 #   builds blpr.dev into <site>, a checkout of the gh-pages branch, replacing what was there: the
-#   landing page, the demo bluprints made from this repo, and the admin dashboard. The builds in $keep
-#   are not exported by this script, so they stay as deployed.
+#   landing page, the demo bluprints made from this repo, and the admin dashboard.
 set -e
 site=$(cd "$1" && pwd)
 # The demo exports run in the app's package (app/scripts/export-static.mts); every path below is from there.
 cd "$(dirname "$0")/../app"
 base=
-keep="kafka"
-demos="fastapi:fastapi/full-stack-fastapi-template flask:pallets/flask ky:sindresorhus/ky bluprint:jbw9/bluprint umami:umami-software/umami"
+demos="bluprint:jbw9/bluprint"
 
 for d in $demos; do
   bluprint=${d%%:*}
@@ -19,7 +17,7 @@ for d in $demos; do
 done
 (cd ../landing && NEXT_PUBLIC_BASE_PATH=$base npm run build)
 
-find "$site" -mindepth 1 -maxdepth 1 ! -name .git $(for k in $keep; do printf ' ! -name %s' "$k"; done) -exec rm -rf {} +
+find "$site" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 cp -R ../landing/out/. "$site/"
 for d in $demos; do
   bluprint=${d%%:*}

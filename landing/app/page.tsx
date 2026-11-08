@@ -27,14 +27,7 @@ const REPO = "jbw9/bluprint";
 const GITHUB = `https://github.com/${REPO}`;
 
 // This repo first: the demo opens on the project explaining itself.
-const DEMOS = [
-  { id: "bluprint", label: "Bluprint itself" },
-  { id: "flask", label: "Flask" },
-  { id: "fastapi", label: "FastAPI" },
-  { id: "ky", label: "ky" },
-  { id: "umami", label: "Umami" },
-  { id: "kafka", label: "Kafka control plane" },
-];
+const DEMOS = [{ id: "bluprint", label: "Bluprint itself" }];
 
 // The same problem at every size. John Doe is the page's own voice; the other two are people the team spoke with, by role.
 const VOICES: Voice[] = [
@@ -46,14 +39,12 @@ const VOICES: Voice[] = [
   { quote: "You built it in a weekend. I bet you can’t explain how it works.", by: "John Doe, solo developer" },
 ];
 
-// The lines flask's make_config part cites, from src/flask/sansio/app.py.
-const MAKE_CONFIG = [
-  "root_path = self.root_path",
-  "if instance_relative:",
-  "    root_path = self.instance_path",
-  "defaults = dict(self.default_config)",
-  'defaults["DEBUG"] = get_debug_flag()',
-  "return self.config_class(root_path, defaults)",
+// The lines this repo's Visit Tracking part cites, from landing/components/landing-visit.tsx.
+const VISIT = [
+  'let vid = stored("bp-visitor");',
+  'if (!vid) keep("bp-visitor", (vid = crypto.randomUUID()));',
+  "const day = new Date().toISOString().slice(0, 10);",
+  'const geo = stored("bp-geo");',
 ];
 
 /** A bluprint's subtitle up to its first aside, as one sentence. */
@@ -65,9 +56,9 @@ export default function Landing() {
     return { id, label, files: file.RUN.files ?? 0, commit: file.RUN.commit ?? "" };
   });
 
-  const flask = loadBluprint("flask");
-  const first = flask.AUTHORED[0];
-  const config = first.children!.find((c) => c.id === "ca-config")!;
+  const bluprint = loadBluprint("bluprint");
+  const first = bluprint.AUTHORED[0];
+  const config = first.children!.find((c) => c.id === "la-analytics")!;
 
   const ctas = (
     <>
@@ -108,8 +99,8 @@ export default function Landing() {
         <div className={s.wrap}>
           <LandingVoices voices={VOICES} />
           <LandingHow
-            name="flask"
-            roots={flask.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!}
+            name="bluprint"
+            roots={bluprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!}
             opened={{
               id: first.id,
               title: first.title,
@@ -119,13 +110,13 @@ export default function Landing() {
             cited={{
               title: config.title,
               sub: sentence(config.sub ?? ""),
-              file: "flask/sansio/app.py · make_config",
-              start: 489,
-              lines: MAKE_CONFIG,
+              file: "landing/components/landing-visit.tsx · LandingVisit",
+              start: 28,
+              lines: VISIT,
             }}
           />
         </div>
-        <LandingAgent name="flask" diagram={flask.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!} changed="handling-requests" />
+        <LandingAgent name="bluprint" diagram={bluprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!} changed="bx-app-app" />
         <div className={s.wrap}>
           <LandingStart />
           <section className={`${s.close} ${s.reveal}`} aria-labelledby="close-title">

@@ -110,8 +110,8 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
               ))}
             </div>
             <pre>
-              <span className={s.prompt}>&gt;</span> return JSON from the 404 handler{"\n\n"}
-              <span className={s.prompt}>⏺</span> Update(src/flask/app.py){"\n"}
+              <span className={s.prompt}>&gt;</span> send only the version when the bluprint is unchanged{"\n\n"}
+              <span className={s.prompt}>⏺</span> Update(app/app/api/bluprint/route.ts){"\n"}
               <span className={s.faintText}>{"  "}⎿ Updated with 4 additions and 2 removals</span>
             </pre>
             <p className={s.context}>
