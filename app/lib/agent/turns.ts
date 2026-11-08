@@ -8,9 +8,9 @@ export function claudeMidTurnIn(root: string) {
   return [...midTurn.values()].some((cwd) => cwd === root || cwd.startsWith(`${root}/`) || cwd.startsWith(`${root}\\`));
 }
 
-/** Asks for the bluprint to follow a turn that edited `root`; a checkout no project bluprints is said so in the title bar. */
-export async function followTurn(root: string, turn: Turn) {
-  const res = await updateBluprint(root, turn);
+/** Asks for the bluprint to follow a turn that edited `root` (on the next commit, unless `force`d); a checkout no project bluprints is said so in the title bar. */
+export async function followTurn(root: string, turn: Turn, force = false) {
+  const res = await updateBluprint(root, turn, force);
   // Not one of the user's projects: the title bar says so, and offers to import it.
   if (res?.skipped) window.dispatchEvent(new CustomEvent(UNFOLLOWED, { detail: root }));
 }

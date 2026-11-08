@@ -7,7 +7,7 @@
  * which sections cite the lines that changed, and where every cited line has
  * moved to. The page marks those sections at once and reads its code at the
  * moved lines; the update that rewrites them (lib/server/vault.ts, updateBluprint) is
- * asked for once the edits settle (components/chrome/statusbar.tsx).
+ * asked for once they are committed (components/chrome/statusbar.tsx).
  *
  * What the bluprint describes: base.json after updates, the bluprint's commit before
  * the first. While an update runs, moved.json once it has written the bluprint:
@@ -31,6 +31,8 @@ export interface Live {
   files: { path: string; add: number; del: number }[];
   /** Each touched section, as its path of ids from the top, with the changed files it cites; deepest first. */
   touched: { path: string[]; files: string[] }[];
+  /** The commit checked out; a new one is what starts an update (components/chrome/statusbar.tsx). */
+  head?: string;
 }
 
 interface Watch {
@@ -134,7 +136,7 @@ function work(id: string, w: Watch) {
   const hash = createHash("sha1");
   for (const c of changes.values()) hash.update(`${c.path}\0${c.after ?? "\u0000gone"}\0`);
   const next = { sig: changes.size ? hash.digest("hex").slice(0, 16) : "", files, touched };
-  if (JSON.stringify(next) !== JSON.stringify({ sig: w.live.sig, files: w.live.files, touched: w.live.touched })) w.live = { seq: w.live.seq + 1, ...next };
+  if (JSON.stringify(next) !== JSON.stringify({ sig: w.live.sig, files: w.live.files, touched: w.live.touched })) w.live = { ...w.live, seq: w.live.seq + 1, ...next };
 }
 
 /** Whether `path` exists at `commit`, quietly: `git` here swallows the failure as empty output. */
@@ -216,6 +218,9 @@ export function followLive(id: string, root: string): Watch | undefined {
       w.dirty = true;
     }
   }
+  // Every look: a commit changes no file the watcher sees (.git is noise to it).
+  const head = git(root, "rev-parse", "HEAD").trim() || undefined;
+  if (head !== w.live.head) w.live = { ...w.live, seq: w.live.seq + 1, head };
   return w;
 }
 

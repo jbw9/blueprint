@@ -93,6 +93,8 @@ export interface Project {
     pid?: number;
     /** Another turn ended while this ran: run again once it is done. */
     again?: boolean;
+    /** The commit checked out when this run started; the next waits for another. */
+    head?: string;
     changed?: string[];
     /** The sections redone, by title. */
     sections?: string[];
@@ -363,7 +365,7 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
   // (scripts/generate/update.ts). A new depth rewrites every level, and
   // `full` asks for the whole run whatever it costs.
   if (was && !full && was.bluprint.status === "ready" && (explain ?? was.explain ?? "full") === (was.explain ?? "full") && existsSync(join(projectDir(id), ".cache", "cut.json")))
-    return updateBluprint(was.root, claude);
+    return updateBluprint(was.root, claude, undefined, true);
   if (explain) update(id, (q) => (q.explain = explain));
   const p = getProject(id);
   if (!p) return undefined;
@@ -580,13 +582,15 @@ export const follows = (p: Project) =>
 
 /**
  * Bring a project's bluprint up to the code in its checkout, redoing only what
- * changed or what an agent found wrong (scripts/generate/update.ts). Asked
- * for when an agent in the app finishes a turn that edited the checkout at
- * `root`, or reported the bluprint wrong; the turn waits in turns.json for the
- * update to take it. A bluprint still being made, or not made, is left alone; one
- * already updating runs again after.
+ * changed or what an agent found wrong (scripts/generate/update.ts). Runs once
+ * per commit: asked for when the checkout's HEAD moves, an agent's turn ends,
+ * or the bluprint opens, it starts only if HEAD is not the commit the last
+ * update ran at (or, before any, the bluprint's own). `force` (the reader
+ * asking by hand) runs whatever HEAD is. A turn waits in turns.json for the
+ * update that takes it. A bluprint still being made, or not made, is left
+ * alone; one already updating runs again after.
  */
-export function updateBluprint(root: string, claude?: string, turn?: Turn): Project | undefined {
+export function updateBluprint(root: string, claude?: string, turn?: Turn, force = false): Project | undefined {
   const p = listProjects().find((x) => x.root === root);
   if (!p || !follows(p)) return p;
   if (turn) {
@@ -599,9 +603,18 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn): Proj
     }
     writeFileSync(file, JSON.stringify([...waiting, turn]) + "\n");
   }
+  const head = git(root, "rev-parse", "HEAD");
   if (p.update?.status === "running") {
-    update(p.id, (q) => (q.update!.again = true));
+    if (force || head !== p.update.head) update(p.id, (q) => (q.update!.again = true));
     return getProject(p.id);
+  }
+  if (!force) {
+    let last = p.update?.head;
+    if (!last) {
+      const made = (JSON.parse(readFileSync(bluprintFileOf(p.id)!, "utf8")) as { RUN?: { commit?: string } }).RUN?.commit;
+      last = made ? git(root, "rev-parse", "--verify", "--quiet", `${made}^{commit}`) : undefined;
+    }
+    if (head === last) return p;
   }
   const dir = projectDir(p.id);
   const log = openSync(join(dir, "update.log"), "w");
@@ -618,7 +631,7 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn): Proj
   );
   closeSync(log);
   child.unref();
-  update(p.id, (q) => (q.update = { status: "running", startedAt: new Date().toISOString(), pid: child.pid }));
+  update(p.id, (q) => (q.update = { status: "running", startedAt: new Date().toISOString(), pid: child.pid, head }));
   child.on("exit", () => {
     let again = false;
     update(p.id, (q) => {
@@ -627,7 +640,7 @@ export function updateBluprint(root: string, claude?: string, turn?: Turn): Proj
       again = Boolean(q.update.again);
       updated(q);
     });
-    if (again) updateBluprint(root, claude);
+    if (again) updateBluprint(root, claude, undefined, true);
   });
   child.on("error", (e) =>
     update(p.id, (q) => {
@@ -673,7 +686,7 @@ export function tellStory(id: string, claude?: string): boolean {
  */
 export function bluprintReview(id: string, commit: string, claude?: string): ReviewBluprint {
   const p = getProject(id);
-  if (!p || !/^[0-9a-f]{40}$/.test(commit) || !bluprintFileOf(id)) return { status: "failed", error: "This bluprint cannot be updated." };
+  if (!p || !/^[0-9a-f]{40}$/.test(commit) || !bluprintFileOf(id)) return { status: "failed", error: "This blueprint cannot be updated." };
   const now = reviewBluprint(id, commit);
   if (now.status === "running" || now.status === "done") return now;
   const out = join(projectDir(id), "reviews", commit);

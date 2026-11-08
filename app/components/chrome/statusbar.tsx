@@ -45,7 +45,7 @@ export function StatusBar() {
 
   return (
     <footer data-chrome="bar" className="flex h-6 shrink-0 select-none items-center gap-0.5 border-t border-border-gray bg-surface-container-low px-2 text-[11.5px] text-muted-slate">
-      <Item title="The commit this bluprint describes" mono>
+      <Item title="The commit this blueprint describes" mono>
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
           <circle cx="8" cy="8" r="2.5" />
           <path d="M1 8h4.5M10.5 8H15" />
@@ -53,12 +53,12 @@ export function StatusBar() {
         {RUN.commit?.slice(0, 7) ?? "no commit"}
       </Item>
       {files?.added.length ? (
-        <Item title="Files added since the bluprint was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
-          {files.added.length} not on the bluprint yet
+        <Item title="Files added since the blueprint was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
+          {files.added.length} not on the blueprint yet
         </Item>
       ) : null}
       {problems ? (
-        <Item title="Problems the bluprint found in the code — click to list them" onClick={() => openPalette("problems")} className="text-clay-ink">
+        <Item title="Problems the blueprint found in the code — click to list them" onClick={() => openPalette("problems")} className="text-clay-ink">
           <span aria-hidden>⚠</span>
           {problems} {problems === 1 ? "problem" : "problems"}
         </Item>
@@ -100,7 +100,7 @@ function CreditLeft() {
   const left = Math.max(0, 1 - (c.used ?? 0) / c.limit);
   const ends = c.resets ? new Date(c.resets).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   return (
-    <Item title={`Bluprint credit: ${tokens(c.used ?? 0)} of ${tokens(c.limit)} tokens used${ends ? `; the window ends at ${ends}` : ""}. Change it in Settings.`} onClick={openSettings}>
+    <Item title={`Blueprint credit: ${tokens(c.used ?? 0)} of ${tokens(c.limit)} tokens used${ends ? `; the window ends at ${ends}` : ""}. Change it in Settings.`} onClick={openSettings}>
       Credit {Math.round(left * 100)}%{ends ? ` · ${ends}` : ""}
     </Item>
   );
@@ -139,9 +139,6 @@ function Item({
   );
 }
 
-/** How long the changed files must stay as they are before the bluprint follows them by itself. */
-const SETTLE = 3_000;
-
 interface Update {
   status: "running" | "done" | "failed";
   finishedAt?: string;
@@ -179,13 +176,12 @@ export function useRedoing(): string[] {
  * example describes some other copy of its code, so when an agent edits its
  * checkout this says so and offers to import it.
  *
- * Edits made outside a Bluprint tab (another editor, a pull) never ask for an
- * update, so between updates this says how far the code has moved from what
- * the bluprint describes (lib/server/live.ts, followed with the bluprint each second), and
- * updates it once those files have stopped changing for SETTLE. Not while
- * Claude is mid-turn in the checkout: its turn updates the bluprint when it ends,
- * with its account of what it did. The same change is never retried after it
- * failed, since each try is a paid run.
+ * The bluprint updates once per commit. Between commits this says how far the
+ * code has moved from what the bluprint describes (lib/server/live.ts, followed
+ * with the bluprint each second), and asks for an update when HEAD moves. Not
+ * while Claude is mid-turn in the checkout: its turn asks when it ends, with its
+ * account of what it did. A commit is never retried after it failed, since each
+ * try is a paid run; Update now runs regardless.
  */
 function BluprintUpdates({ id, root, local }: { id: string; root?: string; local: boolean }) {
   const [u, setU] = useState<Update | null>(null);
@@ -223,24 +219,17 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
 
   const { live } = useBluprint();
   const behind = local ? (live?.files ?? []) : [];
-  const sig = local ? (live?.sig ?? "") : "";
-  // The change last updated for, so a failed one is not paid for again.
-  const [tried, setTried] = useState("");
-  const follow = (sig: string) => {
-    setTried(sig);
-    if (root) void followTurn(root, { transcript: null, corrections: [] });
+  const head = local ? live?.head : undefined;
+  // Updating by hand runs whatever is committed.
+  const follow = () => {
+    if (root) void followTurn(root, { transcript: null, corrections: [] }, true);
   };
-  // Each save starts the wait again; one that runs out with the code still
-  // ahead updates. An update already running takes it after (lib/server/vault.ts, `again`).
+  // A new commit updates the bluprint; the server runs it only for a HEAD it
+  // has not updated at (lib/server/vault.ts). Claude mid-turn asks with its turn when it ends.
   useEffect(() => {
-    if (!sig || !root || sig === tried) return;
-    const t = setTimeout(() => {
-      if (claudeMidTurnIn(root)) return;
-      setTried(sig);
-      void followTurn(root, { transcript: null, corrections: [] });
-    }, SETTLE);
-    return () => clearTimeout(t);
-  }, [sig, root, tried]);
+    if (!head || !root || claudeMidTurnIn(root)) return;
+    void followTurn(root, { transcript: null, corrections: [] });
+  }, [head, root]);
 
   useEffect(() => {
     if (!fresh) return;
@@ -251,8 +240,8 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
   if (unfollowed && root)
     return (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
-        <span className="truncate" title="This bluprint was made from another copy of the code, so it cannot follow edits here.">
-          This bluprint doesn&apos;t follow edits
+        <span className="truncate" title="This blueprint was made from another copy of the code, so it cannot follow edits here.">
+          This blueprint doesn&apos;t follow edits
         </span>
         <button
           type="button"
@@ -275,11 +264,11 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
         <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
           Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
-          {tried === sig ? "" : " · bluprint follows when edits settle"}
+ · blueprint follows on commit
         </span>
         <button
           type="button"
-          onClick={() => follow(sig)}
+          onClick={follow}
           className="shrink-0 cursor-pointer text-accent underline"
         >
           Update now
@@ -298,10 +287,10 @@ function BluprintUpdates({ id, root, local }: { id: string; root?: string; local
       {u.status === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" /> : null}
       <span className="truncate">
         {u.status === "running"
-          ? "Updating the bluprint to match the code…"
+          ? "Updating the blueprint to match the code…"
           : u.status === "failed"
-            ? "✗ Bluprint update failed"
-            : `✓ Bluprint updated: ${u.sections!.join(", ")}`}
+            ? "✗ Blueprint update failed"
+            : `✓ Blueprint updated: ${u.sections!.join(", ")}`}
       </span>
       {u.status === "done" ? (
         <button type="button" onClick={() => (setFresh(false), openReview("turn:latest"))} className="shrink-0 cursor-pointer underline">
