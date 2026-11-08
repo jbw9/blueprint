@@ -143,7 +143,7 @@ function exemplar(): string {
 /** The rules at the blueprint's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
 const BRIEF_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this blueprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown on its level in place of \`detail\`:
 
 - \`body\`: one or two sentences, at most 60 words: what this part is for in this project, naming any word the project uses in its own sense ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -151,7 +151,7 @@ The reader of this blueprint knows the field; what they lack is this project. Ev
 `;
 const MINIMAL_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this blueprint knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown on its level in place of \`detail\`:
 
 - \`body\`: one sentence, at most 30 words: what this project means by this part where the title alone would not say ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -159,7 +159,7 @@ The reader of this blueprint knows the field and has used this project; what the
 `;
 const DETAILED_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this blueprint knows a little of the field and nothing of this project. Every node has an \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows a little of the field and nothing of this project. Every node has an \`explain\`, shown on its level in place of \`detail\`:
 
 - \`body\`: one or two short paragraphs, a blank line between them, at most 120 words (a leaf's is often 20–60).
   - Start from what this part is for, then how it works, in everyday words.

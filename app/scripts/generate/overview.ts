@@ -123,19 +123,19 @@ ${WAY_IN[EXPLAIN_LEVEL]}Budget: about 10 tool calls before you submit.`,
 
 /** What the top level adds for a newcomer, at the blueprint's explain level (D70). The full text is D68's, unchanged. */
 const WAY_IN = {
-  full: `Then the way in for a reader who has never seen this project or its field — shown under an Explain toggle, so it can say more than the rest of the blueprint:
+  full: `Then the way in for a reader who has never seen this project or its field — shown at the top of the blueprint, so it can say more than the rest of the blueprint:
 - \`explain\`: \`body\` is 2-4 short paragraphs (blank line between, at most 200 words): what this system is for and who uses it, the problem it solves, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds 0-2 pictures only where they teach more than the prose — usually one \`diagram\` of the system in its world (the users, the machines, the outside services, and what flows between them), its boxes opening nothing and its arrows needing no \`at\`.
 - \`glossary\`: 4-12 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field ("quorum", "webhook") and of this project ("metadata image") alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
-  detailed: `Then the way in for a reader who knows a little of this kind of software and none of this project — shown under an Explain toggle:
+  detailed: `Then the way in for a reader who knows a little of this kind of software and none of this project — shown at the top of the blueprint:
 - \`explain\`: \`body\` is one or two short paragraphs (blank line between, at most 120 words): what this system is for and who uses it, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds at most one picture, only where it teaches more than the prose — usually a \`diagram\` of the system in its world, its boxes opening nothing and its arrows needing no \`at\`.
 - \`glossary\`: 4-10 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field and of this project alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
-  brief: `Then a short way in for a reader who knows this kind of software but not this project — shown under an Explain toggle:
+  brief: `Then a short way in for a reader who knows this kind of software but not this project — shown at the top of the blueprint:
 - \`explain\`: \`body\` is one to three sentences, at most 60 words: what this system is for and the idea behind how it is built. No \`blocks\`.
 - \`glossary\`: 3-8 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only this project's own words, or words a developer outside this field would not know. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
-  minimal: `Then a one-line way in for a reader who knows this kind of software and has used this project — shown under an Explain toggle:
+  minimal: `Then a one-line way in for a reader who knows this kind of software and has used this project — shown at the top of the blueprint:
 - \`explain\`: \`body\` is one sentence, at most 30 words: what this system is for. No \`blocks\`.
 - \`glossary\`: 2-5 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only words this project uses in its own sense. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,

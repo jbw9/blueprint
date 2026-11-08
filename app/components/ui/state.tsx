@@ -75,9 +75,7 @@ export function Ident({ children }: { children: React.ReactNode }) {
  * columns and functions in backticks; printed raw they read as stray marks.
  */
 /**
- * The blueprint's glossary while the Explain layer is on, empty while it is off:
- * prose marks the words a newcomer would trip on, and a reader who switched
- * the layer off sees plain text.
+ * The blueprint's glossary: prose marks the words a newcomer would trip on.
  */
 export const Glossary = createContext<Term[]>([]);
 

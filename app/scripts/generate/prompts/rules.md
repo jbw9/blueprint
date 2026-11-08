@@ -69,7 +69,7 @@ The level itself, `node` open:
 
 ## The plain-words layer: `explain`
 
-Everything above is terse on purpose, for a reader who knows the field. Every node also has an `explain` for one who does not: someone new to this project and to its domain, who has never heard of a quorum or a webhook. The page shows it under an Explain toggle, so it never gets in the way of a reader who already knows.
+Everything above is terse on purpose, for a reader who knows the field. Every node also has an `explain` for one who does not: someone new to this project and to its domain, who has never heard of a quorum or a webhook. The page shows it in place of `detail`, with its pictures above the level's own blocks.
 
 - `body`: 2–4 short paragraphs, a blank line between them, at most 200 words (a leaf's is often 40–100).
   - Start from the problem: what would go wrong without this, or what it is for. Then how it works, in everyday words.
