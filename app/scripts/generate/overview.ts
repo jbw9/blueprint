@@ -108,7 +108,7 @@ function brief(roots: Node[], cut: Cut, inv: Inventory, sums: Record<string, Fil
       : "",
     data.length ? `## What each root's files read and write, as their summaries say\n${data.join("\n")}` : "",
     `## Task
-Write the top level of the bluprint: the repository itself, the level a reader lands on before opening any root. Submit it with \`root\`, a node with no \`id\`, \`title\` or \`children\`:
+Write the top level of the blueprint: the repository itself, the level a reader lands on before opening any root. Submit it with \`root\`, a node with no \`id\`, \`title\` or \`children\`:
 - \`sub\`: at most 8 words, what this repository IS.
 - \`detail\`: at most two sentences and 40 words, the one thing to know before the picture.
 - \`anatomy\`: exactly one \`diagram\`, its \`caption\` a heading of at most 5 words ("How the roots connect"), not a sentence. One box per root, labelled with the root's title, with \`opens\` set to the root's id; lay them out left to right in the order someone meets them, a branch on a row of its own. Add a box that opens nothing only for a thing outside every root that the roots meet (the database, an outside API).
@@ -123,21 +123,21 @@ ${WAY_IN[EXPLAIN_LEVEL]}Budget: about 10 tool calls before you submit.`,
 
 /** What the top level adds for a newcomer, at the bluprint's explain level (D70). The full text is D68's, unchanged. */
 const WAY_IN = {
-  full: `Then the way in for a reader who has never seen this project or its field — shown under an Explain toggle, so it can say more than the rest of the bluprint:
+  full: `Then the way in for a reader who has never seen this project or its field — shown under an Explain toggle, so it can say more than the rest of the blueprint:
 - \`explain\`: \`body\` is 2-4 short paragraphs (blank line between, at most 200 words): what this system is for and who uses it, the problem it solves, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds 0-2 pictures only where they teach more than the prose — usually one \`diagram\` of the system in its world (the users, the machines, the outside services, and what flows between them), its boxes opening nothing and its arrows needing no \`at\`.
-- \`glossary\`: 4-12 terms the bluprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field ("quorum", "webhook") and of this project ("metadata image") alike; skip words everyone knows. It is never listed — each term is defined on hover where the bluprint uses it, so use the exact word the text uses.
+- \`glossary\`: 4-12 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field ("quorum", "webhook") and of this project ("metadata image") alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   detailed: `Then the way in for a reader who knows a little of this kind of software and none of this project — shown under an Explain toggle:
 - \`explain\`: \`body\` is one or two short paragraphs (blank line between, at most 120 words): what this system is for and who uses it, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds at most one picture, only where it teaches more than the prose — usually a \`diagram\` of the system in its world, its boxes opening nothing and its arrows needing no \`at\`.
-- \`glossary\`: 4-10 terms the bluprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field and of this project alike; skip words everyone knows. It is never listed — each term is defined on hover where the bluprint uses it, so use the exact word the text uses.
+- \`glossary\`: 4-10 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field and of this project alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   brief: `Then a short way in for a reader who knows this kind of software but not this project — shown under an Explain toggle:
 - \`explain\`: \`body\` is one to three sentences, at most 60 words: what this system is for and the idea behind how it is built. No \`blocks\`.
-- \`glossary\`: 3-8 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only this project's own words, or words a developer outside this field would not know. It is never listed — each term is defined on hover where the bluprint uses it, so use the exact word the text uses.
+- \`glossary\`: 3-8 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only this project's own words, or words a developer outside this field would not know. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   minimal: `Then a one-line way in for a reader who knows this kind of software and has used this project — shown under an Explain toggle:
 - \`explain\`: \`body\` is one sentence, at most 30 words: what this system is for. No \`blocks\`.
-- \`glossary\`: 2-5 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only words this project uses in its own sense. It is never listed — each term is defined on hover where the bluprint uses it, so use the exact word the text uses.
+- \`glossary\`: 2-5 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only words this project uses in its own sense. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   none: "",
 };

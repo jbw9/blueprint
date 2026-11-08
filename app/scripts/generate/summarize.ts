@@ -51,7 +51,7 @@ const TOOL = {
   },
 };
 
-const SYSTEM = `You read one source file from a repository and record what it does, for someone making a bluprint of the whole codebase.
+const SYSTEM = `You read one source file from a repository and record what it does, for someone making a blueprint of the whole codebase.
 Be concrete and literal: real table names, real routes, real env var names, real line numbers as shown in the left margin.
 Never guess at code you cannot see. Call the summary tool once.`;
 

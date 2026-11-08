@@ -6,6 +6,7 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { showCopied } from "@/components/chrome/copied";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { onFocusClaude, unmention } from "@/lib/agent/context";
 import { screens } from "@/lib/agent/dictate";
@@ -34,12 +35,12 @@ import { creditRelay } from "@/lib/client/credit";
  */
 const PLAIN: Record<"light" | "dark", ITheme> = {
   light: {
-    background: "#f4f4f5",
-    foreground: "#1c1c1f",
-    cursor: "#111113",
-    cursorAccent: "#f4f4f5",
-    selectionBackground: "#d4d4d8",
-    black: "#1c1c1f",
+    background: "#eceef1",
+    foreground: "#24292f",
+    cursor: "#1f2328",
+    cursorAccent: "#eceef1",
+    selectionBackground: "#cdd2d9",
+    black: "#24292f",
     red: "#b42318",
     green: "#2a7333",
     yellow: "#8a5a0b",
@@ -498,7 +499,7 @@ export function Shell({
       // Selecting copies, as in herdr: no key to press after the drag.
       const host = el.current;
       const copySelected = () => {
-        if (term.hasSelection()) void writeText(term.getSelection());
+        if (term.hasSelection()) void writeText(term.getSelection()).then(showCopied);
       };
       host.addEventListener("mouseup", copySelected);
       const noKeyMenu = (e: MouseEvent) => {

@@ -174,6 +174,10 @@ export function Workspace() {
   const [servers, setServers] = useState<Record<string, string>>({});
   // The projects whose Preview shows the dev server's terminal, not the page.
   const [serverShown, setServerShown] = useState<Record<number, boolean>>({});
+  // The Preview of a project not in front, drawn out of sight for a screenshot
+  // (components/preview/preview.tsx); put back once the picture has surely been taken.
+  const [staged, setStaged] = useState<number | null>(null);
+  const unstage = useRef<number | undefined>(undefined);
   // A yes-or-no question each project's dev server is waiting on, asked in its Preview.
   const [asking, setAsking] = useState<Record<string, string | undefined>>({});
   const [projects, setProjects] = useState<Record<string, Project>>({});
@@ -209,14 +213,17 @@ export function Workspace() {
    * Not over an address something else pointed the Preview at.
    */
   const startDev = useCallback(
-    (root: string, dir?: string, force?: boolean) => {
+    (root: string, dir?: string, force?: boolean, port?: number) => {
       const sites = projectsNow.current[root]?.web ?? [];
       if (!sites.length) return;
       // Forced, by the user's own pick: whatever runs is being replaced.
       if (!force && (!readSettings().devServer || serversNow.current[root] || tabsNow.current.some((x) => x.dev && x.cwd === root))) return;
       const want = dir ?? storedSite(root);
       const site = sites.find((x) => x.dir === want) ?? sites[0];
-      add(null, { run: site.run, dev: true, site: site.dir, label: "dev server", cwd: root });
+      // On a port of its own, for a server whose usual one another project holds:
+      // PORT is what most dev servers listen on when it is set.
+      const env = port === undefined ? "" : /Windows/.test(navigator.userAgent) ? `$env:PORT=${port}; ` : `export PORT=${port}; `;
+      add(null, { run: env + site.run, dev: true, site: site.dir, label: "dev server", cwd: root });
     },
     [add],
   );
@@ -332,18 +339,38 @@ export function Workspace() {
     const q = findQuestion(tail) ?? undefined;
     setAsking((all) => (all[t.cwd] === q ? all : { ...all, [t.cwd]: q }));
     const whole = tail.slice(0, tail.lastIndexOf("\n") + 1);
-    // Its port already served, as by the same app started elsewhere: that one
-    // is shown, and this tab kept past its exit so its error can be read.
     const taken = findAddress(whole) ? null : findTaken(whole);
-    if (taken) borrowed.current.add(t.key);
     const url = taken ?? findAddress(whole);
     if (!url) {
       tails.current[t.key] = tail;
       return;
     }
     (tails.current as Record<number, string | null>)[t.key] = null;
+    if (taken) return void portTaken(t, taken);
+    moved.current.delete(t.cwd);
     setServers((all) => ({ ...all, [t.cwd]: url }));
     preview(t.cwd);
+  };
+  // Projects whose dev server was started again on a port of its own, once:
+  // one that names its port itself fails there too, and is left to be read.
+  const moved = useRef(new Set<string>());
+  /** The dev server's port is already served. By the same project, started
+   * elsewhere, that one is shown; by another project, never, since its page
+   * would pass for this one's: this one starts again on a free port. Either
+   * way this tab is kept past its exit so its error can be read. */
+  const portTaken = async (t: Tab, url: string) => {
+    borrowed.current.add(t.key);
+    const owner = await invoke<string | null>("port_owner", { port: +new URL(url).port }).catch(() => null);
+    if (owner === null || owner === t.cwd || owner.startsWith(`${t.cwd}/`) || owner.startsWith(`${t.cwd}\\`)) {
+      setServers((all) => ({ ...all, [t.cwd]: url }));
+      return preview(t.cwd);
+    }
+    if (moved.current.has(t.cwd)) return;
+    moved.current.add(t.cwd);
+    const port = await invoke<number>("free_port").catch(() => undefined);
+    if (port === undefined) return;
+    close(t.key);
+    startDev(t.cwd, t.site, true, port);
   };
 
   // Claude's calls on the preview (src-tauri/src/mcp.rs): the project is the
@@ -432,8 +459,12 @@ export function Workspace() {
         // A window behind others draws no frames, so the slide in never runs:
         // it is put where it would have ended.
         if (document.visibilityState === "hidden" && aside.current) aside.current.style.transform = "none";
-      } else if (cmd.op === "frame") {
-        throw new Error("That preview belongs to a project that is not open in the window, so it cannot be seen.");
+      } else if (cmd.op === "frame" && key !== undefined) {
+        setStaged(key);
+        clearTimeout(unstage.current);
+        // The snapshot's own timeout (src-tauri/src/mcp.rs).
+        unstage.current = window.setTimeout(() => setStaged(null), 10000);
+        await sleep(80);
       }
       const out = await handle.run(cmd);
       // Named, so the agent can say `tab` from here on.
@@ -985,7 +1016,7 @@ export function Workspace() {
       role="tab"
       aria-selected={selected}
       onPointerDown={grab(t)}
-      title="Drag onto the bluprint to open it in the main view, or back onto the window"
+      title="Drag onto the blueprint to open it in the main view, or back onto the window"
       className={cn(
         "group flex shrink-0 cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
         selected ? "bg-surface-container-low text-ink" : "border-b text-muted-slate hover:text-ink",
@@ -1029,6 +1060,7 @@ export function Workspace() {
       />
     ) : null;
   if (!tabs.length) return offer;
+  const stagedAt = tabs.find((t) => t.key === staged);
   return (
     <>
     {offer}
@@ -1051,8 +1083,10 @@ export function Workspace() {
       data-chrome
       // Over the history popup's veil while it has a file open here, so the two read together.
       className={cn(
-        "fixed flex flex-col overflow-hidden border border-border-gray bg-surface-container-low shadow-[0_8px_28px_-8px_rgba(0,0,0,0.35)]",
+        "fixed flex flex-col border border-border-gray bg-surface-container-low shadow-[0_8px_28px_-8px_rgba(0,0,0,0.35)]",
         readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
+        // A staged Preview lies past the window's edge, and would be clipped.
+        !stagedAt?.main && stagedAt ? "overflow-visible" : "overflow-hidden",
       )}
     >
       <div
@@ -1309,6 +1343,7 @@ export function Workspace() {
                 onSite={(dir) => switchSite(t.cwd, dir)}
                 onStart={owns && !dev ? () => startDev(t.cwd, undefined, true) : undefined}
                 docked={!!t.main}
+                staged={staged === t.key}
               />
               </Held>
             );

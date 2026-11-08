@@ -7,7 +7,7 @@ site=$(cd "$1" && pwd)
 # The demo exports run in the app's package (app/scripts/export-static.mts); every path below is from there.
 cd "$(dirname "$0")/../app"
 base=
-demos="bluprint:jbw9/bluprint"
+demos="bluprint:jbw9/blueprint"
 
 for d in $demos; do
   bluprint=${d%%:*}

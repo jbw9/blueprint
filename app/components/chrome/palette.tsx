@@ -140,7 +140,7 @@ export function Palette() {
         walk(n.children ?? [], p, [...trail, n.title]);
       }
     };
-    out.push({ key: "level:", label: bluprint.RUN.repo, hint: "The top of the bluprint", kind: "level", kbd: "0", run: () => goTo([]) });
+    out.push({ key: "level:", label: bluprint.RUN.repo, hint: "The top of the blueprint", kind: "level", kbd: "0", run: () => goTo([]) });
     walk(bluprint.L0, [], []);
     return out;
   }, [bluprint]);
@@ -160,7 +160,7 @@ export function Palette() {
       out.push({
         key: `file:${file}`,
         label: file,
-        hint: at ? trailOf(at) : f.status === "excluded" ? "left out of the bluprint · opens the file" : "not on any level · opens the file",
+        hint: at ? trailOf(at) : f.status === "excluded" ? "left out of the blueprint · opens the file" : "not on any level · opens the file",
         kind: "file",
         run: () => openFileInTab(bluprint.name, at ?? path, file),
       });
@@ -178,7 +178,7 @@ export function Palette() {
     // Files the bluprint has not seen: new since it was made, or ignored by git
     // and kept by hand, like the .env an API key goes in.
     for (const file of files?.added ?? [])
-      out.push({ key: `file:${file}`, label: file, hint: "new since the bluprint was made · opens the file", kind: "file", run: () => openFileInTab(bluprint.name, path, file) });
+      out.push({ key: `file:${file}`, label: file, hint: "new since the blueprint was made · opens the file", kind: "file", run: () => openFileInTab(bluprint.name, path, file) });
     for (const file of files?.local ?? [])
       out.push({ key: `file:${file}`, label: file, hint: "not in git · opens the file", kind: "file", run: () => openFileInTab(bluprint.name, path, file) });
     // The rest of the checkout: everything, while a bluprint is still being made
@@ -189,7 +189,7 @@ export function Palette() {
       out.push({
         key: `file:${file}`,
         label: file,
-        hint: files?.index ? "not on the bluprint · opens the file" : "the bluprint is still being made · opens the file",
+        hint: files?.index ? "not on the blueprint · opens the file" : "the blueprint is still being made · opens the file",
         kind: "file",
         run: () => openFileInTab(bluprint.name, path, file),
       });
@@ -247,16 +247,16 @@ export function Palette() {
     return [
       { key: "a:back", label: "Go back a level", kind: "action", kbd: "Esc", run: () => path.length && goTo(path.slice(0, -1)) },
       { key: "a:workspace", label: "Toggle Claude Code & terminal", kind: "action", kbd: keys(mac, "`"), run: toggleWorkspace },
-      { key: "a:diff", label: "What changed in the code", hint: "Diff two commits over the bluprint", kind: "action", run: openDiff },
+      { key: "a:diff", label: "What changed in the code", hint: "Diff two commits over the blueprint", kind: "action", run: openDiff },
       { key: "a:files", label: "Every file", hint: "Where each part of the code is explained", kind: "action", run: () => openFiles() },
-      { key: "a:timeline", label: "How the code got here", hint: "Its commits over time, on the bluprint's sections", kind: "action", run: openTimeline },
-      { key: "a:audit", label: "How sure is this bluprint", hint: "What was checked, and what to double-check", kind: "action", run: () => openAudit(bluprint.name) },
-      { key: "a:history", label: "What you added to this bluprint", kind: "action", run: openHistory },
+      { key: "a:timeline", label: "How the code got here", hint: "Its commits over time, on the blueprint's sections", kind: "action", run: openTimeline },
+      { key: "a:audit", label: "How sure is this blueprint", hint: "What was checked, and what to double-check", kind: "action", run: () => openAudit(bluprint.name) },
+      { key: "a:history", label: "What you added to this blueprint", kind: "action", run: openHistory },
       { key: "a:docs", label: "Read the docs…", hint: "The project's Markdown: design notes, decisions", kind: "action", run: () => setTimeout(() => openPalette("docs")) },
-      { key: "a:open", label: "Open Folder…", hint: "Make a bluprint of a folder on this machine", kind: "action", run: () => void openFolder() },
+      { key: "a:open", label: "Open Folder…", hint: "Make a blueprint of a folder on this machine", kind: "action", run: () => void openFolder() },
       { key: "a:new", label: "New Project…", hint: "Start an empty folder", kind: "action", run: newProject },
       { key: "a:projects", label: "Projects", hint: "Your bluprints: open, regenerate, remove", kind: "action", run: () => openProjects() },
-      { key: "a:bluprints", label: "Switch bluprint…", kind: "action", run: () => setTimeout(() => openPalette("bluprints")) },
+      { key: "a:bluprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("bluprints")) },
       { key: "a:settings", label: "Settings", kind: "action", run: openSettings },
       // After the palette has closed, so the words go to Claude's prompt rather than the palette's field.
       { key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the key", kind: "action", kbd: "Hold ⌃⌥", run: () => setTimeout(startDictation) },
@@ -379,8 +379,8 @@ export function Palette() {
             }
           }}
           placeholder={
-            mode === "bluprints" ? "Switch to a bluprint…"
-            : mode === "unsure" ? `${findings.unsure.length} levels the bluprint is not certain about — filter…`
+            mode === "bluprints" ? "Switch to a blueprint…"
+            : mode === "unsure" ? `${findings.unsure.length} levels the blueprint is not certain about — filter…`
             : mode === "problems" ? `${findings.problems.length} problems found in the code — filter…`
             : mode === "docs" ? (docList === null ? "Finding the docs…" : `${docList.length} docs in this project — filter…`)
             : mode === "code" ? "Open a file, folder or symbol in the editor…"
@@ -424,7 +424,7 @@ export function Palette() {
               {mode === "unsure" && !findings.unsure.length
                 ? "Every level is certain."
                 : mode === "problems" && !findings.problems.length
-                  ? "The bluprint found no problems."
+                  ? "The blueprint found no problems."
                   : mode === "docs" && docList && !docList.length
                     ? "This project has no Markdown."
                     : "Nothing matches."}

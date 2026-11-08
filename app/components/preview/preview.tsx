@@ -62,6 +62,7 @@ export function Preview({
   onStart,
   docked,
   blank,
+  staged,
 }: {
   /** Its tab's key: what Claude's calls find it by. */
   id: number;
@@ -89,6 +90,9 @@ export function Preview({
   docked?: boolean;
   /** A new tab of its own, as a browser's: no dev server, and the address bar taken at once. */
   blank?: boolean;
+  /** Drawn past the window's edge while out of sight, so a screenshot can take
+   * it without bringing its project to the front (components/agent/workspace.tsx). */
+  staged?: boolean;
 }) {
   // Another server this tab was pointed at, from its address bar or by
   // Claude: this tab's alone, so the project's other Previews stay put.
@@ -467,6 +471,23 @@ export function Preview({
   const dims = `${vw} × ${vh}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}`;
   const ready = (src !== null && !!target) || web !== null;
 
+  // The size it last had in sight: staged at that size, the page lays out as it did.
+  const [sized, setSized] = useState({ w: 0, h: 0 });
+  const stagedNow = useRef(staged);
+  useEffect(() => {
+    stagedNow.current = staged;
+  }, [staged]);
+  useEffect(() => {
+    const el = whole.current;
+    if (!el) return;
+    const seen = new ResizeObserver(([e]) => {
+      const { width: w, height: h } = e.target.getBoundingClientRect();
+      if (!stagedNow.current && w && h) setSized({ w, h });
+    });
+    seen.observe(el);
+    return () => seen.disconnect();
+  }, []);
+
   const typedInto = useRef(false);
   useEffect(() => {
     if (!blank || !visible || typedInto.current) return;
@@ -477,11 +498,19 @@ export function Preview({
   return (
     <div
       ref={whole}
-      className={cn("absolute inset-0 flex flex-col", !visible && "pointer-events-none invisible")}
+      className={cn("absolute inset-0 flex flex-col", !visible && "pointer-events-none", !visible && !staged && "invisible")}
       // In the main view, clear of the window floating over its right, as the
       // bluprint is (components/agent/workspace.tsx): a page from the web would hide
       // wherever the window covers it, and a screenshot would take the window in.
-      style={docked ? { paddingRight: "var(--workspace-inset, 0px)" } : undefined}
+      // Staged, past the right edge: WebKit's snapshot paints the area asked
+      // for, on screen or not, and nobody sees it there.
+      style={
+        staged && !visible
+          ? { position: "fixed", inset: "0 auto auto 100vw", width: sized.w || "60vw", height: sized.h || "80vh", visibility: "visible" }
+          : docked
+            ? { paddingRight: "var(--workspace-inset, 0px)" }
+            : undefined
+      }
     >
       <div data-chrome="bar" className="flex h-9 shrink-0 items-center gap-0.5 border-b border-border-gray bg-surface px-1.5">
         <ShowSwitches serverShown={serverShown} onServer={onServer} sites={sites} site={site} onSite={onSite} />

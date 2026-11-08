@@ -125,13 +125,13 @@ export function TimelineView() {
   const header = (
     <header className="mb-6 border-b border-border-gray pb-5">
       <div className="mb-4">
-        <Button onClick={closeTimeline}>‹ Back to the bluprint</Button>
+        <Button onClick={closeTimeline}>‹ Back to the blueprint</Button>
       </div>
       <Eyebrow>History</Eyebrow>
       <h1 className="mt-2 font-display text-[32px] font-normal leading-[1.05] tracking-[-0.016em] text-ink">How the code got here</h1>
       {data?.commits.length ? (
         <p className="mt-1.5 max-w-[720px] text-[13.5px] leading-relaxed text-on-surface-variant">
-          {data.commits.length} commits{data.capped ? " (the most recent)" : ""} from {day(data.commits[0].at)} to {day(data.commits[data.commits.length - 1].at)}, on the bluprint&apos;s
+          {data.commits.length} commits{data.capped ? " (the most recent)" : ""} from {day(data.commits[0].at)} to {day(data.commits[data.commits.length - 1].at)}, on the blueprint&apos;s
           sections, one step per commit. The bars above are each commit&apos;s size; click a dot to see what it did, or drag across a stretch.
         </p>
       ) : null}

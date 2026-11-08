@@ -157,7 +157,7 @@ export function DiffPanel() {
               // A tab docked in the main view would hide the timeline it opens on.
               showBluprint();
             }}
-            title="How the code got here — every commit on the bluprint's sections, over time"
+            title="How the code got here — every commit on the blueprint's sections, over time"
             className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
           >
             Timeline
@@ -165,10 +165,10 @@ export function DiffPanel() {
           <button
             type="button"
             onClick={() => setShown(false)}
-            title="Close this and keep the bluprint coloured by what changed"
+            title="Close this and keep the blueprint coloured by what changed"
             className={(reading?.open ? "hidden " : "") + "shrink-0 cursor-pointer px-2 py-1 text-[12px] text-accent hover:bg-surface-container-low"}
           >
-            See it on the bluprint
+            See it on the blueprint
           </button>
           <button
             type="button"

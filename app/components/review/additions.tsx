@@ -83,7 +83,7 @@ export function HistoryDialog() {
         <header className="border-b border-border-gray px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink">What you added</h2>
           <p className="mt-0.5 text-[12px] text-muted-slate">
-            Kept beside the bluprint, never inside it — so remaking the bluprint never writes over your work.
+            Kept beside the blueprint, never inside it — so remaking the blueprint never writes over your work.
           </p>
         </header>
 

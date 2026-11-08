@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const root = q.get("root");
   const p = listProjects().find((x) => x.root === root);
   const open = p ? loadBluprint(p.id) : null;
-  if (!p || !open) return Response.json({ text: "This checkout has no bluprint in Bluprint yet, so there is nothing to look up. Import it from Projects to make its bluprint." });
+  if (!p || !open) return Response.json({ text: "This checkout has no blueprint in Blueprint yet, so there is nothing to look up. Import it from Projects to make its blueprint." });
   const m = buildBluprint(open.file, open.name);
   const f = join(projectDir(p.id), "index.json");
   const index: BluprintIndex | null = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null;
@@ -30,6 +30,6 @@ export async function GET(request: Request) {
     tool === "search" ? bluprintSearch(m, index, q.get("q") ?? "")
     : tool === "section" ? bluprintSection(m, q.get("name") ?? "", index)
     : tool === "where" ? bluprintWhere(m, index, q.get("file") ?? "", line)
-    : `No bluprint tool called ${tool}.`;
+    : `No blueprint tool called ${tool}.`;
   return Response.json({ text });
 }

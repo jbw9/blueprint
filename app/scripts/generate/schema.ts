@@ -129,7 +129,7 @@ export function submitProblems(
   opts.fixed?.push(...autofix(node, repo));
   const mine = idsOf(node);
   const clash = [...mine].filter((id) => opts.taken?.has(id));
-  if (clash.length) return clash.map((id) => `${id}: already used elsewhere in the bluprint`);
+  if (clash.length) return clash.map((id) => `${id}: already used elsewhere in the blueprint`);
   const problems = check({ AUTHORED: [opts.within ? opts.within(node) : node] }, repo, { generated: true }).problems;
   return opts.within ? problems.filter((p) => [...mine].some((id) => p.includes(id)) || p.startsWith("DUP")) : problems;
 }

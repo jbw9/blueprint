@@ -125,7 +125,7 @@ export function useRepoFile(file: string) {
 /** A close for the frame's corner: back to the level the file or doc was opened over. */
 export function CloseButton({ onClose }: { onClose: () => void }) {
   return (
-    <Button variant="ghost" size="sm" onClick={onClose} title="Back to the bluprint (Esc)" aria-label="Close">
+    <Button variant="ghost" size="sm" onClick={onClose} title="Back to the blueprint (Esc)" aria-label="Close">
       ✕
     </Button>
   );

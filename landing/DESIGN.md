@@ -4,7 +4,7 @@ The page at `/`: `app/page.tsx`, its parts in `components/`, its styles in `comp
 
 ## The idea
 
-**Bluprint is a technical drawing of your code, so the page is a drawing too.** It is one sheet of white paper lying on a blueprint desk, and everything on it is drawn in one ink: cobalt. That covers the lettering, the labels, the rules, the grids and the photographs.
+**Blueprint is a technical drawing of your code, so the page is a drawing too.** It is one sheet of white paper lying on a blueprint desk, and everything on it is drawn in one ink: cobalt. That covers the lettering, the labels, the rules, the grids and the photographs.
 
 Three things make it feel like a drawing rather than a web page:
 
@@ -84,7 +84,7 @@ When you replace a picture, give the file a new name. Browsers cache by name.
 ## The page, top to bottom
 
 1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It sticks to the top in paper at 88% with a blur, and gains a hairline once the page scrolls. It has no theme switch.
-2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe; a line runs from the fingertip toward the claim. On the right is the claim in light slab: "Understand ✦ the code [Hamilton] you didn't write." Under it is one sentence on what Bluprint does, with two more pictures set in it, then the install line. "Scroll to open the app ↓" sits at the bottom.
+2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe; a line runs from the fingertip toward the claim. On the right is the claim in light slab: "Understand ✦ the code [Hamilton] you didn't write." Under it is one sentence on what Blueprint does, with two more pictures set in it, then the install line. "Scroll to open the app ↓" sits at the bottom.
 3. **How we got here** (`landing-evolution.tsx`). One wavy line drawn down the sheet as the reader scrolls, through three people, each a tilted plate with a year, a name and one line: Lovelace (1843), Turing (1936) and Karpathy (2025, who coined vibe coding). Keep it to three. The point is a glance, not a history lesson.
 4. **And now there's you.** Uncle Sam points out at the reader from behind the heading. Then comes the live app, which zooms up out of the page as the reader reaches it.
 5. **The rest**: quotes, why, how it works, beside your agent, your repo, questions, the close and the title block. They are all drawn with the same vocabulary: ink-bar panels, hairline rules, mono labels and light slab headings.

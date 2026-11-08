@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
   const body = (await request.json().catch(() => null)) ?? {};
-  const { action, id, root, name, url, claude, turn, explain, full, paused } = body as Record<string, unknown>;
+  const { action, id, root, name, url, claude, turn, explain, full, paused, force } = body as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
   const level = (["none", "minimal", "brief", "detailed", "full"] as const).find((l) => l === explain);
   try {
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       case "update":
         if (!str(root)) return bad("bad request");
         // A checkout no project of the user's bluprints (an example's) cannot follow it.
-        return Response.json(updateBluprint(root as string, str(claude), turnOf(turn), body.opened === true) ?? { skipped: true });
+        return Response.json(updateBluprint(root as string, str(claude), turnOf(turn), force === true, body.opened === true) ?? { skipped: true });
       case "pause":
         if (!str(id)) return bad("bad request");
         setPaused(id as string, paused === true);

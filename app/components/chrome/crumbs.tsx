@@ -106,7 +106,7 @@ function BluprintSwitcher({ bluprint, bluprints, className }: { bluprint: string
   return (
     <select
       value={bluprint}
-      aria-label="Bluprint"
+      aria-label="Blueprint"
       onChange={(e) => router.push(`?bluprint=${encodeURIComponent(e.target.value)}`)}
       className={className}
     >
@@ -150,7 +150,7 @@ export function Crumbs({
         {/* In the desktop app the switcher lives in the title bar. */}
         {switcher ? (
           <label className="flex shrink-0 items-center gap-2">
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">bluprint</span>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">blueprint</span>
             <BluprintSwitcher
               bluprint={bluprint}
               bluprints={bluprints}

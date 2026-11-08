@@ -323,7 +323,7 @@ function Diagram({
                 {/* Code under this part changed and the bluprint has not followed yet (lib/server/live.ts): a dot on the corner, the box itself untouched. */}
                 {!diff && b.opens && changedCode.get(b.opens) ? (
                   <circle cx={x + w - 9} cy={y + 9} r={3.5} fill="var(--color-amber-ink)">
-                    <title>{`Code changed: ${changedCode.get(b.opens)!.join(", ")}. The bluprint follows once your edits settle.`}</title>
+                    <title>{`Code changed: ${changedCode.get(b.opens)!.join(", ")}. The blueprint follows once they are committed.`}</title>
                   </circle>
                 ) : null}
                 {v ? (

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     open = loadBluprint(body?.bluprint ?? undefined);
   } catch {}
-  if (!open || typeof body?.turn !== "string") return Response.json({ error: "No such bluprint or turn." }, { status: 400 });
+  if (!open || typeof body?.turn !== "string") return Response.json({ error: "No such blueprint or turn." }, { status: 400 });
   const dir = projectDir(open.name);
   const log = existsSync(join(dir, "changes.json")) ? (JSON.parse(readFileSync(join(dir, "changes.json"), "utf8")) as { id: string; prompt: string }[]) : [];
   const turn = body.turn;

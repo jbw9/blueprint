@@ -9,13 +9,11 @@ import { openPalette } from "@/components/chrome/palette";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
 import { openProjects } from "@/components/projects/projects";
 import { keys } from "@/components/ui/button";
-import { openHistory } from "@/components/review/additions";
 import { openDiff, useDiff } from "@/components/review/diff";
 import { StatusDot } from "@/components/agent/status-dot";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { TabClose } from "@/components/chrome/tabs";
 import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/open-projects";
-import { DocIcon } from "@/components/bluprint/docs";
 import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 
@@ -75,7 +73,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
       <div data-tauri-drag-region className={cn("flex h-full min-w-0 items-center", mac ? "pl-[78px]" : "pl-1.5")}>
         {bare ? (
           <span data-tauri-drag-region className="px-2 font-mono text-[11.5px] font-semibold text-ink">
-            Bluprint
+            Blueprint
           </span>
         ) : (
           <Where mac={mac} />
@@ -228,7 +226,7 @@ function BluprintTools() {
   return (
     <>
       <Control
-        label={diff?.diff || diff?.loading ? "Version control — showing changes on the bluprint. Open the history" : "Version control — the commit history, and what each changed"}
+        label={diff?.diff || diff?.loading ? "Version control — showing changes on the blueprint. Open the history" : "Version control — the commit history, and what each changed"}
         onClick={openDiff}
         active={Boolean(diff?.diff || diff?.loading)}
       >
@@ -240,13 +238,9 @@ function BluprintTools() {
           <path d="M18 9a9 9 0 0 1-9 9" />
         </g>
       </Control>
-      <Control label="Docs — read the project's Markdown" onClick={() => openPalette("docs")}>
-        <DocIcon />
-      </Control>
-      <Control label="What you added to this bluprint — and a way back" onClick={openHistory}>
-        {/* A clock turned back: the history of the reader's own additions. */}
-        <circle cx="8" cy="8" r="6" />
-        <path d="M8 4.5V8l2.5 1.5" />
+      <Control label="Files — open a file, folder or symbol in the editor" onClick={() => openPalette("code")}>
+        <path d="M4 1.5h5.5L12 4v10.5H4z" />
+        <path d="M9.5 1.5V4H12" />
       </Control>
     </>
   );

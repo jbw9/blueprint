@@ -78,24 +78,18 @@ function settled(b: Anatomy): Anatomy {
 }
 
 /**
- * The level said again for someone new to the project and its field
- * (`Node.explain`): prose that defines its words, then a picture where one
- * teaches more than the prose. Set apart by a green rule, so it reads as a
- * gloss on the level rather than more of it.
+ * The pictures of the level said again for someone new to the project and its
+ * field (`Node.explain`). Its prose stands in for the header's detail instead,
+ * since the two said the same thing twice. Set apart by a green rule, so it
+ * reads as a gloss on the level rather than more of it.
  */
 export function Explainer({ owner, explain, ctx }: { owner: string; explain: ExplainerData; ctx: RowCtx }) {
+  if (!explain.blocks?.length) return null;
   return (
-    <section data-pick="In plain words" data-pick-text={explain.body} className="border-l-2 border-accent-line pl-5">
+    <section data-pick="In plain words" className="border-l-2 border-accent-line pl-5">
       <Eyebrow className="text-accent">In plain words</Eyebrow>
-      <div className="max-w-[720px]">
-        {explain.body.split(/\n\s*\n/).map((para, i) => (
-          <p key={i} className="mt-3 text-[14.5px] leading-[1.65] text-on-surface">
-            <Prose text={para} />
-          </p>
-        ))}
-      </div>
-      {(explain.blocks ?? []).map(settled).map((b, i) => (
-        <div key={i} className="mt-6">
+      {explain.blocks.map(settled).map((b, i) => (
+        <div key={i} className={i ? "mt-6" : "mt-3"}>
           {isExplained(b) ? (
             <div className={b.kind === "diagram" ? "" : "max-w-[1100px]"}>
               <ExplainedBlock block={b} />

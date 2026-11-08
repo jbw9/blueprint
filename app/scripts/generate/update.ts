@@ -218,14 +218,14 @@ function brief(t: Placed, root: Root, cut: Cut, inv: Inventory, sums: Record<str
   const trail = t.path.map((n) => n.title).join(" › ");
   return [
     `# Repository: ${inv.name} @ ${inv.commit}, with uncommitted changes`,
-    `## The whole bluprint's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
+    `## The whole blueprint's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
     `## The section to update\n${trail}\nIt sits in the root "${root.title}"; every id under that root starts with "${root.prefix}-".`,
     told.account ? `## What the coding agent did, in its own words\n${told.account}` : "",
     mine.length ? `## What changed in the code\nThe files, and the functions and classes on the lines that changed, as the graph has them now. Look them up with graph_show.\n${mine.map(changedDefs).join("\n")}` : "## The code under this section did not change",
     told.notes.length
       ? `## Where the coding agent found this section wrong\nIt read the code and reported:\n${told.notes.map((n) => `- ${n}`).join("\n")}\nCheck each against the graph yourself; correct what it is right about.`
       : "",
-    `## The section as the bluprint has it now\nLine references are already moved to where that code is now; the ones on changed lines may be off.\n\`\`\`json\n${JSON.stringify(t.node, null, 1)}\n\`\`\``,
+    `## The section as the blueprint has it now\nLine references are already moved to where that code is now; the ones on changed lines may be off.\n\`\`\`json\n${JSON.stringify(t.node, null, 1)}\n\`\`\``,
     `## Files around this change (${reach.length}) — the changed files, what they import and what imports them, and the files this section cites\n${reach.map((p) => (sums[p] ? (mine.some((c) => c.path === p) ? full(sums[p]) : oneLine(sums[p])) : p)).join("\n")}`,
     `## Task
 The code under this section changed, or the coding agent found the section wrong. Update the section so it is true of the code as it is now, and submit it whole, with its full subtree.
@@ -324,7 +324,7 @@ export async function update(args: string[]) {
     writeFileSync(`${out}/update.json`, JSON.stringify({ finishedAt: new Date().toISOString(), seconds: Math.round((Date.now() - t0) / 1000), ...r }, null, 1) + "\n");
 
   if (!existsSync(`${out}/bluprint.json`) || !existsSync(`${out}/.cache/cut.json`)) {
-    result({ ok: false, error: "This bluprint has no cut to update from; regenerate it." });
+    result({ ok: false, error: "This blueprint has no cut to update from; regenerate it." });
     process.exitCode = 1;
     return;
   }

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs Bluprint on macOS or Linux, built from source:
-#   curl -fsSL https://raw.githubusercontent.com/jbw9/bluprint/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/jbw9/blueprint/main/install.sh | sh
 # The source is kept in ~/.bluprint/src (BLUPRINT_DIR moves it); running this again updates and rebuilds.
 # When it ends it tells us the OS and whether it worked, nothing else; BLUPRINT_NO_TELEMETRY=1 skips that.
 set -e
@@ -11,13 +11,13 @@ API_URL=https://kzapxbfoapvchs2sxoekvsuiey0zhbtn.lambda-url.us-east-1.on.aws
 # Everything happens inside main, called on the last line, so a download cut short runs nothing.
 main() {
   trap report EXIT
-  repo=${BLUPRINT_REPO:-https://github.com/jbw9/bluprint.git}
+  repo=${BLUPRINT_REPO:-https://github.com/jbw9/blueprint.git}
   ref=${BLUPRINT_REF:-main}
   dir=${BLUPRINT_DIR:-$HOME/.bluprint}/src
   os=$(uname)
   case $os in
   Darwin | Linux) ;;
-  *) die "Bluprint installs on macOS and Linux." ;;
+  *) die "Blueprint installs on macOS and Linux." ;;
   esac
   # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
@@ -50,10 +50,10 @@ main() {
       done
     fi
   fi
-  [ -z "$missing" ] || die "Bluprint builds from source, and needs:$missing
+  [ -z "$missing" ] || die "Blueprint builds from source, and needs:$missing
 Install those, then run this again."
   command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] ||
-    die "Bluprint needs Node 20 or newer; this is $(node -v)."
+    die "Blueprint needs Node 20 or newer; this is $(node -v)."
 
   say "Getting the source into $dir"
   mkdir -p "$dir"
@@ -65,11 +65,11 @@ Install those, then run this again."
   cd "$dir/app"
   say "Installing packages"
   npm ci --no-audit --no-fund
-  say "Building Bluprint (the first build compiles the app: 10 to 20 minutes)"
+  say "Building Blueprint (the first build compiles the app: 10 to 20 minutes)"
   sh scripts/install-app.sh
 
   command -v claude >/dev/null ||
-    say "Bluprint makes bluprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
+    say "Blueprint makes blueprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
 }
 
 report() {

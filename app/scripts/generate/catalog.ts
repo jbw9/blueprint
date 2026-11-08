@@ -15,7 +15,7 @@ export function catalogOf(inv: Inventory, sums: Record<string, FileSummary>, cut
   for (const f of inv.files) {
     // Listed, so the app never takes a file outside a scoped bluprint for one added since.
     if (f.outside) {
-      files[f.path] = { roots: [], status: "excluded", reason: "Outside the part of the repository this bluprint covers", kind: f.test ? "test" : "other", lines: f.lines, symbols: [] };
+      files[f.path] = { roots: [], status: "excluded", reason: "Outside the part of the repository this blueprint covers", kind: f.test ? "test" : "other", lines: f.lines, symbols: [] };
       continue;
     }
     const s = sums[f.path];

@@ -49,12 +49,12 @@ export function auditMarkdown(a: AuditInput): string {
   const title = new Map(cut.roots.map((r) => [r.id, r.title]));
 
   out.push(
-    `# How the bluprint of ${inv.name} was made`,
+    `# How the blueprint of ${inv.name} was made`,
     "",
     `Commit \`${inv.commit}\`${inv.dirty.length ? `, with uncommitted edits to ${inv.dirty.slice(0, 8).map((f) => `\`${f}\``).join(", ")}${inv.dirty.length > 8 ? ` and ${inv.dirty.length - 8} more` : ""} (read as they were on disk)` : ""} · ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC · ${a.backend} · ${Math.round(a.seconds / 60)} min`,
     "",
     `Models: ${Object.entries(a.models).map(([k, v]) => `${k} \`${v}\``).join(", ")}.`,
-    ...(a.only ? ["", `A repair run: only ${a.only.map((id) => title.get(id) ?? id).join(", ")} were redone; the other roots were kept from the bluprint that was there.`] : []),
+    ...(a.only ? ["", `A repair run: only ${a.only.map((id) => title.get(id) ?? id).join(", ")} were redone; the other roots were kept from the blueprint that was there.`] : []),
   );
 
   // 1. The cut.
@@ -66,7 +66,7 @@ export function auditMarkdown(a: AuditInput): string {
   if (cut.roots.length) out.push("", "| Root | Why it is a root | Owns |", "|---|---|---|");
   for (const r of cut.roots) out.push(`| ${r.title} | ${r.why.replace(/\|/g, "\\|")} | ${r.files.length} path${r.files.length === 1 ? "" : "s"} |`);
   if (cut.excluded.length) {
-    out.push("", "Left out of the bluprint:");
+    out.push("", "Left out of the blueprint:");
     for (const e of cut.excluded) out.push(`- \`${e.path}\` — ${e.reason}`);
   }
   if (a.leftover.length) out.push("", `${a.leftover.length} files were still unclaimed after three rounds and are listed above as left unassigned.`);
@@ -77,7 +77,7 @@ export function auditMarkdown(a: AuditInput): string {
     const w = a.authored[r.id];
     out.push("", `### ${r.title}`, "", `_${r.sub}_`, "");
     if (a.only && !a.only.includes(r.id)) {
-      out.push("Kept from the previous bluprint; not redone in this run.");
+      out.push("Kept from the previous blueprint; not redone in this run.");
       continue;
     }
     out.push(
@@ -112,9 +112,9 @@ export function auditMarkdown(a: AuditInput): string {
   // 4. The final check.
   out.push("", "## 4. The final check", "");
   if (a.checkProblems.length) {
-    out.push(`${a.checkProblems.length} problems remain in the finished bluprint:`, "");
+    out.push(`${a.checkProblems.length} problems remain in the finished blueprint:`, "");
     for (const p of a.checkProblems.slice(0, 50)) out.push(`- ${p}`);
-  } else out.push("The finished bluprint passed every check.");
+  } else out.push("The finished blueprint passed every check.");
   return out.join("\n") + "\n";
 }
 

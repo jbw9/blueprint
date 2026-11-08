@@ -78,15 +78,15 @@ export async function register(device, ip) {
 async function admit(device, ip, lane) {
   const c = await config();
   const d = await get("device", device);
-  if (!d || d.blocked || !(c.enabled || d.allowed)) return { ok: false, reason: "Bluprint credit is not available on this machine." };
+  if (!d || d.blocked || !(c.enabled || d.allowed)) return { ok: false, reason: "Blueprint credit is not available on this machine." };
   const spent = Number((await get("creditday", today()))?.usd) || 0;
   if (spent >= c.daily_usd_ceiling)
-    return { ok: false, reason: "Bluprint credit has reached its per day limit for everyone. It opens again at midnight UTC.", resets: `${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}T00:00:00.000Z` };
+    return { ok: false, reason: "Blueprint credit has reached its per day limit for everyone. It opens again at midnight UTC.", resets: `${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}T00:00:00.000Z` };
   const cap = lane === "tab" ? (d.tab_tokens ?? c.tab_tokens) : (d.gen_tokens ?? c.gen_tokens);
   if (cap == null) return { ok: true };
   const [mine, theirs] = await Promise.all([windowOf(`device:${device}`, lane, c.window_hours), windowOf(`ip:${ip}`, lane, c.window_hours)]);
-  if (mine.used >= cap) return { ok: false, reason: "Bluprint credit is used up for now.", resets: mine.resets };
-  if (theirs.used >= cap * c.ip_factor) return { ok: false, reason: "Bluprint credit is used up on this network for now.", resets: theirs.resets };
+  if (mine.used >= cap) return { ok: false, reason: "Blueprint credit is used up for now.", resets: mine.resets };
+  if (theirs.used >= cap * c.ip_factor) return { ok: false, reason: "Blueprint credit is used up on this network for now.", resets: theirs.resets };
   return { ok: true };
 }
 
@@ -202,7 +202,7 @@ export async function relay({ stream, reply, device, ip, lane, model, op, header
     if (!ok.ok) {
       const until = ok.resets && !ok.reason.includes("midnight") ? ` It opens again at ${new Date(ok.resets).toUTCString()}.` : "";
       // Not a throttle, which Claude Code and the generator would retry for minutes.
-      return reply(429, { message: `${ok.reason}${until} Turn off Bluprint credit in Settings to use your own Claude.` }, {
+      return reply(429, { message: `${ok.reason}${until} Turn off Blueprint credit in Settings to use your own Claude.` }, {
         "x-should-retry": "false",
         "x-amzn-errortype": "ServiceQuotaExceededException",
         ...(ok.resets ? { "retry-after": String(Math.max(1, Math.round((Date.parse(ok.resets) - Date.now()) / 1000))) } : {}),

@@ -152,7 +152,7 @@ export function DiagramChanges({
                   ))
                 ) : (
                   <p className="text-[12px] text-muted-slate">
-                    {ch.verdict === "added" ? "A part the bluprint gained: it has no lines from before to set against." : ch.verdict === "removed" ? "A part the bluprint lost." : "Its own lines held; something it holds changed. Open it to see where."}
+                    {ch.verdict === "added" ? "A part the blueprint gained: it has no lines from before to set against." : ch.verdict === "removed" ? "A part the blueprint lost." : "Its own lines held; something it holds changed. Open it to see where."}
                   </p>
                 )}
               </div>
@@ -222,7 +222,7 @@ export function DiffBar({ path }: { path: string[] }) {
               </button>
             </>
           ) : (
-            <span className="text-[12px] text-muted-slate">{d.error ?? "No part of the bluprint changed"}</span>
+            <span className="text-[12px] text-muted-slate">{d.error ?? "No part of the blueprint changed"}</span>
           )}
           <span className="mx-1 h-4 w-px bg-border-gray" />
           <button type="button" className={btn} onClick={openDiff}>

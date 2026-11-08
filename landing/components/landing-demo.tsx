@@ -26,7 +26,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
     id: "claude",
     label: "Ask Claude Code",
     project: "bluprint",
-    cap: "In the desktop app, Claude Code runs in a tab beside the bluprint. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
+    cap: "In the desktop app, Claude Code runs in a tab beside the blueprint. Right-click a part to hand it to Claude, and Claude moves your view to what it’s talking about.",
   },
   {
     id: "plan",
@@ -38,7 +38,7 @@ const FEATURES: { id: "explore" | Drawing; label: string; project?: string; cap?
     id: "review",
     label: "Review diffs",
     project: "bluprint",
-    cap: "In the desktop app, a commit, branch or pull request is drawn on the bluprint you already know: the parts it touched, by how much, and the lines under each.",
+    cap: "In the desktop app, a commit, branch or pull request is drawn on the blueprint you already know: the parts it touched, by how much, and the lines under each.",
   },
   {
     id: "run",
@@ -171,7 +171,7 @@ export function LandingDemo({ bluprints }: { bluprints: DemoBluprint[] }) {
         <div
           ref={features}
           role="tablist"
-          aria-label="What Bluprint does"
+          aria-label="What Blueprint does"
           className={s.tabs}
           onKeyDown={(e) => walk(e, FEATURES.map((x) => x.id), feature, (id) => setFeature(id as typeof feature))}
         >
@@ -248,7 +248,7 @@ export function LandingDemo({ bluprints }: { bluprints: DemoBluprint[] }) {
         <p className={s.cap}>
           {exploring ? (
             <>
-              This is the app, running on bluprints of real repositories. Click a step to open it, and press <kbd>Esc</kbd> to
+              This is the app, running on blueprints of real repositories. Click a step to open it, and press <kbd>Esc</kbd> to
               go back.
             </>
           ) : (

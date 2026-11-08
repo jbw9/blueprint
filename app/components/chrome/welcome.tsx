@@ -25,8 +25,8 @@ export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
   return (
     <main className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-paper px-6 py-16">
       <div className="w-full max-w-[640px]">
-        <h1 className="font-display text-[32px] font-normal leading-[1.05] tracking-[-0.016em] text-ink">Make a bluprint of a repository</h1>
-        <p className="mt-1 text-[14px] text-on-surface-variant">Claude Code reads it and writes a bluprint you can open a level at a time, down to the line.</p>
+        <h1 className="font-display text-[32px] font-normal leading-[1.05] tracking-[-0.016em] text-ink">Make a blueprint of a repository</h1>
+        <p className="mt-1 text-[14px] text-on-surface-variant">Claude Code reads it and writes a blueprint you can open a level at a time, down to the line.</p>
         <div className="mt-8 grid gap-10 sm:grid-cols-2">
           <section>
             <h2 className="mb-2 text-[13px] font-semibold text-ink">Start</h2>
@@ -66,7 +66,7 @@ export function NoProject({ bluprints }: { bluprints: BluprintEntry[] }) {
           ) : null}
         </div>
         <p className="mt-10 flex items-center gap-1.5 text-[12px] text-faint">
-          Once its bluprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
+          Once its blueprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
         </p>
       </div>
     </main>
@@ -83,9 +83,9 @@ const finish = () => saveSettings({ ...readSettings(), onboarded: true });
 function Tour() {
   const [step, setStep] = useState(0);
   const steps = [
-    { title: "Your code, as a bluprint", body: "Bluprint reads a repository and draws it a level at a time. Click a box to go down a level.", view: <Demo /> },
+    { title: "Your code, as a blueprint", body: "Blueprint reads a repository and draws it a level at a time. Click a box to go down a level.", view: <Demo /> },
     { title: "Pick a look", body: "It changes as you choose. Settings can change it later.", view: <Themes /> },
-    { title: "Make your first bluprint", body: "Open a folder on this machine, or clone one from GitHub. Claude Code writes the bluprint. When it finishes, Bluprint sends us how long it took and what it cost, never your code; Settings turns that off.", view: <Begin /> },
+    { title: "Make your first blueprint", body: "Open a folder on this machine, or clone one from GitHub. Claude Code writes the blueprint. When it finishes, Blueprint sends us how long it took and what it cost, never your code; Settings turns that off.", view: <Begin /> },
   ];
   const last = step === steps.length - 1;
   return (
@@ -201,7 +201,7 @@ function Demo() {
 /** Each theme's own colours, so a card shows its theme whatever the page is in. */
 const LOOKS: { value: Theme; label: string; note: string; bar: string; paper: string; ink: string; line: string; box: string; tint: string }[] = [
   { value: "classic", label: "Classic", note: "Cobalt ink on white", bar: "#0a0a0b", paper: "#ffffff", ink: "#2438c8", line: "#a9b3ee", box: "#f6f8fe", tint: "#e3e8fc" },
-  { value: "light", label: "Light", note: "Plain, near-black ink", bar: "#f4f4f5", paper: "#ffffff", ink: "#111113", line: "#e4e4e7", box: "#f7f7f8", tint: "#ebebed" },
+  { value: "light", label: "Light", note: "Soft grey, slate ink", bar: "#eceef1", paper: "#f5f6f8", ink: "#1f2328", line: "#d8dce2", box: "#ffffff", tint: "#e6edf5" },
   { value: "dark", label: "Dark", note: "Easy at night", bar: "#000000", paper: "#0f0f11", ink: "#fafafa", line: "#3a3a40", box: "#18181b", tint: "#222226" },
 ];
 
@@ -280,10 +280,10 @@ function Begin() {
       </button>
       <button type="button" onClick={go(newProject)} className={CARD}>
         <span className="block text-[14px] font-semibold text-ink">New Project…</span>
-        <span className="mt-1 block text-[12.5px] text-muted-slate">Clone one from GitHub, then make its bluprint.</span>
+        <span className="mt-1 block text-[12.5px] text-muted-slate">Clone one from GitHub, then make its blueprint.</span>
       </button>
       <p className="flex items-center gap-1.5 text-[12px] text-faint sm:col-span-2">
-        Once its bluprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
+        Once its blueprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
       </p>
     </div>
   );

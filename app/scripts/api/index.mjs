@@ -53,7 +53,7 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
     }
 
     const device = deviceOf(headers);
-    if (!device) return reply(401, { message: "Not a Bluprint credit token." }, { "x-amzn-errortype": "AccessDeniedException" });
+    if (!device) return reply(401, { message: "Not a Blueprint credit token." }, { "x-amzn-errortype": "AccessDeniedException" });
     if (method === "GET" && path === "/status") return reply(200, await status(device));
 
     const m = method === "POST" && path.match(/^\/(tab|gen)\/model\/([^/]+)\/([a-z-]+)$/);
@@ -63,7 +63,7 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
     if (e instanceof admin.NotAllowed) return reply(401, { message: e.message });
     console.error(e);
     try {
-      reply(500, { message: "Bluprint's server could not answer just now." });
+      reply(500, { message: "Blueprint's server could not answer just now." });
     } catch {
       // The reply had already begun.
     }

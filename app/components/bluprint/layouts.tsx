@@ -186,7 +186,7 @@ export function Reach({ uses, usedBy }: { uses: Link[]; usedBy: Link[] }) {
     const groups = new Map<string, Link[]>();
     for (const l of shown) {
       const area = l.path && nodeAt(l.path.slice(0, 1))?.title;
-      const k = area || "Not on the bluprint";
+      const k = area || "Not on the blueprint";
       groups.set(k, [...(groups.get(k) ?? []), l]);
     }
     return (
@@ -311,7 +311,7 @@ function inside(node: Node): string {
  */
 function ChangeDot({ files }: { files?: string[] }) {
   if (!files?.length) return null;
-  const said = `Code changed: ${files.join(", ")}. The bluprint follows once your edits settle.`;
+  const said = `Code changed: ${files.join(", ")}. The blueprint follows once they are committed.`;
   return <span role="img" aria-label={said} title={said} className="size-[7px] shrink-0 rounded-full bg-amber-ink" />;
 }
 

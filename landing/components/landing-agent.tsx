@@ -43,8 +43,8 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
           <p className={s.eyebrow}>Beside your agent</p>
           <h2 id="agent-title">Works with the agent you use.</h2>
           <p className={s.intro}>
-            Each opens in a tab beside the bluprint. Right-click a part to add it to the agent&rsquo;s context, and when it
-            edits the code, the bluprint marks the parts it changed.
+            Each opens in a tab beside the blueprint. Right-click a part to add it to the agent&rsquo;s context, and when it
+            edits the code, the blueprint marks the parts it changed.
           </p>
           <ul className={s.agents}>
             {AGENTS.map((a) => (

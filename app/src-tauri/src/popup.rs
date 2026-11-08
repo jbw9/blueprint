@@ -20,7 +20,7 @@ pub fn open(app: &AppHandle, url: &Url, features: NewWindowFeatures) -> NewWindo
     let label = format!("{PREFIX}{}", COUNT.fetch_add(1, Ordering::Relaxed));
     let placed = features.position().is_some();
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External("about:blank".parse().unwrap()))
-        .title(url.host_str().unwrap_or("Bluprint"))
+        .title(url.host_str().unwrap_or("Blueprint"))
         .inner_size(520.0, 720.0)
         .window_features(features)
         .on_document_title_changed(|window, title| {

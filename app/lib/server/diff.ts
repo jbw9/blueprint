@@ -585,7 +585,7 @@ export function bluprintDiff(root: string, from: string | undefined, to: string 
       basis: "files",
       from: base,
       to: head,
-      why: `The bluprint was made at ${bluprint.RUN.commit}, which this checkout no longer has, so its line references cannot be carried to ${base}. Comparing files instead.`,
+      why: `The blueprint was made at ${bluprint.RUN.commit}, which this checkout no longer has, so its line references cannot be carried to ${base}. Comparing files instead.`,
       files,
       sections: [],
       blocks: [],

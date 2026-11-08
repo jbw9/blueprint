@@ -122,7 +122,7 @@ export function SettingsDialog() {
               ))}
             </div>
           </Field>
-          <Field group label="Background" hint="What the bluprint is drawn on.">
+          <Field group label="Background" hint="What the blueprint is drawn on.">
             <div role="radiogroup" aria-label="Background" className="inline-flex border border-border-gray p-0.5">
               {GROUNDS.map((g) => (
                 <button
@@ -144,7 +144,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Default agent"
-            hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Bluprint context goes to Claude either way.`}
+            hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Blueprint context goes to Claude either way.`}
           >
             <div role="radiogroup" aria-label="Default agent" className="inline-flex border border-border-gray p-0.5">
               {agents.map((a) => (
@@ -295,7 +295,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Saved sign-ins"
-            hint="Sites you signed in to in the Preview when Claude asked. Bluprint keeps their sign-in cookies, never your password. Forget signs you out."
+            hint="Sites you signed in to in the Preview when Claude asked. Blueprint keeps their sign-in cookies, never your password. Forget signs you out."
           >
             <SignIns />
           </Field>
@@ -324,7 +324,7 @@ export function SettingsDialog() {
           <Field
             group
             label="Run reports"
-            hint="When a bluprint finishes, Bluprint sends the Bluprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
+            hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
           >
             <RunReports />
           </Field>
@@ -356,12 +356,12 @@ function BluprintCredit() {
   return (
     <Field
       group
-      label="Bluprint credit"
-      hint={`Claude tabs and new bluprints run on Bluprint's Claude instead of your own Claude Code, only inside Bluprint. Tabs have a token allowance every ${c.windowHours ?? 5} hours; making bluprints doesn't count against it. ${left}`}
+      label="Blueprint credit"
+      hint={`Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Tabs have a token allowance every ${c.windowHours ?? 5} hours; making blueprints doesn't count against it. ${left}`}
     >
-      <div role="radiogroup" aria-label="Bluprint credit" className="inline-flex border border-border-gray p-0.5">
+      <div role="radiogroup" aria-label="Blueprint credit" className="inline-flex border border-border-gray p-0.5">
         {[
-          { value: true, label: "Use Bluprint credit" },
+          { value: true, label: "Use Blueprint credit" },
           { value: false, label: "Use my Claude Code" },
         ].map((o) => (
           <button

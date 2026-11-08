@@ -37,14 +37,14 @@ export function bluprintSearch(m: BuiltBluprint, index: BluprintIndex | null, qu
       if (s.name.toLowerCase().includes(q)) code.push(`- ${s.name} (${file}:${s.start}-${s.end}) → ${s.by[0] ? named(m, s.by[0].path) : "not explained by any section"}`);
     if (file.toLowerCase().includes(q)) {
       const by = (cited.get(file) ?? []).sort((a, b) => b.path.length - a.path.length)[0];
-      code.push(`- ${file} → ${by ? named(m, by.path) : f.status === "excluded" ? `left out of the bluprint: ${f.reason ?? ""}` : "not explained by any section"}`);
+      code.push(`- ${file} → ${by ? named(m, by.path) : f.status === "excluded" ? `left out of the blueprint: ${f.reason ?? ""}` : "not explained by any section"}`);
     }
   }
   const out = [
     levels.length ? `Sections:\n${levels.slice(0, 12).map((l) => `- ${named(m, l.path)} — ${m.nodeAt(l.path)?.sub ?? ""}`).join("\n")}` : "",
     code.length ? `Code:\n${code.slice(0, 15).join("\n")}` : "",
   ].filter(Boolean);
-  return out.length ? out.join("\n\n") : `Nothing on the bluprint matches "${query}".`;
+  return out.length ? out.join("\n\n") : `Nothing on the blueprint matches "${query}".`;
 }
 
 const at = (x: { at?: string }) => (x.at ? ` (${x.at})` : "");
@@ -126,9 +126,9 @@ export function bluprintWhere(m: BuiltBluprint, index: BluprintIndex | null, fil
   const inFile = cited.get(path) ?? [];
   const near = line ? inFile.slice().sort((a, b) => Math.min(Math.abs(a.start - line), Math.abs(a.end - line)) - Math.min(Math.abs(b.start - line), Math.abs(b.end - line)))[0] : inFile[0];
   if (!f && near) return `No section opens ${path}:${line}. Nearest in this file: ${named(m, near.path)} (cites ${near.start}-${near.end}).`;
-  if (!f) return `${path} is not on the bluprint: it is not in the checkout the bluprint was made from (new since, or not a file).`;
-  if (f.status === "excluded") return `${path} was left out of the bluprint: ${(f.reason ?? "no reason recorded").replace(/\.$/, "")}.`;
-  if (f.status === "other") return `${path} is ${f.kind ?? "not source"}, which the bluprint does not explain.`;
+  if (!f) return `${path} is not on the blueprint: it is not in the checkout the blueprint was made from (new since, or not a file).`;
+  if (f.status === "excluded") return `${path} was left out of the blueprint: ${(f.reason ?? "no reason recorded").replace(/\.$/, "")}.`;
+  if (f.status === "other") return `${path} is ${f.kind ?? "not source"}, which the blueprint does not explain.`;
   const roots = f.roots.map((r) => m.L0.find((n) => n.id === r)?.title ?? r).join(", ");
   return `No section opens ${path}${line ? `:${line}` : ""}.${near ? ` Nearest in this file: ${named(m, near.path)}.` : ""}${roots ? ` It belongs to ${roots}.` : ""}${importers(m, index, path)}`;
 }

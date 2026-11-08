@@ -95,9 +95,9 @@ export function AuditDialog() {
 
   return (
     <Overlay onClose={close}>
-      <div role="dialog" aria-label="How sure is this bluprint" className={cn(DIALOG, "max-w-[720px]")}>
+      <div role="dialog" aria-label="How sure is this blueprint" className={cn(DIALOG, "max-w-[720px]")}>
         <PanelHead
-          title="How sure is this bluprint"
+          title="How sure is this blueprint"
           note="What was checked against the code, and what to double-check."
           right={
             <button type="button" onClick={close} className={QUIET}>
@@ -110,10 +110,10 @@ export function AuditDialog() {
             <Stat
               value={sure.checked ? `${sure.checked}/${sure.levels}` : "—"}
               label="levels checked against the code"
-              note={sure.checked ? "A second model read every claim against the lines it cites." : "This bluprint was made before checks were recorded."}
+              note={sure.checked ? "A second model read every claim against the lines it cites." : "This blueprint was made before checks were recorded."}
             />
             <Stat value={String(sure.corrected)} label="claims corrected" note="Found wrong in review and rewritten before you saw them." />
-            <Stat value={String(sure.unsure)} label="not certain" note="Levels the bluprint could not fully show from the code." warn={sure.unsure > 0} />
+            <Stat value={String(sure.unsure)} label="not certain" note="Levels the blueprint could not fully show from the code." warn={sure.unsure > 0} />
           </div>
 
           {behind.length ? (
@@ -161,7 +161,7 @@ export function AuditDialog() {
               {text === undefined ? (
                 <p className="text-muted-slate">Loading…</p>
               ) : text === null ? (
-                <p className="text-muted-slate">This bluprint has no log: it was made before runs kept one.</p>
+                <p className="text-muted-slate">This blueprint has no log: it was made before runs kept one.</p>
               ) : (
                 blocks.map((b, i) => <Block key={i} b={b} />)
               )}

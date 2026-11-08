@@ -144,7 +144,7 @@ export function FilesPanel() {
         gaps.length && near
           ? [{ section: near, note: `Explain ${gaps.map((s) => `\`${s.name}\` (${r.path}:${s.start}-${s.end})`).join(", ")}: no leaf or step opens them yet. Give each a leaf, or a step that cites it.` }]
           : [],
-    });
+    }, true);
     setAsked(new Set(asked).add(r.path));
   };
 
@@ -155,7 +155,7 @@ export function FilesPanel() {
           <h2 className="text-[15px] font-semibold text-ink">Every file</h2>
           <p className="mt-0.5 text-[12px] text-muted-slate">Where each part of the code is explained. Pick a symbol to open the level that explains it.</p>
           {files && !files.index ? (
-            <p className="mt-2 text-[12px] text-amber-ink">This bluprint was made before bluprints kept a file index; regenerate it to see every file here.</p>
+            <p className="mt-2 text-[12px] text-amber-ink">This blueprint was made before blueprints kept a file index; regenerate it to see every file here.</p>
           ) : null}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {(
@@ -163,7 +163,7 @@ export function FilesPanel() {
                 ["all", "All"],
                 ["gaps", "Not fully explained"],
                 ["excluded", "Left out"],
-                ["added", "Not on the bluprint yet"],
+                ["added", "Not on the blueprint yet"],
               ] as const
             ).map(([k, label]) =>
               k === "all" || counts[k] ? (
@@ -243,7 +243,7 @@ function FileRow({
   // Levels citing the file, each once, deepest first: the way in for a file with no symbols to pick.
   const levels = [...new Map(cited.map((c) => [c.path.join("/"), c.path])).values()].sort((a, b) => b.length - a.length);
   const badge = row.added
-    ? { text: "not on the bluprint yet", tone: "text-amber-ink" }
+    ? { text: "not on the blueprint yet", tone: "text-amber-ink" }
     : f?.status === "excluded"
       ? { text: "left out", tone: "text-faint" }
       : f?.status === "other"
@@ -262,7 +262,7 @@ function FileRow({
         <div className="mt-1 flex flex-col gap-1 pb-1 pl-3">
           {f?.purpose ? <p className="text-[12px] leading-snug text-muted-slate">{f.purpose}</p> : null}
           {f?.reason ? <p className="text-[12px] text-muted-slate">Left out: {f.reason}</p> : null}
-          {row.added ? <p className="text-[12px] text-muted-slate">Added since the bluprint was made; the next update takes it in.</p> : null}
+          {row.added ? <p className="text-[12px] text-muted-slate">Added since the blueprint was made; the next update takes it in.</p> : null}
           {syms.map((s) => (
             <div key={`${s.name}:${s.start}`} className="flex items-baseline gap-2 text-[12px]">
               <span className="shrink-0 font-mono text-ink">{s.name}</span>
@@ -291,7 +291,7 @@ function FileRow({
           ) : null}
           {onAsk && (gaps || row.added) ? (
             <button type="button" disabled={asked} onClick={onAsk} className={QUIET + " mt-1 self-start"}>
-              {asked ? "Asked — the bluprint is updating" : row.added ? "Update the bluprint" : "Explain these on the bluprint"}
+              {asked ? "Asked — the blueprint is updating" : row.added ? "Update the blueprint" : "Explain these on the blueprint"}
             </button>
           ) : null}
         </div>
