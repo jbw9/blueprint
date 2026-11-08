@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/client/utils";
-import { Eyebrow, Prose, SymbolLinks } from "@/components/ui/state";
+import { Eyebrow, Prose } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
 import { Overlay, DIALOG } from "@/components/ui/dialog";
 import { AnatomyView, type RowCtx } from "@/components/bluprint/anatomy";
@@ -16,7 +16,7 @@ import { nodesAt } from "@/lib/bluprint/coverage";
 import { hunksOf, type HunkLines } from "@/lib/client/hunks";
 import { readSource } from "@/lib/bluprint/source";
 import type { Slice } from "@/lib/server/repo";
-import type { Anatomy, Explainer as ExplainerData, Walkthrough } from "@/lib/bluprint/schema";
+import type { Anatomy, Explainer as ExplainerData } from "@/lib/bluprint/schema";
 import { signal } from "@/lib/client/signal";
 
 /* ── the toggle ──────────────────────────────────────────────── */
@@ -107,78 +107,6 @@ export function Explainer({ owner, explain, ctx }: { owner: string; explain: Exp
           )}
         </div>
       ))}
-    </section>
-  );
-}
-
-/**
- * The repository level's way in: the core things the system does, each
- * followed through the roots, each step opening the part where it happens.
- * The bluprint's words are defined where they are used, on hover, so they get no
- * list of their own.
- */
-export function StartHere({
-  walkthroughs,
-  onOpen,
-}: {
-  walkthroughs: Walkthrough[];
-  onOpen: (path: string[]) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-10">
-      {walkthroughs.map((w, i) => (
-        <Walk key={i} walkthrough={w} onOpen={onOpen} />
-      ))}
-    </div>
-  );
-}
-
-function Walk({ walkthrough, onOpen }: { walkthrough?: Walkthrough; onOpen: (path: string[]) => void }) {
-  const { nodeAt } = useBluprint();
-  return (
-    <section data-pick="Start here" className="border-l-2 border-accent-line pl-5">
-      {walkthrough ? (
-        <div>
-          <Eyebrow className="text-accent">Follow one thing through</Eyebrow>
-          <p className="mt-2 text-[17px] font-semibold tracking-[-0.01em] text-ink">{walkthrough.title}</p>
-          <ol className="mt-4 flex max-w-[820px] flex-col">
-            {walkthrough.steps.map((s, i) => {
-              const last = i === walkthrough.steps.length - 1;
-              const where = s.path.map((_, k) => nodeAt(s.path.slice(0, k + 1))?.title).filter(Boolean);
-              return (
-                <li key={i} className="flex gap-3.5">
-                  <div className="flex w-[22px] shrink-0 flex-col items-center pt-[11px]">
-                    <span className="flex size-[22px] items-center justify-center rounded-full border border-accent-line bg-accent-surface font-mono text-[10.5px] font-semibold text-accent">
-                      {i + 1}
-                    </span>
-                    {last ? null : <span className="mt-1 w-px flex-1 bg-border-strong" />}
-                  </div>
-                  <button
-                    onClick={() => onOpen(s.path)}
-                    className={cn(
-                      "group min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-surface-container",
-                      last ? "" : "mb-1",
-                    )}
-                  >
-                    <span className="flex items-baseline gap-2">
-                      <span className="text-[14px] font-semibold text-ink">{s.title}</span>
-                      <span className="ml-auto shrink-0 truncate text-[11.5px] text-faint group-hover:text-accent">
-                        {where.join(" › ")} ›
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-[13.5px] leading-relaxed text-on-surface-variant">
-                      {/* The step is a button already; a link inside it would nest one. */}
-                      <SymbolLinks.Provider value={() => undefined}>
-                        <Prose text={s.detail} />
-                      </SymbolLinks.Provider>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -6,7 +6,7 @@ import { AnatomyView, type RowCtx } from "@/components/bluprint/anatomy";
 import { TableGlyph } from "@/components/bluprint/anatomy/glyphs";
 import { DocsList, Example, ExplainedBlock, WatchOut, isExplained, sectionOrder } from "@/components/bluprint/blocks";
 import { Building, DraftNote, Stages, NoBluprint, isBuilding, useDrawIn } from "@/components/projects/building";
-import { CodePopup, ExplainToggle, Explainer, StartHere, parseAt, useExplain, type CodeFocus } from "@/components/bluprint/explain";
+import { CodePopup, ExplainToggle, Explainer, parseAt, useExplain, type CodeFocus } from "@/components/bluprint/explain";
 import { Glossary, SymbolLinks } from "@/components/ui/state";
 import { Button } from "@/components/ui/button";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
@@ -182,7 +182,6 @@ export function Level({
   const key = path.join("/");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is `path` by value
   const reach = useMemo(() => neighbours(bluprint.L0, index, path), [bluprint.L0, index, key]);
-  const walks = bluprint.OVERVIEW?.walkthroughs ?? (explainOn && bluprint.OVERVIEW?.walkthrough ? [bluprint.OVERVIEW.walkthrough] : []);
   // Each indexed symbol a level cites, by name, to the deepest level citing it;
   // a name two places define links nowhere rather than to the wrong one.
   const symbols = useMemo(() => {
@@ -383,11 +382,6 @@ export function Level({
         <RemovedSections path={path} />
 
         {!run ? <Reach uses={reach.uses} usedBy={reach.usedBy} /> : null}
-
-        {/* The repository's way in comes after its picture: the walkthroughs
-            open parts the reader has just seen drawn. A bluprint from before they
-            were core keeps its one under the Explain layer. */}
-        {top && !run && walks.length ? <StartHere walkthroughs={walks} onOpen={onOpen} /> : null}
 
         {node.issues?.length ? (
           <div>
