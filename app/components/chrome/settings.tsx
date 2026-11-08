@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { DIALOG, Field, INPUT, Overlay } from "@/components/ui/dialog";
 import { keys } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
@@ -9,7 +9,7 @@ import { PanelHead } from "@/components/ui/panel";
 import { cn } from "@/lib/client/utils";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
 import { useMac } from "@/lib/client/platform";
-import { onCreditChanged, readCredit, setCredit, type Credit } from "@/lib/client/credit";
+import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
 /**
  * Settings, as a dialog over the blueprint. There is little to set: the theme,
@@ -334,51 +334,125 @@ export function SettingsDialog() {
   );
 }
 
-/** Tokens as people read them: 1.2M, 340k. */
-export const tokens = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
-
 /**
  * Blueprint credit (lib/server/credit.ts): Claude on Blueprint's own Bedrock in place of the user's
- * Claude Code. Shown only on machines it is open to.
+ * Claude Code, for a GitHub account signed in here. Offered while the promotion is on; once signed
+ * in, its three windows show as Claude Code's /usage shows its own.
  */
 function BlueprintCredit() {
   const [c, setC] = useState<Credit | null>(null);
+  // GitHub's code while the reader enters it, or why signing in stopped.
+  const [signin, setSignin] = useState<{ code: string; url: string; interval: number } | { reason: string } | null>(null);
   useEffect(() => {
     const read = () => void readCredit().then(setC);
     read();
     return onCreditChanged(read);
   }, []);
-  if (!c?.available) return null;
-  const left =
-    c.limit != null && c.used != null
-      ? `${tokens(c.used)} of ${tokens(c.limit)} tokens used in this ${c.windowHours ?? 5}-hour window${c.resets ? `, which ends at ${new Date(c.resets).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
-      : "";
+  useEffect(() => {
+    if (!signin || !("code" in signin)) return;
+    let stop = false;
+    let t: ReturnType<typeof setTimeout>;
+    const poll = (wait: number) => {
+      t = setTimeout(async () => {
+        const p = await pollSignIn().catch(() => ({ wait }));
+        if (stop) return;
+        if ("login" in p) setSignin(null);
+        else if ("reason" in p) setSignin({ reason: p.reason });
+        else poll(p.wait);
+      }, wait * 1000);
+    };
+    poll(signin.interval);
+    return () => {
+      stop = true;
+      clearTimeout(t);
+    };
+  }, [signin]);
+  if (!c || (!c.login && !c.promo)) return null;
+
+  const begin = async () => {
+    const r = await startSignIn().catch(() => ({ reason: "Blueprint could not start the sign-in." }));
+    setSignin(r);
+    if ("code" in r) void invoke("preview_external", { url: r.url }).catch(() => window.open(r.url, "_blank"));
+  };
+  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week], ["Maps", c.meters.maps]] as const) : [];
   return (
     <Field
       group
       label="Blueprint credit"
-      hint={`Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Tabs have a token allowance every ${c.windowHours ?? 5} hours; making blueprints doesn't count against it. ${left}`}
+      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. A blueprint bigger than what is left of Maps runs on your own Claude Code.`}
     >
-      <div role="radiogroup" aria-label="Blueprint credit" className="inline-flex border border-border-gray p-0.5">
-        {[
-          { value: true, label: "Use Blueprint credit" },
-          { value: false, label: "Use my Claude Code" },
-        ].map((o) => (
-          <button
-            key={o.label}
-            type="button"
-            role="radio"
-            aria-checked={c.on === o.value}
-            onClick={() => {
-              setC({ ...c, on: o.value });
-              void setCredit(o.value);
-            }}
-            className={cn(SEGMENT, c.on === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
-          >
-            {o.label}
+      {c.login ? (
+        <>
+          {c.available && (
+            <div role="radiogroup" aria-label="Blueprint credit" className="inline-flex border border-border-gray p-0.5">
+              {[
+                { value: true, label: "Use Blueprint credit" },
+                { value: false, label: "Use my Claude Code" },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={c.on === o.value}
+                  onClick={() => {
+                    setC({ ...c, on: o.value });
+                    void setCredit(o.value);
+                  }}
+                  className={cn(SEGMENT, c.on === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {meters.length > 0 && (
+            <div className="mt-2.5 grid grid-cols-[auto_6rem_auto_1fr] items-center gap-x-3 gap-y-1 font-mono text-[11.5px]">
+              {meters.map(([label, m]) => {
+                const used = percent(m);
+                const at = resetsAt(m);
+                return (
+                  <Fragment key={label}>
+                    <span className="text-ink">{label}</span>
+                    <span className="h-1 bg-border-gray">
+                      <span className="block h-full bg-accent" style={{ width: `${used ?? 0}%` }} />
+                    </span>
+                    <span className="text-ink">{used == null ? "no limit" : `${used}% used`}</span>
+                    <span className="text-faint">{at ? `resets ${at}` : ""}</span>
+                  </Fragment>
+                );
+              })}
+            </div>
+          )}
+          {c.reason && <p className="mt-1.5 text-[12px] text-clay-ink">{c.reason}</p>}
+          <p className="mt-2 font-mono text-[11.5px] text-faint">
+            Signed in as @{c.login} ·{" "}
+            <button type="button" onClick={() => void signOut()} className="cursor-pointer text-accent hover:underline">
+              Sign out
+            </button>
+          </p>
+        </>
+      ) : signin && "code" in signin ? (
+        <div className="font-mono text-[11.5px]">
+          <span className="select-all text-[15px] tracking-[0.15em] text-ink">{signin.code}</span>
+          <p className="mt-1 text-muted-slate">
+            Enter this code at{" "}
+            <a href={signin.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+              {signin.url.replace(/^https:\/\//, "")}
+            </a>
+            . Waiting for GitHub…{" "}
+            <button type="button" onClick={() => setSignin(null)} className="cursor-pointer text-accent hover:underline">
+              Cancel
+            </button>
+          </p>
+        </div>
+      ) : (
+        <>
+          <button type="button" onClick={() => void begin()} className={cn(SEGMENT, "border border-border-gray text-ink hover:border-accent")}>
+            Sign in with GitHub
           </button>
-        ))}
-      </div>
+          {signin && <p className="mt-1.5 text-[12px] text-clay-ink">{signin.reason}</p>}
+        </>
+      )}
     </Field>
   );
 }

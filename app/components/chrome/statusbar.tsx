@@ -15,8 +15,7 @@ import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import type { Node } from "@/lib/blueprint/schema";
 import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
-import { onCreditChanged, readCredit, type Credit } from "@/lib/client/credit";
-import { tokens } from "@/components/chrome/settings";
+import { onCreditChanged, percent, readCredit, resetsAt, type Credit } from "@/lib/client/credit";
 import { openSettings } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
 import { useMac } from "@/lib/client/platform";
@@ -88,7 +87,7 @@ export function StatusBar() {
   );
 }
 
-/** What is left of this window's Blueprint credit, while tabs run on it (lib/server/credit.ts). */
+/** What is left of this 5-hour session's Blueprint credit, while tabs run on it (lib/server/credit.ts). */
 function CreditLeft() {
   const [c, setC] = useState<Credit | null>(null);
   useEffect(() => {
@@ -102,12 +101,17 @@ function CreditLeft() {
       off();
     };
   }, []);
-  if (!c?.available || !c.on || c.limit == null) return null;
-  const left = Math.max(0, 1 - (c.used ?? 0) / c.limit);
-  const ends = c.resets ? new Date(c.resets).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
+  const session = c?.available && c.on ? c.meters?.session : undefined;
+  const used = session && percent(session);
+  if (!c?.meters || !session || used == null) return null;
+  const ends = resetsAt(session);
+  const week = percent(c.meters.week);
   return (
-    <Item title={`Blueprint credit: ${tokens(c.used ?? 0)} of ${tokens(c.limit)} tokens used${ends ? `; the window ends at ${ends}` : ""}. Change it in Settings.`} onClick={openSettings}>
-      Credit {Math.round(left * 100)}%{ends ? ` · ${ends}` : ""}
+    <Item
+      title={`Blueprint credit: ${used}% of this session used${ends ? `, until ${ends}` : ""}${week != null ? `; ${week}% of the week` : ""}. Change it in Settings.`}
+      onClick={openSettings}
+    >
+      Credit {100 - used}%{ends ? ` · ${ends}` : ""}
     </Item>
   );
 }

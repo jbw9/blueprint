@@ -1,19 +1,22 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Blueprint credit: Claude on Blueprint's own Bedrock instead of the reader's Claude Code, metered per
- * machine by the proxy (scripts/api/credit.mjs). The machine is a hash of the hardware's own id,
- * which this never stores, so reinstalling the app or clearing its data does not make it a new one.
- * Its token stays in this server's memory; a Claude tab gets only the relay's secret, which works
- * against this server alone and only while it runs (app/api/credit/relay).
+ * Blueprint credit: Claude on Blueprint's own Bedrock instead of the reader's Claude Code, for a
+ * GitHub account signed in here, metered by the proxy (scripts/api). Signing in leaves a session in
+ * credit.json, which only this user can read; the session buys access tokens that last 30 minutes
+ * and stay in this server's memory. A Claude tab and the generator get only the relay's secret,
+ * which works against this server alone and only while it runs (app/api/credit/relay).
  */
 
 import { API_URL as CREDIT_URL } from "@/lib/server/api";
 
 export { CREDIT_URL };
+
+/** Blueprint's GitHub OAuth app, which signs in by device code: its id is public, and it has no secret here. */
+const GITHUB_CLIENT_ID = "";
 
 /** The id the operating system keeps for this machine, unchanged by reinstalling anything but the system. */
 function hardwareId(): string | null {
@@ -29,15 +32,29 @@ function hardwareId(): string | null {
   return null;
 }
 
+type Access = { token: string; exp: number };
+
 // Route handlers can be bundled apart, so what one sets the others must find on the global.
-// `ready` is the last status this server saw, kept so a generator spawn can read it without waiting.
-const state = ((globalThis as { __blueprintCredit?: { device?: string | null; token?: Promise<Registered>; secret: string; ready?: string | null } }).__blueprintCredit ??= {
-  secret: randomBytes(32).toString("hex"),
-});
+// `ready` is whether the last status this server saw let the credit run, kept so a generator
+// spawn can read it without waiting; `origin` is where this server answers, from the page's ask.
+const state = ((
+  globalThis as {
+    __blueprintCredit?: {
+      secret: string;
+      device?: string | null;
+      access?: Access;
+      refreshing?: Promise<Access | null>;
+      pending?: { deviceCode: string; interval: number; until: number };
+      promo?: { on: boolean; at: number };
+      ready?: boolean;
+      maps?: Meter;
+      origin?: string;
+    };
+  }
+).__blueprintCredit ??= { secret: randomBytes(32).toString("hex") });
 
-type Registered = { token: string } | { reason: string };
-
-export function deviceId() {
+/** This machine, as the proxy keeps a GitHub account to a few of them: a hash of the hardware's id, which is never sent. */
+function deviceId() {
   if (state.device === undefined) {
     const h = hardwareId();
     state.device = h ? createHash("sha256").update(`bluprint-credit:${h}`).digest("hex") : null;
@@ -45,27 +62,22 @@ export function deviceId() {
   return state.device;
 }
 
-/** What a Claude tab presents to the relay; a new one each time this server starts. */
+/** What a Claude tab or the generator presents to the relay; a new one each time this server starts. */
 export const relaySecret = () => state.secret;
 
-/** This machine's token, asked for once per server run; a refusal is asked again next time. */
-export function deviceToken(): Promise<Registered> {
-  state.token ??= (async (): Promise<Registered> => {
-    const device = deviceId();
-    if (!device) return { reason: "This machine has no id to meter the credit by." };
-    const r = await fetch(`${CREDIT_URL}/register`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ device }),
-      signal: AbortSignal.timeout(10_000),
-    }).catch(() => null);
-    const body = (await r?.json().catch(() => null)) as { token?: string; message?: string } | null;
-    return body?.token ? { token: body.token } : { reason: body?.message ?? "Blueprint credit could not be reached." };
-  })().then((t) => {
-    if (!("token" in t)) state.token = undefined;
-    return t;
-  });
-  return state.token;
+/**
+ * Where this server answers, as the page reached it; the relay is given as 127.0.0.1, which the
+ * server listens on whatever the page called it (src-tauri/src/server.rs).
+ */
+export function relayAt(request: Request) {
+  state.origin = `http://127.0.0.1:${new URL(request.url).port}`;
+  return `${state.origin}/api/credit/relay`;
+}
+
+interface Saved {
+  on?: boolean;
+  session?: string;
+  login?: string;
 }
 
 async function file() {
@@ -73,59 +85,210 @@ async function file() {
   return join(VAULT, "credit.json");
 }
 
-/** Whether the reader has turned the credit on; kept beside the vault so generation can read it. */
-export async function creditOn() {
+async function saved(): Promise<Saved> {
   try {
-    return (JSON.parse(readFileSync(await file(), "utf8")) as { on?: boolean }).on === true;
+    return JSON.parse(readFileSync(await file(), "utf8")) as Saved;
   } catch {
-    return false;
+    return {};
   }
 }
 
-export async function setCreditOn(on: boolean) {
+/** Kept beside the vault so generation can read it; it holds the session, so only this user may read it. */
+async function save(s: Saved) {
   const f = await file();
   mkdirSync(join(f, ".."), { recursive: true });
-  writeFileSync(f, JSON.stringify({ on }) + "\n");
+  writeFileSync(f, JSON.stringify(s) + "\n", { mode: 0o600 });
+  chmodSync(f, 0o600);
+}
+
+/** Whether the reader has turned the credit on. */
+export const creditOn = async () => (await saved()).on === true;
+
+export async function setCreditOn(on: boolean) {
+  await save({ ...(await saved()), on });
   await creditStatus();
 }
 
+/** The session's access token, swapped for a new one in its last five minutes; null when signed out. */
+export async function accessToken(): Promise<string | null> {
+  if (state.access && state.access.exp * 1000 - Date.now() > 300_000) return state.access.token;
+  state.refreshing ??= refresh().finally(() => (state.refreshing = undefined));
+  return (await state.refreshing)?.token ?? null;
+}
+
+/** Forgets the access token the proxy just refused, so the next call asks for another. */
+export const dropAccess = () => void (state.access = undefined);
+
+async function refresh(): Promise<Access | null> {
+  const s = await saved();
+  state.access = undefined;
+  if (!s.session) return null;
+  const r = await fetch(`${CREDIT_URL}/token`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  // The session was signed out elsewhere or has lapsed: the reader signs in again.
+  if (r?.status === 401) {
+    await save({ on: s.on });
+    return null;
+  }
+  const t = r?.ok ? ((await r.json().catch(() => null)) as Access | null) : null;
+  if (t?.token) state.access = { token: t.token, exp: t.exp };
+  return state.access ?? null;
+}
+
+/** Signing in, first half: GitHub's code for the reader to enter at its address. */
+export async function startSignIn(): Promise<{ code: string; url: string; interval: number } | { reason: string }> {
+  if (!GITHUB_CLIENT_ID) return { reason: "Blueprint credit's sign-in isn't set up yet." };
+  if (!deviceId()) return { reason: "This machine has no id to keep the credit to." };
+  const r = await fetch("https://github.com/login/device/code", {
+    method: "POST",
+    headers: { accept: "application/json" },
+    body: new URLSearchParams({ client_id: GITHUB_CLIENT_ID }),
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  const j = (r?.ok ? await r.json().catch(() => null) : null) as { device_code?: string; user_code?: string; verification_uri?: string; expires_in?: number; interval?: number } | null;
+  if (!j?.device_code || !j.user_code || !j.verification_uri) return { reason: "GitHub could not be reached." };
+  const interval = j.interval ?? 5;
+  state.pending = { deviceCode: j.device_code, interval, until: Date.now() + (j.expires_in ?? 900) * 1000 };
+  return { code: j.user_code, url: j.verification_uri, interval };
+}
+
+/**
+ * Signing in, second half, asked every `interval` seconds until the reader has entered the code:
+ * GitHub's token is shown to the proxy, which checks the account and gives this machine a session.
+ * GitHub's token itself is not kept.
+ */
+export async function pollSignIn(): Promise<{ login: string } | { wait: number } | { reason: string }> {
+  const p = state.pending;
+  if (!p || Date.now() > p.until) {
+    state.pending = undefined;
+    return { reason: "That code has expired. Sign in again." };
+  }
+  const r = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: { accept: "application/json" },
+    body: new URLSearchParams({ client_id: GITHUB_CLIENT_ID, device_code: p.deviceCode, grant_type: "urn:ietf:params:oauth:grant-type:device_code" }),
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  const j = (r?.ok ? await r.json().catch(() => null) : null) as { access_token?: string; error?: string; interval?: number } | null;
+  // GitHub out of reach for a moment is asked again, as is a reader who has not entered the code yet.
+  if (!j || j.error === "authorization_pending") return { wait: p.interval };
+  if (j.error === "slow_down") return { wait: (p.interval = j.interval ?? p.interval + 5) };
+  state.pending = undefined;
+  if (!j.access_token) return { reason: j.error === "access_denied" ? "The sign-in was cancelled on GitHub." : "That code has expired. Sign in again." };
+
+  const s = await fetch(`${CREDIT_URL}/signin`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ github_token: j.access_token, device: deviceId() }),
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  const b = (await s?.json().catch(() => null)) as { session?: string; login?: string; message?: string } | null;
+  if (!b?.session || !b.login) return { reason: b?.message ?? "Blueprint credit could not be reached." };
+  // Signing in is asking for the credit, so it is turned on.
+  await save({ on: true, session: b.session, login: b.login });
+  state.access = undefined;
+  await creditStatus();
+  return { login: b.login };
+}
+
+export async function signOut() {
+  const s = await saved();
+  if (s.session)
+    await fetch(`${CREDIT_URL}/signout`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  await save({ on: s.on });
+  state.access = undefined;
+  state.ready = false;
+}
+
+/** Spend in µ$ ($1 is 1,000,000) in a window, its cap (null for none), and when it closes (null with none open). */
+export interface Meter {
+  used: number;
+  limit: number | null;
+  resets: string | null;
+}
+
 export interface CreditStatus {
-  /** Whether this machine may use the credit at all; while it is switched off for everyone, only machines let in. */
+  /** Whether the credit can run Claude here: signed in, and open to the account. */
   available: boolean;
   on: boolean;
-  device: string | null;
-  /** Tab tokens used in the open window, its size, and when it closes (null with none open). */
-  used?: number;
-  limit?: number;
-  resets?: string | null;
-  windowHours?: number;
+  /** Whether the promotion is on for anyone, which is what a reader not signed in is offered. */
+  promo: boolean;
+  login: string | null;
   reason?: string;
+  endsAt?: string | null;
+  /** Claude tabs' 5-hour session and week, and map generation's week. */
+  meters?: { session: Meter; week: Meter; maps: Meter };
 }
 
 export async function creditStatus(): Promise<CreditStatus> {
   const s = await askStatus();
-  const t = await deviceToken();
-  state.ready = s.available && s.on && "token" in t ? t.token : null;
+  state.ready = s.available && s.on;
+  state.maps = s.meters?.maps;
   return s;
 }
 
+/** Whether the promotion is on, asked at most every five minutes, as the proxy caches it. */
+async function promoOn() {
+  if (state.promo && Date.now() - state.promo.at < 300_000) return state.promo.on;
+  const r = await fetch(`${CREDIT_URL}/promo`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  const j = (r?.ok ? await r.json().catch(() => null) : null) as { on?: boolean } | null;
+  if (j) state.promo = { on: !!j.on, at: Date.now() };
+  return !!j?.on;
+}
+
 async function askStatus(): Promise<CreditStatus> {
-  const on = await creditOn();
-  const device = deviceId();
-  const t = await deviceToken();
-  if (!("token" in t)) return { available: false, on, device, reason: t.reason };
-  const r = await fetch(`${CREDIT_URL}/status`, { headers: { authorization: `Bearer ${t.token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
-  const s = (await r?.json().catch(() => null)) as { available?: boolean; used?: number; limit?: number; resets?: string | null; window_hours?: number } | null;
-  if (!r?.ok || !s) return { available: false, on, device, reason: "Blueprint credit could not be reached." };
-  return { available: !!s.available, on, device, used: s.used, limit: s.limit, resets: s.resets, windowHours: s.window_hours };
+  const [token, promo] = await Promise.all([accessToken(), promoOn()]);
+  // Read after the token, which clears a session the proxy no longer knows.
+  const { on = false, session, login } = await saved();
+  const away = { available: false, on, promo, login: session ? (login ?? null) : null };
+  if (!session) return away;
+  if (!token) return { ...away, reason: "Blueprint credit could not be reached." };
+  const r = await fetch(`${CREDIT_URL}/status`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  const j = (r?.ok ? await r.json().catch(() => null) : null) as {
+    available?: boolean;
+    reason?: string;
+    login?: string | null;
+    ends_at?: string | null;
+    meters?: { tab5h: Meter; tabweek: Meter; genweek: Meter };
+  } | null;
+  if (!j) return { ...away, reason: "Blueprint credit could not be reached." };
+  return {
+    available: !!j.available,
+    on,
+    promo,
+    login: j.login ?? login ?? null,
+    reason: j.reason,
+    endsAt: j.ends_at ?? null,
+    meters: j.meters && { session: j.meters.tab5h, week: j.meters.tabweek, maps: j.meters.genweek },
+  };
+}
+
+/** What a new blueprint costs, about, per file in the repository: enough over runs seen to rarely fall short. */
+const MICRO_PER_FILE = 50_000;
+
+function filesIn(root: string) {
+  try {
+    return execFileSync("git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", timeout: 10_000, maxBuffer: 64 << 20, windowsHide: true })
+      .split("\n")
+      .filter(Boolean).length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * What a generator run adds to its environment: with the credit on and open to this machine, the
- * generator's own Bedrock backend, pointed at the proxy's uncapped lane; otherwise nothing, and the
- * run stays on the reader's Claude Code. Read from the last status the page asked for (the status
- * bar asks as the app opens), so starting a run waits on nothing.
+ * What a generator run adds to its environment: with the credit on and open to this account, the
+ * generator's own Bedrock backend, pointed at the relay's `gen` lane, four calls at a time as the
+ * proxy allows; otherwise nothing, and the run stays on the reader's Claude Code. So does a new
+ * blueprint of `root` that would cost more than what is left of Maps, rather than stop halfway.
+ * Read from the last status the page asked for (the status bar asks as the app opens), so starting
+ * a run waits on nothing.
  */
-export function creditEnv(): Record<string, string> {
-  return state.ready ? { SLOP_BACKEND: "bedrock", SLOP_BEDROCK_URL: `${CREDIT_URL}/gen`, SLOP_BEDROCK_TOKEN: state.ready, AWS_REGION: "us-east-1" } : {};
+export function creditEnv(root?: string): Record<string, string> {
+  if (!state.ready || !state.origin) return {};
+  const m = state.maps;
+  if (m?.limit != null) {
+    const used = m.resets && Date.parse(m.resets) > Date.now() ? m.used : 0;
+    if (m.limit - used <= (root ? filesIn(root) * MICRO_PER_FILE : 0)) return {};
+  }
+  return { SLOP_BACKEND: "bedrock", SLOP_BEDROCK_URL: `${state.origin}/api/credit/relay/gen`, SLOP_BEDROCK_TOKEN: relaySecret(), SLOP_CONCURRENCY: "4", AWS_REGION: "us-east-1" };
 }

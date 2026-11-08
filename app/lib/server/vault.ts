@@ -426,7 +426,7 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
       detached: true,
       windowsHide: true,
       stdio: ["ignore", log, log],
-      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv() },
+      env: { ...process.env, SLOP_BACKEND: "claude-code", SLOP_EXPLAIN: p.explain ?? "full", ...(claude ? { SLOP_CLAUDE: claude } : {}), ...creditEnv(p.root) },
     },
   );
   closeSync(log);
