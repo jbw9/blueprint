@@ -11,7 +11,7 @@ import { LandingStart } from "@/components/landing-start";
 import { LandingVisit } from "@/components/landing-visit";
 import { LandingVoices, type Voice } from "@/components/landing-voices";
 import s from "@/components/landing.module.css";
-import { loadBlueprint } from "@/lib/blueprints";
+import { loadBlueprint, type Diagram } from "@/lib/blueprints";
 
 const TITLE = "Blueprint: understand the code you didn't write";
 const DESCRIPTION =
@@ -74,6 +74,20 @@ const VISIT = [
   'const geo = stored("bp-geo");',
 ];
 
+// The part of the overview the How it works box draws: the whole of it is too crowded at that size. Landing Site stays, as the step the cursor opens.
+// Each kept box's place on a grid of its own, [col, row]: the full map's places leave gaps.
+const HOW_BOXES: Record<string, [number, number]> = {
+  "bx-landing": [0, 0],
+  "bx-app-app": [1, 0],
+  "bx-components": [1, 1],
+  "bx-scripts": [1, 2],
+};
+const HOW_ARROWS = ["bx-app-app>bx-components", "bx-components>bx-scripts"];
+const part = (d: Diagram): Diagram => ({
+  boxes: d.boxes.filter((b) => b.id in HOW_BOXES).map((b) => ({ ...b, col: HOW_BOXES[b.id][0], row: HOW_BOXES[b.id][1] })),
+  arrows: d.arrows.filter((a) => HOW_ARROWS.includes(`${a.from}>${a.to}`)),
+});
+
 /** A blueprint's subtitle up to its first aside, as one sentence. */
 const sentence = (sub: string) => `${sub.split(" — ")[0].replace(/\.$/, "")}.`;
 
@@ -128,7 +142,7 @@ export default function Landing() {
           <LandingVoices voices={VOICES} />
           <LandingHow
             name="blueprint"
-            roots={blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!}
+            roots={part(blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!)}
             opened={{
               id: first.id,
               title: first.title,
