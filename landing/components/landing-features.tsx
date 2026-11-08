@@ -197,13 +197,22 @@ const AUTHOR_STEPS: [string, string, string][] = [
 
 /**
  * The plan as Claude writes it in plan mode: Claude's window is open while it
- * writes and put away while you read. Once you accept, each step turns amber
- * as Claude works on it and is ticked when it's built, and "Show Claude"
- * brings the window back to say what it did.
+ * writes and put away while you read. Once you accept, the window comes back
+ * beside the plan and edits each step's files while the step turns amber, then
+ * is ticked when it's built.
  */
 // When Claude starts on each step; it is ticked a moment before the next starts.
 const STEP_AT = (i: number) => 5.6 + i * 1.15;
 const BUILT = STEP_AT(6) - 0.1;
+// What Claude edits for each step, as its window shows it.
+const BUILD_EDITS: [string, string, string][] = [
+  ["Update", "app/src-tauri/src/browser.rs", "a WebKit cookie store per project"],
+  ["Update", "app/src-tauri/src/browser.rs", "site rules: names only, never secrets"],
+  ["Update", "app/components/preview/preview.tsx", "open each site with its rule's store"],
+  ["Write", "app/components/preview/sign-in-bar.tsx", "the bar, and where to keep the sign-in"],
+  ["Update", "app/src-tauri/src/agent.js", "refuse password fields"],
+  ["Update", "app/components/chrome/settings.tsx", "saved sign-ins, with Forget"],
+];
 
 function PlanScene() {
   return (
@@ -218,7 +227,7 @@ function PlanScene() {
         </>
       }
     >
-      <div className={f.doc}>
+      <div className={`${f.doc} ${f.planShift}`} style={at(5.4)}>
         <article className={f.planScroll} style={at(2.1)}>
           <header className={f.in} style={at(0.6)}>
             <p className={f.planMeta}>
@@ -302,7 +311,6 @@ function PlanScene() {
                   ))}
                 </span>
               </span>
-              <span className={f.btn}>Show Claude</span>
             </div>
           </div>
           <div className={f.in} style={at(BUILT)}>
@@ -310,9 +318,6 @@ function PlanScene() {
               <span className={f.askQ} data-ok>
                 <i />
                 Built. All 6 steps are done.
-              </span>
-              <span className={`${f.btn} ${f.press}`} style={at(BUILT + 0.6)}>
-                Show Claude
               </span>
             </div>
           </div>
@@ -356,61 +361,44 @@ function PlanScene() {
           <Prompt />
         </div>
       </Workspace>
-      {/* What Claude did, once "Show Claude" brings its window back. */}
+      {/* Back once you accept: Claude edits each step's files as the plan ticks them off. */}
       <Workspace
-        width="40%"
+        width="36%"
         className={f.in}
-        style={at(BUILT + 0.8)}
+        style={at(5.5)}
         tabs={
-          <WsTab on icon={<ClaudeIcon />} dot={[0, 0]}>
+          <WsTab on icon={<ClaudeIcon />} dot={[5.5, BUILT]}>
             claude 1
           </WsTab>
         }
       >
         <div className={f.term}>
-          <Hello />
           <div className={f.msg}>
             <span className={f.ok}>⏺</span>
-            <span>
-              <b>Update</b>(app/src-tauri/src/browser.rs)
-              <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;each project gets its own cookie store</span>
-            </span>
+            <span>Plan accepted. Building it in auto mode.</span>
           </div>
-          <div className={f.msg}>
-            <span className={f.ok}>⏺</span>
-            <span>
-              <b>Write</b>(app/components/preview/sign-in-bar.tsx)
-              <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;the bar, and where to keep the sign-in</span>
-            </span>
-          </div>
-          <div className={f.msg}>
-            <span className={f.ok}>⏺</span>
-            <span>
-              <b>Update</b>(app/src-tauri/src/mcp.rs)
-              <br />
-              <span className={f.res}>⎿&nbsp;&nbsp;the sign_in tool</span>
-            </span>
-          </div>
-          <div className={`${f.msg} ${f.in}`} style={at(BUILT + 1.1)}>
+          {BUILD_EDITS.map(([tool, file, what], i) => (
+            <div key={i} className={`${f.msg} ${f.in}`} style={at(STEP_AT(i) + 0.15)}>
+              <span className={f.ok}>⏺</span>
+              <span>
+                <b>{tool}</b>({file})
+                <br />
+                <span className={f.res}>⎿&nbsp;&nbsp;{what}</span>
+              </span>
+            </div>
+          ))}
+          <div className={`${f.msg} ${f.in}`} style={at(BUILT + 0.2)}>
             <span>⏺</span>
-            <span>
-              All 6 steps are built. Sign in to a site once in the Preview, and I&rsquo;ll open it signed in from then on.
-            </span>
+            <span>All 6 steps are built. Sign in to a site once in the Preview, and I&rsquo;ll open it signed in from then on.</span>
           </div>
           <span className={f.grow} />
           <Prompt />
         </div>
       </Workspace>
-      {/* The window put away: its tab's dot waits in the corner, then works, then is done. */}
-      <div className={`${f.dots} ${f.blip}`} style={at(1.9, BUILT + 0.8)}>
+      {/* The window put away: its tab's dot waits in the corner for your answer. */}
+      <div className={`${f.dots} ${f.blip}`} style={at(1.9, 5.5)}>
         <ClaudeIcon />
-        <span className={f.swap}>
-          <Dot status="waiting" className={f.blip} style={at(1.9, 5.4)} />
-          <Dot status="working" className={f.blip} style={at(5.4, BUILT)} />
-          <Dot status="done" className={f.in} style={at(BUILT)} />
-        </span>
+        <Dot status="waiting" />
       </div>
     </Window>
   );

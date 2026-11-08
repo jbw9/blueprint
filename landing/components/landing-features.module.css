@@ -958,6 +958,15 @@ button.project:hover {
     translate: 0 -930px;
   }
 }
+/* Over to the left once Claude's window comes back beside it. */
+.planShift {
+  animation: shift 0.5s var(--ease) var(--t) forwards;
+}
+@keyframes shift {
+  to {
+    translate: -120px 0;
+  }
+}
 .askQ[data-busy] i {
   background: var(--color-amber-ink);
 }
