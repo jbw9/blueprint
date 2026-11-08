@@ -10,7 +10,6 @@ import { openPalette } from "@/components/chrome/palette";
 import { openProjects } from "@/components/projects/projects";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
-import { coverage } from "@/lib/bluprint/coverage";
 import type { Node } from "@/lib/bluprint/schema";
 import { STATIC_BLUPRINT } from "@/lib/bluprint/source";
 import { cn } from "@/lib/client/utils";
@@ -18,35 +17,28 @@ import { useMac } from "@/lib/client/platform";
 
 /**
  * The line along the bottom of the window: what is true of the whole bluprint,
- * whatever level is open. Which commit it describes, how much of it is not
- * certain, whether an update is running, and the two keys that get you
+ * whatever level is open. Which commit it describes, the problems it found,
+ * whether an update is running, and the two keys that get you
  * anywhere. It is the one place this lives, so no level has to repeat it.
  */
 export function StatusBar() {
   const { name, bluprints, RUN, L0, TOP } = useBluprint();
   const local = bluprints.some((m) => m.id === name && m.local);
 
-  const counts = useMemo(() => {
-    let levels = 0;
-    let unsure = 0;
+  const problems = useMemo(() => {
     let problems = 0;
     const walk = (nodes: Node[]) => {
       for (const n of nodes) {
-        levels++;
-        if (n.state !== "derived") unsure++;
         problems += n.issues?.length ?? 0;
         walk(n.children ?? []);
       }
     };
     walk(L0);
-    // The repository is a level too (D60): what it is unsure of counts, as
-    // the lists these open include it.
-    if (TOP.state !== "derived") unsure++;
+    // The repository is a level too (D60): its problems count, as the list this opens includes them.
     problems += TOP.issues?.length ?? 0;
-    return { levels, unsure, problems };
+    return problems;
   }, [L0, TOP]);
   const files = useFiles();
-  const covered = useMemo(() => (files?.index ? coverage(files.index, L0) : null), [files, L0]);
   const mac = useMac();
 
   return (
@@ -58,38 +50,15 @@ export function StatusBar() {
         </svg>
         {RUN.commit?.slice(0, 7) ?? "no commit"}
       </Item>
-      {covered ? (
-        <Item
-          title="Top-level symbols a level opens, of those the bluprint must explain — click for every file"
-          onClick={() => openFiles(covered.gaps.length ? "gaps" : "all")}
-          className={covered.gaps.length ? "text-amber-ink" : undefined}
-        >
-          {covered.explained}/{covered.symbols} explained
-        </Item>
-      ) : (
-        <Item title="Files the bluprint read — click for every file" onClick={() => openFiles()}>
-          {RUN.files} files
-        </Item>
-      )}
       {files?.added.length ? (
         <Item title="Files added since the bluprint was made — click to list them" onClick={() => openFiles("added")} className="text-amber-ink">
           {files.added.length} not on the bluprint yet
         </Item>
       ) : null}
-      <Sep />
-      <Item title={`Levels in the bluprint — ${keys(mac, "P")} to go to one`} onClick={() => openPalette()}>
-        {counts.levels} levels
-      </Item>
-      {counts.unsure ? (
-        <Item title="Levels the bluprint is not certain about — click to list them" onClick={() => openPalette("unsure")} className="text-amber-ink">
-          <span aria-hidden className="size-[7px] rounded-full bg-amber-ink/80" />
-          {counts.unsure} not certain
-        </Item>
-      ) : null}
-      {counts.problems ? (
+      {problems ? (
         <Item title="Problems the bluprint found in the code — click to list them" onClick={() => openPalette("problems")} className="text-clay-ink">
           <span aria-hidden>⚠</span>
-          {counts.problems} {counts.problems === 1 ? "problem" : "problems"}
+          {problems} {problems === 1 ? "problem" : "problems"}
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
@@ -147,10 +116,6 @@ function Item({
       {children}
     </span>
   );
-}
-
-function Sep() {
-  return <span aria-hidden className="mx-1 h-3 w-px bg-border-strong" />;
 }
 
 /** How long the changed files must stay as they are before the bluprint follows them by itself. */
