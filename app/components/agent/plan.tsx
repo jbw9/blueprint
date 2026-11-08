@@ -110,6 +110,29 @@ export function PlanView({
   const [words, setWords] = useState("");
   const top = useRef<HTMLDivElement>(null);
 
+  // Shifted sideways (the window opening beside it, the tab moved between the
+  // window and the main view), WebKit repaints only some of the page's tiles,
+  // and the rest shows where it used to be: a table split in two. Put on a
+  // layer of its own for a frame, the page is painted whole again.
+  const page = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = top.current;
+    if (!el) return;
+    let frame = 0;
+    const seen = new ResizeObserver(() => {
+      const art = page.current;
+      if (!art) return;
+      cancelAnimationFrame(frame);
+      art.style.transform = "translateZ(0)";
+      frame = requestAnimationFrame(() => (art.style.transform = ""));
+    });
+    seen.observe(el);
+    return () => {
+      seen.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
   // A revised plan is read from its top.
   useEffect(() => {
     top.current?.scrollTo({ top: 0 });
@@ -140,7 +163,7 @@ export function PlanView({
 
   return (
     <div ref={top} className={cn("absolute inset-0 flex flex-col overflow-y-auto bg-paper", !visible && "hidden")} style={{ paddingRight: inset }}>
-      <article className="mx-auto w-full max-w-[920px] flex-1 px-10 pb-16 pt-9">
+      <article ref={page} className="mx-auto w-full max-w-[920px] flex-1 px-10 pb-16 pt-9">
         <header className="mb-9">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <Eyebrow className="text-accent">{plan.version > 1 ? `Plan · revision ${plan.version}` : "Plan"}</Eyebrow>
