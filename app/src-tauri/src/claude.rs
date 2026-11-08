@@ -147,10 +147,10 @@ const TURN: &str = r#"f="$BLUPRINT_CONTEXT"; s=$(cat); printf '%s' "$s" > "$f.en
 /// beside the tab's queue until the turn ends. Allowed without asking.
 const FIX: &str = r#"#!/bin/sh
 # Tells Bluprint the bluprint is wrong about a section (src-tauri/src/claude.rs).
-[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to correct." >&2; exit 1; }
-[ $# -ge 2 ] || { echo 'usage: bluprint-fix "<section title>" "<what the bluprint gets wrong, and what is true>"' >&2; exit 2; }
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Blueprint tab; nothing to correct." >&2; exit 1; }
+[ $# -ge 2 ] || { echo 'usage: bluprint-fix "<section title>" "<what the blueprint gets wrong, and what is true>"' >&2; exit 2; }
 printf '%s\t%s\n' "$(printf '%s' "$1" | tr '\t\n' '  ')" "$(printf '%s' "$2" | tr '\t\n' '  ')" >> "$BLUPRINT_CONTEXT.fix"
-echo "Noted. The bluprint's \"$1\" will be corrected after this turn."
+echo "Noted. The blueprint's \"$1\" will be corrected after this turn."
 "#;
 
 /// What Claude runs to put the user in front of what it is talking about: one
@@ -159,22 +159,22 @@ echo "Noted. The bluprint's \"$1\" will be corrected after this turn."
 /// Allowed without asking.
 const SHOW: &str = r#"#!/bin/sh
 # Drives the open bluprint: shows a section, a diff, or the history (src-tauri/src/claude.rs).
-[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; nothing to show." >&2; exit 1; }
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Blueprint tab; nothing to show." >&2; exit 1; }
 clean() { printf '%s' "$1" | tr '\t\n' '  '; }
 case "$1" in
 section)
   [ -n "$2" ] || { echo 'usage: bluprint-show section "<section title or id>"' >&2; exit 2; }
   printf 'section\t%s\t\n' "$(clean "$2")" >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing \"$2\" on the bluprint."
+  echo "Showing \"$2\" on the blueprint."
   ;;
 diff)
   [ $# -ge 2 ] || { echo 'usage: bluprint-show diff "<from>" ["<to>"]' >&2; exit 2; }
   printf 'diff\t%s\t%s\n' "$(clean "$2")" "$(clean "$3")" >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing the diff${2:+ from \"$2\"}${3:+ to \"$3\"} on the bluprint."
+  echo "Showing the diff${2:+ from \"$2\"}${3:+ to \"$3\"} on the blueprint."
   ;;
 timeline)
   printf 'timeline\t\t\n' >> "$BLUPRINT_CONTEXT.act"
-  echo "Showing the history of the code over the bluprint."
+  echo "Showing the history of the code over the blueprint."
   ;;
 *)
   echo 'usage: bluprint-show section "<section title or id>" | bluprint-show diff "<from>" ["<to>"] | bluprint-show timeline' >&2
@@ -188,7 +188,7 @@ esac
 /// config. Allowed without asking.
 const TERMINAL: &str = r#"#!/bin/sh
 # Prints what a Bluprint terminal printed, the dev server's by default (src-tauri/src/mcp.rs).
-[ -n "$BLUPRINT_MCP_URL" ] || { echo "Not in a Bluprint tab; no terminals to read." >&2; exit 1; }
+[ -n "$BLUPRINT_MCP_URL" ] || { echo "Not in a Blueprint tab; no terminals to read." >&2; exit 1; }
 case "$2" in ''|*[!0-9]*) lines=200 ;; *) lines=$2 ;; esac
 name=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\t\n' '  ')
 curl -sS --fail-with-body "$BLUPRINT_MCP_URL/text" -H 'Content-Type: application/json' \
@@ -205,8 +205,8 @@ curl -sS --fail-with-body "$BLUPRINT_MCP_URL/text" -H 'Content-Type: application
 /// starts (pty.rs), from the bluprint the page already has.
 const LIST: &str = r#"#!/bin/sh
 # Lists the open bluprint, section by section (src-tauri/src/claude.rs).
-[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no bluprint to list." >&2; exit 1; }
-[ -s "$BLUPRINT_CONTEXT.bluprint" ] || { echo "This repository has no bluprint yet." >&2; exit 1; }
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Blueprint tab; no blueprint to list." >&2; exit 1; }
+[ -s "$BLUPRINT_CONTEXT.bluprint" ] || { echo "This repository has no blueprint yet." >&2; exit 1; }
 cat "$BLUPRINT_CONTEXT.bluprint"
 "#;
 
@@ -215,7 +215,7 @@ cat "$BLUPRINT_CONTEXT.bluprint"
 /// without asking.
 const STEP: &str = r#"#!/bin/sh
 # Marks a step of the accepted plan, for its tab in Bluprint (src-tauri/src/claude.rs).
-[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Bluprint tab; no plan to mark." >&2; exit 1; }
+[ -n "$BLUPRINT_CONTEXT" ] || { echo "Not in a Blueprint tab; no plan to mark." >&2; exit 1; }
 usage='usage: bluprint-plan-step <step number> doing|done|skipped ["why"]'
 case "$1" in ''|*[!0-9]*) echo "$usage" >&2; exit 2 ;; esac
 case "$2" in doing|done|skipped) ;; *) echo "$usage" >&2; exit 2 ;; esac
@@ -225,38 +225,38 @@ printf '%s\t%s\t%s\n' "$n" "$state" "$(printf '%s' "$*" | tr '\t\n' '  ')" >> "$
 echo "Step $n: $state."
 "#;
 
-const SYSTEM: &str = "This session was opened from Bluprint, an app that bluprints this \
+const SYSTEM: &str = "This session was opened from Blueprint, an app that blueprints this \
 repository as a tree of sections (user journey, data flow, the code behind each). The user \
-can attach things they picked on the bluprint: a whole section arrives as a block starting with \
+can attach things they picked on the blueprint: a whole section arrives as a block starting with \
 `[Bluprint section:`, one element of a section (a row, a diagram box, a step, a line of code) as \
-one starting with `[Bluprint element:`. Each names where it sits on the bluprint, what it says, and \
+one starting with `[Bluprint element:`. Each names where it sits on the blueprint, what it says, and \
 the code behind it. Treat what is attached as what the user is asking about, and read the \
 listed code when it is relevant. Each prompt also opens with a `[Reading now:` line naming \
 the section the user has open, followed by that section when it has changed since the last \
 prompt. When they ask what they are reading, or say \"this\" or \"here\" with nothing \
 attached, they mean that section: summarize or answer from it and the code it lists. It is \
-told to you, not shown to them, so never mention having been told where they are. Do not edit files unless asked. The bluprint can be wrong: when \
+told to you, not shown to them, so never mention having been told where they are. Do not edit files unless asked. The blueprint can be wrong: when \
 you find that it is (a listed problem that is not real, a description or a line reference \
 that does not match the code), run `bluprint-fix \"<section title>\" \"<what it gets wrong, \
-and what is true>\"` once per section, and the bluprint is corrected after your turn. Code you \
-change updates the bluprint by itself, deletions included; there is no need to report edits. \
+and what is true>\"` once per section, and the blueprint is corrected after your turn. Code you \
+change updates the blueprint by itself once it is committed, deletions included; there is no need to report edits. \
 You also drive what the user is looking at. When they ask how something works and nothing \
-is attached, run `bluprint-list` to see what the bluprint actually calls its sections, then, if \
+is attached, run `bluprint-list` to see what the blueprint actually calls its sections, then, if \
 one of them is what they are asking about, run `bluprint-show section \"<section title>\"` \
 before you explain, naming it exactly as the outline spells it, so \
 they are looking at the thing you are explaining as you explain it; the app takes it \
 immediately, not at the end of your turn. When they ask to see what changed, run \
 `bluprint-show diff \"<from>\" \"<to>\"` — `<to>` may be left off, meaning the working tree, \
-and an empty `<from>` means the commit the bluprint was built from. Pass the refs through as the \
+and an empty `<from>` means the commit the blueprint was built from. Pass the refs through as the \
 user said them, `HEAD~1`, a sha, a branch, or a phrase like \"last commit by hindra2\": the \
 app resolves them against the repository, so do not run git to work one out first. When they \
 ask how the code got here or how it changed over time, run `bluprint-show timeline`: it draws \
-every commit on the bluprint's sections, and they can click through it while you tell the history. \
-The `bluprint_search`, `bluprint_section` and `bluprint_where` tools read the bluprint itself. Before you change a \
+every commit on the blueprint's sections, and they can click through it while you tell the history. \
+The `bluprint_search`, `bluprint_section` and `bluprint_where` tools read the blueprint itself. Before you change a \
 file, ask `bluprint_where` which sections explain it, so the change fits the part of the product it \
-lives in and the user can follow what you are building on the bluprint. \
-Keeping the bluprint right is background upkeep, not part of the answer: never tell the user \
-whether you edited files, whether the bluprint is accurate, or that there is nothing to correct, \
+lives in and the user can follow what you are building on the blueprint. \
+Keeping the blueprint right is background upkeep, not part of the answer: never tell the user \
+whether you edited files, whether the blueprint is accurate, or that there is nothing to correct, \
 and mention a correction only in passing when you ran bluprint-fix. What you show is \
 likewise not worth narrating — the user can see it, so never announce that you are taking \
 them somewhere, though naming the section you are explaining is fine where the prose wants \
@@ -281,7 +281,7 @@ rest follows from. A picture goes here only when it shows what the bullets canno
 change calls for, never out of habit: most changes need none, and boxes in a row that restate the \
 bullets are worse than none. Each is a fenced block of JSON: a ```diagram when parts are added, \
 removed or rewired, {\"caption\" (a few words), \"boxes\": [{\"id\", \"label\" (1-3 words), \"sub\" \
-(a file, or a few words), \"col\", \"row\", \"change\", \"section\" (the id path of the bluprint section \
+(a file, or a few words), \"col\", \"row\", \"change\", \"section\" (the id path of the blueprint section \
 this box is, from bluprint_where or bluprint_search, when it is one)}], \"arrows\": [{\"from\", \"to\", \
 \"label\" (1-3 words), \"change\"}]}, on a grid read left to right and at most three columns wide, \
 where `change` is \"new\", \"changed\" or \"gone\" and what stays as it is has none; a ```sequence \
@@ -788,7 +788,7 @@ fn zdotdir() -> PathBuf {
 #[cfg(windows)]
 const LAUNCHER_CMD: &str = "@echo off\r\n\
 if not defined BLUPRINT_BASH (\r\n\
-  echo Claude Code in Bluprint needs Git for Windows: https://git-scm.com/download/win 1>&2\r\n\
+  echo Claude Code in Blueprint needs Git for Windows: https://git-scm.com/download/win 1>&2\r\n\
   exit /b 1\r\n\
 )\r\n\
 \"%BLUPRINT_BASH%\" \"%~dp0bluprint-claude\" %*\r\n";
@@ -1167,7 +1167,7 @@ mod tests {
         // not read an empty outline as an empty bluprint.
         let out = run();
         assert!(!out.status.success());
-        assert!(String::from_utf8_lossy(&out.stderr).contains("no bluprint yet"));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("no blueprint yet"));
 
         std::fs::write(q.with_extension("md.bluprint"), "repo: about\n\n- Sign ups — how people join\n").unwrap();
         let out = run();
