@@ -273,7 +273,7 @@ function Diagram({
                   d={d}
                   fill="none"
                   stroke={line}
-                  strokeWidth={isHot || glow ? 2.5 : 1.5}
+                  strokeWidth={isHot ? 2.5 : 1.5}
                   strokeOpacity={inferred && !isHot && !glow ? 0.5 : 1}
                   strokeDasharray={tone === "warn" ? "5 4" : undefined}
                   strokeLinejoin="round"
