@@ -4,11 +4,11 @@
 set -e
 case $(uname) in
 Darwin) test -x /Applications/Blueprint.app/Contents/MacOS/blueprint; data="$HOME/Library/Application Support/dev.blueprint.app" ;;
-Linux) test -x "$HOME/.local/bin/blpr"; test -f "$HOME/.local/share/applications/blueprint.desktop"; data="$HOME/.local/share/dev.blueprint.app" ;;
+Linux) test -x "$HOME/.local/bin/blueprint"; test -f "$HOME/.local/share/applications/blueprint.desktop"; data="$HOME/.local/share/dev.blueprint.app" ;;
 *) test -f "$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint/blueprint.exe"; data="$APPDATA/dev.blueprint.app" ;;
 esac
 # A Linux binary that links BLAS fails to start where the distro splits it differently (Fedora).
-if [ "$(uname)" = Linux ] && ldd "$HOME/.local/bin/blpr" | grep -i blas; then
+if [ "$(uname)" = Linux ] && ldd "$HOME/.local/bin/blueprint" | grep -i blas; then
   echo "blueprint links a system BLAS (app/scripts/install.sh turns it off)"
   exit 1
 fi

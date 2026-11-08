@@ -133,13 +133,13 @@ else
   mkdir -p "$bin" "$icons" "$apps"
   # The app under its old name.
   rm -f "$bin/bluprint" "$icons/bluprint.png" "$apps/bluprint.desktop"
-  # The command is blpr; it was blueprint before.
-  rm -f "$bin/blueprint"
+  # The command was blpr for a few builds.
+  rm -f "$bin/blpr"
   # Beside the running binary, then over it: a running executable can't be written in place.
-  cp "$built/blueprint" "$bin/.blpr.new"
-  mv "$bin/.blpr.new" "$bin/blpr"
+  cp "$built/blueprint" "$bin/.blueprint.new"
+  mv "$bin/.blueprint.new" "$bin/blueprint"
   cp "$art/128x128.png" "$icons/blueprint.png"
   printf '[Desktop Entry]\nType=Application\nName=Blueprint\nComment=A visual blueprint of a codebase\nExec=%s\nIcon=blueprint\nCategories=Development;\n' \
-    "$bin/blpr" >"$apps/blueprint.desktop"
-  echo "Installed $bin/blpr, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
+    "$bin/blueprint" >"$apps/blueprint.desktop"
+  echo "Installed $bin/blueprint, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
 fi

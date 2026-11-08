@@ -35,7 +35,7 @@ main() {
 
   case $os in
   Darwin) app=/Applications/Blueprint.app ;;
-  Linux) app=$HOME/.local/bin/blpr ;;
+  Linux) app=$HOME/.local/bin/blueprint ;;
   Windows) app="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint/blueprint.exe" ;;
   esac
   updating=$([ -e "$app" ] && echo 1 || true)
@@ -94,7 +94,7 @@ check_node() {
 
 check_libs() {
   [ "$os" = Linux ] || return 0
-  libs=$(ldd "$HOME/.local/bin/blpr" | awk '/not found/ { print $1 }')
+  libs=$(ldd "$HOME/.local/bin/blueprint" | awk '/not found/ { print $1 }')
   [ -n "$libs" ] || return 0
   list=$(printf '%s\n' "$libs" | sed 's/^/- /')
   if command -v dnf >/dev/null; then
@@ -209,8 +209,8 @@ summary() {
   Darwin) printf '  Open it from Applications, or run: %sopen -a Blueprint%s\n\n' "$cyan" "$off" ;;
   Windows) printf '  Open it from the Start menu.\n\n' ;;
   Linux)
-    run=blpr
-    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) run="~/.local/bin/blpr" ;; esac
+    run=blueprint
+    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) run="~/.local/bin/blueprint" ;; esac
     printf '  Open it from your applications menu, or run: %s%s%s\n\n' "$cyan" "$run" "$off"
     ;;
   esac
