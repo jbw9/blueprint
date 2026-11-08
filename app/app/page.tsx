@@ -94,7 +94,8 @@ export default async function Home({
         <Suspense>
           {STATIC_BLUEPRINT ? null : <Workspace />}
         </Suspense>
-        {embed ? null : <StatusBar />}
+        {/* A static export is only ever a landing demo, framed like an embed. */}
+        {embed || STATIC_BLUEPRINT ? null : <StatusBar />}
         <Suspense>
           <Palette />
         </Suspense>
