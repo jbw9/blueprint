@@ -108,7 +108,7 @@ const KINDS = `- "diagram": how things connect. boxes[{id,label,sub?,col,row}] o
  */
 export function draftPrompt(where: string): string {
   return [
-    `Put that answer on the bluprint, as one block of the bluprint's own vocabulary.`,
+    `Put that answer on the blueprint, as one block of the blueprint's own vocabulary.`,
     ``,
     `It goes on the section "${where}". Pick the ONE kind that fits what you just explained:`,
     KINDS,
@@ -165,6 +165,6 @@ export function parseBlock(reply: string): { block: Anatomy } | { error: string 
   }
   const b = parsed as { kind?: string };
   const ok = ["diagram", "table", "sequence", "example", "note"];
-  if (!b.kind || !ok.includes(b.kind)) return { error: `"${b.kind ?? "that"}" is not a kind the bluprint can draw.` };
+  if (!b.kind || !ok.includes(b.kind)) return { error: `"${b.kind ?? "that"}" is not a kind the blueprint can draw.` };
   return { block: parsed as Anatomy };
 }

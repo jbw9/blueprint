@@ -167,7 +167,7 @@ export function chapterProblems(chapters: Chapter[], t: Timeline): string[] {
     if (words < 1 || words > 4) out.push(`${name}: a title is 1 to 4 words, this is ${words}.`);
     if (c.detail.split(/\s+/).filter(Boolean).length > 40 || (c.detail.match(/[.!?](\s|$)/g)?.length ?? 0) > 2)
       out.push(`${name}: the detail is at most two sentences and 40 words.`);
-    for (const r of c.roots) if (!ids.has(r)) out.push(`${name}: "${r}" is not one of the bluprint's roots.`);
+    for (const r of c.roots) if (!ids.has(r)) out.push(`${name}: "${r}" is not one of the blueprint's roots.`);
   });
   return out;
 }

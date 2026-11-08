@@ -143,7 +143,7 @@ function exemplar(): string {
 /** The rules at the bluprint's explain level (D70): the plain-words section as written, rewritten shorter, or gone. */
 const BRIEF_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this bluprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows the field; what they lack is this project. Every node has a short \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one or two sentences, at most 60 words: what this part is for in this project, naming any word the project uses in its own sense ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -151,7 +151,7 @@ The reader of this bluprint knows the field; what they lack is this project. Eve
 `;
 const MINIMAL_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this bluprint knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows the field and has used this project; what they lack is its vocabulary. Every node has a one-line \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one sentence, at most 30 words: what this project means by this part where the title alone would not say ("a *job* here is one queued email, not a cron task"). Don't restate \`detail\`, and don't explain the field.
 - No \`blocks\`.
@@ -159,7 +159,7 @@ The reader of this bluprint knows the field and has used this project; what they
 `;
 const DETAILED_RULES = `## The plain-words layer: \`explain\`
 
-The reader of this bluprint knows a little of the field and nothing of this project. Every node has an \`explain\`, shown under an Explain toggle:
+The reader of this blueprint knows a little of the field and nothing of this project. Every node has an \`explain\`, shown under an Explain toggle:
 
 - \`body\`: one or two short paragraphs, a blank line between them, at most 120 words (a leaf's is often 20–60).
   - Start from what this part is for, then how it works, in everyday words.
@@ -182,7 +182,7 @@ export function system(): Block[] {
     { type: "text", text: rules() },
     {
       type: "text",
-      text: `# The types (lib/bluprint/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored bluprint, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
+      text: `# The types (lib/bluprint/schema.ts) — every field's comment is part of the standard\n\n${typeReference()}\n\n# A worked example: one root of a hand-authored blueprint, at the standard to match\n\nIt passes every check yours will. It is from a different repository — match its depth, density and honesty, not its content.\n\n${exemplar()}`,
       cache_control: { type: "ephemeral" },
     },
   ];
@@ -306,8 +306,8 @@ export function brief(root: Root, cut: Cut, inv: Inventory, sums: Record<string,
     `## README (excerpt)\n${inv.readme.slice(0, 2500) || "(none)"}`,
     ...(inv.instructions ? [`## What the repository tells coding agents\nIts own conventions and rules (AGENTS.md, CLAUDE.md). They say what its parts are meant to be; where the code departs from them, that is worth an issue.\n\n${inv.instructions}`] : []),
     ...(inv.docs.length ? [`## Its docs (${inv.docs.length}): path, lines, first heading\n${inv.docs.slice(0, 80).map((d) => `${d.path} (${d.lines})${d.title ? ` — ${d.title}` : ""}`).join("\n")}`] : []),
-    ...(inv.scope ? [`## Scope\nThis bluprint covers only part of the repository. Its reader: ${inv.scope.focus} Code outside it is still in the graph and can be cited.`] : []),
-    `## The whole bluprint's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
+    ...(inv.scope ? [`## Scope\nThis blueprint covers only part of the repository. Its reader: ${inv.scope.focus} Code outside it is still in the graph and can be cited.`] : []),
+    `## The whole blueprint's top level — ${cut.about}\n${cut.roots.map((r) => `- ${r.id}: ${r.title} — ${r.sub}`).join("\n")}`,
     `Code another root explains is not unknown: look it up in the graph if you need it, and draw it as a box with no \`opens\` labelled with that root's title. Never mark a node unsure because something lies outside your root.`,
     `## Your root\nid: ${root.id}\ntitle: ${root.title}\nsub: ${root.sub}\nscope: ${root.why}\nEvery node id under it starts with "${root.prefix}-".`,
     `Brand marks you may use: ${inv.marks.length ? inv.marks.join(", ") : "none"}.`,
@@ -676,7 +676,7 @@ async function outlineParts(root: Root, cut: Cut, inv: Inventory, sums: Record<s
     model,
     stage: "author-outline",
     maxTokens: 4000,
-    system: "You divide one section of a bluprint of a codebase into the parts it is written in. Answer only with the structure asked for.",
+    system: "You divide one section of a blueprint of a codebase into the parts it is written in. Answer only with the structure asked for.",
     messages: [{ role: "user", content: prompt }],
     tool: PARTS_TOOL,
   });
@@ -706,13 +706,13 @@ async function outlineParts(root: Root, cut: Cut, inv: Inventory, sums: Record<s
 /** The repository as a cut of one root sees it: only that root's files are source. */
 function scoped(root: Root, cut: Cut, inv: Inventory): Inventory {
   const files = inv.files.map((f) => (isSource(f) && owners(cut, f.path).includes(root.id) ? f : { ...f, code: false, outside: true }));
-  return { ...inv, files, scope: { paths: root.files, focus: `${inv.scope ? `${inv.scope.focus} ` : ""}This is one part of the bluprint, "${root.title}" (${root.sub}): ${root.why} Cut it into the 2-6 parts a reader of that part opens first.` } };
+  return { ...inv, files, scope: { paths: root.files, focus: `${inv.scope ? `${inv.scope.focus} ` : ""}This is one part of the blueprint, "${root.title}" (${root.sub}): ${root.why} Cut it into the 2-6 parts a reader of that part opens first.` } };
 }
 
 /** The parts' cut, its ids and prefixes put under the root's, as the briefs of its parts read it. */
 function partsCut(root: Root, sub: Cut, cut: Cut): Cut {
   return {
-    about: `${root.title} — ${root.sub}, one part of a bluprint whose top level is ${cut.roots.map((r) => r.title).join(", ")}. ${sub.about}`,
+    about: `${root.title} — ${root.sub}, one part of a blueprint whose top level is ${cut.roots.map((r) => r.title).join(", ")}. ${sub.about}`,
     roots: sub.roots.map((p) => ({ ...p, id: `${root.prefix}-${p.id}`, prefix: `${root.prefix}-${p.prefix}`, why: `${p.why} It is one part of ${root.title}: ${root.why}` })),
     excluded: [...cut.excluded, ...sub.excluded],
   };

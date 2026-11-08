@@ -17,7 +17,7 @@ main() {
   os=$(uname)
   case $os in
   Darwin | Linux) ;;
-  *) die "Bluprint installs on macOS and Linux." ;;
+  *) die "Blueprint installs on macOS and Linux." ;;
   esac
   # rustup's default place, for a shell opened before Rust was installed.
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
@@ -50,10 +50,10 @@ main() {
       done
     fi
   fi
-  [ -z "$missing" ] || die "Bluprint builds from source, and needs:$missing
+  [ -z "$missing" ] || die "Blueprint builds from source, and needs:$missing
 Install those, then run this again."
   command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] ||
-    die "Bluprint needs Node 20 or newer; this is $(node -v)."
+    die "Blueprint needs Node 20 or newer; this is $(node -v)."
 
   say "Getting the source into $dir"
   mkdir -p "$dir"
@@ -65,11 +65,11 @@ Install those, then run this again."
   cd "$dir/app"
   say "Installing packages"
   npm ci --no-audit --no-fund
-  say "Building Bluprint (the first build compiles the app: 10 to 20 minutes)"
+  say "Building Blueprint (the first build compiles the app: 10 to 20 minutes)"
   sh scripts/install-app.sh
 
   command -v claude >/dev/null ||
-    say "Bluprint makes bluprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
+    say "Blueprint makes blueprints through Claude Code, which isn't on your PATH: https://claude.com/claude-code"
 }
 
 report() {

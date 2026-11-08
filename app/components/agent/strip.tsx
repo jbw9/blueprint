@@ -45,7 +45,7 @@ export function Strip({
           onClick={() => run(a)}
           title={
             a.id === CLAUDE.id
-              ? "Runs bluprint-claude in this shell: your Claude Code, able to take bluprint context"
+              ? "Runs bluprint-claude in this shell: your Claude Code, able to take blueprint context"
               : `Runs ${a.command} in this shell`
           }
           className="flex shrink-0 cursor-pointer items-center gap-1.5 border border-border-strong px-2 py-px text-ink hover:bg-surface-container"

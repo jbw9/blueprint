@@ -37,7 +37,7 @@ const TOOL = {
           additionalProperties: false,
           required: ["title", "from", "to", "detail", "roots"],
           properties: {
-            title: { type: "string", description: "1-4 words, Title Case, what happened: 'First Bluprint', 'Desktop App', 'Diff Mode'." },
+            title: { type: "string", description: "1-4 words, Title Case, what happened: 'First Blueprint', 'Desktop App', 'Diff Mode'." },
             from: { type: "string", description: "The short sha of the chapter's first commit, exactly as listed." },
             to: { type: "string", description: "The short sha of its last commit, exactly as listed." },
             detail: { type: "string", description: "At most two plain sentences and 40 words: what changed for someone using it, and why if the subjects say." },
@@ -64,7 +64,7 @@ export async function story(args: string[]) {
   const lines = shown.map((c) => `${c.short} ${day(c.at)} ${c.author} +${c.added} −${c.removed} [${c.roots.map((r) => r || "elsewhere").join(",")}] ${c.subject}`);
   const prompt = [
     `# ${bluprint.RUN.repo}: its history, oldest commit first`,
-    `## The bluprint's roots\n${t.roots.filter((r) => r.id !== ELSEWHERE).map((r) => `- ${r.id}: ${r.title}`).join("\n")}`,
+    `## The blueprint's roots\n${t.roots.filter((r) => r.id !== ELSEWHERE).map((r) => `- ${r.id}: ${r.title}`).join("\n")}`,
     `## Commits (${shown.length}${shown.length < t.commits.length ? ` most recent of ${t.commits.length}` : ""}): sha, date, author, lines added and removed, roots touched, subject\n${lines.join("\n")}`,
     `## Task
 Tell how this codebase got to where it is, as 3 to 8 chapters in order, each a run of consecutive commits that belong together: a feature arriving, a rewrite, a move to a new platform. Every listed commit falls in exactly one chapter, so the first chapter starts at the first commit and the last ends at the last. Checkpoints ("wip", merges) belong to whatever they sit inside. Name a chapter by what changed, not by when.`,

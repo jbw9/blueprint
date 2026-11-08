@@ -131,7 +131,7 @@ fn handle(conn: TcpStream, app: &AppHandle) -> std::io::Result<()> {
     }
 }
 
-const INSTRUCTIONS: &str = "These tools use the Preview tab in Bluprint: the user's project, \
+const INSTRUCTIONS: &str = "These tools use the Preview tab in Blueprint: the user's project, \
 running as a web app beside you, exactly as the user sees it, and any page on the web. Use them \
 to check that what you built works: take a screenshot, then click, type and read the page, as \
 you would in a browser. They are your browser here: to look something up or read a page on \
@@ -149,7 +149,7 @@ Android emulator running in the app. `read_terminal` reads the project's termina
 server's logs by default: read it when the page misbehaves, a build fails or a request errors. When a page \
 needs an account (a login wall on Instagram, X, a private dashboard), call `sign_in` and let the user sign in \
 themselves; never type a password. Sign-ins are kept, so a site signed in to once opens signed in later. `bluprint_search`, `bluprint_section` and `bluprint_where` read the project's \
-bluprint in Bluprint: what each part of the code is for and which section explains it. Ask `bluprint_where` about a \
+blueprint in Blueprint: what each part of the code is for and which section explains it. Ask `bluprint_where` about a \
 file before changing it, and name sections by the id path these tools give.";
 
 /// One JSON-RPC message; nothing back for a notification.
@@ -419,7 +419,7 @@ fn tools() -> Value {
         },
         {
             "name": "sign_in",
-            "description": "Asks the user to sign in to a site in the preview, for a page that needs an account: a login wall on an Instagram reel, a post on X, a private dashboard. Opens the address given; the user chooses whether Bluprint keeps the sign-in for all projects or this project only, signs in on the page themselves, and says when they are done. Returns once they have, or have declined, which can take minutes. You never see or type the password. A sign-in is kept, so try the page first: call this only when it asks to sign in.",
+            "description": "Asks the user to sign in to a site in the preview, for a page that needs an account: a login wall on an Instagram reel, a post on X, a private dashboard. Opens the address given; the user chooses whether Blueprint keeps the sign-in for all projects or this project only, signs in on the page themselves, and says when they are done. Returns once they have, or have declined, which can take minutes. You never see or type the password. A sign-in is kept, so try the page first: call this only when it asks to sign in.",
             "inputSchema": {
                 "type": "object",
                 "properties": { "url": { "type": "string", "description": "The page to sign in on, or the page that asked for it, like https://www.instagram.com/reel/…" } },
@@ -484,7 +484,7 @@ fn tools() -> Value {
         },
         {
             "name": "bluprint_search",
-            "description": "Search the project's bluprint in Bluprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and that section's id path.",
+            "description": "Search the project's blueprint in Blueprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and that section's id path.",
             "inputSchema": {
                 "type": "object",
                 "properties": { "query": { "type": "string", "description": "Words, a symbol name, or part of a path." } },
@@ -493,7 +493,7 @@ fn tools() -> Value {
         },
         {
             "name": "bluprint_section",
-            "description": "One section of the bluprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.",
+            "description": "One section of the blueprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.",
             "inputSchema": {
                 "type": "object",
                 "properties": { "name": { "type": "string", "description": "An id path from bluprint_search, an id, or a title." } },
@@ -502,7 +502,7 @@ fn tools() -> Value {
         },
         {
             "name": "bluprint_where",
-            "description": "Which sections of the bluprint explain a file, or one line of it, deepest first; or why none does (left out, not source, new since the bluprint was made).",
+            "description": "Which sections of the blueprint explain a file, or one line of it, deepest first; or why none does (left out, not source, new since the blueprint was made).",
             "inputSchema": {
                 "type": "object",
                 "properties": {

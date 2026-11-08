@@ -166,7 +166,7 @@ export function OriginMark({ origin, stale, className }: { origin: Origin; stale
     >
       {origin.by === "user" ? "Added by you" : "From Claude, kept by you"} · {when}
       {stale ? (
-        <span title="The bluprint has redone this section from changed code since this was kept: check it still holds." className="text-amber-ink">
+        <span title="The blueprint has redone this section from changed code since this was kept: check it still holds." className="text-amber-ink">
           {" "}· may be stale
         </span>
       ) : null}

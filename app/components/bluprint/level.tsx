@@ -88,7 +88,7 @@ function HandProblems({ node, path }: { node: Node; path: string[] }) {
           main.id,
           { key, title: `Problems in ${node.title}`, text: describeProblems(bluprint, path, source) },
           source.length
-            ? `Look into the problems in "${node.title}" from the bluprint. The code each one points at is attached: check each against it, explain what goes wrong, and suggest a fix. Read more of the repo only if what is attached is not enough.`
+            ? `Look into the problems in "${node.title}" from the blueprint. The code each one points at is attached: check each against it, explain what goes wrong, and suggest a fix. Read more of the repo only if what is attached is not enough.`
             : `Look into the problems in "${node.title}" from the bluprint: check each against the code, explain what goes wrong, and suggest a fix.`,
         );
         if (!claude) setPasted(true);

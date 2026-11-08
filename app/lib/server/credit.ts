@@ -60,7 +60,7 @@ export function deviceToken(): Promise<Registered> {
       signal: AbortSignal.timeout(10_000),
     }).catch(() => null);
     const body = (await r?.json().catch(() => null)) as { token?: string; message?: string } | null;
-    return body?.token ? { token: body.token } : { reason: body?.message ?? "Bluprint credit could not be reached." };
+    return body?.token ? { token: body.token } : { reason: body?.message ?? "Blueprint credit could not be reached." };
   })().then((t) => {
     if (!("token" in t)) state.token = undefined;
     return t;
@@ -116,7 +116,7 @@ async function askStatus(): Promise<CreditStatus> {
   if (!("token" in t)) return { available: false, on, device, reason: t.reason };
   const r = await fetch(`${CREDIT_URL}/status`, { headers: { authorization: `Bearer ${t.token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   const s = (await r?.json().catch(() => null)) as { available?: boolean; used?: number; limit?: number; resets?: string | null; window_hours?: number } | null;
-  if (!r?.ok || !s) return { available: false, on, device, reason: "Bluprint credit could not be reached." };
+  if (!r?.ok || !s) return { available: false, on, device, reason: "Blueprint credit could not be reached." };
   return { available: !!s.available, on, device, used: s.used, limit: s.limit, resets: s.resets, windowHours: s.window_hours };
 }
 

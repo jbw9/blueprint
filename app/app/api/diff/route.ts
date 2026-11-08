@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   } catch {
     open = null;
   }
-  if (!open) return bad("No such bluprint.", 404);
+  if (!open) return bad("No such blueprint.", 404);
   const root = rootOf(open.file.RUN);
 
   if (q.get("commits")) return Response.json({ commits: commitLog(root, 200), at: open.file.RUN.commit });
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
   } catch {
     open = null;
   }
-  if (!open) return bad("No such bluprint.", 404);
+  if (!open) return bad("No such blueprint.", 404);
   const { sha, claude } = (await request.json().catch(() => ({}))) as { sha?: unknown; claude?: unknown };
   if (typeof sha !== "string" || !/^[0-9a-f]{7,40}$/.test(sha)) return bad("No such commit.");
   try {

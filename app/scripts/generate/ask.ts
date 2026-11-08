@@ -36,9 +36,9 @@ type Verdict = "stated" | "partly" | "missing" | "contradicted";
 interface Answer { answer: string; cites: string[] }
 
 const BLUPRINT_TOOLS: Tool[] = [
-  { name: "bluprint_search", description: "Search the bluprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and its id path.", input_schema: { type: "object", required: ["query"], properties: { query: { type: "string", description: "Words, a symbol name, or part of a path." } } } },
-  { name: "bluprint_section", description: "One section of the bluprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.", input_schema: { type: "object", required: ["name"], properties: { name: { type: "string", description: "An id path from bluprint_search, an id, or a title." } } } },
-  { name: "bluprint_where", description: "Which sections of the bluprint explain a file, or one line of it.", input_schema: { type: "object", required: ["file"], properties: { file: { type: "string" }, line: { type: "integer" } } } },
+  { name: "bluprint_search", description: "Search the blueprint: sections whose title or text match, and top-level symbols and files by name, each with the section that explains it and its id path.", input_schema: { type: "object", required: ["query"], properties: { query: { type: "string", description: "Words, a symbol name, or part of a path." } } } },
+  { name: "bluprint_section", description: "One section of the blueprint: what it is, what it says, the code it cites, its parts (with id paths to go deeper) and what to watch out for. An empty name is the whole repository.", input_schema: { type: "object", required: ["name"], properties: { name: { type: "string", description: "An id path from bluprint_search, an id, or a title." } } } },
+  { name: "bluprint_where", description: "Which sections of the blueprint explain a file, or one line of it.", input_schema: { type: "object", required: ["file"], properties: { file: { type: "string" }, line: { type: "integer" } } } },
 ];
 const ANSWER: Tool = {
   name: "answer",
@@ -55,9 +55,9 @@ const ANSWER: Tool = {
 const CODE_TOOLS = TOOLS.filter((t) => t.name !== "submit");
 const TOOLS_OF: Record<Mode, Tool[]> = { bluprint: [...BLUPRINT_TOOLS, ANSWER], grep: [...CODE_TOOLS, ANSWER], both: [...BLUPRINT_TOOLS, ...CODE_TOOLS, ANSWER], graph: [...GRAPH_TOOLS, ...CODE_TOOLS, ANSWER] };
 const SEES: Record<Mode, string> = {
-  bluprint: "Your tools read a bluprint of the repository: a tree of sections, each explaining a part of the code and citing the lines it rests on. You cannot read the code itself.",
+  bluprint: "Your tools read a blueprint of the repository: a tree of sections, each explaining a part of the code and citing the lines it rests on. You cannot read the code itself.",
   grep: "Your tools read the repository's code.",
-  both: "Your tools read a bluprint of the repository (a tree of sections, each explaining a part of the code and citing its lines) and the repository's code itself.",
+  both: "Your tools read a blueprint of the repository (a tree of sections, each explaining a part of the code and citing its lines) and the repository's code itself.",
   graph: "Your tools read the repository's code, and a graph of it built from the code: its functions, methods and classes, and who calls, inherits from and imports whom. Use the graph to find where things are and how they connect, then read the lines you need.",
 };
 const SYSTEM = "You answer questions about one codebase from what your tools show, never from what similar projects usually do.";

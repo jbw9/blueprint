@@ -56,7 +56,7 @@ pub fn run() {
                 std::thread::spawn(move || {
                     if let Err(e) = server::start(&handle).and_then(|()| open_main(&handle).map_err(|e| e.to_string())) {
                         use tauri_plugin_dialog::DialogExt;
-                        handle.dialog().message(e).title("Bluprint couldn't start").blocking_show();
+                        handle.dialog().message(e).title("Blueprint couldn't start").blocking_show();
                         handle.exit(1);
                     }
                 });
@@ -178,7 +178,7 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
             &open("palette-code", "Find File or Symbol", Some("Cmd+K"))?,
             &open("palette-actions", "Actions", Some("Cmd+Shift+P"))?,
             &PredefinedMenuItem::separator(app)?,
-            &open("bluprint", "Show Bluprint", None)?,
+            &open("bluprint", "Show Blueprint", None)?,
             &open("diff", "Changes", Some("Cmd+Shift+D"))?,
             &open("history", "History", None)?,
             &open("files", "Files", None)?,

@@ -15,7 +15,7 @@ function resolved(bluprint: string | null, spec: string | null) {
   try {
     open = loadBluprint(bluprint ?? undefined);
   } catch {}
-  if (!open || !spec) return { error: "No such bluprint or review." };
+  if (!open || !spec) return { error: "No such blueprint or review." };
   const r = reviewRange(rootOf(open.file.RUN), spec);
   return "error" in r ? r : { id: open.name, commit: r.to };
 }

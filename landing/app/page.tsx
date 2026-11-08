@@ -47,7 +47,7 @@ const REPO = "jbw9/bluprint";
 const GITHUB = `https://github.com/${REPO}`;
 
 // This repo first: the demo opens on the project explaining itself.
-const DEMOS = [{ id: "bluprint", label: "Bluprint itself" }];
+const DEMOS = [{ id: "bluprint", label: "Blueprint itself" }];
 
 // The same problem at every size. John Doe is the page's own voice; the other two are people the team spoke with, by role.
 const VOICES: Voice[] = [
@@ -154,7 +154,7 @@ export default function Landing() {
         <dl className={s.end}>
           <div className={s.endTitle}>
             <dt>Title</dt>
-            <dd>Bluprint</dd>
+            <dd>Blueprint</dd>
           </div>
           <div>
             <dt>Source</dt>

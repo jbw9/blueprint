@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Bluprint uses the microphone for voice dictation.</string>
+	<string>Blueprint uses the microphone for voice dictation.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Bluprint pauses Music and Spotify while you dictate, and plays them again after.</string>
+	<string>Blueprint pauses Music and Spotify while you dictate, and plays them again after.</string>
 </dict>
 </plist>

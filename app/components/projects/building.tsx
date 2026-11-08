@@ -26,7 +26,7 @@ const STAGES = [
 /** A quick bluprint first, then each part written in full in its place (scripts/generate/pipeline.ts, --fast). */
 const FAST_STAGES = [
   ["summarize", "Reading the code"],
-  ["author", "Drawing a quick bluprint"],
+  ["author", "Drawing a quick blueprint"],
   ["deepen", "Writing each part in full"],
   ["overview", "Drawing how they connect"],
 ] as const;
@@ -42,11 +42,11 @@ export function Building({ progress, onOpen }: { progress: Progress; onOpen: (pa
   const stage = progress.stage;
   const ended = stage === "failed" || stage === "cancelled";
   return (
-    <section data-pick="The bluprint being made" className="flex flex-col gap-8">
+    <section data-pick="The blueprint being made" className="flex flex-col gap-8">
       <Stages progress={progress} />
       {ended ? (
         <p className="max-w-[720px] text-[13.5px] leading-relaxed text-clay-ink">
-          {stage === "cancelled" ? "This run was cancelled." : "This run stopped before the bluprint was made."}
+          {stage === "cancelled" ? "This run was cancelled." : "This run stopped before the blueprint was made."}
           {progress.line ? <span className="mt-1 block font-mono text-[11.5px]">{progress.line}</span> : null}
           <span className="mt-1 block text-on-surface-variant">Open Projects to run it again.</span>
         </p>
@@ -351,15 +351,15 @@ export function NoBluprint({ id }: { id: string }) {
     }
   };
   return (
-    <section data-pick="No bluprint yet" className="flex flex-col gap-8">
+    <section data-pick="No blueprint yet" className="flex flex-col gap-8">
       <div className="flex max-w-[720px] flex-col items-start gap-3">
-        <Eyebrow>No bluprint yet</Eyebrow>
+        <Eyebrow>No blueprint yet</Eyebrow>
         <p className="text-[13.5px] leading-relaxed text-on-surface-variant">
-          This project is open without a bluprint. Generate one and the code is read, divided into the parts someone does
+          This project is open without a blueprint. Generate one and the code is read, divided into the parts someone does
           something with, and drawn here as the picture of how they connect.
         </p>
         <Button variant="primary" onClick={() => void start()} disabled={starting}>
-          {starting ? "Starting…" : "Generate bluprint"}
+          {starting ? "Starting…" : "Generate blueprint"}
         </Button>
         {error ? <p className="text-[12.5px] text-clay-ink">{error}</p> : null}
       </div>

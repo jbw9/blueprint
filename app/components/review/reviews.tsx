@@ -96,8 +96,8 @@ export function ReviewCard({ r, bluprint, spec, onMade }: { r: Review; bluprint:
       ) : r.kind === "turn" ? (
         <>
           <p className="text-[12.5px] text-ink">
-            The agent, asked: <span className="italic">{r.title || "to correct the bluprint"}</span>
-            <span className="ml-1.5 text-[11.5px] text-muted-slate">· the bluprint before and after it</span>
+            The agent, asked: <span className="italic">{r.title || "to correct the blueprint"}</span>
+            <span className="ml-1.5 text-[11.5px] text-muted-slate">· the blueprint before and after it</span>
           </p>
           {spec ? <UndoTurn key={spec} bluprint={bluprint} turn={spec.slice(5)} onUndone={onMade} /> : null}
         </>
@@ -126,7 +126,7 @@ function UndoTurn({ bluprint, turn, onUndone }: { bluprint: string; turn: string
     const r = await undoTurn(bluprint, turn);
     if (r.ok) {
       setStage("done");
-      setSaid(`Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}. The bluprint is catching up.`);
+      setSaid(`Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}. The blueprint is catching up.`);
       onUndone();
     } else {
       setStage("idle");
@@ -207,13 +207,13 @@ function BluprintAfter({ bluprint, spec, commit, pr, onMade }: { bluprint: strin
   return (
     <p className="mb-1.5 flex items-center gap-2 text-[11.5px] text-muted-slate">
       {s.status === "done" ? (
-        <span className="text-accent">The bluprint after {pr ? "this PR" : "this branch"} is drawn: its levels diff box by box.</span>
+        <span className="text-accent">The blueprint after {pr ? "this PR" : "this branch"} is drawn: its levels diff box by box.</span>
       ) : s.status === "running" ? (
-        <span className="text-amber-ink">Making the bluprint of {pr ? "this PR" : "this branch"}… a few minutes</span>
+        <span className="text-amber-ink">Making the blueprint of {pr ? "this PR" : "this branch"}… a few minutes</span>
       ) : (
         <>
           <button type="button" onClick={() => void start()} className="cursor-pointer text-accent underline">
-            Make the bluprint of {pr ? "this PR" : "this branch"}
+            Make the blueprint of {pr ? "this PR" : "this branch"}
           </button>
           <span>to see its new and changed boxes, not only which levels it reaches (an update run)</span>
           {s.error ? <span className="text-clay-ink">{s.error}</span> : null}
@@ -237,7 +237,7 @@ export function Outside({ outside, title, onOpen }: { outside: NonNullable<Blupr
                 near {o.near.map((_, i) => title(o.near!.slice(0, i + 1))).join(" › ")}
               </button>
             ) : (
-              <span className="shrink-0 text-amber-ink">not on the bluprint yet</span>
+              <span className="shrink-0 text-amber-ink">not on the blueprint yet</span>
             )}
           </li>
         ))}

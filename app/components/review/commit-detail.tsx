@@ -271,7 +271,7 @@ export function OnTheBluprint({ sections, trail, onOpen }: { sections: SectionDi
   const moved = sections.filter((s) => s.verdict !== "untouched");
   return (
     <>
-      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">On the bluprint — open one to see it in red and green there</h3>
+      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">On the blueprint — open one to see it in red and green there</h3>
       {moved.length ? (
         <ul className="mt-1.5 flex flex-col gap-1">
           {moved.map((s) => {
@@ -299,7 +299,7 @@ export function OnTheBluprint({ sections, trail, onOpen }: { sections: SectionDi
           })}
         </ul>
       ) : (
-        <p className="mt-1.5 text-[13px] text-muted-slate">No section of the bluprint changed.</p>
+        <p className="mt-1.5 text-[13px] text-muted-slate">No section of the blueprint changed.</p>
       )}
     </>
   );

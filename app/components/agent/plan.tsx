@@ -365,7 +365,7 @@ function OnTheBluprint({ text, since, done }: { text: string; since?: number; do
   const unplanned = touched?.filter((t) => !resolved.some((p) => p.path?.includes(t.id))) ?? [];
   return (
     <section className="mt-9 border-t border-border-gray pt-8">
-      <Eyebrow className="mb-3.5 block">On the bluprint</Eyebrow>
+      <Eyebrow className="mb-3.5 block">On the blueprint</Eyebrow>
       <ul className="flex flex-col gap-1 text-[13px]">
         {resolved.map((p) => (
           <li key={p.label + p.section} className="flex items-baseline gap-2">

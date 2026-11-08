@@ -188,13 +188,13 @@ export function SourceView({
       {drifted ? (
         <p className="border-b border-amber-line bg-amber-surface px-3 py-1.5 text-[10px] leading-relaxed text-amber-ink">
           <span className="font-semibold">Drifted.</span> The file no longer says
-          what the bluprint quoted here. The code below is what is on disk now; the
+          what the blueprint quoted here. The code below is what is on disk now; the
           explanation under it was written about the older text.
         </p>
       ) : null}
       {failed ? (
         <p className="border-b border-border-gray bg-surface-container-low px-3 py-1.5 text-[10px] leading-relaxed text-muted-slate">
-          Could not read the repository ({failed}). Showing the quote the bluprint
+          Could not read the repository ({failed}). Showing the quote the blueprint
           was authored with, which nothing has verified against disk.
         </p>
       ) : null}

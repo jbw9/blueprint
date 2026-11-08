@@ -1016,7 +1016,7 @@ export function Workspace() {
       role="tab"
       aria-selected={selected}
       onPointerDown={grab(t)}
-      title="Drag onto the bluprint to open it in the main view, or back onto the window"
+      title="Drag onto the blueprint to open it in the main view, or back onto the window"
       className={cn(
         "group flex shrink-0 cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
         selected ? "bg-surface-container-low text-ink" : "border-b text-muted-slate hover:text-ink",

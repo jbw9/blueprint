@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Bluprint",
+  "productName": "Blueprint",
   "version": "0.1.0",
   "identifier": "dev.bluprint.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "create": false,
-        "title": "Bluprint",
+        "title": "Blueprint",
         "width": 1512,
         "height": 900,
         "minWidth": 480,

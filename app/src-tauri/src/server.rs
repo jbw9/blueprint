@@ -41,7 +41,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     let env: Env = std::fs::read_to_string(dir.join("env.json"))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
-        .ok_or("Bluprint's server isn't installed. Run `npm run app:install` in the repo's app folder.")?;
+        .ok_or("Blueprint's server isn't installed. Run `npm run app:install` in the repo's app folder.")?;
     let log = std::fs::File::create(data.join("server.log")).map_err(|e| e.to_string())?;
     let child = crate::proc::command(&env.node)
         .arg(dir.join("node_modules/next/dist/bin/next"))
@@ -61,12 +61,12 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
         }
         if let Some(c) = app.state::<Server>().0.lock().unwrap().as_mut() {
             if let Ok(Some(status)) = c.try_wait() {
-                return Err(format!("Bluprint's server exited ({status}). See {}.", data.join("server.log").display()));
+                return Err(format!("Blueprint's server exited ({status}). See {}.", data.join("server.log").display()));
             }
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    Err(format!("Bluprint's server didn't start in 30 s. See {}.", data.join("server.log").display()))
+    Err(format!("Blueprint's server didn't start in 30 s. See {}.", data.join("server.log").display()))
 }
 
 pub fn stop(app: &tauri::AppHandle) {

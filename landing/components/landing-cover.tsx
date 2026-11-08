@@ -16,7 +16,7 @@ export function LandingCover() {
       <div className={s.plate} aria-hidden>
         <div className={s.note}>
           <Rows />
-          <p>A bluprint of any repository, drawn from its own code.</p>
+          <p>A blueprint of any repository, drawn from its own code.</p>
           <p>
             &mdash; every sentence <span className={s.ring2}>checked</span> against the lines it cites.
           </p>
@@ -43,7 +43,7 @@ export function LandingCover() {
           </span>
         </h1>
         <p className={s.coverSub}>
-          Bluprint splits a repository{" "}
+          Blueprint splits a repository{" "}
           <span className={s.inline} style={{ "--r": "1.6" } as React.CSSProperties}>
             <img src={img("rope")} alt="" />
           </span>{" "}

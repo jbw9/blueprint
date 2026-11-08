@@ -325,7 +325,7 @@ export function describeProblems(m: BuiltBluprint, path: string[], source: (Span
   const code = codeAt(m, path);
   const head = [
     `[Bluprint problems: ${trail(m, path)} (${m.RUN.repo})`,
-    `The bluprint found ${issues.length} ${issues.length === 1 ? "problem" : "problems"} here:`,
+    `The blueprint found ${issues.length} ${issues.length === 1 ? "problem" : "problems"} here:`,
     ...issues.map((it, i) => `${i + 1}. ${it.title} — ${it.detail}${it.where ? ` (${it.where})` : ""}`),
     node?.sub ? `The section: ${node.sub}` : "",
     code.length ? `Code:\n${code.map((c) => `- ${c.file}:${c.start}-${c.end} — ${c.label}`).join("\n")}` : "",

@@ -11,7 +11,7 @@ import { cn } from "@/lib/client/utils";
 /** What a tab holds, opened: its level, and its file over it. */
 /** A tab's name: its file, else its level's title. The top level is "Bluprint": the project's own tab above already names the repository. */
 export const tabTitle = (nodeAt: (path: string[]) => { title: string } | null | undefined, path: string[], file?: string) =>
-  file ? file.split("/").pop()! : path.length ? (nodeAt(path)?.title ?? "Bluprint") : "Bluprint";
+  file ? file.split("/").pop()! : path.length ? (nodeAt(path)?.title ?? "Blueprint") : "Blueprint";
 
 /** A floor plan: the Bluprint tab, the top of the bluprint. Drawn like the workspace's tab glyphs. */
 export function BlueprintIcon() {
@@ -159,7 +159,7 @@ export function NewTab({ onBluprint }: { onBluprint: () => void }) {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Bluprint", onClick: onBluprint },
+            { label: "Blueprint", onClick: onBluprint },
             { label: "Preview", onClick: () => window.dispatchEvent(new Event(OPEN_PREVIEW)) },
             { label: "Empty tab", onClick: () => window.dispatchEvent(new Event(OPEN_BLANK)) },
           ]}

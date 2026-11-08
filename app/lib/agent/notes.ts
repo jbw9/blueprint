@@ -126,7 +126,7 @@ export async function sendReview(extra: string, now = false) {
     .filter(Boolean)
     .join(" and ");
   const question = [
-    `Apply my review (${counted}, attached). For a suggested edit, change the code so the bluprint's wording would become true; for a comment, do what it asks. If one is unclear or would be a bad idea, say so instead of guessing.`,
+    `Apply my review (${counted}, attached). For a suggested edit, change the code so the blueprint's wording would become true; for a comment, do what it asks. If one is unclear or would be a bad idea, say so instead of guessing.`,
     extra.trim(),
   ]
     .filter(Boolean)

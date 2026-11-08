@@ -322,7 +322,7 @@ const COMPONENT_TOOL: Tool = {
 
 const SYNTH_TOOL: Tool = {
   name: "overview",
-  description: "Record the bluprint's top level.",
+  description: "Record the blueprint's top level.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -372,7 +372,7 @@ export async function askWithin(req: { model: string; stage: string; maxTokens: 
   });
 }
 
-const SYSTEM = "You describe one part of a bluprint of a codebase from facts already extracted from its code. Use only what you are given; answer only with the structure asked for.";
+const SYSTEM = "You describe one part of a blueprint of a codebase from facts already extracted from its code. Use only what you are given; answer only with the structure asked for.";
 
 /** Code ranges for a file as a leaf cites them: the whole file if it is short, else its largest functions within the leaf's limits. */
 export function leafCode(path: string, lines: number, s: FileSummary | undefined): NonNullable<Node["code"]> {
@@ -576,7 +576,7 @@ export async function fastBluprint(inv: Inventory, sums: Record<string, FileSumm
         })
         .join("\n")}`,
       `## Links between them, from the code (from → to: weight; what is called, most called first)\n${mod.filter((e) => e.calls).map((e) => `- ${e.from} → ${e.to}: ${e.weight}; ${e.names.join(", ")}`).join("\n") || "(none)"}`,
-      `## Task\nWrite the bluprint's top level: its line and detail, the order of the components, and a label for each link listed. A link's arrow cites a call to the first name it lists, so its label says what that call does.`,
+      `## Task\nWrite the blueprint's top level: its line and detail, the order of the components, and a label for each link listed. A link's arrow cites a call to the first name it lists, so its label says what that call does.`,
     ].join("\n\n");
     return askWithin({ model, stage: "fast-synthesize", maxTokens: 4000, prompt, tool: SYNTH_TOOL }, (x) => [
       ...wordProblems([["the sub", x?.sub, SUB_WORDS], ["the detail", x?.detail, 40]]),

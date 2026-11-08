@@ -76,11 +76,15 @@ mv "$next" "$snap"
 rm -rf "$snap.old"
 
 if [ "$os" = Darwin ]; then
-  rm -rf /Applications/Bluprint.app
-  ditto src-tauri/target/release/bundle/macos/Bluprint.app /Applications/Bluprint.app
-  echo "Installed /Applications/Bluprint.app. Quit Bluprint if it's open, then open it again."
+  # Bluprint.app is this app under its old name.
+  rm -rf /Applications/Blueprint.app /Applications/Bluprint.app
+  ditto src-tauri/target/release/bundle/macos/Blueprint.app /Applications/Blueprint.app
+  echo "Installed /Applications/Blueprint.app. Quit Blueprint if it's open, then open it again."
 elif [ "$os" = Windows ]; then
-  bin="$(cygpath -u "$LOCALAPPDATA")/Programs/Bluprint"
+  bin="$(cygpath -u "$LOCALAPPDATA")/Programs/Blueprint"
+  start="$(cygpath -u "$APPDATA")/Microsoft/Windows/Start Menu/Programs"
+  # The app under its old name; its exe stays if that copy is still running.
+  rm -rf "$(cygpath -u "$LOCALAPPDATA")/Programs/Bluprint" "$start/Bluprint.lnk" 2>/dev/null || true
   mkdir -p "$bin"
   # A running exe can't be written over, but it can be moved aside.
   rm -f "$bin/bluprint.old.exe" 2>/dev/null || true
@@ -88,9 +92,9 @@ elif [ "$os" = Windows ]; then
   cp src-tauri/target/release/bluprint.exe "$bin/bluprint.exe"
   rm -f "$bin/bluprint.old.exe" 2>/dev/null || true
   exe=$(cygpath -w "$bin/bluprint.exe")
-  lnk=$(cygpath -w "$(cygpath -u "$APPDATA")/Microsoft/Windows/Start Menu/Programs/Bluprint.lnk")
+  lnk=$(cygpath -w "$start/Blueprint.lnk")
   powershell -NoProfile -Command "\$s = (New-Object -ComObject WScript.Shell).CreateShortcut('$lnk'); \$s.TargetPath = '$exe'; \$s.WorkingDirectory = '$(cygpath -w "$bin")'; \$s.Save()"
-  echo "Installed $exe, with Bluprint in your Start menu. Quit Bluprint if it's open, then open it again."
+  echo "Installed $exe, with Blueprint in your Start menu. Quit Blueprint if it's open, then open it again."
 else
   bin="$HOME/.local/bin"
   icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/128x128/apps"
@@ -100,7 +104,7 @@ else
   cp src-tauri/target/release/bluprint "$bin/.bluprint.new"
   mv "$bin/.bluprint.new" "$bin/bluprint"
   cp src-tauri/icons/128x128.png "$icons/bluprint.png"
-  printf '[Desktop Entry]\nType=Application\nName=Bluprint\nComment=A visual bluprint of a codebase\nExec=%s\nIcon=bluprint\nCategories=Development;\n' \
+  printf '[Desktop Entry]\nType=Application\nName=Blueprint\nComment=A visual blueprint of a codebase\nExec=%s\nIcon=bluprint\nCategories=Development;\n' \
     "$bin/bluprint" >"$apps/bluprint.desktop"
-  echo "Installed $bin/bluprint, with Bluprint in your applications menu. Quit Bluprint if it's open, then open it again."
+  echo "Installed $bin/bluprint, with Blueprint in your applications menu. Quit Blueprint if it's open, then open it again."
 fi

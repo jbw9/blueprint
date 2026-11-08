@@ -24,7 +24,7 @@ function opened(request: Request) {
 
 export async function GET(request: Request) {
   const open = opened(request);
-  if (!open) return Response.json({ error: "No such bluprint." }, { status: 404 });
+  if (!open) return Response.json({ error: "No such blueprint." }, { status: 404 });
   const dir = projectDir(open.name);
   try {
     const timeline = cachedTimeline(rootOf(open.file.RUN), dir, open.file);
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
   const open = opened(request);
-  if (!open) return Response.json({ error: "No such bluprint." }, { status: 404 });
+  if (!open) return Response.json({ error: "No such blueprint." }, { status: 404 });
   const { claude } = (await request.json().catch(() => ({}))) as { claude?: unknown };
   const started = tellStory(open.name, typeof claude === "string" && claude ? claude : undefined);
   return Response.json({ telling: started || telling(open.name) });

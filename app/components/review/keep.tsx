@@ -124,7 +124,7 @@ function KeepAnswer({
     <Overlay onClose={onClose}>
       <div className={cn(DIALOG, "max-w-[720px]")}>
         <header className="border-b border-border-gray px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold text-ink">Keep this on the bluprint</h2>
+          <h2 className="text-[15px] font-semibold text-ink">Keep this on the blueprint</h2>
           <p className="mt-0.5 text-[12px] text-muted-slate">
             It goes on <span className="font-medium text-ink">{where}</span>, marked as yours — not as something read
             from the code.

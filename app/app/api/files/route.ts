@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   try {
     open = loadBluprint(q.get("bluprint") ?? undefined);
   } catch {}
-  if (!open) return Response.json({ error: "No such bluprint." }, { status: 404 });
+  if (!open) return Response.json({ error: "No such blueprint." }, { status: 404 });
   const f = join(projectDir(open.name), "index.json");
   const index: BluprintIndex | null = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null;
   const root = rootOf(open.file.RUN);

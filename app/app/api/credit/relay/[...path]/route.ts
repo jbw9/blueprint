@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const given = Buffer.from((request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""));
   const want = Buffer.from(relaySecret());
   if (given.length !== want.length || !timingSafeEqual(given, want))
-    return Response.json({ message: "Not a Bluprint credit tab." }, { status: 401 });
+    return Response.json({ message: "Not a Blueprint credit tab." }, { status: 401 });
   const t = await deviceToken();
   if (!("token" in t)) return Response.json({ message: t.reason }, { status: 503 });
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const headers = new Headers({ authorization: `Bearer ${t.token}` });
   for (const [k, v] of request.headers) if (k === "content-type" || k === "accept" || k.startsWith("x-amzn-bedrock-")) headers.set(k, v);
   const res = await fetch(`${CREDIT_URL}/tab${rest}`, { method: "POST", headers, body: await request.arrayBuffer() }).catch(() => null);
-  if (!res) return Response.json({ message: "Bluprint credit could not be reached." }, { status: 502 });
+  if (!res) return Response.json({ message: "Blueprint credit could not be reached." }, { status: 502 });
   const out = new Headers();
   for (const [k, v] of res.headers) if (k === "content-type" || k === "retry-after" || k === "x-should-retry" || k.startsWith("x-amzn-")) out.set(k, v);
   return new Response(res.body, { status: res.status, headers: out });

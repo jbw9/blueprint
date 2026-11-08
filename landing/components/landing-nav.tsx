@@ -35,7 +35,7 @@ export function LandingNav({ github }: { github: string }) {
           }}
         >
           <Logo />
-          Bluprint
+          Blueprint
         </a>
         <nav aria-label="Sections">
           {LINKS.map((l) => (

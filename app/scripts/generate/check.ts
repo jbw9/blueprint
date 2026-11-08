@@ -246,7 +246,7 @@ export function check(
     let deepest = d;
     for (const b of blocks) {
       if (b.kind === "source") {
-        if (gen) problems.push(`SOURCE ${owner} — generated bluprints read code through \`code\` refs, never pasted source`);
+        if (gen) problems.push(`SOURCE ${owner} — generated blueprints read code through \`code\` refs, never pasted source`);
         const lines = linesOf(b.file);
         if (!lines) { sources.bad++; problems.push(`MISSING ${owner} ${b.file}`); continue; }
         const want = b.code.replace(/\s+$/, "").split("\n");
@@ -264,7 +264,7 @@ export function check(
         b.rows.forEach((r: string[], i: number) => {
           if (r.length !== b.columns.length) problems.push(`TABLE ${owner} row ${i} has ${r.length} cells, ${b.columns.length} columns`);
         });
-      if (b.kind === "screen" && "shot" in b) problems.push(`SHOT ${owner} — bluprints have no screenshots; describe the screen with items`);
+      if (b.kind === "screen" && "shot" in b) problems.push(`SHOT ${owner} — blueprints have no screenshots; describe the screen with items`);
       if (b.kind === "diagram") {
         const cells = new Set<string>();
         for (const x of b.boxes) {
@@ -441,8 +441,8 @@ export const EXPLAIN_LEVEL: ExplainLevel = (["none", "minimal", "brief", "detail
 
 /** An explainer's body: enough to define the words a level leans on, short enough to read. */
 export const BOUNDS = {
-  full: { min: 25, max: 200, blocks: 2, terms: [4, 12], steps: [3, 8], say: "a few short paragraphs, and a picture where it says more", words: "a newcomer must know to read this bluprint" },
-  detailed: { min: 15, max: 120, blocks: 1, terms: [4, 10], steps: [3, 6], say: "one or two short paragraphs", words: "a newcomer must know to read this bluprint" },
+  full: { min: 25, max: 200, blocks: 2, terms: [4, 12], steps: [3, 8], say: "a few short paragraphs, and a picture where it says more", words: "a newcomer must know to read this blueprint" },
+  detailed: { min: 15, max: 120, blocks: 1, terms: [4, 10], steps: [3, 6], say: "one or two short paragraphs", words: "a newcomer must know to read this blueprint" },
   brief: { min: 8, max: 60, blocks: 0, terms: [3, 8], steps: [3, 5], say: "a sentence or two", words: "a developer outside this field would not know" },
   minimal: { min: 4, max: 30, blocks: 0, terms: [2, 5], steps: [3, 4], say: "one sentence", words: "this project uses in its own sense" },
 } as const;
@@ -512,7 +512,7 @@ function startProblems(o: any, resolves: (path: string[]) => boolean, level: Exp
     if (w.steps.length < WALK_STEPS[0] || w.steps.length > WALK_STEPS[1]) out.push(`WALK ${OVERVIEW_ID} "${w.title}" has ${w.steps.length} steps (want ${WALK_STEPS[0]}-${WALK_STEPS[1]})`);
     w.steps.forEach((s: any, i: number) => {
       if (typeof s?.title !== "string" || typeof s?.detail !== "string") out.push(`WALK ${OVERVIEW_ID} "${w.title}" step ${i + 1} needs title and detail`);
-      if (!Array.isArray(s?.path) || !resolves(s.path)) out.push(`WALK ${OVERVIEW_ID} "${w.title}" step ${i + 1} path ${JSON.stringify(s?.path)} is not a part of the bluprint — ids from a root down`);
+      if (!Array.isArray(s?.path) || !resolves(s.path)) out.push(`WALK ${OVERVIEW_ID} "${w.title}" step ${i + 1} path ${JSON.stringify(s?.path)} is not a part of the blueprint — ids from a root down`);
     });
     const crossed = new Set(w.steps.map((s: any) => (Array.isArray(s?.path) ? s.path[0] : undefined)).filter(Boolean));
     if (crossed.size < Math.min(2, roots)) out.push(`WALK ${OVERVIEW_ID} "${w.title}" stays inside one root — a walkthrough follows one thing across the roots it passes through`);
