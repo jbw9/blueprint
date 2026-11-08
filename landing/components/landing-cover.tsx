@@ -58,7 +58,7 @@ export function LandingCover() {
           <LandingInstall />
           <LandingPromo>
             <a className={s.promo} href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/promotion`}>
-              Free for a limited time: Claude Code included, unlimited blueprints on us · Terms <span aria-hidden>→</span>
+              Free Claude Code, unlimited blueprints, for a limited time <span aria-hidden>→</span>
             </a>
           </LandingPromo>
         </div>
