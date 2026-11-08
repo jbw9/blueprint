@@ -328,6 +328,27 @@ export async function unpick(pty: number, key: string) {
   withPicks(pty, (state.picks[pty] ?? []).filter((p) => p.key !== key));
 }
 
+/**
+ * Backspace in Claude's prompt just after a pick's name (`[h1-1]`, as mention
+ * typed it): the pick is taken back, and the count of characters that take
+ * the whole name with it. `before` is the text left of each place the cursor
+ * may be on screen; 0 when no name ends at exactly one of them.
+ */
+export function unmention(pty: number, before: string[]): number {
+  const queued = (state.picks[pty] ?? []).filter((p) => p.status === "queued");
+  const found = before.flatMap((b) =>
+    queued.flatMap((p) => {
+      const name = `[${p.title}]`;
+      if (b.endsWith(`${name} `)) return [{ p, n: name.length + 1 }];
+      if (b.endsWith(name)) return [{ p, n: name.length }];
+      return [];
+    }),
+  );
+  if (found.length !== 1) return 0;
+  void unpick(pty, found[0].p.key);
+  return found[0].n;
+}
+
 /** The web panel's prompt hook: what is queued, as text for this prompt, and marked sent. */
 export function takePicks(pty: number): string[] {
   const mine = state.picks[pty] ?? [];

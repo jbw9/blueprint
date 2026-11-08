@@ -1,13 +1,13 @@
 "use client";
 
 import "@xterm/xterm/css/xterm.css";
-import type { ITheme } from "@xterm/xterm";
+import type { ITheme, Terminal } from "@xterm/xterm";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBluprint } from "@/components/bluprint/bluprint-context";
-import { onFocusClaude } from "@/lib/agent/context";
+import { onFocusClaude, unmention } from "@/lib/agent/context";
 import { screens } from "@/lib/agent/dictate";
 import { outline } from "@/lib/bluprint/build";
 import { readSettings } from "@/lib/client/settings";
@@ -99,6 +99,24 @@ const PALETTES: Record<Theme, ITheme> = {
 };
 
 const palette = () => PALETTES[themeOf(document.documentElement.dataset.theme)];
+
+/**
+ * Claude Code hides the terminal's cursor and draws its own as an inverse
+ * cell: the text left of each inverse cell on screen, one of which is the
+ * prompt's cursor.
+ */
+function beforeCursor(term: Terminal): string[] {
+  const b = term.buffer.active;
+  const cell = b.getNullCell();
+  const found: string[] = [];
+  for (let y = 0; y < term.rows; y++) {
+    const line = b.getLine(b.baseY + y);
+    if (!line) continue;
+    for (let x = 0; x < term.cols; x++)
+      if (line.getCell(x, cell)?.isInverse()) found.push(line.translateToString(false, 0, x));
+  }
+  return found;
+}
 
 /* ── keys ─────────────────────────────────────────────────────── */
 
@@ -469,7 +487,9 @@ export function Shell({
         },
       });
       const input = term.onData((data) => {
-        void invoke("pty_write", { id, data });
+        const back = handlers.current.claude && (data === "\x7f" || data === "\x17") && id !== null;
+        const n = back ? unmention(id!, beforeCursor(term)) : 0;
+        void invoke("pty_write", { id, data: n ? "\x7f".repeat(n) : data });
         handlers.current.onInput?.();
       });
       // Selecting copies, as in herdr: no key to press after the drag.
