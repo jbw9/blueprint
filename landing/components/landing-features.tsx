@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- the site is a static export, which next/image cannot optimize; these are small public-domain photos. */
 
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import f from "./landing-features.module.css";
@@ -687,9 +688,14 @@ function Blocks({ added, removed }: { added: number; removed: number }) {
   );
 }
 
-/* ── the app running: the iOS Simulator, and the blueprint following ── */
+/* ── the app running: the website, the iOS Simulator and the Android emulator, and the blueprint following ── */
 
 const QUERY = "Ada Lovelace";
+// When the pointer opens the iOS tab, then the Android one, and when the iPhone opens the article the blueprint follows.
+const TO_IOS = 4;
+const TO_ANDROID = 8.2;
+const ARTICLE = 6.7;
+const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/wiki-${name}.jpg`;
 
 function RunScene() {
   return (
@@ -703,27 +709,27 @@ function RunScene() {
       tabs={
         <Tab on icon={<BlueprintIcon />}>
           <span className={f.swap}>
-            <span className={f.out} style={at(0, 5.5)}>
+            <span className={f.out} style={at(0, ARTICLE)}>
               Wikipedia
             </span>
-            <span className={f.in} style={at(5.5)}>
+            <span className={f.in} style={at(ARTICLE)}>
               Article Display
             </span>
           </span>
         </Tab>
       }
     >
-      <div className={`${f.page} ${f.out}`} style={{ "--ws": "370px", ...at(0, 5.5) } as CSSProperties}>
+      <div className={`${f.page} ${f.out}`} style={{ "--ws": "370px", ...at(0, ARTICLE) } as CSSProperties}>
         <Head title="wikipedia" sub="Official Wikipedia iOS app" meta="1,918 files · commit 0b9980f" />
         <p className={f.cap}>
           How the parts connect<span>colours match the parts below</span>
         </p>
         <Diagram boxes={WIKI} links={WIKI_LINKS} w={250} gx={170} gy={50}>
-          {/* The part the phone's screens live in, lit on the blueprint while Claude moves through them. */}
-          <span className={`${f.lit} ${f.blip}`} style={{ left: "1.73%", top: "4.64%", width: "36.02%", ...at(1.7, 5.5) }} />
+          {/* The part the iPhone's screens live in, lit on the blueprint while Claude moves through them. */}
+          <span className={`${f.lit} ${f.blip}`} style={{ left: "1.73%", top: "4.64%", width: "36.02%", ...at(TO_IOS + 0.3, ARTICLE) }} />
         </Diagram>
       </div>
-      <div className={`${f.page} ${f.in}`} style={{ "--ws": "370px", ...at(5.6) } as CSSProperties}>
+      <div className={`${f.page} ${f.in}`} style={{ "--ws": "370px", ...at(ARTICLE + 0.1) } as CSSProperties}>
         <Head
           back={["wikipedia", "Wikipedia iOS App", "Article & Navigation"]}
           title="Article Display"
@@ -732,7 +738,7 @@ function RunScene() {
         />
         <ol className={f.flow}>
           {ARTICLE_STEPS.map(([title, body, file], i) => (
-            <li key={title} className={f.in} style={at(5.8 + i * 0.12)}>
+            <li key={title} className={f.in} style={at(ARTICLE + 0.3 + i * 0.12)}>
               <b>{title}</b>
               <span>{body}</span>
               <code>{file}</code>
@@ -744,38 +750,46 @@ function RunScene() {
         width="370px"
         tabs={
           <>
-            <WsTab icon={<ClaudeIcon />} dot={[0, 6.4]}>
+            <WsTab icon={<ClaudeIcon />} dot={[0, 11]}>
               claude 1
             </WsTab>
-            <WsTab icon={<GlobeIcon />}>Preview</WsTab>
-            <WsTab on icon={<PhoneIcon />}>
+            <WsTab lit={[0, TO_IOS]} icon={<GlobeIcon />}>
+              Preview
+            </WsTab>
+            <WsTab lit={[TO_IOS, TO_ANDROID]} icon={<PhoneIcon />}>
               iOS
+            </WsTab>
+            <WsTab lit={[TO_ANDROID]} icon={<PhoneIcon />}>
+              Android
             </WsTab>
           </>
         }
       >
-        <div className={f.device}>
-          <span className={f.deviceName}>iPhone 17 Pro</span>
-          <span className={f.small}>Home</span>
-          <span className={f.runApp}>
-            <span className={f.swap}>
-              <span className={f.out} style={at(0, 1.5)}>
-                Building…
-              </span>
-              <span className={f.in} style={at(1.5)}>
-                Run app
-              </span>
-            </span>
-          </span>
+        <div className={`${f.pane} ${f.out}`} style={at(0, TO_IOS)}>
+          <WebBar />
+          <div className={f.stage}>
+            <Site />
+            <Hand t={0.5} d={3.2} a={[200, 170]} b={[214, 150]} />
+          </div>
         </div>
-        <div className={`${f.building} ${f.out}`} style={at(0, 1.5)}>
-          <i />
-          <span>Building the app. It opens here when it&rsquo;s done.</span>
-          <u>Show log</u>
+        <div className={`${f.pane} ${f.blip}`} style={at(TO_IOS, TO_ANDROID)}>
+          <DeviceBar name="iPhone 17 Pro" />
+          <div className={f.dock}>
+            <Iphone />
+          </div>
         </div>
-        <div className={f.dock}>
-          <Phone />
+        <div className={`${f.pane} ${f.in}`} style={at(TO_ANDROID)}>
+          <DeviceBar name="Pixel 9" android />
+          <div className={f.dock}>
+            <Pixel />
+          </div>
         </div>
+        {/* Your pointer, opening the iOS tab and then the Android one. */}
+        <span className={f.tap} data-you style={{ left: 232, top: -16, ...at(TO_IOS - 0.1) }} />
+        <span className={f.tap} data-you style={{ left: 317, top: -16, ...at(TO_ANDROID - 0.1) }} />
+        <svg className={f.pointer} width="16" height="22" viewBox="0 0 16 22">
+          <path d="M1 1v16.5l4-3.8 2.8 6.3 2.6-1.1-2.7-6.2H13z" />
+        </svg>
       </Workspace>
     </Window>
   );
@@ -805,14 +819,143 @@ const ARTICLE_STEPS: [string, string, string][] = [
   ["Image Transition", "Pre-loads the lead image so the article opens with a scale transition.", "ArticleViewController.swift:1695"],
 ];
 
-/**
- * The Simulator's own screen, as the device pane shows it: the app running
- * in iOS, with Claude's pointer and its taps over it. Claude taps search,
- * types, and opens the first result.
- */
-function Phone() {
+/** The Preview tab's toolbar (components/preview/preview.tsx): Page or Server, back, forward, reload, the address, and Claude's badge while it drives. */
+function WebBar() {
   return (
-    <div className={f.phone}>
+    <div className={f.webBar}>
+      <span className={f.seg}>
+        <b>Page</b>
+        <span>Server</span>
+      </span>
+      <svg viewBox="0 0 16 16" className={f.stroke}>
+        <path d="M10 3.5 5.5 8l4.5 4.5" />
+      </svg>
+      <svg viewBox="0 0 16 16" className={f.stroke}>
+        <path d="M6 3.5 10.5 8 6 12.5" />
+      </svg>
+      <svg viewBox="0 0 16 16" className={f.stroke}>
+        <path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10" />
+      </svg>
+      <span className={f.address}>en.wikipedia.org/wiki/Ada_Lovelace</span>
+      <span className={f.claudeBadge}>
+        <i />
+        Claude
+      </span>
+    </div>
+  );
+}
+
+/** The article on the website, in its Vector skin, drawn at a laptop's width and scaled into the tab. Claude scrolls it. */
+function Site() {
+  return (
+    <div className={f.site}>
+      <div className={f.siteScroll}>
+        <header className={f.vHead}>
+          <svg viewBox="0 0 16 16" className={f.stroke}>
+            <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
+          </svg>
+          <span className={f.vLogo}>
+            <i />
+            <span>
+              <b>Wikipedia</b>
+              <small>The Free Encyclopedia</small>
+            </span>
+          </span>
+          <span className={f.vSearch}>
+            <SearchGlyph />
+            Search Wikipedia
+          </span>
+          <span className={f.vSearchBtn}>Search</span>
+          <span className={f.vUser}>Donate · Create account · Log in</span>
+        </header>
+        <div className={f.vTitle}>
+          <h1>Ada Lovelace</h1>
+          <span>文A 104 languages ⌄</span>
+        </div>
+        <nav className={f.vTabs}>
+          <span>
+            <b>Article</b>
+            <span>Talk</span>
+          </span>
+          <span>
+            <b>Read</b>
+            <span>Edit</span>
+            <span>View history</span>
+            <span>Tools ⌄</span>
+          </span>
+        </nav>
+        <p className={f.vFrom}>From Wikipedia, the free encyclopedia</p>
+        <p className={f.vNote}>
+          &ldquo;Lovelace&rdquo; redirects here. For other uses, see <a>Lovelace (disambiguation)</a>.
+        </p>
+        <aside className={f.vInfo}>
+          <b>Ada Lovelace</b>
+          <img src={img("ada")} alt="" />
+          <small>Daguerreotype by Antoine Claudet, c. 1843</small>
+          <dl>
+            <dt>Born</dt>
+            <dd>Augusta Ada Byron, 10 December 1815, London, England</dd>
+            <dt>Died</dt>
+            <dd>27 November 1852 (aged 36), Marylebone, London</dd>
+            <dt>Known for</dt>
+            <dd>
+              <a>Mathematics</a>, <a>computing</a>
+            </dd>
+            <dt>Parents</dt>
+            <dd>
+              <a>Lord Byron</a>, <a>Lady Byron</a>
+            </dd>
+          </dl>
+        </aside>
+        <p>
+          <b>Augusta Ada King, Countess of Lovelace</b> (<i>née</i> <b>Byron</b>; 10 December 1815 – 27 November 1852) was an
+          English <a>mathematician</a> and writer chiefly known for her work on <a>Charles Babbage</a>&rsquo;s proposed mechanical
+          general-purpose computer, the <a>Analytical Engine</a>. She was the first to recognise that the machine had applications
+          beyond pure calculation.
+        </p>
+        <p>
+          Lovelace was the only legitimate child of poet <a>Lord Byron</a> and reformer <a>Anne Isabella Milbanke</a>. All her
+          half-siblings, Lord Byron&rsquo;s other children, were born out of wedlock to other women. Lord Byron separated from his
+          wife a month after Ada was born and left England forever.
+        </p>
+        <h2>Early life</h2>
+        <p>
+          Lord Byron expected his child to be a &ldquo;glorious boy&rdquo; and was disappointed when Lady Byron gave birth to a
+          girl. The child was named after Byron&rsquo;s half-sister, <a>Augusta Leigh</a>, and was called &ldquo;Ada&rdquo; by Byron
+          himself.
+        </p>
+        <h2>Education</h2>
+        <p>
+          Her mother, anxious that Ada not become an &ldquo;erratic&rdquo; poet like her father, had her tutored in mathematics and
+          science from the age of four. Her tutors included <a>Mary Somerville</a> and <a>Augustus De Morgan</a>, and in 1833 she
+          met <a>Charles Babbage</a>, who showed her his <a>Difference Engine</a>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** The device pane's toolbar (components/preview/device.tsx): the device, Home, Back on Android, and Run app. */
+function DeviceBar({ name, android }: { name: string; android?: boolean }) {
+  return (
+    <div className={f.device}>
+      <span className={f.deviceName}>{name}</span>
+      <span className={f.small}>Home</span>
+      {android ? <span className={f.small}>Back</span> : null}
+      <span className={f.runApp}>Run app</span>
+    </div>
+  );
+}
+
+/**
+ * The Simulator's screen, as the device pane shows it: Wikipedia's iOS app with
+ * Claude's pointer and its taps over it. Claude taps search, types, and opens
+ * the first result.
+ */
+function Iphone() {
+  const t = TO_IOS;
+  return (
+    <div className={f.phone} data-os="ios">
       <div className={f.status}>
         <b>9:41</b>
         <i />
@@ -827,55 +970,67 @@ function Phone() {
         </span>
       </div>
 
-      {/* Launch: the app's mark while it opens. */}
-      <div className={`${f.screen} ${f.out}`} data-launch style={at(0, 1.6)}>
-        <b className={f.wordmark}>W</b>
-      </div>
-
       {/* Explore. */}
-      <div className={`${f.screen} ${f.blip}`} style={at(1.6, 2.9)}>
-        <div className={f.wikiTop}>
-          <b className={f.wordmark}>W</b>
+      <div className={`${f.screen} ${f.out}`} style={at(0, t + 1.4)}>
+        <div className={f.iTop}>
+          <b className={f.wordmark}>Wikipedia</b>
+          <Ios d={IOS.profile} />
         </div>
         <div className={f.searchField}>
           <SearchGlyph />
           Search Wikipedia
         </div>
-        <p className={f.feedHead}>Featured article</p>
-        <div className={f.card}>
-          <div className={f.photo} data-sky />
-          <b>Hubble Space Telescope</b>
-          <span>Space telescope launched into low Earth orbit in 1990 and still in operation.</span>
-        </div>
-        <p className={f.feedHead}>Top read</p>
-        <ol className={f.top}>
-          {["Solar eclipse", "Large language model", "Olympic Games"].map((t, i) => (
-            <li key={t}>
-              <i>{i + 1}</i>
-              <span>{t}</span>
+        <section className={f.iCard}>
+          <header>
+            <b>Featured article</b>
+            <span>November 8, 2026</span>
+          </header>
+          <img src={img("hubble")} alt="" />
+          <div>
+            <b>Hubble Space Telescope</b>
+            <span>NASA/ESA space telescope launched in 1990</span>
+            <p>The Hubble Space Telescope is a space telescope that was launched into low Earth orbit in 1990 and remains in operation.</p>
+          </div>
+        </section>
+        <section className={f.iCard}>
+          <header>
+            <b>Top read</b>
+            <span>English Wikipedia · November 7</span>
+          </header>
+          <ol className={f.top}>
+            <li>
+              <i>1</i>
+              <span>
+                <b>Charles Babbage</b>
+                <small>English mathematician and engineer</small>
+              </span>
+              <img src={img("babbage")} alt="" />
             </li>
-          ))}
-        </ol>
+          </ol>
+        </section>
         <TabBar />
       </div>
 
       {/* Search, typed into. */}
-      <div className={`${f.screen} ${f.blip}`} style={at(2.9, 5.2)}>
+      <div className={`${f.screen} ${f.blip}`} style={at(t + 1.4, ARTICLE)}>
         <div className={f.searchRow}>
           <div className={f.searchField} data-on>
             <SearchGlyph />
-            <span className={f.typed} style={{ "--n": QUERY.length, ...at(3.2) } as CSSProperties}>
+            <span className={f.typed} style={{ "--n": QUERY.length, ...at(t + 1.5) } as CSSProperties}>
               {QUERY}
             </span>
             <i className={f.caret2} />
           </div>
           <span className={f.cancel}>Cancel</span>
         </div>
-        <ul className={`${f.results} ${f.in}`} style={at(3.9)}>
-          {RESULTS.map(([t, d]) => (
-            <li key={t}>
-              <b>{t}</b>
-              <span>{d}</span>
+        <ul className={`${f.results} ${f.in}`} style={at(t + 2)}>
+          {RESULTS.map(([title, d, pic]) => (
+            <li key={title}>
+              <span>
+                <b>{title}</b>
+                <small>{d}</small>
+              </span>
+              {pic ? <img src={img(pic)} alt="" /> : null}
             </li>
           ))}
         </ul>
@@ -898,47 +1053,42 @@ function Phone() {
       </div>
 
       {/* The article. */}
-      <div className={`${f.screen} ${f.in}`} style={at(5.2)}>
+      <div className={`${f.screen} ${f.in}`} style={at(ARTICLE)}>
         <div className={f.articleBar}>
           <span>‹ Search</span>
+          <b className={f.wordmark}>W</b>
           <span className={f.articleTools}>
-            <Ios d={IOS.lang} />
-            <Ios d={IOS.share} />
+            <Ios d={IOS.profile} />
+            <Ios d={IOS.tabs} />
           </span>
         </div>
+        <img className={f.lead} src={img("ada")} alt="" />
         <div className={f.article}>
           <h4>Ada Lovelace</h4>
           <p className={f.desc}>English mathematician (1815–1852)</p>
-          <div className={f.photo} data-portrait />
+          <hr />
           <p>
-            <b>Augusta Ada King, Countess of Lovelace</b> was an English mathematician and writer, chiefly known for her work
-            on Charles Babbage&rsquo;s proposed mechanical general-purpose computer, the Analytical Engine.
+            <b>Augusta Ada King, Countess of Lovelace</b> was an English mathematician and writer, chiefly known for her work on
+            <a> Charles Babbage</a>&rsquo;s proposed mechanical general-purpose computer, the <a>Analytical Engine</a>.
           </p>
-          <p className={f.h5}>Early life</p>
-          <p>Lord Byron expected his child to be a &ldquo;glorious boy&rdquo; and was disappointed when Lady Byron gave birth to a girl.</p>
         </div>
         <div className={f.toolbarIOS}>
-          {[IOS.back, IOS.forward, IOS.saved, IOS.toc, IOS.text].map((d) => (
+          {[IOS.back, IOS.forward, IOS.saved, IOS.lang, IOS.find, IOS.text, IOS.toc].map((d) => (
             <Ios key={d} d={d} />
           ))}
         </div>
       </div>
 
       <span className={f.home} />
-      <span className={f.tap} style={{ left: 126, top: 91, ...at(2.65) }} />
-      <span className={f.tap} style={{ left: 90, top: 106, ...at(4.75) }} />
-      <div className={f.hand}>
-        <svg width="22" height="24" viewBox="0 0 22 24">
-          <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" />
-        </svg>
-        <span>Claude</span>
-      </div>
+      <span className={f.tap} style={{ left: 126, top: 91, ...at(t + 1.25) }} />
+      <span className={f.tap} style={{ left: 90, top: 118, ...at(ARTICLE - 0.15) }} />
+      <Hand t={t + 0.3} d={2.65} a={[124, 89]} b={[88, 116]} />
     </div>
   );
 }
 
-const RESULTS: [string, string][] = [
-  ["Ada Lovelace", "English mathematician (1815–1852)"],
+const RESULTS: [string, string, string?][] = [
+  ["Ada Lovelace", "English mathematician (1815–1852)", "ada"],
   ["Ada Lovelace Day", "International celebration of women in STEM"],
   ["Ada (programming language)", "Programming language named after her"],
 ];
@@ -956,6 +1106,138 @@ function TabBar() {
   );
 }
 
+/**
+ * The emulator's screen: Wikipedia's Android app, in Material. Claude opens
+ * the first of Top read, then saves the article.
+ */
+function Pixel() {
+  const t = TO_ANDROID;
+  return (
+    <div className={f.phone} data-os="android">
+      <div className={f.status}>
+        <b>9:41</b>
+        <i />
+        <span>
+          <svg viewBox="0 0 16 12">
+            <path d="M8 11 .5 3.2a10.8 10.8 0 0 1 15 0z" />
+          </svg>
+          <svg viewBox="0 0 12 12">
+            <path d="M11 1v10H1z" />
+          </svg>
+          <em />
+        </span>
+      </div>
+
+      {/* Explore. */}
+      <div className={`${f.screen} ${f.out}`} style={at(0, t + 1.6)}>
+        <div className={f.aTop}>
+          <b className={f.wordmark}>Wikipedia</b>
+          <Ios d={IOS.profile} />
+        </div>
+        <div className={f.aSearch}>
+          <SearchGlyph />
+          <span>Search Wikipedia</span>
+          <Ios d={MD.mic} />
+        </div>
+        <section className={f.aCard}>
+          <header>Featured article</header>
+          <img src={img("hubble")} alt="" />
+          <b>Hubble Space Telescope</b>
+          <span>NASA/ESA space telescope launched in 1990</span>
+        </section>
+        <section className={f.aCard}>
+          <header>
+            Top read<small>Nov 7, 2026</small>
+          </header>
+          <ol className={f.aTopRead}>
+            {TOP_READ.map(([title, d, views, pic], i) => (
+              <li key={title}>
+                <i>{i + 1}</i>
+                <span>
+                  <b>{title}</b>
+                  <small>{d}</small>
+                  <em>{views}</em>
+                </span>
+                {pic ? <img src={img(pic)} alt="" /> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+        <div className={f.aNav}>
+          {(["Explore", "Saved", "Search", "Edits", "More"] as const).map((n, i) => (
+            <span key={n} data-on={i === 0 || undefined}>
+              <i>
+                <Ios d={MD[n]} />
+              </i>
+              {n}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* The article. */}
+      <div className={`${f.screen} ${f.in}`} style={at(t + 1.6)}>
+        <div className={f.aBar}>
+          <Ios d={MD.back} />
+          <span className={f.grow} />
+          <Ios d={IOS.Search} />
+          <Ios d={IOS.tabs} />
+          <Ios d={MD.more} />
+        </div>
+        <img className={f.lead} src={img("ada")} alt="" />
+        <div className={f.article}>
+          <h4>Ada Lovelace</h4>
+          <p className={f.desc}>English mathematician (1815–1852)</p>
+          <hr />
+          <p>
+            <b>Augusta Ada King, Countess of Lovelace</b> was an English mathematician and writer, chiefly known for her work on
+            <a> Charles Babbage</a>&rsquo;s proposed mechanical general-purpose computer, the <a>Analytical Engine</a>.
+          </p>
+        </div>
+        <div className={`${f.snack} ${f.in}`} style={at(t + 2.75)}>
+          Saved Ada Lovelace.<b>Add to list</b>
+        </div>
+        <div className={f.aTools}>
+          <span className={f.swap}>
+            <Ios d={MD.save} />
+            <svg viewBox="0 0 24 24" className={`${f.ios} ${f.filled} ${f.in}`} style={at(t + 2.7)}>
+              <path d={MD.save} />
+            </svg>
+          </span>
+          {[MD.lang, MD.find, MD.theme, MD.toc].map((d) => (
+            <Ios key={d} d={d} />
+          ))}
+        </div>
+      </div>
+
+      <span className={f.home} />
+      <span className={f.tap} style={{ left: 110, top: 386, ...at(t + 1.45) }} />
+      <span className={f.tap} style={{ left: 30, top: 494, ...at(t + 2.6) }} />
+      <Hand t={t + 0.3} d={2.6} a={[108, 384]} b={[28, 492]} />
+    </div>
+  );
+}
+
+const TOP_READ: [string, string, string, string?][] = [
+  ["Ada Lovelace", "English mathematician (1815–1852)", "182,412 views", "ada"],
+  ["Charles Babbage", "English mathematician and engineer", "96,330 views", "babbage"],
+];
+
+/** Claude's pointer on a screen (device.tsx): in from the corner, a stop at `a`, then one at `b`, over `d` seconds from `t`. */
+function Hand({ t, d, a, b }: { t: number; d: number; a: [number, number]; b: [number, number] }) {
+  return (
+    <div
+      className={f.hand}
+      style={{ "--ax": `${a[0]}px`, "--ay": `${a[1]}px`, "--bx": `${b[0]}px`, "--by": `${b[1]}px`, "--d": `${d}s`, ...at(t) } as CSSProperties}
+    >
+      <svg width="22" height="24" viewBox="0 0 22 24">
+        <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" />
+      </svg>
+      <span>Claude</span>
+    </div>
+  );
+}
+
 /** The app's toolbar and tab bar glyphs, drawn on iOS's 24 grid. */
 const IOS = {
   Explore: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM15.5 8.5l-2 5-5 2 2-5z",
@@ -969,7 +1251,26 @@ const IOS = {
   toc: "M4 6h2M9 6h11M4 12h2M9 12h11M4 18h2M9 18h11",
   text: "M3 18 7.5 6 12 18M4.5 14h6M14 18l3-8 3 8M15 15.5h4",
   lang: "M3 5h9M7.5 3v2M5 5c.5 3.5 2.5 6 6 7.5M10 5c-.5 3.5-2.5 6-6 7.5M13 21l4-10 4 10M14.5 17.5h5",
-  share: "M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1",
+  find: "M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM14.5 14.5 20 20M7.5 10h5",
+  profile: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6.2 18c1.3-2 3.4-3 5.8-3s4.5 1 5.8 3",
+  tabs: "M4.5 7.5h12v12h-12zM8 4.5h11.5V16",
+};
+
+/** Material's glyphs, as the Android app draws them. */
+const MD = {
+  Explore: "M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z",
+  Saved: "M6.5 3.5h11v17L12 16.5l-5.5 4z",
+  Search: IOS.Search,
+  Edits: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+  More: "M5 12h.01M12 12h.01M19 12h.01",
+  mic: "M12 3a2.5 2.5 0 0 0-2.5 2.5v6a2.5 2.5 0 0 0 5 0v-6A2.5 2.5 0 0 0 12 3zM6.5 11a5.5 5.5 0 0 0 11 0M12 16.5V20",
+  back: "M20 12H5M11 5l-7 7 7 7",
+  more: "M12 5h.01M12 12h.01M12 19h.01",
+  save: IOS.saved,
+  lang: IOS.lang,
+  find: IOS.find,
+  theme: "M3 18 7.5 6 12 18M4.5 14h6M14 18l3-8 3 8M15 15.5h4",
+  toc: IOS.toc,
 };
 
 function Ios({ d }: { d: string }) {
@@ -1137,10 +1438,22 @@ function Workspace({
   );
 }
 
-/** `dot`: when the tab's Claude starts working and when it is done. */
-function WsTab({ on, icon, dot, children }: { on?: boolean; icon: ReactNode; dot?: [number, number]; children: ReactNode }) {
+/** `dot`: when the tab's Claude starts working and when it is done. `lit`: when the tab is open, and when another is. */
+function WsTab({
+  on,
+  lit,
+  icon,
+  dot,
+  children,
+}: {
+  on?: boolean;
+  lit?: [number, number?];
+  icon: ReactNode;
+  dot?: [number, number];
+  children: ReactNode;
+}) {
   return (
-    <span className={f.wsTab} data-on={on || undefined}>
+    <span className={f.wsTab} data-on={on || undefined} data-lit={lit ? "" : undefined} style={lit ? at(...lit) : undefined}>
       {icon}
       {children}
       {dot ? (
@@ -1150,6 +1463,7 @@ function WsTab({ on, icon, dot, children }: { on?: boolean; icon: ReactNode; dot
         </span>
       ) : null}
       {on ? <span className={f.x}>×</span> : null}
+      {lit ? <span className={`${f.x} ${lit[1] === undefined ? f.in : f.blip}`} style={at(...lit)}>×</span> : null}
     </span>
   );
 }

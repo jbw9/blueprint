@@ -1357,7 +1357,332 @@ button.project:hover {
   min-height: 0;
 }
 
-/* The Simulator's screen in the pane's bezel: iOS's own type, status bar and
+/* A workspace tab that opens and closes as the scene plays: the later of the two wins once both have run. */
+.wsTab[data-lit] {
+  animation: tab-on 0.12s ease-out var(--t) forwards, tab-off 0.12s ease-in var(--u, 999s) forwards;
+}
+@keyframes tab-on {
+  to {
+    border-bottom-color: transparent;
+    background: #0a0a0b;
+    color: var(--color-ink);
+  }
+}
+@keyframes tab-off {
+  to {
+    border-bottom-color: var(--color-border-gray);
+    background: transparent;
+    color: var(--color-muted-slate);
+  }
+}
+/* One tab's pane over another's, each in its own time. */
+.pane {
+  position: absolute;
+  inset: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
+}
+
+/* Your pointer, in the workspace: in from below, onto the iOS tab, away, then onto Android's. */
+.pointer {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  top: 0;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
+  animation: pointer 9s var(--ease) both;
+}
+.pointer path {
+  fill: #000;
+  stroke: #fff;
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+@keyframes pointer {
+  0%,
+  28% {
+    opacity: 0;
+    translate: 250px 330px;
+  }
+  31% {
+    opacity: 1;
+  }
+  41%,
+  47% {
+    opacity: 1;
+    translate: 231px -17px;
+  }
+  55%,
+  71% {
+    opacity: 0;
+    translate: 330px 430px;
+  }
+  75% {
+    opacity: 1;
+  }
+  86%,
+  93% {
+    opacity: 1;
+    translate: 316px -17px;
+  }
+  100% {
+    opacity: 0;
+    translate: 270px 200px;
+  }
+}
+
+/* The Preview tab's toolbar and the page under it. */
+.webBar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--color-border-gray);
+  font-size: 11.5px;
+  color: var(--color-muted-slate);
+}
+.webBar > svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.seg {
+  display: flex;
+  padding: 2px;
+  background: var(--color-surface-container);
+}
+.seg > * {
+  padding: 1px 6px;
+  font-weight: 400;
+}
+.seg b {
+  background: var(--color-card);
+  box-shadow: 0 0 0 1px var(--color-border-gray);
+  color: var(--color-ink);
+}
+.address {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border-gray);
+  font: 10.5px var(--font-mono);
+  color: var(--color-ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.claudeBadge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  background: rgba(217, 119, 87, 0.12);
+  font-size: 11px;
+  color: #b4553a;
+}
+.claudeBadge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d97757;
+  animation: blink 1.2s ease-in-out infinite;
+}
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* The website, in Wikipedia's Vector skin at a laptop's 600px, scaled to the tab. */
+.site {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 600px;
+  height: 920px;
+  transform: scale(0.615);
+  transform-origin: 0 0;
+  background: #fff;
+  font: 14px/1.6 sans-serif;
+  color: #202122;
+}
+.site a {
+  color: #3366cc;
+}
+.vHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  margin: 0 -8px;
+  font-size: 13px;
+}
+.vHead > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.vLogo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+/* The puzzle globe, as a shaded sphere. */
+.vLogo i {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0 12%, #d6d6d6 40%, #8a8a8a 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.vLogo span {
+  display: grid;
+  line-height: 1;
+}
+.vLogo b {
+  font: 400 20px/1 "Linux Libertine", "Hoefler Text", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+.vLogo b::first-letter {
+  text-transform: uppercase;
+}
+.vLogo small {
+  margin-top: 3px;
+  font: italic 11px "Linux Libertine", Georgia, serif;
+}
+.vSearch {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #a2a9b1;
+  border-radius: 2px;
+  color: #72777d;
+}
+.vSearch svg {
+  width: 16px;
+  height: 16px;
+}
+.vSearchBtn {
+  margin-left: -12px;
+  padding: 5px 12px;
+  border: 1px solid #a2a9b1;
+  border-left: 0;
+  background: #f8f9fa;
+  font-weight: 700;
+}
+.vUser {
+  font-size: 12px;
+  color: #3366cc;
+  white-space: nowrap;
+}
+.siteScroll {
+  padding: 4px 24px;
+  animation: site-scroll 1.1s var(--ease) 1.4s both;
+}
+@keyframes site-scroll {
+  to {
+    translate: 0 -190px;
+  }
+}
+.vTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #a2a9b1;
+}
+.vTitle h1 {
+  font: 400 28.8px/1.3 "Linux Libertine", Georgia, "Times", serif;
+}
+.vTitle span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3366cc;
+}
+.vTabs {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #a2a9b1;
+  font-size: 13px;
+}
+.vTabs > span {
+  display: flex;
+  gap: 14px;
+}
+.vTabs span span {
+  padding: 6px 0;
+  color: #3366cc;
+}
+.vTabs b {
+  padding: 6px 0 4px;
+  border-bottom: 2px solid #202122;
+  font-weight: 400;
+}
+.vFrom {
+  margin: 8px 0 4px;
+  font-size: 12.5px;
+  color: #54595d;
+}
+.vNote {
+  margin-bottom: 10px;
+  padding-left: 24px;
+  font-size: 13px;
+  font-style: italic;
+}
+.site p {
+  margin-bottom: 10px;
+}
+.vInfo {
+  float: right;
+  display: grid;
+  width: 230px;
+  margin: 0 0 12px 18px;
+  padding: 6px;
+  border: 1px solid #a2a9b1;
+  background: #f8f9fa;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.vInfo > b {
+  margin-bottom: 6px;
+  font-size: 15px;
+  text-align: center;
+}
+.vInfo img {
+  width: 170px;
+  justify-self: center;
+}
+.vInfo small {
+  margin: 4px 0 8px;
+  text-align: center;
+}
+.vInfo dl {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 6px 8px;
+}
+.vInfo dt {
+  font-weight: 700;
+}
+.site h2 {
+  clear: none;
+  margin: 18px 0 8px;
+  border-bottom: 1px solid #a2a9b1;
+  font: 400 24px/1.3 "Linux Libertine", Georgia, "Times", serif;
+}
+
+/* A phone's screen in the pane's bezel: the OS's own type, status bar and
    chrome, with the Wikipedia app running in it. Fixed in size, so Claude's
    taps land on what they tap. */
 .phone {
@@ -1367,10 +1692,22 @@ button.project:hover {
   height: 530px;
   overflow: hidden;
   border: 5px solid var(--color-bezel);
-  border-radius: 22px;
+  border-radius: 34px;
   background: #fff;
   font: 12px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #202122;
+}
+.phone img {
+  display: block;
+  object-fit: cover;
+}
+.phone a {
+  color: #3366cc;
+}
+.phone[data-os="android"] {
+  border-width: 4px;
+  border-radius: 26px;
+  font-family: var(--font-roboto), Roboto, system-ui, sans-serif;
 }
 .status {
   position: relative;
@@ -1379,7 +1716,7 @@ button.project:hover {
   align-items: center;
   justify-content: space-between;
   height: 38px;
-  padding: 0 16px 0 26px;
+  padding: 0 18px 0 30px;
   font-size: 13px;
 }
 .status b {
@@ -1421,40 +1758,89 @@ button.project:hover {
   border-radius: 1.5px;
   background: #000;
 }
+/* Android's: the time at the left, a punch-hole camera, and a battery standing up. */
+[data-os="android"] .status {
+  height: 30px;
+  padding: 0 14px 0 18px;
+  font-size: 12px;
+}
+[data-os="android"] .status b {
+  font-weight: 500;
+}
+[data-os="android"] .status i {
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+}
+[data-os="android"] .status svg {
+  width: 12px;
+  height: 11px;
+}
+[data-os="android"] .status em {
+  width: 7px;
+  height: 12px;
+  border: 0;
+  border-radius: 1.5px;
+  background: rgba(0, 0, 0, 0.3);
+}
+[data-os="android"] .status em::before {
+  inset: 3px 0 0;
+  border-radius: 1.5px;
+}
 .screen {
   position: absolute;
   inset: 38px 0 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #fff;
 }
-.screen[data-launch] {
-  inset: 0;
-  z-index: 1;
-  align-items: center;
-  justify-content: center;
+[data-os="ios"] .screen {
+  background: #f2f2f7;
+}
+[data-os="android"] .screen {
+  inset: 30px 0 0;
+  background: #f8f9fa;
 }
 .wordmark {
-  font: 400 30px/1 "Linux Libertine", "Georgia", "Times", serif;
+  font: 400 30px/1 "Linux Libertine", "Hoefler Text", Georgia, "Times", serif;
   color: #000;
 }
-.wikiTop {
-  display: grid;
-  place-items: center;
+.iTop,
+.aTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 34px;
+  padding: 0 14px;
 }
-.wikiTop .wordmark {
-  font-size: 21px;
+.iTop .wordmark,
+.aTop .wordmark {
+  font-size: 17px;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+}
+.iTop .ios,
+.aTop .ios {
+  width: 22px;
+  height: 22px;
+  color: #3366cc;
+}
+.aTop .ios {
+  color: #54595d;
 }
 .searchField {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 5px;
   height: 30px;
-  margin: 4px 12px 10px;
+  margin: 2px 12px 10px;
   padding: 0 8px;
-  border-radius: 9px;
-  background: #eeeef0;
+  border-radius: 10px;
+  background: rgba(118, 118, 128, 0.12);
   font-size: 13px;
   color: #8e8e93;
   white-space: nowrap;
@@ -1479,69 +1865,91 @@ button.project:hover {
   font-size: 13px;
   color: #3366cc;
 }
+/* SF's letters are narrower than a 1ch step. */
+.searchField .typed {
+  animation-name: type-sf, clear;
+}
+@keyframes type-sf {
+  to {
+    width: calc(var(--n) * 0.44em);
+  }
+}
 .caret2 {
   width: 2px;
   height: 15px;
   background: #3366cc;
   animation: blink 1s steps(1) infinite;
 }
-.feedHead {
-  margin: 4px 14px 6px;
-  font-size: 10.5px;
+/* Explore's cards on iOS: a white sheet each, its title and date over it. */
+.iCard {
+  margin: 0 0 10px;
+  background: #fff;
+}
+.iCard header {
+  display: grid;
+  padding: 9px 14px 7px;
+}
+.iCard header b {
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+}
+.iCard header span {
+  font-size: 10.5px;
   color: #72777d;
 }
-.card {
+.iCard > img {
+  width: 100%;
+  height: 98px;
+}
+.iCard > div {
   display: grid;
-  gap: 3px;
-  margin: 0 12px 12px;
-  padding-bottom: 10px;
-  overflow: hidden;
-  border-radius: 10px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
+  gap: 2px;
+  padding: 8px 14px 10px;
 }
-.card b {
-  margin: 4px 10px 0;
-  font: 400 16px/1.2 "Linux Libertine", Georgia, serif;
+.iCard > div b {
+  font: 400 17px/1.2 "Linux Libertine", "Hoefler Text", Georgia, serif;
 }
-.card span {
-  margin: 0 10px;
+.iCard > div span {
+  font-size: 10.5px;
+  color: #72777d;
+}
+.iCard p {
+  margin-top: 3px;
   font-size: 11px;
-  color: #54595d;
-}
-.photo {
-  height: 92px;
-}
-.photo[data-sky] {
-  background: radial-gradient(circle at 70% 30%, #f8f2d8 0 6%, transparent 7%),
-    linear-gradient(160deg, #0d1b3d 0%, #1d3f7a 55%, #3b6aa8 100%);
-}
-.photo[data-portrait] {
-  height: 120px;
-  margin: 10px 0;
-  border-radius: 4px;
-  border: 1px solid #c8ccd1;
-  background: radial-gradient(ellipse at 50% 45%, rgba(255, 246, 228, 0.55), transparent 60%),
-    linear-gradient(135deg, #b9a888 0%, #8d7c60 55%, #5f5340 100%);
+  line-height: 1.4;
 }
 .top li {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
-  border-top: 1px solid #eaecf0;
-  font-size: 12.5px;
+  padding: 4px 14px 10px;
 }
 .top i {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
   border: 1px solid #3366cc;
   border-radius: 50%;
   font: normal 600 10px/16px -apple-system, sans-serif;
   text-align: center;
   color: #3366cc;
+}
+.top span {
+  display: grid;
+  flex: 1;
+}
+.top b {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.top small {
+  font-size: 10.5px;
+  color: #72777d;
+}
+.top img {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
 }
 .tabBar {
   position: absolute;
@@ -1552,8 +1960,9 @@ button.project:hover {
   justify-content: space-around;
   height: 62px;
   padding-top: 6px;
-  border-top: 1px solid #d6d6d9;
-  background: rgba(249, 249, 249, 0.96);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.18);
+  background: rgba(249, 249, 249, 0.94);
+  backdrop-filter: blur(12px);
   font-size: 9px;
   color: #8e8e93;
 }
@@ -1566,30 +1975,45 @@ button.project:hover {
 .ios {
   width: 21px;
   height: 21px;
+  flex-shrink: 0;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.filled {
+  fill: currentColor;
+}
 .tabBar [data-on] {
   color: #3366cc;
 }
 .results {
-  border-top: 1px solid #eaecf0;
+  background: #fff;
 }
 .results li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-bottom: 0.5px solid #d6d6d9;
+}
+.results li > span {
   display: grid;
-  padding: 8px 14px;
-  border-bottom: 1px solid #eaecf0;
+  flex: 1;
 }
 .results b {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
 }
-.results span {
-  font-size: 11px;
+.results small {
+  font-size: 10.5px;
   color: #72777d;
+}
+.results img {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
 }
 .keyboard {
   position: absolute;
@@ -1611,7 +2035,7 @@ button.project:hover {
   place-items: center;
   width: 21px;
   height: 30px;
-  border-radius: 4px;
+  border-radius: 5px;
   background: #fff;
   box-shadow: 0 1px 0 #898a8d;
   font: normal 14px -apple-system, sans-serif;
@@ -1632,54 +2056,246 @@ button.project:hover {
 }
 .articleBar {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   height: 34px;
   padding: 0 12px;
+  background: #fff;
   font-size: 13.5px;
   color: #3366cc;
 }
+.articleBar .wordmark {
+  font-size: 20px;
+}
 .articleTools {
   display: flex;
-  gap: 14px;
+  gap: 12px;
 }
 .articleTools .ios {
   width: 19px;
   height: 19px;
 }
+.lead {
+  flex-shrink: 0;
+  width: 100%;
+  height: 138px;
+  object-position: 50% 22%;
+}
 .article {
   flex: 1;
-  padding: 4px 16px 0;
+  padding: 8px 16px 0;
   overflow: hidden;
+  background: #fff;
 }
 .article h4 {
-  font: 400 26px/1.15 "Linux Libertine", Georgia, serif;
+  font: 400 25px/1.15 "Linux Libertine", "Hoefler Text", Georgia, serif;
 }
 .article p {
   font-size: 12px;
   line-height: 1.55;
 }
+.article hr {
+  width: 60px;
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid #c8ccd1;
+}
 .desc {
   margin-top: 2px;
   color: #72777d;
 }
-.desc + .photo {
-  margin-top: 10px;
-}
-.h5 {
-  margin: 10px 0 4px !important;
-  padding-bottom: 3px;
-  border-bottom: 1px solid #c8ccd1;
-  font: 400 17px/1.2 "Linux Libertine", Georgia, serif !important;
-}
 .toolbarIOS {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-around;
-  height: 52px;
-  padding-top: 10px;
-  border-top: 1px solid #d6d6d9;
+  height: 50px;
+  padding-top: 9px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.18);
   background: #f8f8f8;
   color: #3366cc;
+}
+.toolbarIOS .ios {
+  width: 19px;
+  height: 19px;
+}
+
+/* Android's: Material's search bar, cards and bottom navigation. */
+.aSearch {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin: 2px 12px 10px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: #eaecf0;
+  font-size: 13px;
+  color: #54595d;
+}
+.aSearch span {
+  flex: 1;
+}
+.aSearch svg {
+  width: 15px;
+  height: 15px;
+}
+.aCard {
+  display: grid;
+  margin: 0 10px 8px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.aCard header {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 12px 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #54595d;
+}
+.aCard header small {
+  font-weight: 400;
+  color: #72777d;
+}
+.aCard > img {
+  width: 100%;
+  height: 84px;
+}
+.aCard > b {
+  margin: 8px 12px 0;
+  font: 400 16px/1.2 "Linux Libertine", "Hoefler Text", Georgia, serif;
+}
+.aCard > span {
+  margin: 2px 12px 10px;
+  font-size: 10.5px;
+  color: #72777d;
+}
+.aTopRead li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 8px;
+}
+.aTopRead i {
+  width: 16px;
+  font: normal 500 13px/1 var(--font-roboto), Roboto, sans-serif;
+  text-align: center;
+  color: #72777d;
+}
+.aTopRead span {
+  display: grid;
+  flex: 1;
+  line-height: 1.3;
+}
+.aTopRead b {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.aTopRead small {
+  font-size: 10px;
+  color: #72777d;
+}
+.aTopRead em {
+  font-size: 9.5px;
+  font-style: normal;
+  color: #14866d;
+}
+.aTopRead img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+.aNav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  height: 64px;
+  padding-top: 8px;
+  background: #fff;
+  box-shadow: 0 -1px 0 #eaecf0;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #54595d;
+}
+.aNav span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.aNav i {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+}
+.aNav .ios {
+  width: 18px;
+  height: 18px;
+}
+.aNav [data-on] {
+  color: #202122;
+}
+.aNav [data-on] i {
+  background: #dbe4ff;
+}
+.aBar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+  padding: 0 14px;
+  background: #fff;
+  color: #202122;
+}
+.aBar .ios {
+  width: 19px;
+  height: 19px;
+}
+.aTools {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-around;
+  align-items: center;
+  height: 64px;
+  padding-bottom: 14px;
+  background: #fff;
+  box-shadow: 0 -1px 0 #eaecf0;
+  color: #54595d;
+}
+.aTools .ios {
+  width: 19px;
+  height: 19px;
+}
+.aTools .filled {
+  color: #3366cc;
+}
+.snack {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  right: 10px;
+  bottom: 72px;
+  display: flex;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: 4px;
+  background: #313033;
+  font-size: 11.5px;
+  color: #f4eff4;
+}
+.snack b {
+  font-weight: 500;
+  color: #d0bcff;
 }
 
 .home {
@@ -1693,8 +2309,15 @@ button.project:hover {
   border-radius: 2px;
   background: #000;
 }
+[data-os="android"] .home {
+  bottom: 6px;
+  width: 70px;
+  height: 3px;
+  margin-left: -35px;
+  background: #202122;
+}
 
-/* Claude's pointer on the phone (device.tsx), and the ring of a tap. */
+/* Claude's pointer on a screen (device.tsx), and the ring of a tap. */
 .hand {
   position: absolute;
   z-index: 4;
@@ -1702,7 +2325,7 @@ button.project:hover {
   top: 0;
   opacity: 0;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
-  animation: hand 5.6s var(--ease) 0.6s both;
+  animation: hand var(--d) var(--ease) var(--t) both;
 }
 .hand path {
   fill: #d97757;
@@ -1720,7 +2343,7 @@ button.project:hover {
   color: #fff;
   white-space: nowrap;
 }
-/* The arrow's tip sits 2px in and down: one stop on the search field, one on the first result. */
+/* The arrow's tip sits 2px in and down: one stop at a, one at b. */
 @keyframes hand {
   0% {
     opacity: 0;
@@ -1731,21 +2354,24 @@ button.project:hover {
   }
   30%,
   50% {
-    translate: 124px 89px;
+    translate: var(--ax) var(--ay);
   }
   68%,
   90% {
     opacity: 1;
-    translate: 88px 104px;
+    translate: var(--bx) var(--by);
   }
   100% {
     opacity: 0;
-    translate: 88px 104px;
+    translate: var(--bx) var(--by);
   }
+}
+.tap[data-you] {
+  border-color: #202122;
 }
 .tap {
   position: absolute;
-  z-index: 4;
+  z-index: 6;
   width: 24px;
   height: 24px;
   margin: -12px 0 0 -12px;

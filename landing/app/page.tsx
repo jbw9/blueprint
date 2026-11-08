@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Roboto, Zilla_Slab } from "next/font/google";
 import { LandingAgent } from "@/components/landing-agent";
 import { LandingCover } from "@/components/landing-cover";
 import { LandingEvolution } from "@/components/landing-evolution";
@@ -42,6 +42,8 @@ const JSON_LD = {
 const display = Zilla_Slab({ variable: "--font-display", subsets: ["latin"], weight: ["300", "400", "500"], display: "swap" });
 const sans = IBM_Plex_Sans({ variable: "--font-body", subsets: ["latin"], display: "swap" });
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"], display: "swap" });
+// Android's own type, for the emulator drawn in the Preview tab.
+const roboto = Roboto({ variable: "--font-roboto", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
 
 const REPO = "jbw9/blueprint";
 const GITHUB = `https://github.com/${REPO}`;
@@ -100,7 +102,7 @@ export default function Landing() {
 
   return (
     // The layout locks the body, as the app's does for its canvas; this page scrolls itself.
-    <div className={`${s.page} ${display.variable} ${sans.variable} ${mono.variable}`}>
+    <div className={`${s.page} ${display.variable} ${sans.variable} ${mono.variable} ${roboto.variable}`}>
       <div className={s.paper}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <LandingNav github={GITHUB} />
