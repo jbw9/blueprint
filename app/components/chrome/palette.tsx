@@ -263,7 +263,6 @@ export function Palette() {
       ...(desktop
         ? [{ key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the keys", kind: "action" as const, kbd: `Hold ${dictateKeys(mac)}`, run: () => setTimeout(startDictation) }]
         : []),
-      { key: "a:classic", label: "Theme: classic", hint: "Cobalt ink, as on the landing page", kind: "action", run: theme("classic") },
       { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
       { key: "a:dark", label: "Theme: dark", kind: "action", run: theme("dark") },
     ];

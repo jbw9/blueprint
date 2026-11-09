@@ -63,7 +63,7 @@ export const QUIET = `${ACTION} text-muted-slate hover:bg-surface-container hove
 /**
  * A labelled setting. `group` for one that holds buttons rather than a field:
  * a <label> passes a click on its words to the first button inside, so
- * clicking "Theme" would pick Classic.
+ * clicking "Theme" would pick Light.
  */
 export function Field({ label, hint, group, children }: { label: string; hint: string; group?: boolean; children: React.ReactNode }) {
   const Box = group ? "div" : "label";

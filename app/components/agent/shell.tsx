@@ -31,10 +31,9 @@ import { creditRelay } from "@/lib/client/credit";
  * The palettes, one per theme. A terminal is chrome ([data-chrome],
  * app/globals.css): its background is the window's own
  * `surface-container-low`, so the terminal sits in it as a tool rather than
- * another card. Classic's chrome is the sheet, so its terminal is white with
- * the sheet's cobalt ink.
+ * another card.
  */
-const PLAIN: Record<"light" | "dark", ITheme> = {
+const PALETTES: Record<Theme, ITheme> = {
   light: {
     background: "#eceef1",
     foreground: "#24292f",
@@ -80,24 +79,6 @@ const PLAIN: Record<"light" | "dark", ITheme> = {
     brightMagenta: "#dcc2fa",
     brightCyan: "#9fe1e5",
     brightWhite: "#ffffff",
-  },
-};
-
-const PALETTES: Record<Theme, ITheme> = {
-  ...PLAIN,
-  classic: {
-    ...PLAIN.light,
-    background: "#ffffff",
-    foreground: "#1e2f9e",
-    cursor: "#2438c8",
-    cursorAccent: "#ffffff",
-    selectionBackground: "#d5daf5",
-    black: "#1e2f9e",
-    blue: "#2438c8",
-    white: "#7d8adb",
-    brightBlack: "#4a5bd2",
-    brightBlue: "#4a5bd2",
-    brightWhite: "#3445c6",
   },
 };
 

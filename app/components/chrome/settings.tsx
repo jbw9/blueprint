@@ -18,7 +18,6 @@ import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, 
  */
 
 const THEMES: { value: Theme; label: string }[] = [
-  { value: "classic", label: "Classic" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
@@ -137,7 +136,7 @@ export function SettingsDialog() {
         <PanelHead title="Settings" right={<PanelClose type="submit" />} />
         <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-5 py-5">
           <Group title="Appearance">
-            <Field group label="Theme" hint="Classic is the landing page's cobalt ink. Light and Dark are plain.">
+            <Field group label="Theme" hint="Light or Dark.">
               <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
             </Field>
             <Field group label="Background" hint="What the blueprint is drawn on.">

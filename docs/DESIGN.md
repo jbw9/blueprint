@@ -227,9 +227,8 @@ never appears unless you asked for it.
 
 # Part two — look
 
-The look follows the landing page (`landing/DESIGN.md`): one cobalt ink on a
-white sheet, square corners, slab lettering and mono labels. In Classic,
-black bars frame the sheet.
+The look takes the landing page's shapes (`landing/DESIGN.md`): square
+corners, slab lettering and mono labels, in neutral greys.
 
 Tokens live in `app/globals.css` under Tailwind v4's `@theme`. There is no
 `tailwind.config.ts` and there should not be one.
@@ -238,23 +237,14 @@ Tokens live in `app/globals.css` under Tailwind v4's `@theme`. There is no
 
 ## 8. The ground rule
 
-**A sheet in a black frame.** The reading area is white paper (`#ffffff`),
-and cards are the same white, set apart by a 1px line. Everything on the
-sheet is drawn in one ink, `#2438c8`: text, borders, fills. The chrome
-(`[data-chrome]`: the workspace window, its terminals, menus) is the sheet
-too. Only the bars (`[data-chrome="bar"]`: the title bar, the tab strips, the
-status bar, the Preview toolbar) are black, with the accent kept cobalt,
-lifted to `#6b7dff` to read on black.
+**Two themes.** Settings (and the palette) offer two, and the app opens in
+Light:
 
-**Three themes.** Settings (and the palette) offer three, and the app opens
-in Classic:
+- **Light** — paper a shade off white, white cards set apart by a 1px line,
+  near-black ink, grey chrome (`[data-chrome]`) a step below the paper.
+- **Dark** — near-black paper, near-white ink, the chrome the same.
 
-- **Classic** — the sheet in its black frame, as above.
-- **Light** — plain: white paper, near-black ink, grey chrome a step below
-  the paper.
-- **Dark** — plain: near-black paper, near-white ink, the chrome the same.
-
-All three keep the type, the square shapes, the labels and the meaning hues.
+Both keep the type, the square shapes, the labels and the meaning hues.
 Only the neutral colours and the accent change. The terminal has a palette
 per theme (`PALETTES` in `components/agent/shell.tsx`) and recolours when the
 theme changes.
@@ -269,49 +259,48 @@ used on hover only. Separation comes from a 1px line.
 ### Surfaces
 
 ```
---color-paper                 #ffffff   the sheet, the reading area
+--color-paper                 #f5f6f8   the sheet, the reading area
 --color-card                  #ffffff   card fill
---color-surface               #f6f8fe   panel headers
---color-surface-container-low #f1f4fe   row hover, ghost fill
---color-surface-container     #e3e8fb   inline code fill
---color-surface-dim           #cfd6f5   the dot grid
+--color-surface               #eef0f3   panel headers
+--color-surface-container-low #eceef1   row hover, ghost fill
+--color-surface-container     #e3e6ea   inline code fill
+--color-surface-dim           #cdd2d9   the dot grid
 ```
 
 ### Ink
 
 ```
---color-ink                #2438c8   titles, primary text: the one colour
---color-on-surface         #2537c0   body inside cards
---color-on-surface-variant #3445c6   secondary prose, evidence rows
---color-muted-slate        #4a5bd2   labels, legend text
---color-faint              #7d8adb   mono subtitles, line numbers
+--color-ink                #1f2328   titles, primary text
+--color-on-surface         #24292f   body inside cards
+--color-on-surface-variant #3d444d   secondary prose, evidence rows
+--color-muted-slate        #59636e   labels, legend text
+--color-faint              #6b7480   mono subtitles, line numbers
 ```
 
-### The accent is the ink
+### The accent
 
 ```
---color-accent         #2438c8   focus, links, selected and primary fills
---color-accent-strong  #1a2fa0   hover on a filled control
---color-on-accent      #fcfdff   text on an accent fill
---color-accent-surface #e6eafc   a quiet accent tint
---color-accent-line    #a9b3ee   its border
+--color-accent         #3d5a80   focus, links, selected and primary fills
+--color-accent-strong  #2f4866   hover on a filled control
+--color-on-accent      #ffffff   text on an accent fill
+--color-accent-surface #e6edf5   a quiet accent tint
+--color-accent-line    #a9bbd2   its border
 ```
 
-A selected or hovered control fills with ink, and its text turns `on-accent`.
+A selected or hovered control fills with the accent, and its text turns `on-accent`.
 In Dark the accent is white and `on-accent` is near-black, so write
-`text-on-accent` on an accent fill, never `text-white`. Selection is ink with
+`text-on-accent` on an accent fill, never `text-white`. Selection is accent with
 paper text.
 
-### Meaning hues — the only colours that are not the ink
+### Meaning hues
 
-The landing has one ink. The app keeps a few more, because here a hue means
-something:
+Beyond the neutrals, a hue means something:
 
 - **State.** `amber-*` is `partial`, `clay-*` is the one alarming finding.
   **`derived` carries no badge**: marking certainty creates a two-tier read
   where everything unmarked looks like a failure (`StateChip` returns `null`).
 - **Sections.** `--color-sec-1…7-*`: one hue per part a diagram leads into, so
-  the picture and the list of parts read as one thing. The first is the ink.
+  the picture and the list of parts read as one thing.
 - **Actors.** `--color-actor-1…4`: one per lifeline in a sequence.
 - **Diff.** `--color-diff-add-*` and `--color-diff-remove-*`, kept apart from
   `clay` so a removed box never reads as an alarm.
@@ -321,8 +310,8 @@ Amber and clay never appear except to mean "incomplete" and "look at this."
 ### Lines
 
 ```
---color-border-gray   #d5daf5   the ink at 18%: every default border, divider
---color-border-strong #919be3   the ink at 50%: buttons, hover, dashed edges
+--color-border-gray   #d8dce2   every default border, divider
+--color-border-strong #b4bcc6   buttons, hover, dashed edges
 ```
 
 `* { border-color: var(--color-border-gray) }` in `@layer base` means a bare
@@ -492,12 +481,11 @@ in `globals.css`. Don't add per-component guards; the blanket rule covers it.
 
 ## 15. Themes
 
-There is no `@custom-variant dark`. `<html data-theme>` is `classic`, `light`
-or `dark`, set before first paint by `THEME_SCRIPT` (`lib/client/theme.ts`) and kept
+There is no `@custom-variant dark`. `<html data-theme>` is `light` or `dark`, set before first paint by `THEME_SCRIPT` (`lib/client/theme.ts`) and kept
 by `followTheme` (`lib/client/settings.ts`). Each theme swaps the token values, so
 every class and every diagram that reads them follows (§8). A saved theme
-this version does not know, such as the old `system`, opens as Classic. The
-landing page sets its embedded app to Classic.
+this version does not know, such as the old `system` or `classic`, opens as
+Light.
 
 ---
 
