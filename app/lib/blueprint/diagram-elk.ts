@@ -1,7 +1,6 @@
 import type { ElkNode } from "elkjs/lib/elk-api";
 import type { Anatomy, DiagramArrow, DiagramBox } from "@/lib/blueprint/schema";
 import { BOX_H, layoutDiagram, type Rect } from "@/lib/blueprint/diagram";
-import { layoutDagre } from "@/lib/blueprint/dagre";
 
 /**
  * The diagram laid out by ELK's layered algorithm, top to bottom, with three
@@ -26,7 +25,7 @@ export type LaidArrow = {
   tone: Tone;
   start: boolean;
   end: boolean;
-  label?: Rect & { lines: LabelLine[]; pill?: boolean };
+  label?: Rect & { lines: LabelLine[] };
 };
 export type DiagramLayout = { W: number; H: number; boxes: LaidBox[]; arrows: LaidArrow[]; rules: { x1: number; y1: number; x2: number; y2: number }[]; frames: Rect[] };
 export type Elk = { layout(graph: ElkNode): Promise<ElkNode> };
@@ -692,26 +691,6 @@ function pathD(pts: Pt[]) {
   }
   const z = pts.at(-1)!;
   return `${s} L${r1(z.x)},${r1(z.y)}`;
-}
-
-/** The landing's dagre-style layout (lib/blueprint/dagre.ts) in the same shape, labels in pills. */
-export function dagreLayout(block: Block): DiagramLayout {
-  const { W, H, boxes, arrows, band } = layoutDagre(block);
-  return {
-    W,
-    H,
-    boxes: boxes.map((p) => ({ ...p, h: BOX_H })),
-    arrows: arrows.map(({ from, to, d, tone, label, both, pill, lines }) => {
-      const base = { from, to, d, tone, start: Boolean(both), end: true };
-      if (!label) return base;
-      const rect = pill ?? labelRect(label);
-      const texts = lines ?? [label.text];
-      const ways = (k: number) => (both && texts.length === 2 && k === 1 ? { from: to, to: from } : { from, to });
-      return { ...base, label: { ...rect, pill: Boolean(pill), lines: texts.map((text, k) => ({ text, ...ways(k) })) } };
-    }),
-    rules: band === undefined ? [] : [{ x1: 0, y1: band, x2: W, y2: band }],
-    frames: [],
-  };
 }
 
 function labelRect(label: { text: string; x: number; y: number; anchor: "start" | "middle" | "end" }): Rect {

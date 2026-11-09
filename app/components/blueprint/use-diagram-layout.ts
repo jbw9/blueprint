@@ -37,21 +37,19 @@ function ask(key: string, block: Block) {
 /**
  * The ELK layout of a diagram (lib/blueprint/diagram-elk.ts), with ELK itself
  * in a worker, kept per diagram so a level opened again draws at once.
- * `undefined` while it works; `null` where ELK failed and the grid stands, or
- * where it is off.
+ * `undefined` while it works; `null` where ELK failed and the grid stands.
  */
-export function useDiagramLayout(block: Block, on = true): DiagramLayout | null | undefined {
+export function useDiagramLayout(block: Block): DiagramLayout | null | undefined {
   const key = JSON.stringify([block.boxes, block.arrows]);
   const [got, setGot] = useState<{ key: string; layout: DiagramLayout | null } | null>(null);
   useEffect(() => {
-    if (!on || done.has(key)) return;
+    if (done.has(key)) return;
     let live = true;
     ask(key, block).then((layout) => live && setGot({ key, layout }));
     return () => {
       live = false;
     };
-  }, [key, block, on]);
-  if (!on) return null;
+  }, [key, block]);
   if (done.has(key)) return done.get(key);
   return got?.key === key ? got.layout : undefined;
 }

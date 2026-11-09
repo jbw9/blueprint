@@ -10,9 +10,8 @@ import { useMayBeStale } from "@/components/chrome/crumbs";
 import { readSource } from "@/lib/blueprint/source";
 import { openDoc } from "@/components/blueprint/docs";
 import { SHARED_TAG, sharedTagRect } from "@/lib/blueprint/diagram";
-import { dagreLayout, gridLayout } from "@/lib/blueprint/diagram-elk";
+import { gridLayout } from "@/lib/blueprint/diagram-elk";
 import { useDiagramLayout } from "@/components/blueprint/use-diagram-layout";
-import { useDagre } from "@/components/blueprint/dagre-style";
 import { TINT, WORD as WORD_OF, useDiff } from "@/components/review/diff";
 import { DiagramChanges, changesUnder } from "@/components/review/diagram-diff";
 
@@ -141,13 +140,11 @@ function Diagram({
   /** Shows the line an arrow cites (`DiagramArrow.at`), from its label. */
   onCode?: (at: string, heading: string, detail?: string) => void;
 }) {
-  // The landing's frames draw the picture as dagre would; the app lays it out with ELK.
-  const dagre = useDagre();
-  const elk = useDiagramLayout(block, !dagre);
-  const fallback = useMemo(() => (elk ? null : dagre ? dagreLayout(block) : gridLayout(block)), [elk, dagre, block]);
+  const elk = useDiagramLayout(block);
+  const fallback = useMemo(() => (elk ? null : gridLayout(block)), [elk, block]);
   // Until the worker answers, the grid layout holds the space unseen, so the
   // page below does not jump twice; it shows only where ELK failed.
-  const waiting = !dagre && elk === undefined;
+  const waiting = elk === undefined;
   const { W, H, boxes, arrows, rules, frames } = elk ?? fallback!;
   // Only a picture that actually leads somewhere dims its scenery: on a
   // diagram where nothing opens, every box is equally "inert" and dimming
@@ -297,7 +294,7 @@ function Diagram({
               block.arrows.find((a) => a.from === t && a.to === f && a.at)?.at;
             return (
               <g key={`l${i}`} className={fade} opacity={held && !touches({ from, to }) ? 0.2 : 1}>
-                <rect x={label.x} y={label.y} width={label.w} height={label.h} rx={label.pill ? Math.min(11, label.h / 2) : 4} fill="var(--color-paper)" />
+                <rect x={label.x} y={label.y} width={label.w} height={label.h} rx={4} fill="var(--color-paper)" />
                 {label.lines.map((l, k) => {
                   const at = atOf(l.from, l.to);
                   const show = at && onCode ? () => onCode(at, `${name(l.from)} → ${name(l.to)}`, l.text) : undefined;
@@ -305,7 +302,7 @@ function Diagram({
                     <text
                       key={k}
                       x={label.x + label.w / 2}
-                      y={label.y + (label.pill ? 15 : 14) + k * 16}
+                      y={label.y + 14 + k * 16}
                       textAnchor="middle"
                       fontSize="12"
                       fill="var(--color-muted-slate)"
