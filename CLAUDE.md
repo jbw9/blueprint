@@ -13,3 +13,13 @@ Commit a feature or fix as soon as it works, without waiting to be asked. It wor
 ## Generator version
 
 Bump `MAPPER_VERSION` in `app/scripts/generate/version.ts` in the same commit as any change under `app/scripts/generate/` that changes what a run does or produces (prompts, models, stages, checks). The admin dashboard (blpr.dev/admin) compares runs by it.
+
+## macOS, Linux and Windows
+
+Blueprint ships on all three, so every change to the app (`app/`, `install.sh`) is checked on each of them before it reaches `main`:
+
+- Write the platform code for all three. Code under `#[cfg(...)]` covers macOS, Linux and Windows, each with its own native call where one exists; a fallback is only for a system none of them names.
+- Build and run it here on the system you are on, and see it working.
+- Commit it to a branch, not `main`, and push the branch: `.github/workflows/install.yml` builds and installs it from source on macOS (Apple silicon and Intel), Ubuntu and Windows. Wait for every job to pass (`gh run watch`).
+- Merge into `main` only once all of them pass. A failure on any system is fixed on the branch first.
+- Tell the user what was seen working by hand and on which system, and what only CI built.
