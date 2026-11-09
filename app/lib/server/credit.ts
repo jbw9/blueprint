@@ -11,9 +11,7 @@ import { join } from "node:path";
  * which works against this machine's Blueprint alone (app/api/credit/relay).
  */
 
-import { API_URL as CREDIT_URL } from "@/lib/server/api";
-
-export { CREDIT_URL };
+import { api } from "@/lib/server/api";
 
 /** Blueprint's GitHub OAuth app, which signs in by device code: its id is public, and it has no secret here. */
 const GITHUB_CLIENT_ID = "Ov23li6hsQHhIxCkRrDT";
@@ -140,7 +138,7 @@ async function refresh(): Promise<Access | null> {
   const s = await saved();
   state.access = undefined;
   if (!s.session) return null;
-  const r = await fetch(`${CREDIT_URL}/token`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  const r = await api("/token", { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   // The session was signed out elsewhere or has lapsed: the reader signs in again.
   if (r?.status === 401) {
     await save({ on: s.on, fallback: s.fallback });
@@ -192,7 +190,7 @@ export async function pollSignIn(): Promise<{ login: string } | { wait: number }
   state.pending = undefined;
   if (!j.access_token) return { reason: j.error === "access_denied" ? "The sign-in was cancelled on GitHub." : "That code has expired. Sign in again." };
 
-  const s = await fetch(`${CREDIT_URL}/signin`, {
+  const s = await api("/signin", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ github_token: j.access_token, device: deviceId() }),
@@ -210,7 +208,7 @@ export async function pollSignIn(): Promise<{ login: string } | { wait: number }
 export async function signOut() {
   const s = await saved();
   if (s.session)
-    await fetch(`${CREDIT_URL}/signout`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+    await api("/signout", { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   await save({ on: s.on, fallback: s.fallback });
   state.access = undefined;
   state.ready = false;
@@ -262,7 +260,7 @@ export async function creditStatus(): Promise<CreditStatus> {
 /** Whether the promotion is on, asked at most every five minutes, as the proxy caches it. */
 async function promoOn() {
   if (state.promo && Date.now() - state.promo.at < 300_000) return state.promo.on;
-  const r = await fetch(`${CREDIT_URL}/promo`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  const r = await api("/promo", { signal: AbortSignal.timeout(10_000) }).catch(() => null);
   const j = (r?.ok ? await r.json().catch(() => null) : null) as { on?: boolean } | null;
   if (j) state.promo = { on: !!j.on, at: Date.now() };
   return !!j?.on;
@@ -275,7 +273,7 @@ async function askStatus(): Promise<CreditStatus> {
   const away = { available: false, on, fallback, promo, login: session ? (login ?? null) : null };
   if (!session) return away;
   if (!token) return { ...away, reason: "Blueprint credit could not be reached." };
-  const r = await fetch(`${CREDIT_URL}/status`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  const r = await api("/status", { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   const j = (r?.ok ? await r.json().catch(() => null) : null) as {
     available?: boolean;
     reason?: string;

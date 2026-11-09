@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import { CREDIT_URL, accessToken, dropAccess, relaySecret } from "@/lib/server/credit";
+import { api } from "@/lib/server/api";
+import { accessToken, dropAccess, relaySecret } from "@/lib/server/credit";
 
 /**
  * Calls on Blueprint credit, passed to the proxy under the signed-in account's access token, which
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   for (const [k, v] of request.headers)
     if (k === "content-type" || k === "accept" || k.startsWith("x-amzn-bedrock-") || k.startsWith("x-claude-code-")) headers.set(k, v);
   // A caller that stops (Esc in a tab) stops the call upstream too, and is charged for what came.
-  const res = await fetch(`${CREDIT_URL}/${lane}${rest}`, { method: "POST", headers, body: await request.arrayBuffer(), signal: request.signal }).catch(() => null);
+  const res = await api(`/${lane}${rest}`, { method: "POST", headers, body: await request.arrayBuffer(), signal: request.signal }).catch(() => null);
   if (!res) return Response.json({ message: "Blueprint credit could not be reached." }, { status: 502 });
   if (res.status === 401) dropAccess();
   const out = new Headers();

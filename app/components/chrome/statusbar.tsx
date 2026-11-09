@@ -18,7 +18,8 @@ import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
 import { onCreditChanged, percent, readCredit, resetsAt, type Credit } from "@/lib/client/credit";
 import { openSettings } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
-import { useMac } from "@/lib/client/platform";
+import { isDesktop, useMac } from "@/lib/client/platform";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * The line along the bottom of the window: what is true of the whole blueprint,
@@ -70,6 +71,7 @@ export function StatusBar() {
       ) : null}
       <span className="min-w-0 flex-1" />
       <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
+      {STATIC_BLUEPRINT ? null : <UpdateReady />}
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
       <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
         Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
@@ -88,6 +90,28 @@ export function StatusBar() {
 }
 
 /** What is left of this 5-hour session's Blueprint credit, while tabs run on it (lib/server/credit.ts). */
+/** A newer Blueprint, downloaded and staged (lib/server/update.ts); it goes in when the app next quits, or now. */
+function UpdateReady() {
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isDesktop()) return;
+    const read = () =>
+      void fetch("/api/update")
+        .then((r) => r.json() as Promise<{ ready: string | null }>)
+        .then((s) => setReady(s.ready), () => {});
+    read();
+    // Asking is local and cheap; the server looks for a release at most every 6 hours.
+    const t = setInterval(read, 60_000);
+    return () => clearInterval(t);
+  }, []);
+  if (!ready) return null;
+  return (
+    <Item title={`Blueprint ${ready} is downloaded. Restart to use it now, or it's used the next time Blueprint opens.`} onClick={() => void invoke("update_restart")} className="text-ink">
+      Restart to update
+    </Item>
+  );
+}
+
 function CreditLeft() {
   const [c, setC] = useState<Credit | null>(null);
   useEffect(() => {

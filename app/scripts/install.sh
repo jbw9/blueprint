@@ -105,6 +105,8 @@ rm -rf "$snap.old"
 if [ -d "$snap" ]; then retry mv "$snap" "$snap.old"; fi
 retry mv "$next" "$snap"
 rm -rf "$snap.old"
+# An update the app had staged (scripts/update.mjs) would replace this install when it next quits.
+rm -rf "$data/update" "$data/update.tmp"
 
 if [ "$os" = Darwin ]; then
   # Bluprint.app is this app under its old name.

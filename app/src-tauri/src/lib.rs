@@ -11,10 +11,24 @@ mod pty;
 mod rename;
 mod server;
 mod signins;
+mod update;
 
 use tauri::Manager;
 
 pub fn run() {
+    update::remember_exe();
+    // CI's check that a release's updater works (.github/scripts/check-update.sh): swap in what
+    // app/scripts/update.mjs staged, with no window.
+    if std::env::args().any(|a| a == "--apply-update") {
+        let code = match update::data_dir().ok_or("No data folder".to_string()).and_then(|d| update::apply(&d)) {
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("{e}");
+                1
+            }
+        };
+        std::process::exit(code);
+    }
     tauri::Builder::default()
         // The folder picker for importing a project; nothing else.
         .plugin(tauri_plugin_dialog::init())
@@ -57,6 +71,18 @@ pub fn run() {
             } else {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
+                    // A release staged by a Blueprint that ended without quitting goes in now, before its server starts.
+                    if let Ok(data) = handle.path().app_data_dir() {
+                        update::sweep(&data);
+                        match update::apply(&data) {
+                            Ok(true) => {
+                                update::relaunch();
+                                return handle.exit(0);
+                            }
+                            Ok(false) => {}
+                            Err(e) => eprintln!("update: {e}"),
+                        }
+                    }
                     if let Err(e) = server::start(&handle).and_then(|()| open_main(&handle).map_err(|e| e.to_string())) {
                         use tauri_plugin_dialog::DialogExt;
                         handle.dialog().message(e).title("Blueprint couldn't start").blocking_show();
@@ -118,6 +144,7 @@ pub fn run() {
             files::file_resolve,
             files::file_read,
             files::file_write,
+            update::update_restart,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the app")
@@ -129,6 +156,9 @@ pub fn run() {
                 app.state::<preview::Previews>().close_all();
                 devices::stop_all();
                 server::stop(app);
+                if !cfg!(debug_assertions) {
+                    update::on_exit(app);
+                }
             }
         });
 }

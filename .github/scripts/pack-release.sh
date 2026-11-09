@@ -29,6 +29,8 @@ fs.writeFileSync(path.join(dir, "links.json"), JSON.stringify(links));
 ' "$server"
 # The build cache only speeds up the next build here; env.json is this runner's Node and PATH.
 rm -rf "$server/.next/cache" "$server/env.json"
+# What the installed app compares with the next release's (app/scripts/update.mjs); a build from source has none.
+printf '{"version":"%s"}\n' "${BLUEPRINT_VERSION:-0.0.0}" >"$server/release.json"
 mv "$server" "$stage/server"
 cp "$src/scripts/install.sh" "$stage/"
 case $os in

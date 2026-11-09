@@ -1,0 +1,53 @@
+name: Release
+
+# A version tag (git tag v0.2.0 && git push origin v0.2.0) publishes Blueprint: install.yml builds and
+# checks it on each system, then one release takes every system's archive and latest.json, which the
+# installed app reads to update itself (app/scripts/update.mjs) and install.sh downloads from.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "A release tag is v and three numbers, like v0.2.0, not $GITHUB_REF_NAME"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/install.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  # Only once every system's archive is checked, so latest.json never names one that isn't there.
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish
+        run: |
+          sh .github/scripts/manifest.sh "$VERSION" "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME" dist >dist/latest.json
+          cat dist/latest.json
+          gh release create "$GITHUB_REF_NAME" dist/* -R "$GITHUB_REPOSITORY" --latest --title "Blueprint $VERSION" --generate-notes

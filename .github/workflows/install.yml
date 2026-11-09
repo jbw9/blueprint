@@ -1,9 +1,14 @@
 name: Install
 
 # The landing page's one-line install, run as a visitor runs it, on each system it names: built from
-# source, then packed as a release and installed again from that. On main the release is published as
-# `latest`, which install.sh downloads instead of building.
+# source, then packed as a release, installed again from that, and updated in place as the installed
+# app updates itself. A version tag runs it from release.yml, which publishes what it packs.
 on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
   push:
     paths:
       - install.sh
@@ -13,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: install-${{ github.ref }}
@@ -34,6 +39,7 @@ jobs:
     env:
       RAW: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
       BLUEPRINT_REF: ${{ github.sha }}
+      BLUEPRINT_VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,13 +73,19 @@ jobs:
       - name: Check the release
         run: sh .github/scripts/check-install.sh
 
-      - name: Publish
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Every system's job gets here; the first makes the release.
-          gh release view latest -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
-            gh release create latest -R "$GITHUB_REPOSITORY" --title Blueprint --notes "What install.sh downloads: main as it was built on its last push." ||
-            gh release view latest -R "$GITHUB_REPOSITORY" >/dev/null
-          gh release upload latest "$PACK" -R "$GITHUB_REPOSITORY" --clobber
+      # The updater this release ships, run on the release itself: an updater that can't update
+      # would leave everyone on this version.
+      - name: Update the release
+        run: sh .github/scripts/check-update.sh "$PACK"
+
+      - name: Keep the release
+        if: inputs.version
+        id: keep
+        run: echo "path=$(cygpath -m "$PACK" 2>/dev/null || echo "$PACK")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.version
+        with:
+          name: release-${{ matrix.os }}
+          path: ${{ steps.keep.outputs.path }}
+          compression-level: 0
