@@ -366,7 +366,7 @@ export async function relay({ stream, reply, account, ip, lane, model, op, heade
   const refuse = (r) => {
     const after = r.wait ?? (r.resets ? until(r.resets) : null);
     // A throttle Claude Code and the generator retry; a used-up allowance they show at once, which a retry-after over 60 does.
-    return reply(429, { message: r.wait ? r.reason : `${r.reason}${r.resets && !r.reason.includes("midnight") ? ` It opens again at ${new Date(r.resets).toUTCString()}.` : ""} Turn off Blueprint credit in Settings to use your own Claude.` }, {
+    return reply(429, { message: r.wait ? r.reason : `${r.reason}${r.resets && !r.reason.includes("midnight") ? ` It opens again at ${new Date(r.resets).toUTCString()}.` : ""} Switch to my Claude Code below to keep going on your own.` }, {
       "x-should-retry": r.wait ? "true" : "false",
       "x-amzn-errortype": r.wait ? "ThrottlingException" : "ServiceQuotaExceededException",
       ...(after ? { "retry-after": String(after) } : {}),
