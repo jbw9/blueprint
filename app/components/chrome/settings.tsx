@@ -295,6 +295,11 @@ export function SettingsDialog() {
                   <RunReports />
                 </Field>
               </Group>
+              <Group title="About">
+                <Field group label="Version" hint="Blueprint updates itself; a newer version is used once Blueprint restarts.">
+                  <Version />
+                </Field>
+              </Group>
             </>
           ) : null}
         </div>
@@ -447,6 +452,23 @@ function RunReports() {
       ]}
       onChange={choose}
     />
+  );
+}
+
+/** The release running and any staged to replace it (lib/server/update.ts); the About window shows only macOS's. */
+function Version() {
+  const [s, setS] = useState<{ version: string | null; ready: string | null } | null>(null);
+  useEffect(() => {
+    fetch("/api/update")
+      .then((r) => r.json())
+      .then(setS, () => setS(null));
+  }, []);
+  if (!s) return null;
+  return (
+    <p className="text-[13px] text-ink">
+      {s.version ?? "Built from source"}
+      {s.ready ? <span className="text-muted-slate"> · {s.ready} downloaded, used when Blueprint restarts</span> : null}
+    </p>
   );
 }
 
