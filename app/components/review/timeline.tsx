@@ -283,7 +283,7 @@ export function TimelineView() {
 
         {hover ? (
           <div
-            className="pointer-events-none absolute z-10 w-[280px] border border-border-gray bg-card px-3 py-2 shadow-sm"
+            className="pointer-events-none absolute z-10 w-[280px] border border-border-gray bg-card px-3 py-2 shadow-lift"
             style={{ left: Math.min(hover.x + 12, Math.max(width - 290, 0)), top: hover.y + 12 }}
           >
             <p className="text-[12.5px] font-medium leading-snug text-ink">{hover.c.subject}</p>

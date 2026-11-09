@@ -258,7 +258,7 @@ export function DiffPanel() {
                             compare(c);
                           }}
                           title={`Compare ${c.short} with ${anchor.short}`}
-                          className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-sm hover:border-accent group-hover:block"
+                          className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-panel hover:border-accent group-hover:block"
                         >
                           ⇄ Compare with {anchor.short}
                         </button>

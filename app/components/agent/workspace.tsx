@@ -1208,7 +1208,7 @@ export function Workspace() {
       data-chrome
       // Over the history popup's veil while it has a file open here, so the two read together.
       className={cn(
-        "fixed flex flex-col border border-border-gray bg-surface-container-low shadow-[0_8px_28px_-8px_rgba(0,0,0,0.35)]",
+        "fixed flex flex-col border border-border-gray bg-surface-container-low shadow-lift",
         readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
         // A staged Preview lies past the window's edge, and would be clipped.
         !stagedAt?.main && stagedAt ? "overflow-visible" : "overflow-hidden",
@@ -1404,7 +1404,7 @@ export function Workspace() {
         style={{ x: dotsX, y: dotsY, right: GAP, top: (desktop ? TITLEBAR : 0) + GAP }}
         title="Drag to move"
         data-chrome
-        className="fixed z-40 flex cursor-grab flex-col items-center gap-0.5 rounded-full border border-border-gray bg-card p-0.5 shadow-lift active:cursor-grabbing"
+        className="fixed z-40 flex cursor-grab flex-col items-center gap-0.5 border border-border-gray bg-card p-0.5 shadow-lift active:cursor-grabbing"
       >
         {panel
           .filter((t) => t.status)
@@ -1416,7 +1416,7 @@ export function Workspace() {
               onPointerDown={() => (dotsMoved.current = false)}
               onClick={() => !dotsMoved.current && bring(t.key)}
               title={`${nameOf(t)}: ${DOT[t.status!].label}`}
-              className="flex size-5 cursor-pointer items-center justify-center rounded-full hover:bg-surface-container"
+              className="flex size-5 cursor-pointer items-center justify-center hover:bg-surface-container"
             >
               <StatusDot status={t.status!} />
             </button>

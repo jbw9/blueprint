@@ -398,19 +398,19 @@ export function Device({
           <p className="text-[12px] text-faint">Waiting for the screen…</p>
         )}
         {picking ? (
-          <div aria-hidden className="pointer-events-none absolute border-2 border-[#d97757] bg-[#d97757]/8" style={picking.outline} />
+          <div aria-hidden className="pointer-events-none absolute border-2 border-claude bg-claude/8" style={picking.outline} />
         ) : null}
         {picking ? <PickMenu x={picking.x} y={picking.y} targets={[picking.target]} onClose={() => setPicking(null)} /> : null}
-        <div ref={ring} aria-hidden className="pointer-events-none absolute -left-3.5 -top-3.5 size-6 rounded-full border-2 border-[#d97757] opacity-0" />
+        <div ref={ring} aria-hidden className="pointer-events-none absolute -left-3.5 -top-3.5 size-6 rounded-full border-2 border-claude opacity-0" />
         <div
           ref={hand}
           aria-hidden
           className="pointer-events-none absolute -left-0.5 -top-px opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,.35)] transition-[transform,opacity] duration-[350ms] ease-[cubic-bezier(.3,.7,.25,1)]"
         >
           <svg width="22" height="24" viewBox="0 0 22 24">
-            <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" fill="#d97757" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M2 1.5 2 19.5 7 15 10.5 22.5 13.6 21 10.2 13.8 17 13.8Z" fill="var(--color-claude)" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />
           </svg>
-          <span className="absolute left-[18px] top-5 whitespace-nowrap bg-[#d97757] px-1.5 py-0.5 text-[11px] font-semibold leading-[1.3] text-white">Claude</span>
+          <span className="absolute left-[18px] top-5 whitespace-nowrap bg-claude px-1.5 py-0.5 text-[11px] font-semibold leading-[1.3] text-white">Claude</span>
         </div>
       </div>
     </Pane>

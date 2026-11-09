@@ -45,6 +45,10 @@
   --color-clay-surface: #fbe2e3;
   --color-clay-line: #e9a3a8;
 
+  /* ── claude — Claude's orange, wherever Claude is acting ── */
+  --color-claude: #d97757;
+  --color-claude-ink: #b4553a;
+
   /* ── lines — the ink at 18% and 50%, as on the landing ── */
   --color-border-gray: #d5daf5;
   --color-border-strong: #919be3;
@@ -254,6 +258,8 @@
   --color-clay-ink: #f08a8f;
   --color-clay-surface: #301e1f;
   --color-clay-line: #6a3c3e;
+
+  --color-claude-ink: #e8957a;
 
   --color-border-gray: #27272a;
   --color-border-strong: #3a3a40;

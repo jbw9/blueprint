@@ -567,8 +567,8 @@ export function Preview({
           {vw && vh ? dims : "—"}
         </button>
         {claude ? (
-          <span className="mr-1 flex shrink-0 items-center gap-1.5 bg-[#d97757]/12 px-2 py-0.5 text-[11px] text-[#b4553a]">
-            <span className="size-1.5 animate-pulse rounded-full bg-[#d97757]" />
+          <span className="mr-1 flex shrink-0 items-center gap-1.5 bg-claude/12 px-2 py-0.5 text-[11px] text-claude-ink">
+            <span className="size-1.5 animate-pulse rounded-full bg-claude" />
             Claude
           </span>
         ) : null}

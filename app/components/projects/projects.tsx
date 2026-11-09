@@ -758,8 +758,8 @@ function ProjectRow({
             setMenu({ x: r.right - 220, y: r.bottom + 4 });
           }}
           className={cn(
-            "flex size-7 shrink-0 cursor-pointer items-center justify-center text-[16px] leading-none text-faint hover:bg-border-gray hover:text-ink focus-visible:opacity-100",
-            menu ? "bg-border-gray text-ink" : "opacity-60 group-hover:opacity-100",
+            "flex size-7 shrink-0 cursor-pointer items-center justify-center text-[16px] leading-none text-faint hover:bg-surface-container hover:text-ink focus-visible:opacity-100",
+            menu ? "bg-surface-container text-ink" : "opacity-60 group-hover:opacity-100",
           )}
         >
           ⋯

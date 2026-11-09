@@ -6,7 +6,7 @@ import { cn } from "@/lib/client/utils";
 /** Claude waiting on the user to sign in to a site in the preview (components/preview/tools.ts `signIn`). */
 export function SignInBar({ signing, onKeep, onDone }: { signing: Signing; onKeep: (project: boolean) => void; onDone: (done: boolean) => void }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border-gray bg-[#d97757]/8 px-3 py-2 text-[12px]">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border-gray bg-claude/8 px-3 py-2 text-[12px]">
       <span className="min-w-0 flex-1 text-ink">
         Claude needs you to sign in to <b className="font-medium">{signing.site}</b>. Sign in on the page yourself: Claude never sees your
         password, and waits until you are done.
