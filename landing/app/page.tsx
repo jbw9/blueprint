@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Roboto, Zilla_Slab } from "next/font/google";
 import { LandingAgent } from "@/components/landing-agent";
+import { LandingContact } from "@/components/landing-contact";
 import { LandingCover } from "@/components/landing-cover";
 import { LandingEvolution } from "@/components/landing-evolution";
 import { LandingDemo, StarCount, type DemoBlueprint } from "@/components/landing-demo";
@@ -166,6 +167,7 @@ export default function Landing() {
             </h2>
             <div className={s.ctas}>{ctas}</div>
           </section>
+          <LandingContact />
         </div>
       </main>
 
@@ -183,8 +185,10 @@ export default function Landing() {
             </dd>
           </div>
           <div>
-            <dt>Site</dt>
-            <dd>blpr.dev</dd>
+            <dt>Contact</dt>
+            <dd>
+              <a href="#contact">Report an issue</a>
+            </dd>
           </div>
           <div>
             <dt>Scale</dt>

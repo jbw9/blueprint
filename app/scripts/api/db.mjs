@@ -2,6 +2,7 @@
 //   install / <at>#<rand>        one run of install.sh
 //   visit#<day> / <visitor>      one browser's views on blpr.dev that day
 //   run / <at>#<id>              one finished run, without its report; runbody#<id> / body holds that
+//   feedback / <at>#<id>         one bug report or feedback from the app; feedbackimg#<id> / <n> its pictures
 //   admin / pw                   the dashboard password, as scrypt salt:hash
 //   credit / config              the credit's settings (credit.mjs)
 //   account / gh:<id>            one GitHub account on the credit, and the machines it uses (auth.mjs)

@@ -16,16 +16,21 @@ import { promo, relay, status } from "./credit.mjs";
 import { under } from "./db.mjs";
 
 /** Asks per minute from one network: generous for a person, small for a script. The dashboard's ask a password. */
-const PER_MINUTE = { bp_track_install: 30, bp_track_visit: 120, bp_record_run: 30, admin: 30, signin: 10 };
+const PER_MINUTE = { bp_track_install: 30, bp_track_visit: 120, bp_record_run: 30, bp_feedback: 5, bp_feedback_status: 60, admin: 30, signin: 10 };
 
 const RPC = {
   bp_track_install: admin.trackInstall,
   bp_track_visit: admin.trackVisit,
   bp_record_run: admin.recordRun,
+  bp_feedback: admin.sendFeedback,
+  bp_feedback_status: admin.feedbackStatus,
   bp_admin_overview: admin.overview,
   bp_admin_run: admin.run,
   bp_admin_repo: admin.repo,
   bp_admin_credit: admin.credit,
+  bp_admin_feedback: admin.feedback,
+  bp_admin_feedback_images: admin.feedbackImages,
+  bp_admin_feedback_set: admin.setFeedbackStatus,
 };
 
 /**

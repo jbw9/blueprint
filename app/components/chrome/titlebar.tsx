@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
+import { openFeedback } from "@/components/chrome/feedback";
 import { openPalette } from "@/components/chrome/palette";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openProjects } from "@/components/projects/projects";
@@ -91,6 +92,13 @@ export function Titlebar({ bare }: { bare?: boolean }) {
             <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
           </Control>
         )}
+        <Control label="Report a bug or send feedback" onClick={openFeedback}>
+          {/* Lucide's message-square-warning, drawn on 24 and scaled to the 16 grid like the gear. */}
+          <g transform="scale(0.6667)" strokeWidth="1.875">
+            <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+            <path d="M12 7v4M12 15h.01" />
+          </g>
+        </Control>
         <Control label="Settings" onClick={openSettings}>
           {/* Lucide's gear, drawn on 24 and scaled to the 16 grid; the stroke
               is scaled up to match so it reads as heavy as its neighbours. */}

@@ -147,6 +147,12 @@ button.repo:hover { text-decoration-color: var(--ink); }
 .better { background: var(--ink); color: var(--on-ink); padding: 0 4px; }
 .worse { background: var(--blush); padding: 0 4px; }
 .delta { font-size: 10.5px; margin-left: 6px; }
+td.msg { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); background: var(--paper); font: 11px var(--mono); text-transform: uppercase; color: var(--ink); cursor: pointer; }
+.fbText { margin: 0; font: 13px/1.55 var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.shots { display: flex; flex-wrap: wrap; gap: 10px; }
+.shots a { display: block; border: 1px solid var(--strong); }
+.shots img { display: block; max-width: min(520px, 80vw); max-height: 320px; }
 
 /* the drawing's title block */
 .end { display: grid; grid-template-columns: 2fr 2fr 1fr 1fr; margin-top: 64px; border: 1px solid var(--ink); }
@@ -199,6 +205,10 @@ button.repo:hover { text-decoration-color: var(--ink); }
   var repoView = null;
   var runFilter = "all";
   var details = {};
+  var openFb = null;
+  var fbFilter = "open";
+  var fbImages = {};
+  var FB_STATUS = ["pending", "in progress", "resolved", "closed"];
 
   function stored() { try { localStorage.removeItem(PW); return sessionStorage.getItem(PW) || ""; } catch (e) { return ""; } }
   function keep(v) { try { v ? sessionStorage.setItem(PW, v) : sessionStorage.removeItem(PW); } catch (e) {} }
@@ -254,9 +264,10 @@ button.repo:hover { text-decoration-color: var(--ink); }
 
   function load(pw) {
     bar.innerHTML = '<span class="stamp">Loading…</span>';
-    Promise.all([rpc("bp_admin_overview", { pw: pw }), rpc("bp_admin_credit", { pw: pw })]).then(function (both) {
+    Promise.all([rpc("bp_admin_overview", { pw: pw }), rpc("bp_admin_credit", { pw: pw }), rpc("bp_admin_feedback", { pw: pw })]).then(function (both) {
       var d = both[0];
       d.credit = both[1];
+      d.feedback = both[2] || [];
       keep(pw);
       data = d;
       details = {};
@@ -447,6 +458,8 @@ button.repo:hover { text-decoration-color: var(--ink); }
       "</tbody></table></div></section>" +
 
       '<section><p class="eyebrow">Runs</p><h2>Recent blueprints</h2><p class="lede">The latest 200 new blueprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p><div style="margin-top:14px" id="runs">' + runsTable() + "</div></section>" +
+
+      '<section><p class="eyebrow">Feedback</p><h2>Bugs and feedback</h2><p class="lede">Sent from the app\'s Feedback dialog and the contact form on blpr.dev. Each sender sees the status you set here: in the app beside what they sent.</p><div style="margin-top:14px" id="feedback">' + feedbackTable() + "</div></section>" +
 
       creditSection(d.credit) +
 
@@ -640,6 +653,54 @@ button.repo:hover { text-decoration-color: var(--ink); }
       }).join("") + "</tbody></table></div>";
   }
 
+  // Bug reports and feedback (app/scripts/api/admin.mjs, sendFeedback): open ones first, click one for its whole text and pictures.
+  function feedbackTable() {
+    var all = data.feedback || [];
+    var open = function (f) { return f.status === "pending" || f.status === "in progress" || !f.status; };
+    var rows = all.filter(function (f) { return fbFilter === "all" || (fbFilter === "bug" ? f.kind === "bug" : open(f)); });
+    var filters = [["open", "Open · " + all.filter(open).length], ["bug", "Bugs"], ["all", "All · " + all.length]].map(function (f) {
+      return '<button class="btn" data-fbfilter="' + f[0] + '" aria-pressed="' + (fbFilter === f[0]) + '">' + f[1] + "</button>";
+    }).join("");
+    if (!rows.length) return '<div class="filters">' + filters + '</div><p class="empty">Nothing here</p>';
+    return '<div class="filters">' + filters + '</div><div class="scroll"><table><thead><tr>' +
+      "<th>When</th><th>Kind</th><th>Status</th><th>From</th><th>Message</th><th>Email</th><th class=\"num\">Pictures</th><th>Version</th><th>Machine</th>" +
+      "</tr></thead><tbody>" + rows.map(function (f) {
+        var isOpen = openFb === f.id;
+        var pics = fbImages[f.id];
+        return '<tr class="run' + (isOpen ? " open" : "") + '" data-fb="' + f.id + '">' +
+          '<td title="' + esc(new Date(f.at).toLocaleString()) + '">' + when(f.at) + "</td>" +
+          '<td><span class="tag ' + (f.kind === "bug" ? "bad" : "") + '">' + esc(f.kind) + "</span></td>" +
+          '<td><select class="status" data-fbid="' + f.id + '" data-fbat="' + esc(f.at) + '">' + FB_STATUS.map(function (st) {
+            return "<option" + ((f.status || "pending") === st ? " selected" : "") + ">" + st + "</option>";
+          }).join("") + "</select></td>" +
+          "<td>" + esc(f.source || "app") + '</td><td class="msg">' + esc(f.message.split("\n")[0]) + "</td>" +
+          "<td>" + (f.email ? '<a href="mailto:' + esc(f.email) + '">' + esc(f.email) + "</a>" : "—") + '</td><td class="num">' + n(f.images || 0) + "</td>" +
+          "<td>" + esc(f.app_version || "—") + "</td><td>" + esc((f.install_id || "").slice(0, 8)) + "</td></tr>" +
+          (isOpen ? '<tr><td class="detail" colspan="9"><div class="detailIn">' +
+            '<div class="wide"><h4>Message</h4><p class="fbText">' + esc(f.message) + "</p></div>" +
+            '<div><h4>Sent</h4><div class="kv"><span>at</span><span>' + esc(new Date(f.at).toLocaleString()) + "</span><span>from</span><span>" + esc(f.source || "app") +
+            "</span><span>system</span><span>" + esc(f.os || "—") + "</span><span>app</span><span>" + esc(f.app_version || "—") + "</span><span>machine</span><span>" + esc(f.install_id || "—") +
+            (f.updated_at ? "</span><span>updated</span><span>" + esc(new Date(f.updated_at).toLocaleString()) : "") + "</span></div></div>" +
+            (f.images ? '<div class="wide"><h4>Pictures</h4>' + (pics == null ? '<p class="empty">Loading…</p>' : pics.error ? '<p class="empty">' + esc(pics.error) + "</p>" :
+              '<div class="shots">' + pics.map(function (src, i) {
+                return /^data:image\/(png|jpeg|webp|gif);base64,/.test(src) ? '<a href="' + src + '" download="feedback-' + f.id + "-" + (i + 1) + '" title="Download"><img src="' + src + '" alt="Picture ' + (i + 1) + '"></a>' : "";
+              }).join("") + "</div>") + "</div>" : "") +
+            "</div></td></tr>" : "");
+      }).join("") + "</tbody></table></div>";
+  }
+
+  function rerenderFeedback() { document.getElementById("feedback").innerHTML = feedbackTable(); }
+
+  document.addEventListener("change", function (e) {
+    var sel = e.target;
+    if (!sel.dataset || !sel.dataset.fbid) return;
+    var id = Number(sel.dataset.fbid), status = sel.value;
+    sel.disabled = true;
+    rpc("bp_admin_feedback_set", { pw: stored(), id: id, at: sel.dataset.fbat, status: status }).then(function (row) {
+      data.feedback.forEach(function (f) { if (f.id === id && row) { f.status = row.status; f.updated_at = row.updated_at; } });
+    }, function (err) { alert("Couldn't change it: " + err.message); }).then(rerenderFeedback);
+  });
+
   function rerenderRuns() { document.getElementById("runs").innerHTML = runsTable(); }
 
   document.addEventListener("click", function (e) {
@@ -663,6 +724,19 @@ button.repo:hover { text-decoration-color: var(--ink); }
       return;
     }
     if (t.id === "out") { keep(""); data = null; return gate(); }
+    if (t.dataset.fbfilter) { fbFilter = t.dataset.fbfilter; openFb = null; return rerenderFeedback(); }
+    if (t.dataset.fb) {
+      if (e.target.closest("select, a")) return;
+      var fid = Number(t.dataset.fb);
+      openFb = openFb === fid ? null : fid;
+      rerenderFeedback();
+      var f = data.feedback.filter(function (x) { return x.id === fid; })[0];
+      if (openFb && f && f.images && !fbImages[fid]) {
+        rpc("bp_admin_feedback_images", { pw: stored(), id: fid }).then(function (r) { fbImages[fid] = r || []; }, function (err) { fbImages[fid] = { error: err.message }; })
+          .then(function () { if (openFb === fid) rerenderFeedback(); });
+      }
+      return;
+    }
     if (t.dataset.filter) { runFilter = t.dataset.filter; openRun = null; return rerenderRuns(); }
     if (t.dataset.run) {
       var id = Number(t.dataset.run);

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { openFeedback } from "@/components/chrome/feedback";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
 import { openFileInTab } from "@/components/blueprint/code";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
@@ -259,6 +260,7 @@ export function Palette() {
       { key: "a:projects", label: "Projects", hint: "Your blueprints: open, regenerate, remove", kind: "action", run: () => openProjects() },
       { key: "a:blueprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("blueprints")) },
       { key: "a:settings", label: "Settings", kind: "action", run: openSettings },
+      { key: "a:feedback", label: "Report a bug or send feedback", hint: "Goes to the people who make Blueprint", kind: "action", run: openFeedback },
       // After the palette has closed, so the words go to Claude's prompt rather than the palette's field.
       ...(desktop
         ? [{ key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the keys", kind: "action" as const, kbd: `Hold ${dictateKeys(mac)}`, run: () => setTimeout(startDictation) }]

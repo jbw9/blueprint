@@ -2,6 +2,7 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
+import { openFeedback } from "@/components/chrome/feedback";
 import { openPalette } from "@/components/chrome/palette";
 import { openFiles } from "@/components/blueprint/files";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
@@ -26,6 +27,7 @@ const ACTIONS: Record<string, () => unknown> = {
   history: openHistory,
   files: () => openFiles(),
   claude: openClaude,
+  feedback: openFeedback,
 };
 
 export function MenuBar() {

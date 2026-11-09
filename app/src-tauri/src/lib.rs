@@ -220,6 +220,9 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
         ])?;
     }
+    if let Some(help) = named("Help")? {
+        help.append(&open("feedback", "Report a Bug or Send Feedback…", None)?)?;
+    }
     let cmd = MenuItem::with_id(app, "terminal", "Toggle Terminal", true, Some("Cmd+`"))?;
     let ctrl = MenuItem::with_id(app, "terminal-ctrl", "Toggle Terminal", true, Some("Ctrl+`"))?;
     // Claude Code's send-now (components/agent/shell.tsx): Control-Return is otherwise

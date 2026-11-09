@@ -8,6 +8,7 @@ import { BlueprintProvider } from "@/components/blueprint/blueprint-context";
 import { ProjectsDialog } from "@/components/projects/projects";
 import { AuditDialog } from "@/components/blueprint/audit";
 import { HistoryDialog } from "@/components/review/additions";
+import { FeedbackDialog } from "@/components/chrome/feedback";
 import { SettingsDialog } from "@/components/chrome/settings";
 import { Copied } from "@/components/chrome/copied";
 import { MenuBar } from "@/components/chrome/menubar";
@@ -52,6 +53,7 @@ export default async function Home({
         <Titlebar bare />
         <NoProject blueprints={listBlueprints()} />
         <SettingsDialog />
+        <FeedbackDialog />
         <ProjectsDialog />
         <MenuBar />
       </div>
@@ -98,6 +100,7 @@ export default async function Home({
           <Palette />
         </Suspense>
         <SettingsDialog />
+        <FeedbackDialog />
         {STATIC_BLUEPRINT ? null : <Dictation />}
         {STATIC_BLUEPRINT ? null : <Copied />}
         <ProjectsDialog />

@@ -4,7 +4,7 @@
 // checks the one dashboard password.
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { config, status } from "./credit.mjs";
-import { daysAgo, get, getMany, put, query, today, update, without } from "./db.mjs";
+import { daysAgo, get, getMany, put, query, refused, today, update, without } from "./db.mjs";
 
 const clip = (s, n) => (typeof s === "string" ? s.slice(0, n) : undefined);
 const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : undefined);
@@ -446,5 +446,8 @@ export async function feedbackImages({ pw, id } = {}) {
 export async function setFeedbackStatus({ pw, id, at, status } = {}) {
   await allowed(pw);
   if (!Number.isSafeInteger(id) || typeof at !== "string" || !FEEDBACK_STATUS.includes(status)) return null;
-  return update("feedback", `${at}#${id}`, "SET #s = :s, updated_at = :now", { ":s": status, ":now": new Date().toISOString() }, "attribute_exists(pk)", { "#s": "status" });
+  return update("feedback", `${at}#${id}`, "SET #s = :s, updated_at = :now", { ":s": status, ":now": new Date().toISOString() }, "attribute_exists(pk)", { "#s": "status" }).catch((e) => {
+    if (refused(e)) return null;
+    throw e;
+  });
 }
