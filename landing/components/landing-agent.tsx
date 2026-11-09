@@ -1,5 +1,3 @@
-import type { Diagram } from "@/lib/blueprints";
-import { BOX_H, layoutDagre } from "@/lib/dagre";
 import s from "./landing.module.css";
 
 /** The agents the app opens beside the blueprint (app/components/agent/agents.tsx), with their Simple Icons marks. */
@@ -22,18 +20,37 @@ const Logo = ({ d }: { d: string }) => (
   </svg>
 );
 
+const W = 164;
+const H = 44;
+const at = (b: { col: number; row: number }) => ({ x: 1 + b.col * 204, y: 34 + b.row * 96 });
+
+/** A small made-up overview, drawn by hand: neighbours only, so every line is straight. */
+const BOXES = [
+  { id: "desktop", label: "Desktop App", col: 0, row: 0 },
+  { id: "ui", label: "Building the App", col: 1, row: 0, v: "near" },
+  { id: "view", label: "Viewing a Blueprint", col: 2, row: 0, v: "changed" },
+  { id: "lib", label: "Shared Libraries", col: 3, row: 0 },
+  { id: "gen", label: "Generator", col: 1, row: 1 },
+  { id: "config", label: "Configuration", col: 2, row: 1 },
+] as const;
+const ARROWS = [
+  ["desktop", "ui"],
+  ["ui", "view"],
+  ["view", "lib"],
+  ["ui", "gen"],
+  ["view", "config"],
+] as const;
+const CHANGED = "Viewing a Blueprint";
+
 /**
  * The app beside the agent writing the code: the agent's terminal, with the
- * part picked on the blueprint as its context, and the blueprint's top-level picture
+ * part picked on the blueprint as its context, and a small made-up top-level picture
  * after the edit, drawn as diff mode draws it: the box whose code changed
  * filled, the box that calls into it dashed, the rest receding. Drawn, not
  * live: the frame above has Claude, not the agents.
  */
-export function LandingAgent({ name, diagram, changed }: { name: string; diagram: Diagram; changed: string }) {
-  const box = new Map(diagram.boxes.map((b) => [b.id, b]));
-  const near = new Set(diagram.arrows.filter((a) => a.to === changed).map((a) => a.from));
-  const title = box.get(changed)!.label;
-  const L = layoutDagre(diagram, true);
+export function LandingAgent({ name }: { name: string }) {
+  const box = new Map(BOXES.map((b) => [b.id, b]));
   return (
     <section id="agent" className={s.section} aria-labelledby="agent-title">
       <div className={`${s.wrap} ${s.agent}`}>
@@ -59,23 +76,29 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
               <span className={s.winName}>{name}</span>
               <span>Showing changes · 1 changed</span>
             </p>
-            <svg viewBox={`0 0 ${L.W} ${L.H}`} className={s.roots}>
+            <svg viewBox="0 0 778 196" className={s.roots}>
               <defs>
-                <marker id="agent-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <marker id="agent-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
                   <path d="M1 1.2L7 4 1 6.8z" />
                 </marker>
               </defs>
-              {L.arrows.map((a) => (
-                <g key={a.from + a.to} className={s.wire} data-near={a.to === changed || (a.both && a.from === changed) || undefined}>
-                  <path d={a.d} markerEnd="url(#agent-arrow)" markerStart={a.both ? "url(#agent-arrow)" : undefined} />
-                </g>
-              ))}
-              {L.boxes.map(({ x, y, w, b }) => {
-                const v = b.id === changed ? "changed" : near.has(b.id) ? "near" : undefined;
+              {ARROWS.map(([from, to]) => {
+                const f = at(box.get(from)!);
+                const t = at(box.get(to)!);
+                const d = f.x === t.x ? `M${f.x + W / 2} ${f.y + H}V${t.y - 4}` : `M${f.x + W} ${f.y + H / 2}H${t.x - 4}`;
+                return (
+                  <g key={from + to} className={s.wire} data-near={box.get(to)!.label === CHANGED || undefined}>
+                    <path d={d} markerEnd="url(#agent-arrow)" />
+                  </g>
+                );
+              })}
+              {BOXES.map((b) => {
+                const { x, y } = at(b);
+                const v = "v" in b ? b.v : undefined;
                 return (
                   <g key={b.id} data-v={v}>
-                    <rect x={x} y={y} width={w} height={BOX_H} />
-                    <text x={x + w / 2} y={y + BOX_H / 2 + 5} textAnchor="middle">
+                    <rect x={x} y={y} width={W} height={H} />
+                    <text x={x + W / 2} y={y + H / 2 + 4.5} textAnchor="middle">
                       {b.label}
                     </text>
                     {v === "changed" ? (
@@ -106,7 +129,7 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
               <span className={s.faintText}>{"  "}⎿ Updated with 4 additions and 2 removals</span>
             </pre>
             <p className={s.context}>
-              context <span className={s.picked}>✓ {title}</span>
+              context <span className={s.picked}>✓ {CHANGED}</span>
             </p>
           </div>
         </div>

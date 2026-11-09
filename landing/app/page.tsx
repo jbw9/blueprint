@@ -157,7 +157,7 @@ export default function Landing() {
             }}
           />
         </div>
-        <LandingAgent name="blueprint" diagram={blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!} changed="bx-app-app" />
+        <LandingAgent name="blueprint" />
         <div className={s.wrap}>
           <LandingStart />
           <section className={`${s.close} ${s.reveal}`} aria-labelledby="close-title">
