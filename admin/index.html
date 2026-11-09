@@ -86,8 +86,18 @@ h2 { margin: 0 0 4px; font: 300 clamp(26px, 2.6vw, 38px)/1.05 var(--display); le
 
 /* the sheet's sections */
 .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 36px 0 26px; }
-section { margin-top: 44px; }
-#runs { scroll-margin-top: 72px; }
+section { margin-top: 64px; scroll-margin-top: 112px; }
+#runs { scroll-margin-top: 112px; }
+.body { margin-top: 16px; }
+.body > * + * { margin-top: 18px; }
+.body > h3.sub { margin: 36px 0 0; }
+.body > h3.sub + * { margin-top: 10px; }
+.body > h3.sub + .lede + * { margin-top: 12px; }
+.toc { position: sticky; top: 56px; z-index: 4; display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 10px 0; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(10px); font: 12px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.toc a { color: var(--muted); text-decoration: none; }
+.toc a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.note { margin: 10px 0 0; font: 10.5px var(--mono); text-transform: uppercase; color: var(--faint); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border: 1px solid var(--ink); }
 .tile { padding: 10px 14px 14px; border-left: 1px solid var(--ink); border-top: 1px solid var(--ink); margin: -1px 0 0 -1px; min-width: 0; }
 .tile dt { font: 10.5px var(--mono); text-transform: uppercase; color: var(--muted); }
@@ -203,7 +213,7 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
   var openRun = null;
   var openUpdate = null;
   var repoView = null;
-  var runFilter = "all";
+  var runFilter = "people";
   var details = {};
   var openFb = null;
   var fbFilter = "open";
@@ -269,6 +279,8 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
       d.credit = both[1];
       d.feedback = both[2] || [];
       keep(pw);
+      // This browser is ours: blpr.dev stops counting its visits (landing/components/landing-visit.tsx).
+      try { localStorage.setItem("bp-team", "1"); } catch (e) {}
       data = d;
       details = {};
       render();
@@ -278,34 +290,54 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
     });
   }
 
-  function bars(rows, a, b) {
-    var max = Math.max(1, Math.max.apply(null, rows.map(function (r) { return (r[a] || 0) + (b ? r[b] || 0 : 0); })));
+  // One bar a day. `b` sits on top of `a`; when `within`, b is part of a (copied, of the visitors), so the bar is a tall.
+  function bars(rows, a, b, names, within, fmt) {
+    fmt = fmt || n;
+    var max = Math.max.apply(null, rows.map(function (r) { return (r[a] || 0) + (b && !within ? r[b] || 0 : 0); })) || 1;
     return '<div class="bars">' + rows.map(function (r) {
+      var x = r[a] || 0, y = b ? r[b] || 0 : 0;
       var day = new Date(r.day + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      var tip = day + ": " + (r[a] || 0) + (b ? " / " + (r[b] || 0) : "");
-      return '<div class="bar" title="' + esc(tip) + '"><i style="height:' + (100 * (r[a] || 0) / max) + '%"></i>' +
-        (b ? '<i class="b" style="height:' + (100 * (r[b] || 0) / max) + '%"></i>' : "") + "</div>";
-    }).join("") + '</div><div class="axis"><span>30 days ago</span><span>Today</span></div>';
+      var tip = day + ": " + fmt(x) + " " + names[0] + (b ? " · " + fmt(y) + " " + names[1] : "");
+      return '<div class="bar" title="' + esc(tip) + '"><i style="height:' + (100 * (within ? x - y : x) / max) + '%"></i>' +
+        (b ? '<i class="b" style="height:' + (100 * y / max) + '%"></i>' : "") + "</div>";
+    }).join("") + '</div><div class="axis"><span>30 days ago</span><span>Today</span></div>' +
+      '<div class="key"><span><i></i>' + names[0] + "</span>" + (b ? '<span><i class="b"></i>' + names[1] + "</span>" : "") + "</div>";
   }
 
   function list(rows, label, value) {
     if (!rows.length) return '<p class="empty">Nothing yet</p>';
-    var max = Math.max.apply(null, rows.map(function (r) { return r[value]; }));
+    var max = Math.max.apply(null, rows.map(function (r) { return r[value]; })) || 1;
     return '<div class="list">' + rows.map(function (r) {
       return '<div><b style="width:' + (100 * r[value] / max) + '%"></b><span>' + esc(r[label]) + "</span><span>" + n(r[value]) + "</span></div>";
     }).join("") + "</div>";
   }
 
-  // Each step's people over 30 days; a step can outgrow the one before (an install without a visit to blpr.dev).
+  // Each step counted on its own since launch, so a step can outgrow the one before (an install without a visit to blpr.dev).
   function funnel(d) {
-    var signups = d.credit ? d.credit.daily.reduce(function (a, x) { return a + (x.signups || 0); }, 0) : null;
     return [
-      { step: "Visited blpr.dev", n: d.visitors_30 },
-      { step: "Copied the install", n: d.copied_30 },
-      { step: "Installed", n: d.installs_30 },
-      { step: "Signed in to credit", n: signups },
-      { step: "Made a blueprint", n: d.machines_30 }
+      { step: "Visited blpr.dev", n: d.visitors },
+      { step: "Copied the install", n: d.copied },
+      { step: "Installed", n: d.installs },
+      { step: "Signed in to credit", n: d.credit ? d.credit.people.accounts : null },
+      { step: "Made a blueprint", n: d.machines }
     ].filter(function (r) { return r.n != null; });
+  }
+
+  var SYSTEMS = { "Darwin arm64": "macOS · Apple silicon", "Darwin x86_64": "macOS · Intel", "Linux x86_64": "Linux · x86_64", "Linux aarch64": "Linux · ARM" };
+  function system(os, arch) {
+    var k = (os || "?") + (arch ? " " + arch : "");
+    return SYSTEMS[k] || (/^(MINGW|MSYS|CYGWIN)/.test(os || "") ? "Windows · " + (arch || "?") : k);
+  }
+
+  function installsTable(rows) {
+    if (!rows.length) return '<p class="empty">No installs yet</p>';
+    return '<div class="scroll"><table><thead><tr><th>When</th><th>Status</th><th>Where</th><th>IP</th><th>Network</th><th>System</th><th>Version</th></tr></thead><tbody>' +
+      rows.map(function (i) {
+        return '<tr><td title="' + esc(new Date(i.at).toLocaleString()) + '">' + when(i.at) + "</td>" +
+          '<td><span class="tag ' + (i.ok ? "ok" : "bad") + '">' + (i.ok ? "worked" : "failed") + "</span></td>" +
+          "<td>" + esc([i.city, i.region, i.country].filter(Boolean).join(", ") || "—") + "</td><td>" + esc(i.ip || "—") + "</td><td>" + esc(i.org || "—") + "</td>" +
+          "<td>" + esc(system(i.os, i.arch)) + "</td><td>" + esc(i.version || "—") + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
   }
 
   function tile(label, value, sub) {
@@ -385,19 +417,19 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
   function runsTable() {
     if (repoView) return repoPanel();
     var rows = data.recent.filter(function (r) {
-      return runFilter === "all" || r.status !== "ok";
+      return runFilter === "all" || (runFilter === "failed" ? r.status !== "ok" : !r.ours);
     });
-    var filters = [["all", "All"], ["failed", "Failed"]].map(function (f) {
+    var filters = [["people", "People's"], ["all", "All, ours too"], ["failed", "Failed"]].map(function (f) {
       return '<button class="btn" data-filter="' + f[0] + '" aria-pressed="' + (runFilter === f[0]) + '">' + f[1] + "</button>";
     }).join("");
-    if (!rows.length) return '<div class="filters">' + filters + '</div><p class="empty">No runs yet</p>';
+    if (!rows.length) return '<div class="filters">' + filters + '</div><p class="empty">Nothing here</p>';
     return '<div class="filters">' + filters + '</div><div class="scroll"><table><thead><tr>' +
       '<th>When</th><th>Status</th><th>Version</th><th>Repo</th><th>Commit</th><th class="num">Files</th><th class="num">Quick</th><th class="num">Total</th><th class="num">Cost</th><th class="num">Updates</th><th>Backend</th><th>Machine</th>' +
       "</tr></thead><tbody>" + rows.map(function (r) {
         var open = openRun === r.id;
         return '<tr class="run' + (open ? " open" : "") + '" data-run="' + r.id + '">' +
           '<td title="' + esc(new Date(r.at).toLocaleString()) + '">' + when(r.at) + "</td>" +
-          '<td><span class="tag ' + (r.status === "ok" ? "ok" : "bad") + '">' + esc(r.status) + "</span></td>" +
+          '<td><span class="tag ' + (r.status === "ok" ? "ok" : "bad") + '">' + esc(r.status) + "</span>" + (r.ours ? ' <span class="tag">ours</span>' : "") + "</td>" +
           "<td>" + ver(r.mapper_version) + '</td><td><button class="repo" data-repo="' + esc(r.repo) + '" title="Every blueprint of ' + esc(r.repo) + ' across versions">' + esc(r.repo) + "</button></td>" +
           "<td>" + esc((r.repo_commit || "").slice(0, 7)) + '</td><td class="num">' + n(r.files) + '</td><td class="num">' + secs(r.quick_s) +
           '</td><td class="num">' + secs(r.total_s) + '</td><td class="num">' + usd(r.usd) + '</td><td class="num" title="' + usd(r.updates_usd) + ' in updates">' + n(r.updates) + "</td><td>" + esc(r.backend) +
@@ -406,131 +438,163 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
       }).join("") + "</tbody></table></div>";
   }
 
+  var SECTIONS = [["overview", "Overview"], ["web", "Website"], ["installs", "Installs"], ["app", "App"], ["cost", "Cost"], ["generator", "Generator"], ["feedback", "Feedback"]];
+
+  function section(id, eyebrow, title, lede, body) {
+    return '<section id="' + id + '"><p class="eyebrow">' + eyebrow + "</p><h2>" + title + "</h2>" + (lede ? '<p class="lede">' + lede + "</p>" : "") + '<div class="body">' + body + "</div></section>";
+  }
+  var card = function (title, body, aside) { return '<div class="card"><h3>' + title + (aside != null ? " <span>" + aside + "</span>" : "") + "</h3>" + body + "</div>"; };
+
   function render() {
     var d = data;
-    var latest = d.versions.filter(function (v) { return v.mapper_version != null; })[0];
+    var launched = new Date(d.launch).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
     bar.innerHTML = '<span class="stamp">Updated ' + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) + "</span>" +
       '<button class="btn" id="refresh">Refresh</button><button class="btn" id="out">Sign out</button>';
     app.innerHTML = '<div class="wrap">' +
-      '<div class="head"><div><p class="eyebrow">Internal · last 30 days</p><h1>How Blueprint is doing</h1>' +
-      '<p class="lede">Installs from install.sh, visits to blpr.dev, and every blueprint run reported by the app, by generator version.</p></div></div>' +
+      '<div class="head"><div><p class="eyebrow">Internal · since launch, ' + esc(launched) + '</p><h1>How Blueprint is doing</h1>' +
+      '<p class="lede">Every number is people\'s, counted from launch. Left out: whatever CI runs, and us: the browsers, machines and GitHub accounts here before launch, ' +
+      'any browser that opens this page, installs from a network it was opened from, and accounts marked <code>team</code>.</p></div></div>' +
+      '<nav class="toc">' + SECTIONS.map(function (s) { return '<a href="#' + s[0] + '">' + s[1] + "</a>"; }).join("") + "</nav>" +
+      overviewSection(d) + webSection(d) + installsSection(d) + appSection(d) + costSection(d.credit) + generatorSection(d) +
+      section("feedback", "Feedback", "Bugs and feedback", "Sent from the app's Feedback dialog and the contact form on blpr.dev. Each sender sees the status you set here, in the app beside what they sent.", '<div id="feedback">' + feedbackTable() + "</div>") +
+      '<dl class="end"><div class="title"><dt>Title</dt><dd>Blueprint admin</dd></div><div><dt>Drawn</dt><dd>' +
+      new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) + '</dd></div><div><dt>Sheet</dt><dd>1 of 1</dd></div><div><dt>Site</dt><dd><a href="https://blpr.dev">blpr.dev</a></dd></div></dl>' +
+      "</div>";
+  }
 
+  function overviewSection(d) {
+    var c = d.credit, lo = d.left_out;
+    var out = [
+      { what: "Installs run by CI", n: lo.installs_ci },
+      { what: "Installs from our networks", n: lo.installs_ours },
+      { what: "Our browsers", n: lo.browsers },
+      { what: "Our machines", n: lo.machines },
+      { what: "Our blueprints since launch", n: lo.runs }
+    ].concat(c ? [{ what: "Our GitHub accounts", n: c.team_accounts }] : []);
+    return section("overview", "Overview", "At a glance", "",
       '<dl class="tiles">' +
-      (d.credit && d.credit.life ? tile("Tokens processed", big(d.credit.life.tab_tokens + d.credit.life.gen_tokens), "lifetime, on Blueprint credit") +
-        tile("Total cost", usd(d.credit.life.tab_usd + d.credit.life.gen_usd), usd(d.credit.life.tab_usd) + " Claude Code · " + usd(d.credit.life.gen_usd) + " maps") : "") +
-      tile("Installs", n(d.installs_30), n(d.installs_failed_30) + " failed · " + n(d.installs) + " all time") +
-      tile("Visitors", n(d.visitors_30), n(d.views_30) + " page views") +
-      tile("Copied install", n(d.copied_30), pct(d.copied_30, d.visitors_30) + " of visitors") +
-      tile("New blueprints", n(d.runs_30), pct(d.runs_failed_30, d.runs_30) + " failed · " + n(d.updates_30) + " updates") +
-      tile("Machines", n(d.machines), "that sent a run") +
-      tile("Model spend", usd(d.usd_30), "at API list price") +
-      tile("Mapper", latest ? ver(latest.mapper_version) : "—", latest ? "median " + secs(latest.total_s) + " · " + usd(latest.usd) : "no runs yet") +
+      tile("Unique visitors", n(d.visitors), n(d.visits) + " visits · " + n(d.views) + " page views") +
+      tile("Copied install", n(d.copied), pct(d.copied, d.visitors) + " of visitors") +
+      tile("Installs", n(d.installs), n(d.installers) + " IPs · " + n(d.installs_failed) + " failed") +
+      tile("Signed in", c ? n(c.people.accounts) : "—", c ? n(c.people.active_7) + " active in the last 7 days" : "") +
+      tile("Blueprints", n(d.blueprints), n(d.machines) + " machines · " + n(d.updates) + " updates") +
+      tile("Credit spend", c ? usd(c.people.tab_usd + c.people.gen_usd) : "—", c ? big(c.people.tab_tokens + c.people.gen_tokens) + " tokens" : "") +
       "</dl>" +
+      '<div class="grid3">' +
+      card("Funnel", list(funnel(d), "step", "n") + '<p class="note">Each step counted on its own.</p>') +
+      card("Not counted", list(out, "what", "n") + '<p class="note">CI and us, left out of every number above.</p>') +
+      card("Visitors per day", bars(d.daily, "visitors", "copied", ["visitors", "copied the install"], true), n(d.visitors)) +
+      "</div>");
+  }
 
-      '<section><div class="grid3">' +
-      '<div class="card"><h3>Installs per day <span>' + n(d.installs_30) + '</span></h3>' + bars(d.daily, "installs", "installs_failed") +
-      '<div class="key"><span><i></i>Worked</span><span><i class="b"></i>Failed</span></div></div>' +
-      '<div class="card"><h3>Visitors per day <span>' + n(d.visitors_30) + "</span></h3>" + bars(d.daily, "visitors", "copied") +
-      '<div class="key"><span><i></i>Visited</span><span><i class="b"></i>Copied install</span></div></div>' +
-      '<div class="card"><h3>New blueprints per day <span>' + n(d.runs_30) + "</span></h3>" + bars(d.daily, "runs_ok", "runs_failed") +
-      '<div class="key"><span><i></i>Finished</span><span><i class="b"></i>Failed</span></div></div>' +
-      "</div></section>" +
+  function webSection(d) {
+    return section("web", "Website", "Visitors to blpr.dev",
+      "A unique visitor is one browser, counted once. A visit is that browser's day on the site, so someone who comes back on three days makes three visits. A page view is every page load. " +
+      "A tagged link (<code>?utm_source=</code>, <code>?ref=</code>) names its own source; otherwise the source is the site they came from.",
+      '<dl class="tiles">' +
+      tile("Unique visitors", n(d.visitors), "browsers") +
+      tile("Visits", n(d.visits), "a browser's day on the site") +
+      tile("Page views", n(d.views), d.visits ? (d.views / d.visits).toFixed(1) + " per visit" : "") +
+      tile("Copied install", n(d.copied), pct(d.copied, d.visitors) + " of visitors") +
+      "</dl>" +
+      '<div class="grid3">' +
+      card("Visitors per day", bars(d.daily, "visitors", "copied", ["visitors", "copied the install"], true), n(d.visitors)) +
+      card("Page views per day", bars(d.daily, "views", null, ["page views"]), n(d.views)) +
+      card("Sources", list(d.referrers, "referrer", "visitors"), "visitors") +
+      card("Campaigns", list(d.campaigns, "campaign", "visitors"), "source / medium / campaign") +
+      card("Countries", list(d.countries, "country", "visitors"), "visitors") +
+      card("States and regions", list(d.regions, "place", "visitors"), "visitors") +
+      card("First page", list(d.pages, "page", "visitors"), "visitors") +
+      "</div>");
+  }
 
-      '<section><p class="eyebrow">Traffic</p><h2>Where people come from</h2><p class="lede">Each visitor counts once a day, by where that day began: a tagged link (<code>?utm_source=</code>, <code>?ref=</code>) names its source, otherwise the site they came from.</p>' +
-      '<div class="grid3" style="margin-top:14px">' +
-      '<div class="card"><h3>Sources</h3>' + list(d.referrers, "referrer", "visitors") + "</div>" +
-      '<div class="card"><h3>Campaigns <span>source / medium / campaign</span></h3>' + list(d.campaigns || [], "campaign", "visitors") + "</div>" +
-      '<div class="card"><h3>Funnel <span>30 days</span></h3>' + list(funnel(d), "step", "n") + "</div>" +
-      '<div class="card"><h3>First page</h3>' + list(d.pages || [], "page", "visitors") + "</div>" +
-      '<div class="card"><h3>Countries</h3>' + list(d.countries, "country", "visitors") + "</div>" +
-      '<div class="card"><h3>Installs by system</h3>' + list(d.os, "os", "installs") + "</div>" +
-      '<div class="card"><h3>App versions <span>machines, by their last run</span></h3>' + list(d.apps || [], "version", "machines") + "</div>" +
-      "</div></section>" +
+  function installsSection(d) {
+    var lo = d.left_out;
+    var os = d.install_os.map(function (o) { return { os: system.apply(null, o.os.split(" ")), installs: o.installs }; });
+    return section("installs", "Installs", "The one-line install",
+      "Each run of <code>curl -fsSL https://blpr.dev/install.sh | sh</code> that reached its end, as install.sh reports it, placed by its IP. " +
+      n(lo.installs_ci) + " run by CI and " + n(lo.installs_ours) + " from our networks are left out.",
+      '<dl class="tiles">' +
+      tile("Installs", n(d.installs), "that worked") +
+      tile("Installers", n(d.installers), "different IPs, of installs that kept one") +
+      tile("Failed", n(d.installs_failed), pct(d.installs_failed, d.installs + d.installs_failed) + " of tries") +
+      "</dl>" +
+      '<div class="grid3">' +
+      card("Installs per day", bars(d.daily, "installs", "installs_failed", ["worked", "failed"]), n(d.installs)) +
+      card("By system", list(os, "os", "installs"), "installs") +
+      card("By place", list(d.install_places, "place", "visitors"), "installs") +
+      "</div>" +
+      '<h3 class="sub">Latest installs</h3>' + installsTable(d.recent_installs));
+  }
 
-      '<section><p class="eyebrow">Generator</p><h2>By version</h2><p class="lede">Full blueprint runs only, not updates. Times and cost are medians and averages of runs that finished.</p>' +
-      '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>Version</th><th class="num">Runs</th><th class="num">Failed</th><th class="num">Quick blueprint</th><th class="num">Full blueprint</th><th class="num">Avg cost</th><th class="num">Avg files</th><th class="num">Check problems</th><th>First run</th><th>Last run</th></tr></thead><tbody>' +
+  function appSection(d) {
+    var fresh = d.blueprints + d.blueprints_failed;
+    return section("app", "App", "Blueprints made",
+      "What the app reports from people's machines: each new blueprint, and each update after it. Cost is at list price, whoever paid: Blueprint credit or the person's own Claude.",
+      '<dl class="tiles">' +
+      tile("Machines", n(d.machines), "that made a blueprint") +
+      tile("New blueprints", n(d.blueprints), pct(d.blueprints_failed, fresh) + " of " + n(fresh) + " failed") +
+      tile("Updates", n(d.updates), "to blueprints already made") +
+      tile("Their cost", usd(d.blueprints_usd), "at list price") +
+      "</dl>" +
+      '<div class="grid3">' +
+      card("New blueprints per day", bars(d.daily, "runs_ok", "runs_failed", ["finished", "failed"]), n(fresh)) +
+      card("App versions", list(d.apps, "version", "machines"), "machines, by their last run") +
+      "</div>");
+  }
+
+  function generatorSection(d) {
+    return section("generator", "Generator", "By version",
+      "Every new blueprint, ours too, since this is what compares one generator version with the next. Times are medians and cost an average, of the blueprints that finished.",
+      '<div class="scroll"><table><thead><tr><th>Version</th><th class="num">Runs</th><th class="num">Failed</th><th class="num">Quick blueprint</th><th class="num">Full blueprint</th><th class="num">Avg cost</th><th class="num">Avg files</th><th class="num">Check problems</th><th>First run</th><th>Last run</th></tr></thead><tbody>' +
       (d.versions.length ? d.versions.map(function (v) {
         return "<tr><td>" + ver(v.mapper_version) + '</td><td class="num">' + n(v.runs) + '</td><td class="num">' + pct(v.failed, v.runs) +
           '</td><td class="num">' + secs(v.quick_s) + '</td><td class="num">' + secs(v.total_s) + '</td><td class="num">' + usd(v.usd) +
           '</td><td class="num">' + (v.files == null ? "—" : Math.round(v.files)) + '</td><td class="num">' + (v.problems == null ? "—" : Number(v.problems).toFixed(1)) +
           "</td><td>" + new Date(v.first_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + "</td><td>" + when(v.last_at) + "</td></tr>";
       }).join("") : '<tr><td colspan="10" class="empty">No runs yet</td></tr>') +
-      "</tbody></table></div></section>" +
-
-      '<section><p class="eyebrow">Runs</p><h2>Recent blueprints</h2><p class="lede">The latest 200 new blueprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p><div style="margin-top:14px" id="runs">' + runsTable() + "</div></section>" +
-
-      '<section><p class="eyebrow">Feedback</p><h2>Bugs and feedback</h2><p class="lede">Sent from the app\'s Feedback dialog and the contact form on blpr.dev. Each sender sees the status you set here: in the app beside what they sent.</p><div style="margin-top:14px" id="feedback">' + feedbackTable() + "</div></section>" +
-
-      creditSection(d.credit) +
-
-      '<dl class="end"><div class="title"><dt>Title</dt><dd>Blueprint admin</dd></div><div><dt>Drawn</dt><dd>' +
-      new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) + '</dd></div><div><dt>Sheet</dt><dd>1 of 1</dd></div><div><dt>Site</dt><dd><a href="https://blpr.dev">blpr.dev</a></dd></div></dl>' +
-      "</div>";
+      "</tbody></table></div>" +
+      '<h3 class="sub">Recent blueprints</h3><p class="lede">The latest 200 new blueprints. Click one for its time by stage, tokens, models, cost, the end of its log, and every update it got after.</p>' +
+      '<div id="runs">' + runsTable() + "</div>");
   }
 
-  // Blueprint credit (app/scripts/api/credit.mjs): what it costs, and who uses it. Its settings are changed in the DynamoDB console.
-  function creditSection(c) {
+  // Blueprint credit (app/scripts/api/credit.mjs): people's use since launch, then the whole bill. Settings are changed in the DynamoDB console.
+  function costSection(c) {
     if (!c) return "";
     var cfg = c.config || {};
+    var p = c.people;
+    var bill = c.bill;
     var models = c.models || [];
     var WHY = { tab5h: "5-hour session used up", tabweek: "week used up", genweek: "maps week used up", minute: "spending fast this minute", slots: "too many at once", month: "monthly ceiling reached", closed: "credit not open to the account" };
     var refused = (c.refused || []).map(function (r) {
       var k = String(r.kind).split(" · ");
       return { kind: (k[0] === "tab" ? "Claude Code" : k[0] === "gen" ? "Maps" : k[0]) + " · " + (WHY[k[1]] || k[1] || ""), n: r.n };
     });
-    var spend = c.daily.reduce(function (a, d) { return a + Number(d.tab_usd || 0) + Number(d.gen_usd || 0); }, 0);
-    var days = [];
-    for (var i = 29; i >= 0; i--) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
-    var byDay = {};
-    c.daily.forEach(function (d) { byDay[d.day] = d; });
-    var rows = days.map(function (day) {
-      var d = byDay[day] || {};
-      return { day: day, tab: Math.round(100 * Number(d.tab_usd || 0)), gen: Math.round(100 * Number(d.gen_usd || 0)), tab_tokens: d.tab_tokens || 0, gen_tokens: d.gen_tokens || 0, active: d.active || 0, signups: d.signups || 0 };
-    });
     var sum = function (k) { return models.reduce(function (a, m) { return a + Number(m[k] || 0); }, 0); };
-    var tokens = sum("in_tok") + sum("out_tok") + sum("cr_tok") + sum("cw_tok");
-    var signups = rows.reduce(function (a, r) { return a + r.signups; }, 0);
     var left = cfg.ends_at ? Math.ceil((Date.parse(cfg.ends_at) - Date.now()) / 86400000) : null;
-    var life = c.life || { tab_usd: 0, gen_usd: 0, tab_tokens: 0, gen_tokens: 0, calls: 0, tab_calls: 0, gen_calls: 0 };
     var policy = esc(cfg.policy || "log") + (cfg.gen_policy && cfg.gen_policy !== cfg.policy ? ", maps " + esc(cfg.gen_policy) : "");
+    var lane = function (l) { return l === "tab" ? "Claude Code" : l === "gen" ? "Maps" : esc(l); };
 
-    return '<section><p class="eyebrow">Blueprint credit</p><h2>Claude on Blueprint\'s Bedrock</h2><p class="lede">' +
-      (cfg.enabled ? "Open to every GitHub account" + (cfg.ends_at ? " until " + esc(String(cfg.ends_at).slice(0, 10)) : "") + ". " : "Off for everyone but accounts marked allowed. ") +
-      "Claude Code " + usd(cfg.tab_usd_5h) + " per " + n(cfg.window_hours) + " hours and " + usd(cfg.tab_usd_week) + " a week; maps " + (cfg.gen_usd_week == null ? "without a cap" : usd(cfg.gen_usd_week) + " a week, fair use") +
-      "; " + n(cfg.tab_inflight) + " calls at once; at most " + usd(cfg.monthly_usd_ceiling) + " a month for everyone. Shape policy: " + policy +
-      ". Cost is at list price, as the credit charges it. Change the settings on the <code>credit / config</code> item in the bluprint table; block or let in an account on its <code>account / gh:&lt;id&gt;</code> item.</p>" +
-
-      '<h3 class="sub">Lifetime' + (life.since ? " · since " + esc(new Date(life.since).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })) : "") + "</h3>" +
+    return section("cost", "Cost", "Tokens and spend on Blueprint credit",
+      "People's use of Claude on Blueprint's Bedrock since launch, at list price, as the credit charges it. Each GitHub account that isn't ours counts in full, since none of them was here before launch.",
       '<dl class="tiles">' +
-      tile("Tokens processed", big(life.tab_tokens + life.gen_tokens), n(life.calls) + " calls") +
-      tile("Total cost", usd(life.tab_usd + life.gen_usd), "at list price") +
-      tile("Claude Code", usd(life.tab_usd), big(life.tab_tokens) + " tokens · " + n(life.tab_calls) + " calls") +
-      tile("Map generation", usd(life.gen_usd), big(life.gen_tokens) + " tokens · " + n(life.gen_calls) + " calls") +
-      tile("Blueprints made", n(c.maps_all), n(c.maps_failed_all) + " failed · " + n(c.updates_all) + " updates") +
-      tile("Accounts", n(c.accounts_all), n(c.active_7) + " active in 7 days · " + n(signups) + " new in 30") +
+      tile("Spend", usd(p.tab_usd + p.gen_usd), "at list price") +
+      tile("Tokens", big(p.tab_tokens + p.gen_tokens), big(p.in_tok) + " in · " + big(p.out_tok) + " out · " + big(p.cr_tok + p.cw_tok) + " cache") +
+      tile("Claude Code", usd(p.tab_usd), big(p.tab_tokens) + " tokens · " + n(p.tab_calls) + " calls") +
+      tile("Maps", usd(p.gen_usd), big(p.gen_tokens) + " tokens · " + n(p.gen_calls) + " calls") +
+      tile("Accounts", n(p.accounts), n(p.active_7) + " active in the last 7 days") +
+      tile("Per account", p.accounts ? usd((p.tab_usd + p.gen_usd) / p.accounts) : "—", "on average") +
       "</dl>" +
-      '<h3 class="sub">Now</h3>' +
-      '<dl class="tiles">' +
-      tile("This month", usd(c.usd_month), pct(c.usd_month, cfg.monthly_usd_ceiling) + " of the " + usd(cfg.monthly_usd_ceiling) + " ceiling") +
-      tile("Last 30 days", usd(spend), big(tokens) + " tokens") +
-      tile("Active today", n(rows[29].active), "accounts that made a call") +
-      tile("Turned away", n(refused.reduce(function (a, r) { return a + r.n; }, 0)), "calls in 30 days") +
-      tile("Promotion", left == null ? "—" : left > 0 ? left + "d" : "over", cfg.ends_at ? "ends " + esc(String(cfg.ends_at).slice(0, 10)) : "no end set") +
-      "</dl>" +
-
-      '<div class="grid3" style="margin-top:18px">' +
-      '<div class="card"><h3>Spend per day, in cents <span>' + usd(spend) + "</span></h3>" + bars(rows, "tab", "gen") +
-      '<div class="key"><span><i></i>Claude Code</span><span><i class="b"></i>Maps</span></div></div>' +
-      '<div class="card"><h3>Tokens per day <span>' + big(tokens) + "</span></h3>" + bars(rows, "tab_tokens", "gen_tokens") +
-      '<div class="key"><span><i></i>Claude Code</span><span><i class="b"></i>Maps</span></div></div>' +
-      '<div class="card"><h3>Accounts per day <span>' + n(signups) + " new</span></h3>" + bars(rows, "active", "signups") +
-      '<div class="key"><span><i></i>Active</span><span><i class="b"></i>New</span></div></div>' +
+      '<div class="grid3">' +
+      card("Spend per day", bars(c.daily, "tab_usd", "gen_usd", ["Claude Code", "maps"], false, usd), usd(p.tab_usd + p.gen_usd)) +
+      card("Tokens per day", bars(c.daily, "tokens", null, ["tokens"], false, big), big(p.tab_tokens + p.gen_tokens)) +
+      card("New accounts per day", bars(c.daily, "signups", null, ["signed in for the first time"]), n(p.accounts)) +
       "</div>" +
 
-      '<h3 class="sub">By model, 30 days</h3>' +
+      '<h3 class="sub">By model · people, last 30 days</h3>' +
       '<div class="scroll"><table><thead><tr><th>Used by</th><th>Model</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache read</th><th class="num">Cache write</th><th class="num">Of it 1h</th><th class="num">Failed</th><th class="num">Throttled</th><th class="num">Out of shape</th><th class="num">Cost</th><th class="num">Per call</th></tr></thead><tbody>' +
       (models.length ? models.map(function (m) {
-        return "<tr><td>" + (m.lane === "tab" ? "Claude Code" : m.lane === "gen" ? "Maps" : esc(m.lane)) + "</td><td>" + esc(m.family) + '</td><td class="num">' + n(m.calls) +
+        return "<tr><td>" + lane(m.lane) + "</td><td>" + esc(m.family) + '</td><td class="num">' + n(m.calls) +
           '</td><td class="num">' + big(m.in_tok) + '</td><td class="num">' + big(m.out_tok) + '</td><td class="num">' + big(m.cr_tok) + '</td><td class="num">' + big(m.cw_tok) +
           '</td><td class="num">' + big(m.cw1h_tok) + '</td><td class="num">' + pct(m.failed, m.calls) + '</td><td class="num">' + n(m.throttled) + '</td><td class="num">' + n(m.flagged) +
           '</td><td class="num">' + usd(m.usd) + '</td><td class="num">' + (m.calls ? "$" + (m.usd / m.calls).toFixed(3) : "—") + "</td></tr>";
@@ -540,10 +604,8 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
         : '<tr><td colspan="13" class="empty">No calls yet</td></tr>') +
       "</tbody></table></div>" +
 
-      '<div class="grid3" style="margin-top:18px"><div class="card"><h3>Turned away, by why <span>30 days</span></h3>' + list(refused, "kind", "n") + "</div></div>" +
-
-      '<h3 class="sub">Accounts · lifetime</h3>' +
-      '<p class="lede" style="margin:-4px 0 10px">Cost and tokens are lifetime, at list price. Blueprints count those made on a machine signed in to the account, on Blueprint credit or the person\'s own Claude Code. This week is the share of each allowance used now: Claude Code\'s 5-hour session, its week, and maps\' week.</p>' +
+      '<h3 class="sub">Accounts</h3>' +
+      '<p class="lede">People first, then ours. Cost and tokens are lifetime, at list price. Blueprints count those made on a machine signed in to the account, on Blueprint credit or the person\'s own Claude Code. This week is the share of each allowance used now: Claude Code\'s 5-hour session, its week, and maps\' week.</p>' +
       '<div class="scroll"><table><thead><tr><th>GitHub</th><th>Joined</th><th>Access</th><th class="num">Machines</th><th class="num">Claude Code</th><th class="num">Maps</th><th class="num">Total</th><th class="num">Tokens</th><th class="num">Calls</th><th class="num">Blueprints</th><th class="num">Updates</th><th class="num">Failed</th><th class="num">Repos</th><th>This week</th><th class="num">Days active</th><th class="num">Out of shape</th><th>Last used</th><th>Note</th></tr></thead><tbody>' +
       (c.accounts.length ? c.accounts.map(function (a) {
         var access = a.blocked ? "blocked" : a.uncapped ? "uncapped" : a.allowed ? "allowed" : cfg.enabled ? "open" : "waiting";
@@ -551,7 +613,7 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
         var m = a.meters || {};
         var share = function (k) { var x = m[k]; return x && x.limit ? Math.min(100, Math.round(100 * x.used / x.limit)) + "%" : "—"; };
         var repos = a.repos || [];
-        return '<tr><td title="' + esc(a.account) + '"><a href="https://github.com/' + esc(a.login || "") + '">' + esc(a.login || a.account) + "</a></td><td title=\"GitHub account since " +
+        return '<tr><td title="' + esc(a.account) + '"><a href="https://github.com/' + esc(a.login || "") + '">' + esc(a.login || a.account) + "</a>" + (a.team ? ' <span class="tag">ours</span>' : "") + "</td><td title=\"GitHub account since " +
           (a.gh_created ? esc(String(a.gh_created).slice(0, 10)) : "—") + '">' + (a.first_at ? esc(new Date(a.first_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })) : "—") + "</td><td>" + access +
           '</td><td class="num">' + n(a.machines) + '</td><td class="num">' + usd(l.tab_usd) + '</td><td class="num">' + usd(l.gen_usd) + '</td><td class="num"><b>' + usd((l.tab_usd || 0) + (l.gen_usd || 0)) +
           '</b></td><td class="num">' + big((l.tab_tokens || 0) + (l.gen_tokens || 0)) + '</td><td class="num">' + n(l.calls) + '</td><td class="num">' + n(a.maps) + '</td><td class="num">' + n(a.updates) +
@@ -559,7 +621,26 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
           "</td><td>S " + share("tab5h") + " · W " + share("tabweek") + " · M " + share("genweek") +
           '</td><td class="num" title="of the last 30">' + n(a.active_days_30) + '</td><td class="num">' + n(a.flagged_30) + "</td><td>" + (a.last_at ? when(a.last_at) : "—") + "</td><td>" + esc(a.note || "") + "</td></tr>";
       }).join("") : '<tr><td colspan="18" class="empty">No accounts yet</td></tr>') +
-      "</tbody></table></div></section>";
+      "</tbody></table></div>" +
+
+      '<h3 class="sub">The bill · everyone, us included</h3>' +
+      '<p class="lede">What Bedrock charges Blueprint for the credit: people\'s use and ours, testing before launch included. The monthly ceiling covers all of it.</p>' +
+      '<dl class="tiles">' +
+      tile("This month", usd(bill.usd_month), pct(bill.usd_month, cfg.monthly_usd_ceiling) + " of the " + usd(cfg.monthly_usd_ceiling) + " ceiling") +
+      tile("Last 30 days", usd(bill.usd_30), "") +
+      tile("Lifetime", usd(bill.life.tab_usd + bill.life.gen_usd), big(bill.life.tab_tokens + bill.life.gen_tokens) + " tokens" + (bill.life.since ? " since " + esc(new Date(bill.life.since).toLocaleDateString("en-US", { month: "short", day: "numeric" })) : "")) +
+      tile("Turned away", n(refused.reduce(function (a, r) { return a + r.n; }, 0)), "calls in 30 days") +
+      tile("Promotion", left == null ? "—" : left > 0 ? left + "d left" : "over", cfg.ends_at ? "ends " + esc(String(cfg.ends_at).slice(0, 10)) : "no end set") +
+      "</dl>" +
+      '<div class="grid3">' +
+      card("Bill per day", bars(c.daily, "bill_usd", null, ["everyone"], false, usd), usd(bill.usd_30)) +
+      card("Turned away, by why", list(refused, "kind", "n"), "30 days") +
+      "</div>" +
+      '<p class="lede" style="margin-top:14px"><b>Settings.</b> ' +
+      (cfg.enabled ? "Open to every GitHub account" + (cfg.ends_at ? " until " + esc(String(cfg.ends_at).slice(0, 10)) : "") + ". " : "Off for everyone but accounts marked allowed. ") +
+      "Claude Code " + usd(cfg.tab_usd_5h) + " per " + n(cfg.window_hours) + " hours and " + usd(cfg.tab_usd_week) + " a week; maps " + (cfg.gen_usd_week == null ? "without a cap" : usd(cfg.gen_usd_week) + " a week, fair use") +
+      "; " + n(cfg.tab_inflight) + " calls at once; at most " + usd(cfg.monthly_usd_ceiling) + " a month for everyone. Shape policy: " + policy +
+      ". Change them on the <code>credit / config</code> item in the bluprint table; block, let in, or mark as ours (<code>team</code>) an account on its <code>account / gh:&lt;id&gt;</code> item.</p>");
   }
 
   var median = function (xs) {

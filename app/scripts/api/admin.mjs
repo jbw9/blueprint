@@ -3,21 +3,32 @@
 // did when this lived in Supabase. Writes are open to anyone and keep only what fits; every read
 // checks the one dashboard password.
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { network } from "./auth.mjs";
 import { config, status } from "./credit.mjs";
 import { daysAgo, get, getMany, put, query, refused, today, update, without } from "./db.mjs";
+
+/** When Blueprint launched. Everything before it was us testing, so the dashboard counts people from here. */
+export const LAUNCH = "2026-11-09T08:00:00.000Z";
 
 const clip = (s, n) => (typeof s === "string" ? s.slice(0, n) : undefined);
 const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : undefined);
 const fits = (x, n) => (x != null && JSON.stringify(x).length < n ? x : undefined);
 const count = (x) => (Array.isArray(x) ? x.length : undefined);
 
-export async function trackInstall({ os, arch, ok, version } = {}) {
+/** One run of install.sh, with where its IP is (geojs.io, as the landing page asks for its country). */
+export async function trackInstall({ os, arch, ok, version, ci } = {}, ip) {
   const at = new Date().toISOString();
-  await put({ pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true, version: clip(version, 20) });
+  const geo = await fetch(`https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`, { signal: AbortSignal.timeout(2000) })
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
+  await put({
+    pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true, version: clip(version, 20), ci: ci === true,
+    ip: clip(ip, 45), country: clip(geo.country, 80), region: clip(geo.region, 80), city: clip(geo.city, 80), org: clip(geo.organization_name, 80),
+  });
 }
 
 /** One browser's day on blpr.dev: where it first came from that day, and whether it copied the install command. Kept 400 days. */
-export async function trackVisit({ vid, path, referrer, country, source, medium, campaign, copied } = {}) {
+export async function trackVisit({ vid, path, referrer, country, region, source, medium, campaign, copied } = {}) {
   if (typeof vid !== "string" || !/^[0-9a-f-]{36}$/i.test(vid)) return;
   const now = new Date().toISOString();
   const ttl = Math.floor(Date.now() / 1000) + 400 * 86400;
@@ -28,19 +39,19 @@ export async function trackVisit({ vid, path, referrer, country, source, medium,
   await update(
     `visit#${today()}`,
     vid,
-    "SET #v = if_not_exists(#v, :zero) + :one, last_at = :now, first_at = if_not_exists(first_at, :now), #p = if_not_exists(#p, :path), referrer = if_not_exists(referrer, :ref), country = if_not_exists(country, :country), #src = if_not_exists(#src, :src), medium = if_not_exists(medium, :med), campaign = if_not_exists(campaign, :camp), #ttl = :ttl",
+    "SET #v = if_not_exists(#v, :zero) + :one, last_at = :now, first_at = if_not_exists(first_at, :now), #p = if_not_exists(#p, :path), referrer = if_not_exists(referrer, :ref), country = if_not_exists(country, :country), #region = if_not_exists(#region, :region), #src = if_not_exists(#src, :src), medium = if_not_exists(medium, :med), campaign = if_not_exists(campaign, :camp), #ttl = :ttl",
     {
-      ":zero": 0, ":one": 1, ":now": now, ":path": clip(path, 200) ?? null, ":ref": clip(referrer, 300) ?? null, ":country": clip(country, 80) ?? null,
+      ":zero": 0, ":one": 1, ":now": now, ":path": clip(path, 200) ?? null, ":ref": clip(referrer, 300) ?? null, ":country": clip(country, 80) ?? null, ":region": clip(region, 80) ?? null,
       ":src": clip(source, 80) ?? null, ":med": clip(medium, 80) ?? null, ":camp": clip(campaign, 120) ?? null, ":ttl": ttl,
     },
     undefined,
-    // VIEWS, PATH, SOURCE and TTL are DynamoDB reserved words.
-    { "#v": "views", "#p": "path", "#src": "source", "#ttl": "ttl" },
+    // VIEWS, PATH, REGION, SOURCE and TTL are DynamoDB reserved words.
+    { "#v": "views", "#p": "path", "#region": "region", "#src": "source", "#ttl": "ttl" },
   );
 }
 
 /** One finished run. What the app sends is whatever its report says; anything oversized is dropped, so the run still counts. */
-export async function recordRun({ r } = {}) {
+export async function recordRun({ r } = {}, ip) {
   if (!r || typeof r !== "object") return;
   const at = new Date().toISOString();
   const id = Date.now() * 1000 + randomInt(1000);
@@ -55,6 +66,8 @@ export async function recordRun({ r } = {}) {
     install_id: typeof r.install_id === "string" && /^[0-9a-f-]{36}$/.test(r.install_id) ? r.install_id : undefined,
     // The machine's Blueprint credit id, sent while it is signed in: which GitHub account made the blueprint.
     device: typeof r.device === "string" && /^[0-9a-f]{64}$/.test(r.device) ? r.device : undefined,
+    // Only so the dashboard can tell a machine on one of our networks (teamip) from a person's.
+    net: ip ? network(ip) : undefined,
     app_version: clip(r.app_version, 20),
     mapper_version: Number.isInteger(r.mapper_version) ? r.mapper_version : undefined,
     kind: clip(r.kind, 20),
@@ -183,53 +196,119 @@ function appsInUse(runs) {
   return [...by].map(([version, machines]) => ({ version, machines })).sort((a, b) => b.machines - a.machines);
 }
 
-export async function overview({ pw } = {}) {
+/**
+ * Ours, not people's: GitHub accounts marked `team` on their account item, and any already signed in
+ * before launch. The dashboard also leaves out CI's installs, browsers and machines here before
+ * launch, and installs from a network this dashboard was opened from.
+ */
+const teamOf = (accounts) => new Set(accounts.filter((a) => a.team || (a.first_at && a.first_at < LAUNCH)).map((a) => a.sk));
+const unique = (xs) => new Set(xs).size;
+const sum = (xs) => xs.reduce((a, x) => a + (Number(x) || 0), 0);
+
+/** People's visits, installs and blueprints since launch, each against what was left out as ours. */
+export async function overview({ pw } = {}, ip) {
   await allowed(pw);
-  const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
-  const [installs, runs, ...visitDays] = await Promise.all([query("install"), query("run").then((rs) => rs.map(summary)), ...days.map((d) => query(`visit#${d}`))]);
-  const visits = visitDays.flatMap((vs, i) =>
-    vs.map((v) => ({ day: days[i], visitor: v.sk, views: Number(v.views) || 0, referrer: v.referrer, country: v.country, source: v.source, medium: v.medium, campaign: v.campaign, path: v.path, copied: !!v.copied })),
+  // Whoever opens this page is us, and so is an install from their network.
+  if (ip) await put({ pk: "teamip", sk: network(ip), at: new Date().toISOString() });
+  const chart = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
+  const live = Array.from({ length: 400 }, (_, i) => daysAgo(i)).filter((d) => d >= LAUNCH.slice(0, 10)).reverse();
+  const [allInstalls, allRuns, accounts, devices, nets, ...visitDays] = await Promise.all([
+    query("install", { from: LAUNCH }),
+    query("run").then((rs) => rs.map(summary)),
+    query("account"),
+    query("device"),
+    query("teamip").then((ts) => new Set(ts.map((t) => t.sk))),
+    ...live.map((d) => query(`visit#${d}`)),
+  ]);
+
+  // A browser here before launch was one of ours, and stays ours.
+  const allVisits = visitDays.flatMap((vs, i) =>
+    vs.map((v) => ({
+      day: live[i], visitor: v.sk, first_at: v.first_at, views: Number(v.views) || 0, copied: !!v.copied, path: v.path,
+      referrer: v.referrer, source: v.source, medium: v.medium, campaign: v.campaign, country: v.country, region: v.region,
+    })),
   );
-  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
-  const fresh = runs.filter((r) => r.kind !== "update");
+  const early = new Set(allVisits.filter((v) => v.first_at && v.first_at < LAUNCH).map((v) => v.visitor));
+  const visits = allVisits.filter((v) => !early.has(v.visitor));
+
+  const whose = (i) => (i.ci ? "ci" : i.team || (i.ip && nets.has(network(i.ip))) ? "us" : "people");
+  const installs = allInstalls.filter((i) => whose(i) === "people");
+  const worked = installs.filter((i) => i.ok);
+
+  // A machine is ours once it made a blueprint before launch, on one of our networks or accounts, or in a run marked `team`.
+  const team = teamOf(accounts);
+  const accountOf = new Map(devices.map((d) => [d.sk, d.account]));
+  const ourRun = (r) => r.at < LAUNCH || r.team || (r.net && nets.has(r.net)) || team.has(accountOf.get(r.device));
+  const ourMachines = new Set(allRuns.filter(ourRun).map((r) => r.install_id ?? null));
+  const runs = allRuns.map((r) => ({ ...r, ours: r.at < LAUNCH || ourMachines.has(r.install_id ?? null) }));
+  const people = runs.filter((r) => !r.ours);
+  const fresh = people.filter((r) => r.kind !== "update");
+
   const osRows = new Map();
   for (const i of installs) {
-    const k = `${i.os ?? "?"} ${i.arch ?? ""}`;
+    const k = `${i.os ?? "?"} ${i.arch ?? ""}`.trim();
     const o = osRows.get(k) ?? { os: k, installs: 0, failed: 0 };
     if (i.ok) o.installs++;
     else o.failed++;
     osRows.set(k, o);
   }
   const versions = new Map();
-  for (const r of fresh) {
+  for (const r of runs.filter((r) => r.kind !== "update")) {
     const k = r.mapper_version ?? null;
     if (!versions.has(k)) versions.set(k, []);
     versions.get(k).push(r);
   }
+  const place = (x) => [x.region, x.country].filter(Boolean).join(", ") || "unknown";
   return {
-    installs: installs.filter((i) => i.ok).length,
-    installs_30: installs.filter((i) => i.ok && i.at > since).length,
-    installs_failed_30: installs.filter((i) => !i.ok && i.at > since).length,
-    visitors_30: new Set(visits.map((v) => v.visitor)).size,
-    views_30: visits.reduce((a, v) => a + v.views, 0),
-    daily: days.map((day) => ({
-      day,
-      installs: installs.filter((i) => i.ok && i.at.startsWith(day)).length,
-      installs_failed: installs.filter((i) => !i.ok && i.at.startsWith(day)).length,
-      visitors: visits.filter((v) => v.day === day).length,
-      views: visits.filter((v) => v.day === day).reduce((a, v) => a + v.views, 0),
-      copied: visits.filter((v) => v.day === day && v.copied).length,
-      runs_ok: fresh.filter((r) => r.status === "ok" && r.at.startsWith(day)).length,
-      runs_failed: fresh.filter((r) => r.status !== "ok" && r.at.startsWith(day)).length,
-    })),
-    copied_30: new Set(visits.filter((v) => v.copied).map((v) => v.visitor)).size,
+    launch: LAUNCH,
+    visitors: unique(visits.map((v) => v.visitor)),
+    visits: visits.length,
+    views: sum(visits.map((v) => v.views)),
+    copied: unique(visits.filter((v) => v.copied).map((v) => v.visitor)),
+    installs: worked.length,
+    installs_failed: installs.length - worked.length,
+    // Installs before IPs were kept have none, and are not guessed at.
+    installers: unique(worked.filter((i) => i.ip).map((i) => i.ip)),
+    machines: unique(people.map((r) => r.install_id ?? null)),
+    blueprints: fresh.filter((r) => r.status === "ok").length,
+    blueprints_failed: fresh.filter((r) => r.status !== "ok").length,
+    updates: people.length - fresh.length,
+    blueprints_usd: sum(people.map((r) => r.usd)),
+    left_out: {
+      installs_ci: allInstalls.filter((i) => whose(i) === "ci").length,
+      installs_ours: allInstalls.filter((i) => whose(i) === "us").length,
+      browsers: early.size,
+      machines: ourMachines.size,
+      runs: runs.filter((r) => r.ours && r.at >= LAUNCH).length,
+    },
+    daily: chart.map((day) => {
+      const v = visits.filter((x) => x.day === day);
+      const on = (x) => x.at.startsWith(day);
+      return {
+        day,
+        visitors: v.length,
+        copied: v.filter((x) => x.copied).length,
+        views: sum(v.map((x) => x.views)),
+        installs: worked.filter(on).length,
+        installs_failed: installs.filter((i) => !i.ok && on(i)).length,
+        runs_ok: fresh.filter((r) => r.status === "ok" && on(r)).length,
+        runs_failed: fresh.filter((r) => r.status !== "ok" && on(r)).length,
+      };
+    }),
     // A tagged link (?utm_source= or ?ref=) names its source; otherwise the site the visitor came from.
     referrers: top(visits.map((v) => ({ key: v.source || v.referrer || "direct", visitor: v.visitor })), "referrer"),
     campaigns: top(visits.filter((v) => v.source || v.campaign).map((v) => ({ key: [v.source, v.medium, v.campaign].filter(Boolean).join(" / "), visitor: v.visitor })), "campaign"),
     pages: top(visits.map((v) => ({ key: v.path || "/", visitor: v.visitor })), "page"),
     countries: top(visits.map((v) => ({ key: v.country ?? "unknown", visitor: v.visitor })), "country"),
-    os: [...osRows.values()].sort((a, b) => b.installs - a.installs),
-    apps: appsInUse(runs.filter((r) => r.at > since)),
+    regions: top(visits.filter((v) => v.region).map((v) => ({ key: place(v), visitor: v.visitor })), "place"),
+    install_os: [...osRows.values()].sort((a, b) => b.installs - a.installs),
+    install_places: top(worked.map((i) => ({ key: place(i), visitor: i.sk })), "place"),
+    recent_installs: installs
+      .sort((a, b) => (a.at < b.at ? 1 : -1))
+      .slice(0, 100)
+      .map((i) => ({ at: i.at, ok: i.ok, os: i.os, arch: i.arch, version: i.version, ip: i.ip ?? null, org: i.org ?? null, city: i.city ?? null, region: i.region ?? null, country: i.country ?? null })),
+    apps: appsInUse(people),
+    // Every blueprint, ours too: what compares one generator version with the next.
     versions: [...versions]
       .map(([v, rs]) => {
         const ok = rs.filter((r) => r.status === "ok");
@@ -247,18 +326,13 @@ export async function overview({ pw } = {}) {
         };
       })
       .sort((a, b) => (b.mapper_version ?? -1) - (a.mapper_version ?? -1)),
-    runs_30: fresh.filter((r) => r.at > since).length,
-    runs_failed_30: fresh.filter((r) => r.status !== "ok" && r.at > since).length,
-    updates_30: runs.filter((r) => r.kind === "update" && r.at > since).length,
-    usd_30: runs.filter((r) => r.at > since).reduce((a, r) => a + (r.usd ?? 0), 0),
-    machines: new Set(runs.map((r) => r.install_id ?? null)).size,
-    machines_30: new Set(runs.filter((r) => r.at > since).map((r) => r.install_id ?? null)).size,
-    recent: fresh
+    recent: runs
+      .filter((r) => r.kind !== "update")
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, 200)
       .map((g) => {
         const u = updatesOf(g, runs);
-        const row = without(g, "models", "problems", "quick_problems", "sections", "accepted", "tokens");
+        const row = without(g, "models", "problems", "quick_problems", "sections", "accepted", "tokens", "device", "net");
         return { ...row, updates: u.length, updates_usd: u.reduce((a, x) => a + (x.usd ?? 0), 0) };
       }),
   };
@@ -301,8 +375,9 @@ export async function repo({ pw, repo_name } = {}) {
 }
 
 /**
- * The credit's settings, each account's use over 30 days, the spend per day, and every model's tokens
- * and cost (credit.mjs): cost is at list price, as the credit charges it.
+ * Blueprint credit (credit.mjs), at list price as it charges. People's use since launch: every account
+ * not ours, whole, since none of them was here before; by model from their calls (req#, kept 30 days).
+ * And the bill: everyone's spend, ours included, which is what Bedrock charges.
  */
 export async function credit({ pw } = {}) {
   await allowed(pw);
@@ -318,6 +393,10 @@ export async function credit({ pw } = {}) {
     query("device"),
     query("run"),
   ]);
+  const team = teamOf(accounts);
+  // An account made by hand to let someone in has no first_at until they sign in.
+  const people = accounts.filter((a) => a.first_at && !team.has(a.sk));
+  const calls = (await Promise.all(people.map((a) => query(`req#${a.sk}`, { from: LAUNCH })))).flat();
   const lifeOf = new Map(life.map((l) => [l.sk, l]));
   const lifetime = (l) => ({
     tab_usd: (Number(l?.tab_micro) || 0) / 1e6,
@@ -330,6 +409,11 @@ export async function credit({ pw } = {}) {
     in_tok: Number(l?.in_tok) || 0, out_tok: Number(l?.out_tok) || 0, cr_tok: Number(l?.cr_tok) || 0, cw_tok: Number(l?.cw_tok) || 0,
     since: l?.first_at ?? null,
   });
+  const together = (ls) => {
+    const t = lifetime(null);
+    for (const l of ls) for (const k of Object.keys(t)) if (k !== "since") t[k] += l[k];
+    return t;
+  };
   // Blueprints by GitHub account, through the machine each was made on.
   const accountOf = new Map(devices.map((d) => [d.sk, d.account]));
   const madeBy = new Map();
@@ -345,12 +429,9 @@ export async function credit({ pw } = {}) {
     if (r.kind !== "update" && (!m.last_map_at || r.at > m.last_map_at)) m.last_map_at = r.at;
     madeBy.set(a, m);
   }
-  const fresh = runs.filter((r) => r.kind !== "update");
-  // Each account's allowance this week, as the app shows it; only for the accounts listed.
-  const listed = [...accounts].sort((a, b) => {
-    const t = (x) => { const l = lifetime(lifeOf.get(x.sk)); return l.tab_usd + l.gen_usd; };
-    return t(b) - t(a);
-  }).slice(0, 200);
+  // People first, then by what each has cost; each one's allowance this week, as the app shows it.
+  const spent = (x) => { const l = lifetime(lifeOf.get(x.sk)); return l.tab_usd + l.gen_usd; };
+  const listed = [...accounts].sort((a, b) => team.has(a.sk) - team.has(b.sk) || spent(b) - spent(a)).slice(0, 200);
   const nowMeters = new Map(await Promise.all(listed.map(async (a) => [a.sk, (await status(a.sk).catch(() => null))?.meters ?? null])));
   const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, tokens_30: 0, flagged_30: 0, active_days_30: 0, active_7: false, last_at: null });
   const weekAgo = daysAgo(6);
@@ -369,41 +450,52 @@ export async function credit({ pw } = {}) {
     by.set(u.sk, d);
   }
 
-  // usage#<day> / <lane>#<family>, summed over the 30 days; usage#<day> / refused, by why.
+  // People's calls by model, counted as usage#<day> counts everyone's.
   const FIELDS = ["calls", "micro", "in_tok", "out_tok", "cr_tok", "cw_tok", "cw1h_tok", "flagged", "failed", "throttled"];
   const models = new Map();
+  for (const q of calls) {
+    const k = `${q.lane}#${q.family}`;
+    const m = models.get(k) ?? Object.fromEntries([["lane", q.lane], ["family", q.family], ...FIELDS.map((f) => [f, 0])]);
+    const one = {
+      calls: 1, micro: q.micro, in_tok: q.in_tok, out_tok: q.out_tok, cr_tok: q.cr_tok, cw_tok: q.cw_tok, cw1h_tok: q.cw1h_tok,
+      flagged: q.flags ? 1 : 0, failed: q.code >= 200 && q.code < 300 ? 0 : 1, throttled: q.code === 429 ? 1 : 0,
+    };
+    for (const f of FIELDS) m[f] += Number(one[f]) || 0;
+    models.set(k, m);
+  }
+  // usage#<day> / refused: everyone's calls turned away, by why.
   const refusedBy = {};
-  const tokensDaily = days.map((day, i) => {
-    const row = { day, tab: 0, gen: 0 };
-    for (const u of usage[i]) {
-      if (u.sk === "refused") {
-        for (const [k, v] of Object.entries(without(u, "pk", "sk", "ttl"))) refusedBy[k] = (refusedBy[k] ?? 0) + (Number(v) || 0);
-        continue;
-      }
-      const [lane, family] = u.sk.split("#");
-      const m = models.get(u.sk) ?? Object.fromEntries([["lane", lane], ["family", family], ...FIELDS.map((f) => [f, 0])]);
-      for (const f of FIELDS) m[f] += Number(u[f]) || 0;
-      models.set(u.sk, m);
-      row[lane] = (row[lane] ?? 0) + tok(u);
-    }
-    return row;
-  });
+  for (const u of usage.flat().filter((u) => u.sk === "refused"))
+    for (const [k, v] of Object.entries(without(u, "pk", "sk", "ttl"))) refusedBy[k] = (refusedBy[k] ?? 0) + (Number(v) || 0);
 
   const month = today().slice(0, 7);
   return {
     config: c,
-    usd_30: spend.reduce((a, d) => a + (Number(d.usd) || 0), 0),
-    usd_month: Number(months.find((m) => m.sk === month)?.usd) || 0,
-    usd_all: months.reduce((a, m) => a + (Number(m.usd) || 0), 0),
-    life: lifetime(lifeOf.get("all")),
-    maps_all: fresh.filter((r) => r.status === "ok").length,
-    maps_failed_all: fresh.filter((r) => r.status !== "ok").length,
-    updates_all: runs.length - fresh.length,
-    active_7: [...by.values()].filter((d) => d.active_7).length,
+    people: { ...together(people.map((a) => lifetime(lifeOf.get(a.sk)))), accounts: people.length, active_7: people.filter((a) => by.get(a.sk)?.active_7).length },
+    team_accounts: team.size,
+    models: [...models.values()].map(({ micro, ...m }) => ({ ...m, usd: micro / 1e6 })).sort((a, b) => b.usd - a.usd),
+    daily: days.map((day, i) => {
+      const mine = use[i].filter((u) => !team.has(u.sk));
+      return {
+        day,
+        tab_usd: mine.reduce((a, u) => a + (Number(u.tab_micro) || 0), 0) / 1e6,
+        gen_usd: mine.reduce((a, u) => a + (Number(u.gen_micro) || 0), 0) / 1e6,
+        tokens: mine.reduce((a, u) => a + tok(u), 0),
+        active: mine.length,
+        signups: people.filter((a) => a.first_at?.startsWith(day)).length,
+        bill_usd: Number(spend.find((x) => x.sk === day)?.usd) || 0,
+      };
+    }),
+    bill: {
+      usd_month: Number(months.find((m) => m.sk === month)?.usd) || 0,
+      usd_30: spend.reduce((a, d) => a + (Number(d.usd) || 0), 0),
+      life: lifetime(lifeOf.get("all")),
+    },
+    refused: Object.entries(refusedBy).map(([k, n]) => ({ kind: k.replace("_", " · "), n })).sort((a, b) => b.n - a.n),
     accounts: listed.map((a) => {
       const m = madeBy.get(a.sk);
       return {
-        account: a.sk, login: a.login ?? null, gh_created: a.gh_created ?? null, first_at: a.first_at ?? null, machines: a.devices?.size ?? 0,
+        account: a.sk, login: a.login ?? null, gh_created: a.gh_created ?? null, first_at: a.first_at ?? null, machines: a.devices?.size ?? 0, team: team.has(a.sk),
         allowed: !!a.allowed, blocked: !!a.blocked, uncapped: !!a.uncapped, note: a.note ?? null, ...(by.get(a.sk) ?? none()),
         life: lifetime(lifeOf.get(a.sk)),
         maps: m?.maps ?? 0, maps_failed: m?.maps_failed ?? 0, updates: m?.updates ?? 0, map_report_usd: m?.map_report_usd ?? 0,
@@ -411,21 +503,6 @@ export async function credit({ pw } = {}) {
         meters: nowMeters.get(a.sk) ?? null,
       };
     }),
-    accounts_all: accounts.length,
-    daily: days.map((day, i) => {
-      const d = spend.find((x) => x.sk === day);
-      return {
-        day,
-        tab_usd: Number(d?.tab_usd) || 0,
-        gen_usd: Number(d?.gen_usd) || 0,
-        signups: accounts.filter((a) => a.first_at?.startsWith(day)).length,
-        active: use[i].length,
-        tab_tokens: tokensDaily[i].tab,
-        gen_tokens: tokensDaily[i].gen,
-      };
-    }),
-    models: [...models.values()].map(({ micro, ...m }) => ({ ...m, usd: micro / 1e6 })).sort((a, b) => b.usd - a.usd),
-    refused: Object.entries(refusedBy).map(([k, n]) => ({ kind: k.replace("_", " · "), n })).sort((a, b) => b.n - a.n),
   };
 }
 
