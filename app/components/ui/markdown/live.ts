@@ -1,15 +1,17 @@
 import { syntaxTree } from "@codemirror/language";
-import { EditorSelection, Facet, type EditorState, type Extension, type Range } from "@codemirror/state";
+import { EditorSelection, Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType, keymap } from "@codemirror/view";
 
 /**
  * Markdown drawn as the page it makes, in the text it is written in, the way
  * Obsidian's live preview does. Headings are set at their size, emphasis and
  * code take their look, links read as links, and images, rules and task
- * boxes are drawn; list bullets and numbers stay as written. The syntax
- * (`#`, `**`, `[`…`](url)`) is hidden on every line but the ones a caret or
- * selection is on, so what is being edited is always the Markdown itself.
- * Tables and raw HTML stay as written.
+ * boxes are drawn, and so are tables, as tables; list bullets and numbers
+ * stay as written. The syntax (`#`, `**`, `[`…`](url)`, a code fence's
+ * backticks) is hidden on every line but the ones a caret or selection is on,
+ * so what is being edited is always the Markdown itself. A table is drawn
+ * until the caret enters it, then shown whole as written. Raw HTML stays as
+ * written.
  *
  * Only decorations: the document is the file's text, untouched, so undo, find,
  * multiple cursors and the clipboard all work on the Markdown.
@@ -88,6 +90,12 @@ class Image extends WidgetType {
   }
 }
 
+/** Whether any line from `from` to `to` is one being edited. */
+const touches = (on: Set<number>, doc: EditorState["doc"], from: number, to: number) => {
+  for (let n = doc.lineAt(from).number, end = doc.lineAt(to).number; n <= end; n++) if (on.has(n)) return true;
+  return false;
+};
+
 /** Lines a caret or a selection touches: there the Markdown is shown as written. */
 function activeLines(state: EditorState) {
   const on = new Set<number>();
@@ -139,7 +147,12 @@ function build(view: EditorView, focused: boolean): DecorationSet {
             out.push(hide.range(n.from, name === "QuoteMark" && doc.sliceString(n.to, n.to + 1) === " " ? n.to + 1 : n.to));
             return;
           case "CodeMark":
-            if (n.node.parent?.name === "InlineCode" && !live(n.from)) out.push(hide.range(n.from, n.to));
+          case "CodeInfo":
+            if (!live(n.from)) out.push(hide.range(n.from, n.to));
+            return;
+          case "Table":
+            // Drawn whole by the tables field below, unless it is being edited.
+            if (!touches(on, doc, n.from, n.to)) return false;
             return;
           case "InlineCode":
             out.push(Decoration.mark({ class: "cm-md-code" }).range(n.from, n.to));
@@ -219,11 +232,160 @@ const plugin = ViewPlugin.fromClass(
     decorations: (p) => p.decorations,
     // Focus moving in or out redraws, through an empty update, once the DOM has it.
     eventHandlers: {
-      focus: (_e, view) => void setTimeout(() => view.dom.isConnected && view.dispatch({})),
-      blur: (_e, view) => void setTimeout(() => view.dom.isConnected && view.dispatch({})),
+      focus: (_e, view) => void setTimeout(() => view.dom.isConnected && view.dispatch({ effects: focusSet.of(editing(view)) })),
+      blur: (_e, view) => void setTimeout(() => view.dom.isConnected && view.dispatch({ effects: focusSet.of(editing(view)) })),
     },
   },
 );
+
+/* ── tables ────────────────────────────────────────────────── */
+
+type SyntaxNode = ReturnType<typeof syntaxTree>["topNode"];
+
+/** A cell's text with its formatting, as the parser read it. */
+type Inline = string | { tag: string; cls?: string; kids: Inline[] };
+
+const TAG: Record<string, { tag: string; cls?: string }> = {
+  Emphasis: { tag: "em" },
+  StrongEmphasis: { tag: "strong" },
+  InlineCode: { tag: "code", cls: "cm-md-code" },
+  Strikethrough: { tag: "s" },
+  Link: { tag: "span", cls: "cm-md-link" },
+};
+const MARKS = new Set(["EmphasisMark", "CodeMark", "LinkMark", "URL", "LinkTitle", "StrikethroughMark"]);
+
+function entity(text: string) {
+  // A textarea decodes `&mdash;` and runs nothing.
+  const t = document.createElement("textarea");
+  t.innerHTML = text;
+  return t.value;
+}
+
+function inline(state: EditorState, node: SyntaxNode): Inline[] {
+  const out: Inline[] = [];
+  let pos = node.from;
+  for (let c = node.firstChild; c; c = c.nextSibling) {
+    if (c.from > pos) out.push(state.sliceDoc(pos, c.from));
+    pos = c.to;
+    const tag = TAG[c.name];
+    if (MARKS.has(c.name)) continue;
+    if (c.name === "Escape") out.push(state.sliceDoc(c.from + 1, c.to));
+    else if (c.name === "Entity") out.push(entity(state.sliceDoc(c.from, c.to)));
+    else if (tag) out.push({ ...tag, kids: inline(state, c) });
+    else out.push(state.sliceDoc(c.from, c.to));
+  }
+  if (pos < node.to) out.push(state.sliceDoc(pos, node.to));
+  return out;
+}
+
+/** A row's cells, empty ones kept: each sits between two of the row's `|`, the outer ones optional. */
+function cellsOf(state: EditorState, row: SyntaxNode): Inline[][] {
+  const cells: Inline[][] = [];
+  let cur: SyntaxNode | null = null;
+  let begun = false;
+  for (let c = row.firstChild; c; c = c.nextSibling) {
+    if (c.name === "TableDelimiter") {
+      if (begun) cells.push(cur ? inline(state, cur) : []);
+      cur = null;
+      begun = true;
+    } else if (c.name === "TableCell") {
+      cur = c;
+      begun = true;
+    }
+  }
+  if (cur) cells.push(inline(state, cur));
+  return cells;
+}
+
+class Table extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly align: string[],
+    readonly rows: Inline[][][],
+  ) {
+    super();
+  }
+  eq(o: Table) {
+    return o.source === this.source;
+  }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-md-table-wrap";
+    const table = wrap.appendChild(document.createElement("table"));
+    table.className = "cm-md-table";
+    const draw = (into: HTMLElement, parts: Inline[]) => {
+      for (const p of parts) {
+        if (typeof p === "string") into.append(p);
+        else {
+          const el = into.appendChild(document.createElement(p.tag));
+          if (p.cls) el.className = p.cls;
+          draw(el, p.kids);
+        }
+      }
+    };
+    const width = Math.max(this.align.length, ...this.rows.map((r) => r.length));
+    this.rows.forEach((row, i) => {
+      const tr = table.appendChild(document.createElement(i ? "tbody" : "thead")).appendChild(document.createElement("tr"));
+      for (let k = 0; k < width; k++) {
+        const cell = tr.appendChild(document.createElement(i ? "td" : "th"));
+        if (this.align[k]) cell.style.textAlign = this.align[k];
+        draw(cell, row[k] ?? []);
+      }
+    });
+    // A click puts the caret in the table, which shows it as written to edit.
+    wrap.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      view.dispatch({ selection: { anchor: view.posAtDOM(wrap) } });
+      view.focus();
+    });
+    return wrap;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
+const alignOf = (cell: string) => {
+  const c = cell.trim();
+  return c.startsWith(":") && c.endsWith(":") ? "center" : c.endsWith(":") ? "right" : c.startsWith(":") ? "left" : "";
+};
+
+function drawTables(state: EditorState, focused: boolean): DecorationSet {
+  const on = focused ? activeLines(state) : new Set<number>();
+  const out: Range<Decoration>[] = [];
+  syntaxTree(state).iterate({
+    enter: (n) => {
+      if (n.name === "Paragraph" || /Heading|Code|HTML/.test(n.name)) return false;
+      if (n.name !== "Table") return;
+      // Only one that starts its line can stand in for its lines.
+      if (state.doc.lineAt(n.from).from !== n.from || touches(on, state.doc, n.from, n.to)) return false;
+      let align: string[] = [];
+      const rows: Inline[][][] = [];
+      for (let c = n.node.firstChild; c; c = c.nextSibling) {
+        if (c.name === "TableHeader" || c.name === "TableRow") rows.push(cellsOf(state, c));
+        else if (c.name === "TableDelimiter") align = state.sliceDoc(c.from, c.to).replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(alignOf);
+      }
+      out.push(Decoration.replace({ widget: new Table(state.sliceDoc(n.from, n.to), align, rows), block: true }).range(n.from, n.to));
+      return false;
+    },
+  });
+  return Decoration.set(out);
+}
+
+/** Whether the caret is in the text, as the view last said: a field cannot ask the view. */
+const focusSet = StateEffect.define<boolean>();
+
+/** Tables span lines, which only a field, not a view plugin, may replace. */
+const tables = StateField.define<{ focused: boolean; deco: DecorationSet }>({
+  create: (state) => ({ focused: false, deco: drawTables(state, false) }),
+  update(v, tr) {
+    let focused = v.focused;
+    for (const e of tr.effects) if (e.is(focusSet)) focused = e.value;
+    if (focused === v.focused && !tr.docChanged && !tr.selection && syntaxTree(tr.startState) === syntaxTree(tr.state)) return v;
+    return { focused, deco: drawTables(tr.state, focused) };
+  },
+  provide: (f) => EditorView.decorations.from(f, (v) => v.deco),
+});
 
 /* ── formatting keys ───────────────────────────────────────── */
 
@@ -312,6 +474,10 @@ const page = EditorView.theme({
   ".cm-md-task": { margin: "0 6px 0 0", verticalAlign: "-2px", cursor: "pointer", accentColor: v("accent") },
   ".cm-md-rule": { display: "inline-block", width: "100%", verticalAlign: "middle", borderTop: `1px solid ${v("border-gray")}` },
   ".cm-md-image": { maxWidth: "100%", display: "inline-block", verticalAlign: "bottom" },
+  ".cm-md-table-wrap": { padding: "8px 32px 8px 56px", overflowX: "auto", cursor: "text" },
+  ".cm-md-table": { borderCollapse: "collapse", fontSize: "14px", lineHeight: "1.5" },
+  ".cm-md-table th, .cm-md-table td": { border: `1px solid ${v("border-gray")}`, padding: "5px 12px", verticalAlign: "top" },
+  ".cm-md-table th": { color: v("ink"), fontWeight: "600", backgroundColor: v("surface-container"), textAlign: "left" },
   ".cm-activeLine": { backgroundColor: "transparent" },
   // A page has no gutter: no numbers, no fold marks.
   ".cm-gutters": { display: "none" },
@@ -319,5 +485,5 @@ const page = EditorView.theme({
 
 /** The live preview: the decorations, the keys that write Markdown, and the page they are set on. */
 export function livePreview(): Extension {
-  return [plugin, page];
+  return [plugin, tables, page];
 }
