@@ -16,7 +16,7 @@ import { DragChip, SectionTabs, dropAt, dropInTab, openInTab, setPartDrag, tabTi
 import { DiffBar, HereChanges } from "@/components/review/diagram-diff";
 import { useSettings, type Ground } from "@/lib/client/settings";
 import { useDesktop } from "@/lib/client/platform";
-import { PICKABLE, PickMenu, opener, opensAt, targetOf, wordsOf } from "@/components/blueprint/pick";
+import { PICKABLE, PickMenu, opener, opensAt, targetOf } from "@/components/blueprint/pick";
 import { Level } from "@/components/blueprint/level";
 
 /**
@@ -143,7 +143,7 @@ export function Canvas() {
   // a published blueprint, whose Claude is its panel; a plain browser keeps its own menu.
   const desktop = useDesktop();
   const { ground } = useSettings();
-  const [menu, setMenu] = useState<{ x: number; y: number; target: Target; words: string; opens: string[] | null } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; target: Target; opens: string[] | null } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const onContextMenu = (e: React.MouseEvent) => {
     // An editor's text keeps its own menu: copy, paste, spelling.
@@ -154,7 +154,9 @@ export function Canvas() {
     const target = el ? targetOf(blueprint, el, path) : section(blueprint, path);
     if (!target) return;
     e.preventDefault();
-    setMenu({ x: e.clientX, y: e.clientY, target, words: wordsOf(blueprint, el, path), opens: opensAt(e.target as Element, path) });
+    // Whatever was selected before would stay painted behind the menu, which has no use for it.
+    window.getSelection()?.removeAllRanges();
+    setMenu({ x: e.clientX, y: e.clientY, target, opens: opensAt(e.target as Element, path) });
   };
 
   // A part opens in a new tab the way a link does: a middle click, or a click
@@ -234,6 +236,8 @@ export function Canvas() {
       onClickCapture={(e) => (e.metaKey || e.ctrlKey ? toTab(e) : undefined)}
       onAuxClickCapture={(e) => (e.button === 1 ? toTab(e) : undefined)}
       onPointerDown={grab}
+      // WebKit selects a link's words on a right press, painting the card the selection's color behind the menu.
+      onMouseDown={(e) => (desktop && e.button === 2 && !(e.target as Element).closest(".cm-editor") ? e.preventDefault() : undefined)}
       // The browser's own drag of a link would take the pointer from ours.
       onDragStart={(e) => (opensAt(e.target as Element, path) ? e.preventDefault() : undefined)}
     >

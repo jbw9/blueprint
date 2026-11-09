@@ -4,7 +4,6 @@ import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { Menu } from "@/components/ui/menu";
 import { openInTab } from "@/components/chrome/tabs";
 import { mention, openClaude, section, sectionKey, type Target } from "@/lib/agent/context";
-import { startNote } from "@/lib/agent/notes";
 import { describeElement, type BuiltBlueprint } from "@/lib/blueprint/build";
 
 export const PICKABLE = "[data-path], [data-row], [data-pick]";
@@ -52,30 +51,16 @@ export function targetOf(blueprint: BuiltBlueprint, el: HTMLElement | SVGElement
   };
 }
 
-/**
- * The words a suggested edit starts from: what the thing says on screen. A
- * section is its one line; an element, its own text.
- */
-export function wordsOf(blueprint: BuiltBlueprint, el: HTMLElement | SVGElement | null, level: string[]): string {
-  const at: string[] | null = el?.dataset.path !== undefined ? JSON.parse(el.dataset.path) : el ? null : level;
-  if (at) return blueprint.nodeAt(at)?.sub ?? "";
-  const shown = el && "innerText" in el ? el.innerText : (el?.textContent ?? "");
-  return shown.trim().slice(0, 600);
-}
-
 export function PickMenu({
   x,
   y,
   target,
-  words,
   opens,
   onClose,
 }: {
   x: number;
   y: number;
   target: Target;
-  /** What it says on screen, for a suggested edit to start from. */
-  words: string;
   /** The level the thing under the pointer opens, offered in a new tab. */
   opens: string[] | null;
   onClose: () => void;
@@ -89,17 +74,13 @@ export function PickMenu({
       onClose={onClose}
       items={[
         ...(opens ? [{ label: "Open in new tab", onClick: () => openInTab(name, opens) }] : []),
-        { label: "Add to Claude", onClick: () => mention(target) },
         {
-          label: "Add and open Claude",
+          label: "Add to Claude",
           onClick: () => {
             mention(target);
             openClaude();
           },
         },
-        // A review, sent later as one turn (components/review/review-tray.tsx).
-        { label: "Comment…", separated: true, onClick: () => startNote({ x, y, kind: "comment", anchor: target }) },
-        ...(words ? [{ label: "Suggest an edit…", onClick: () => startNote({ x, y, kind: "suggest" as const, anchor: target, before: words }) }] : []),
       ]}
     />
   );
