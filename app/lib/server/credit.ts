@@ -12,6 +12,7 @@ import { join } from "node:path";
  */
 
 import { api } from "@/lib/server/api";
+import { sourcePath } from "@/scripts/generate/inventory";
 
 /** Blueprint's GitHub OAuth app, which signs in by device code: its id is public, and it has no secret here. */
 const GITHUB_CLIENT_ID = "Ov23li6hsQHhIxCkRrDT";
@@ -296,14 +297,15 @@ async function askStatus(): Promise<CreditStatus> {
   };
 }
 
-/** What a new blueprint costs, about, per file in the repository: enough over runs seen to rarely fall short. */
+/** What a new blueprint costs, about, per source file it maps: runs seen cost $0.03–0.04, so this rarely falls short. */
 const MICRO_PER_FILE = 50_000;
 
+/** The source files the generator maps (inventory.ts); data, docs and tests are left out, as the generator leaves them. */
 function filesIn(root: string) {
   try {
     return execFileSync("git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", timeout: 10_000, maxBuffer: 64 << 20, windowsHide: true })
       .split("\n")
-      .filter(Boolean).length;
+      .filter((f) => f && sourcePath(f)).length;
   } catch {
     return 0;
   }
