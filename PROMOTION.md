@@ -56,7 +56,7 @@ Each lane has its own per-minute budget, so a map run never slows down a chat.
 |---|---|---|---|
 | `tab5h`: the **5-hour session** | **$4** (`tab_usd_5h`) | 5 h (`window_hours`) | at the first call after the last window closed |
 | `tabweek` | **$40** (`tab_usd_week`) | 168 h (`week_hours`) | at the first call |
-| `genweek`: maps ("unlimited", fair use) | **$100** (`gen_usd_week`) | 168 h | at the first call |
+| `genweek`: maps ("unlimited", fair use) | **$200** (`gen_usd_week`) | 168 h | at the first call |
 
 ### Throttles (short, retried automatically)
 
@@ -142,8 +142,8 @@ Per million tokens, global profiles, 5.5 models (`PRICE` in `credit.mjs`):
 | Lane | Week | Month (~4.3 wk) |
 |---|---|---|
 | Tabs | $40 | ~$172 |
-| Maps | $100 | ~$430 |
-| **Max per account** | **$140** | **~$600** |
+| Maps | $200 | ~$860 |
+| **Max per account** | **$240** | **~$1,030** |
 
 ### Program-wide
 
@@ -151,10 +151,10 @@ Per million tokens, global profiles, 5.5 models (`PRICE` in `credit.mjs`):
 |---|---|
 | 100 users, light (2 sessions/wk at ~$2, 1 map/mo at ~$12) | ~$2,900 |
 | 100 users, typical-heavy (5 sessions/wk at ~$3) | ~$6,500 → **hits the $4,500 ceiling** in ~3 weeks |
-| ~8 people maxing every cap | ~$4,500 → ceiling |
+| ~4–5 people maxing every cap | ~$4,500 → ceiling |
 | **Hard cap** | **$4,500** (app), then $4,800 Budget deny |
 
-- A mid-size map runs about **$12** (the $100/wk fair use is "about eight maps").
+- A mid-size map runs about **$12** (the $200/wk fair use is "about sixteen maps").
 - Lambda, DynamoDB on-demand and data transfer are small next to Bedrock: a few dollars to low tens per month.
 - The month resets on the 1st (UTC). Promo runs ~1 month, so **the total exposure is about $4,500**, plus whatever uncapped accounts spend.
 
@@ -200,7 +200,7 @@ Per million tokens, global profiles, 5.5 models (`PRICE` in `credit.mjs`):
 | `enabled` | false | master switch |
 | `ends_at` | null | ISO end time; also shown on blpr.dev/promotion via `GET /promo` |
 | `policy` / `gen_policy` | "log" / null | `"enforce"` refuses out-of-shape calls |
-| `tab_usd_5h`, `tab_usd_week`, `gen_usd_week` | 4, 40, 100 | allowances (null = no cap) |
+| `tab_usd_5h`, `tab_usd_week`, `gen_usd_week` | 4, 40, 200 | allowances (null = no cap) |
 | `window_hours`, `week_hours` | 5, 168 | window lengths |
 | `tab_inflight` | 3 | concurrency (tabs only) |
 | `usd_per_minute` | 1 | burst limit (tabs only) |

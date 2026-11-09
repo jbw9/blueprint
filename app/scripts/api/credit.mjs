@@ -39,9 +39,9 @@ export const DEFAULTS = {
   // About half of Claude Pro: its 5-hour session runs to roughly $6–8 of Claude Code at list price.
   tab_usd_5h: 4,
   tab_usd_week: 40,
-  // Maps are offered as unlimited: this is fair use, about eight mid-size maps a week, which nobody making maps
+  // Maps are offered as unlimited: this is fair use, about sixteen mid-size maps a week, which nobody making maps
   // reaches. It is what holds the lane to its price, since anyone signed in can call it without the generator.
-  gen_usd_week: 100,
+  gen_usd_week: 200,
   // A tab's own throttles; map generation has none, so it runs as fast as Bedrock takes it.
   tab_inflight: 3,
   usd_per_minute: 1,
@@ -223,6 +223,12 @@ async function admit(c, account, a, lane, guess) {
 
 /** A rough price for a call before Bedrock says what it used: its prompt as if a tenth were new, and up to 4,000 tokens out. */
 const guessOf = (family, bytes, maxTokens) => Math.ceil((bytes / 4) * PRICE[family].in * 0.1 + Math.min(maxTokens, 4000) * PRICE[family].out);
+/**
+ * The most a call can cost: a token per byte of prompt, all of it written to the hour cache, and every token
+ * out it may ask for. Maps have no cap on calls at once, so only this keeps a burst within the week's cap:
+ * the window stops admitting once it is reached, over it by at most the last call's own.
+ */
+const worstOf = (family, bytes, maxTokens) => Math.ceil(bytes * PRICE[family].in * 2 + maxTokens * PRICE[family].out);
 /** A one-hour cache write costs twice the input price; `cache_write` counts both kinds. */
 const microOf = (family, u) => {
   const p = PRICE[family];
@@ -375,7 +381,7 @@ export async function relay({ stream, reply, account, ip, lane, model, op, heade
     return reply(403, { message: "Blueprint credit only runs Claude Code in Blueprint's tabs and Blueprint's own map generation." }, { "x-amzn-errortype": "AccessDeniedException" });
   }
 
-  const guess = guessOf(family, shaped.body.length, shaped.maxTokens);
+  const guess = (lane === "gen" ? worstOf : guessOf)(family, shaped.body.length, shaped.maxTokens);
   const ok = await admit(c, account, a, lane, guess);
   if (!ok.ok) return (await countRefusal(lane, ok.kind), refuse(ok));
 

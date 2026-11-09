@@ -52,7 +52,7 @@ export default function Promotion() {
               <tr>
                 <td>Making blueprints</td>
                 <td>
-                  Unlimited, within fair use: up to $100 of Claude a week per account, about eight blueprints of mid-size codebases. New blueprints and
+                  Unlimited, within fair use: up to $200 of Claude a week per account, about sixteen blueprints of mid-size codebases. New blueprints and
                   their updates both count. Past that, new blueprints run on your own Claude Code until the week resets.
                 </td>
               </tr>
