@@ -20,8 +20,8 @@ const HOST = `bedrock-runtime.${REGION}.amazonaws.com`;
 const PROFILES = JSON.parse(process.env.PROFILES ?? "{}");
 const OPS = new Set(["invoke-with-response-stream", "invoke", "count-tokens"]);
 
-/** $ per million tokens through a global profile; a cache write costs 1.25× input, a cache read a tenth. */
-const PRICE = { haiku: { in: 1, out: 5 }, sonnet: { in: 3, out: 15 }, opus: { in: 5, out: 25 } };
+/** $ per million tokens through a global profile (the 5.5 models); a cache write costs 1.25× input. Haiku's is for prompts up to 100K tokens. */
+const PRICE = { haiku: { in: 0.1, out: 0.5, cr: 0.01 }, sonnet: { in: 2, out: 10, cr: 0.2 }, opus: { in: 4, out: 20, cr: 0.2 } };
 
 const familyOf = (model) => (/haiku/i.test(model) ? "haiku" : /opus/i.test(model) ? "opus" : "sonnet");
 /** A tab gets Sonnet or Haiku whatever it asks for; generation gets the family it asks for. */
@@ -230,7 +230,7 @@ const guessOf = (family, bytes, maxTokens) => Math.ceil((bytes / 4) * PRICE[fami
 const microOf = (family, u) => {
   const p = PRICE[family];
   const hour = Math.min(u.cache_write_1h ?? 0, u.cache_write);
-  return Math.ceil(u.input * p.in + (u.cache_write - hour) * p.in * 1.25 + hour * p.in * 2 + u.cache_read * p.in * 0.1 + u.output * p.out);
+  return Math.ceil(u.input * p.in + (u.cache_write - hour) * p.in * 1.25 + hour * p.in * 2 + u.cache_read * p.cr + u.output * p.out);
 };
 
 /* ── SigV4, for the one host and two headers this needs ── */

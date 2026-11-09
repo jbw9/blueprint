@@ -49,7 +49,14 @@ export function shape({ lane, body, headers, maxTokens }) {
   }
 
   if (!(typeof j.max_tokens === "number" && j.max_tokens <= maxTokens)) j.max_tokens = maxTokens;
-  if (j.thinking?.type === "enabled" && !(j.thinking.budget_tokens < j.max_tokens)) j.thinking.budget_tokens = Math.max(1024, j.max_tokens - 1024);
+  // The profiles run the 5.5 models, which refuse what an app built for 4.x may still send: a thinking
+  // budget, thinking turned off, a forced tool, a sampling setting other than the default.
+  if (j.thinking?.type === "enabled") j.thinking = { type: "adaptive" };
+  if (j.thinking?.type === "disabled") delete j.thinking;
+  if (j.tool_choice?.type === "any" || j.tool_choice?.type === "tool") j.tool_choice = { type: "auto" };
+  if (j.temperature !== undefined && j.temperature !== 1) delete j.temperature;
+  delete j.top_p;
+  delete j.top_k;
   if (Array.isArray(j.anthropic_beta)) j.anthropic_beta = j.anthropic_beta.filter((b) => !/^context-1m/.test(String(b)));
   return { body: Buffer.from(JSON.stringify(j)), flags, maxTokens: j.max_tokens };
 }
