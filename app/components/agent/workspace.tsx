@@ -20,7 +20,7 @@ import { Strip, inFront } from "@/components/agent/strip";
 import { GlobeIcon, PhoneIcon, iconOf } from "@/components/agent/tab-icons";
 import { useTabStatus } from "@/components/agent/tab-status";
 import { useTurnFollowing } from "@/components/agent/turn-following";
-import { OFFER_KEY, PARKED_KEY, SITE_KEY, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
+import { OFFER_KEY, PARKED_KEY, SITE_KEY, firstOpening, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
 import type { Project, Tab } from "@/components/agent/workspace-tab";
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
@@ -352,7 +352,7 @@ export function Workspace() {
 
   // A project opening for the first time this session: how it runs is read,
   // its dev server started with a Preview in front, and a phone app offered
-  // its simulator.
+  // its simulator. Opened for the first time ever, Claude starts in the window.
   const launched = useRef(new Set<string>());
   useEffect(() => {
     if (!desktop || !here || launched.current.has(here)) return;
@@ -367,8 +367,12 @@ export function Workspace() {
           if (!tabsNow.current.some((x) => x.kind === "preview" && x.cwd === root)) add(null, { kind: "preview", title: "Preview", cwd: root });
         }
       })
-      .catch(() => {});
-  }, [desktop, here, add, startDev]);
+      .catch(() => {})
+      // After the Preview, so Claude is what the window shows; not over a conversation reopened from last time.
+      .finally(() => {
+        if (firstOpening(root) && !tabsNow.current.some((x) => x.kind === "shell" && x.cwd === root && !x.dev)) add(main, { cwd: root });
+      });
+  }, [desktop, here, add, startDev, main]);
 
   // The dev server's tab, read as it prints until it gives its address. Only
   // whole lines, so an address split across two reads is never taken short.

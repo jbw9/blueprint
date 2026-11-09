@@ -31,6 +31,20 @@ export function storedSessions(): { cwd: string; session: string }[] {
   }
 }
 
+/** The projects already opened once, by their folder: the first opening starts Claude in the window. */
+export const OPENED_KEY = "blueprint.opened:";
+
+/** Whether this is the first time the project is opened on this machine, marking it opened. */
+export function firstOpening(root: string) {
+  try {
+    if (localStorage.getItem(OPENED_KEY + root) !== null) return false;
+    localStorage.setItem(OPENED_KEY + root, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function offered(root: string) {
   try {
     return localStorage.getItem(OFFER_KEY + root) !== null;
