@@ -59,7 +59,7 @@
 }
 .page section[id],
 .page header[id] {
-  scroll-margin-top: 24px;
+  scroll-margin-top: 72px;
 }
 .wrap {
   max-width: 1480px;
@@ -88,9 +88,13 @@
   content: " ]";
 }
 
-/* ── the bar at the top: on the sheet itself, and it scrolls away with the page ── */
+/* ── the bar at the top: in the sheet's colour, it stays at the top as the page scrolls under it ── */
 .nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   padding: 0 var(--gutter);
+  background: var(--paper);
 }
 .navBar {
   display: flex;

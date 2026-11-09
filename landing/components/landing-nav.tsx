@@ -8,7 +8,7 @@ const LINKS = [
   { href: "#questions", label: "Questions" },
 ];
 
-/** The bar across the top of the sheet, on the sheet itself; it scrolls away with the page. */
+/** The bar across the top of the sheet, in its colour, which stays at the top as the page scrolls under it. */
 export function LandingNav({ github }: { github: string }) {
   return (
     <header className={s.nav}>
