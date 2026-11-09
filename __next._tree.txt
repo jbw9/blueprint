@@ -9,11 +9,8 @@
 :HL["/_next/static/media/ce62453a442c7f35-s.p.0a0h245ktd4x0.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/effe91970fc4db64-s.p.0oace-s_gkfks.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/f8a66589f2577848-s.p.27yhq-axkaxx4.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-:HL["/_next/static/chunks/0qjxpvu31_hy1.css","style"]
-:HL["/images/hand.png","image"]
-:HL["/images/eniac.png","image"]
-:HL["/images/hamilton.png","image"]
-:HL["/images/rope.png","image"]
-:HL["/images/microscope.png","image"]
-:HL["/images/uncle-sam-cutout.png","image"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"Wbd3GelAqMY-I7kb8kvAf"}
+:HL["/_next/static/chunks/0xi20k8i-sa9o.css","style"]
+:HL["/images/night-hand-edge.png","image"]
+:HL["/images/night-eniac.png","image"]
+:HL["/images/night-uncle-sam-cutout.png","image"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"kAt9_GgGAWo-Wj8v9JaXn"}
