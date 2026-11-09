@@ -30,7 +30,7 @@ import type { Overview } from "@/lib/blueprint/build";
 import { citations, nodesAt } from "@/lib/blueprint/coverage";
 import type { Authored } from "./author";
 import { ask, UsageLimitError, type Tool } from "./bedrock";
-import { autofix, bareLines, BOUNDS, check, fileReader, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";
+import { autofix, bareLines, BOUNDS, check, fileReader, fitWords, layoutProblems, EXPLAIN_LEVEL, LEAF, looksLikePath, plainProse, PROSE_RULE, proseProblems, sentences, STEP_LINES, SUB_WORDS, WALK_STEPS, WALKS, words } from "./check";
 import type { Root } from "./cut";
 import { askWithin, diagramOf, entrypoints, leafCode, MAX_FILES, short, slug, splitFlat, within40, wordProblems } from "./fast";
 import type { Graph } from "./graph";
@@ -53,7 +53,7 @@ const ex = EXPLAIN_LEVEL === "none" ? null : BOUNDS[EXPLAIN_LEVEL];
 /** A leaf's explainer is shorter than a level's: its code and steps are on the page beside it. */
 const LEAF_EXPLAIN_MAX = ex ? Math.min(ex.max, Math.max(ex.min + 10, Math.round(ex.max * 0.4))) : 0;
 const explainField = (max: number) =>
-  ex ? { explain: { type: "string", description: `${ex.min}-${max} words: this part in plain words for someone new to the project and its field — what problem it solves and how, each word it leans on defined the first time. Not a restatement of detail.` } } : {};
+  ex ? { explain: { type: "string", description: `${ex.min}-${max} words: this part in plain words for someone new to the project and its field — what problem it solves and how, each word it leans on defined the first time. Not a restatement of detail. ${PROSE_RULE}` } } : {};
 const EXPLAIN_FIELD = explainField(ex?.max ?? 0);
 const NAMED = {
   title: { type: "string", description: "1-3 words, Title Case: what a reader does or gets here. No file names, never a filler word (Core, Main, Misc, Utilities)." },
@@ -85,7 +85,7 @@ function fitted(x: any, fallback: { title: string; sub: string; detail: string }
   const title = ok(x?.title) ? cutWords(x.title, 4) : fallback.title;
   const sub = ok(x?.sub) ? cutWords(x.sub, SUB_WORDS) : fallback.sub;
   const detail = typeof x?.detail === "string" && x.detail.trim() ? fit40(x.detail) : fit40(fallback.detail);
-  const explain = ex && typeof x?.explain === "string" && x.explain.trim() ? cutWords(x.explain, explainMax) : undefined;
+  const explain = ex && typeof x?.explain === "string" && plainProse(x.explain) ? fitWords(plainProse(x.explain), explainMax) : undefined;
   return { title: title[0] ? title[0].toUpperCase() + title.slice(1) : title, sub, detail, explain };
 }
 
@@ -124,8 +124,13 @@ async function askEntries(o: {
   return { entries, answer, calls: 2 };
 }
 
-/** An explainer too short to say anything: the one limit on words a retry is spent on. */
-const thinExplain = (x: any) => (ex && words(typeof x?.explain === "string" ? x.explain : "") < ex.min ? [`its explain is under ${ex.min} words`] : []);
+/** An explainer too short to say anything, or not plain prose: the limits on an explainer a retry is spent on. */
+const thinExplain = (x: any) => {
+  if (!ex) return [];
+  const body = typeof x?.explain === "string" ? x.explain : "";
+  const kinds = proseProblems(body);
+  return [...(words(body) < ex.min ? [`its explain is under ${ex.min} words`] : []), ...(kinds.length ? [`its explain has ${kinds.join(", ")}; ${PROSE_RULE}`] : [])];
+};
 
 /* ── 1. groups ───────────────────────────────────────────────── */
 
@@ -699,7 +704,7 @@ const OVERVIEW_TOOL: Tool = {
       },
       ...(ex
         ? {
-            explain: { type: "string", description: `${ex.min}-${ex.max} words (${ex.say}): what this system is for and who uses it, the problem it solves, and the idea behind how it works, each word of its field defined the first time.` },
+            explain: { type: "string", description: `${ex.min}-${ex.top} words: what this system is for and who uses it, and the idea behind how it works, each word of its field defined the first time. Only what a newcomer needs before the picture: the sections and their files are shown below it. ${PROSE_RULE}` },
             glossary: {
               type: "array",
               description: `${ex.terms[0]}-${ex.terms[1]} terms the blueprint's titles and details lean on: the words ${ex.words}. Use the exact word the blueprint uses.`,
@@ -794,8 +799,11 @@ export async function deepOverview(roots: Node[], quick: Overview, inv: Inventor
       if (new Set(stops.filter((s) => p[s - 1]).map((s) => p[s - 1][0])).size < 2) out.push(`walkthrough ${i + 1} stays inside one section; keep stops from at least two`);
     });
     if (ex) {
-      const w = words(typeof x?.explain === "string" ? x.explain : "");
-      if (w < ex.min || w > ex.max) out.push(`the explain is ${w} words; it must be ${ex.min}-${ex.max}`);
+      const body = typeof x?.explain === "string" ? x.explain : "";
+      const w = words(body);
+      if (w < ex.min || w > ex.top) out.push(`the explain is ${w} words; it must be ${ex.min}-${ex.top}`);
+      const kinds = proseProblems(body);
+      if (kinds.length) out.push(`the explain has ${kinds.join(", ")}; ${PROSE_RULE}`);
       const terms: any[] = Array.isArray(x?.glossary) ? x.glossary : [];
       if (terms.length < ex.terms[0] || terms.length > ex.terms[1]) out.push(`the glossary has ${terms.length} terms; give ${ex.terms[0]}-${ex.terms[1]}`);
       for (const t of terms) if (words(String(t?.meaning ?? "")) > 25) out.push(`the meaning of "${t?.term}" is over 25 words`);
@@ -830,7 +838,7 @@ export async function deepOverview(roots: Node[], quick: Overview, inv: Inventor
     ...quick,
     anatomy,
     walkthroughs,
-    ...(ex && typeof a?.explain === "string" ? { explain: { body: cutWords(a.explain, ex.max) } } : {}),
+    ...(ex && typeof a?.explain === "string" && plainProse(a.explain) ? { explain: { body: fitWords(plainProse(a.explain), ex.top) } } : {}),
     ...(ex && Array.isArray(a?.glossary) ? { glossary: a.glossary.filter((t: any) => typeof t?.term === "string" && typeof t?.meaning === "string").slice(0, ex.terms[1]) } : {}),
   } as Overview;
   const problems = check({ AUTHORED: roots, OVERVIEW: overview }, inv.repo, { generated: true }).problems.filter((p) => p.includes("(overview)"));
