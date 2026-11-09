@@ -33,7 +33,7 @@ export interface Settings {
 const KEY = SETTINGS_KEY;
 const CHANGED = "blueprint:settings-changed";
 const OPEN = "blueprint:settings";
-const DEFAULTS: Settings = { claudePath: "", model: "", theme: "light", agent: "claude", ground: "plain", devServer: true, voice: true, research: true, quietMedia: null, onboarded: false };
+const DEFAULTS: Settings = { claudePath: "", model: "", theme: "light", agent: "claude", ground: "plain", devServer: true, voice: true, research: false, quietMedia: null, onboarded: false };
 
 /** Anything can ask for the settings dialog: the chrome's gear dispatches this. */
 export const openSettings = () => window.dispatchEvent(new Event(OPEN));
