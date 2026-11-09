@@ -1,4 +1,5 @@
 import type { Diagram } from "@/lib/blueprints";
+import { BOX_H, layoutDagre } from "@/lib/dagre";
 import s from "./landing.module.css";
 
 /** The agents the app opens beside the blueprint (app/components/agent/agents.tsx), with their Simple Icons marks. */
@@ -21,10 +22,6 @@ const Logo = ({ d }: { d: string }) => (
   </svg>
 );
 
-const W = 164;
-const H = 44;
-const at = (b: { col: number; row: number }) => ({ x: 1 + b.col * 204, y: 34 + b.row * 96 });
-
 /**
  * The app beside the agent writing the code: the agent's terminal, with the
  * part picked on the blueprint as its context, and the blueprint's top-level picture
@@ -36,6 +33,7 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
   const box = new Map(diagram.boxes.map((b) => [b.id, b]));
   const near = new Set(diagram.arrows.filter((a) => a.to === changed).map((a) => a.from));
   const title = box.get(changed)!.label;
+  const L = layoutDagre(diagram, true);
   return (
     <section id="agent" className={s.section} aria-labelledby="agent-title">
       <div className={`${s.wrap} ${s.agent}`}>
@@ -61,30 +59,23 @@ export function LandingAgent({ name, diagram, changed }: { name: string; diagram
               <span className={s.winName}>{name}</span>
               <span>Showing changes · 1 changed</span>
             </p>
-            <svg viewBox="0 0 778 196" className={s.roots}>
-              {diagram.arrows.map((a) => {
-                const f = at(box.get(a.from)!);
-                const t = at(box.get(a.to)!);
-                const down = f.x === t.x;
-                const d = down ? `M${f.x + W / 2} ${f.y + H}V${t.y - 4}` : `M${f.x + W} ${f.y + H / 2}H${t.x - 4}`;
-                return (
-                  <g key={a.label} className={s.wire} data-near={a.to === changed || undefined}>
-                    <path d={d} markerEnd="url(#agent-arrow)" />
-                  </g>
-                );
-              })}
+            <svg viewBox={`0 0 ${L.W} ${L.H}`} className={s.roots}>
               <defs>
-                <marker id="agent-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <marker id="agent-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M1 1.2L7 4 1 6.8z" />
                 </marker>
               </defs>
-              {diagram.boxes.map((b) => {
-                const { x, y } = at(b);
+              {L.arrows.map((a) => (
+                <g key={a.from + a.to} className={s.wire} data-near={a.to === changed || (a.both && a.from === changed) || undefined}>
+                  <path d={a.d} markerEnd="url(#agent-arrow)" markerStart={a.both ? "url(#agent-arrow)" : undefined} />
+                </g>
+              ))}
+              {L.boxes.map(({ x, y, w, b }) => {
                 const v = b.id === changed ? "changed" : near.has(b.id) ? "near" : undefined;
                 return (
                   <g key={b.id} data-v={v}>
-                    <rect x={x} y={y} width={W} height={H} />
-                    <text x={x + W / 2} y={y + H / 2 + 4.5} textAnchor="middle">
+                    <rect x={x} y={y} width={w} height={BOX_H} />
+                    <text x={x + w / 2} y={y + BOX_H / 2 + 5} textAnchor="middle">
                       {b.label}
                     </text>
                     {v === "changed" ? (
