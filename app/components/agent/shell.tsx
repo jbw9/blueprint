@@ -537,8 +537,14 @@ export function Shell({
             .catch(() => {});
         term.focus();
       };
-      // Pointing at the terminal is enough to type into it, no click needed.
-      host.addEventListener("mouseenter", take);
+      // Pointing at the terminal is enough to type into it, no click needed,
+      // unless a field is being typed in, like a tab being renamed above it.
+      const point = () => {
+        const at = document.activeElement;
+        if (at instanceof HTMLInputElement && !host.contains(at)) return;
+        take();
+      };
+      host.addEventListener("mouseenter", point);
       const offFocus = onFocusClaude((pty) => {
         if (pty === id && host.checkVisibility()) take();
       });
@@ -564,7 +570,7 @@ export function Shell({
         host.removeEventListener("contextmenu", noKeyMenu, true);
         window.removeEventListener("mousedown", keepFocus, true);
         void drops.then((off) => off());
-        host.removeEventListener("mouseenter", take);
+        host.removeEventListener("mouseenter", point);
         offFocus();
         seen.disconnect();
         input.dispose();
