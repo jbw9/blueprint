@@ -326,14 +326,21 @@
 .promo {
   display: inline-block;
   margin-top: 12px;
-  color: var(--faint);
+  color: var(--muted);
   font: 11px var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
   transition: color 0.2s var(--ease);
 }
 .promo:hover {
   color: var(--ink);
+}
+/* One line wherever it fits beside the install box; on a phone it wraps. */
+@media (max-width: 600px) {
+  .promo {
+    white-space: normal;
+  }
 }
 .down {
   font: 12px var(--mono);
