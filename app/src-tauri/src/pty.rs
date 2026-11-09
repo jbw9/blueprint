@@ -184,6 +184,10 @@ pub fn pty_spawn(
     }
     // With Claude found, the launcher works in this tab; asked to, Claude runs
     // first and the user's ordinary interactive shell takes over when it exits.
+    // Without Claude, the tab still runs the other agents through their launchers (agents.rs).
+    if launch.is_none() {
+        claude::prepare_tab(&mut cmd, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
+    }
     if let Some(launch) = &launch {
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
         if start_claude {
@@ -335,6 +339,8 @@ fn queue_of(ptys: &Ptys, id: u32) -> Result<PathBuf, String> {
 #[derive(serde::Serialize)]
 pub struct State {
     claude: bool,
+    /// Which agent's launcher is in front: `claude`, or one of agents.rs's.
+    agent: Option<String>,
     busy: bool,
     /// What Claude is doing: `working`, `waiting` for the user, or `done`.
     status: Option<String>,
@@ -369,6 +375,7 @@ pub fn pty_state(id: u32, ptys: tauri::State<Ptys>) -> Result<State, String> {
     let busy = false;
     Ok(State {
         claude: claude::running(&p.context),
+        agent: claude::agent_of(&p.context),
         busy,
         status: claude::status_of(&p.context),
         turn: claude::take_turn(&p.context),

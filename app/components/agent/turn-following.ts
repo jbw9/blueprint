@@ -47,6 +47,7 @@ export function useTurnFollowing({
       ids.forEach(([key, pty, cwd]) =>
         invoke<{
           claude: boolean;
+          agent: string | null;
           busy: boolean;
           status: Status | null;
           turn: Turn | null;
@@ -56,7 +57,7 @@ export function useTurnFollowing({
           steps: NonNullable<Plan["steps"]>;
           session: string | null;
         }>("pty_state", { id: pty })
-          .then(({ claude: live, busy, status: said, turn, acts, plan, approved, steps = [], session }) => {
+          .then(({ claude: live, agent, busy, status: said, turn, acts, plan, approved, steps = [], session }) => {
             if (turn && cwd) void followTurn(cwd, turn);
             // Not once stopped: a poll answered after its tab closed would leave the project
             // mid-turn for good, and its commits would never update the blueprint (statusbar.tsx).
@@ -98,8 +99,8 @@ export function useTurnFollowing({
                       : "done"
                   : undefined;
             setTabs((all) =>
-              all.some((x) => x.key === key && (x.live !== live || x.busy !== busy || x.status !== statusOf(x) || x.session !== (session ?? undefined)))
-                ? all.map((x) => (x.key === key ? { ...x, live, busy, status: statusOf(x), session: session ?? undefined } : x))
+              all.some((x) => x.key === key && (x.live !== live || x.agent !== (agent ?? undefined) || x.busy !== busy || x.status !== statusOf(x) || x.session !== (session ?? undefined)))
+                ? all.map((x) => (x.key === key ? { ...x, live, agent: agent ?? undefined, busy, status: statusOf(x), session: session ?? undefined } : x))
                 : all,
             );
           })

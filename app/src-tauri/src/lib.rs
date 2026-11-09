@@ -1,3 +1,4 @@
+mod agents;
 mod browser;
 mod claude;
 mod devices;

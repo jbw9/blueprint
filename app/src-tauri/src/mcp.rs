@@ -5,9 +5,9 @@
 //! the console. And on a phone simulator, through `device` (devices.rs). And
 //! the project's terminals, the dev server's logs first (`read_terminal`).
 //!
-//! Agents other than Claude get no MCP config, so `blueprint-terminal` (claude.rs)
-//! reaches `read_terminal` through `/text` on the same URL: one tools/call,
-//! answered as its plain text.
+//! Codex and OpenCode get it in their own config, and Pi through its extension
+//! (agents.rs). `blueprint-terminal` (claude.rs) reaches `read_terminal` through
+//! `/text` on the same URL: one tools/call, answered as its plain text.
 //!
 //! It is MCP's streamable HTTP transport in its simplest form: one JSON-RPC
 //! message per POST, answered as plain JSON. The URL carries a secret, and the
@@ -96,11 +96,12 @@ fn handle(conn: TcpStream, app: &AppHandle) -> std::io::Result<()> {
         .filter(|(token, _)| *token == s.token)
         .and_then(|(_, rest)| {
             let (tab, sub) = rest.split_once('/').unwrap_or((rest, ""));
-            Some((tab.parse::<u32>().ok()?, sub == "text")).filter(|(_, text)| *text || sub.is_empty())
+            Some((tab.parse::<u32>().ok()?, sub)).filter(|(_, sub)| ["", "text", "codex-trust"].contains(sub))
         });
-    let Some((tab, text)) = to else {
+    let Some((tab, sub)) = to else {
         return respond(&mut w, "404 Not Found", "text/plain", b"", &[]);
     };
+    let text = sub == "text";
     if method != "POST" {
         // No stream of server-sent messages: this server only ever answers.
         return respond(&mut w, "405 Method Not Allowed", "text/plain", b"", &[("Allow", "POST")]);
@@ -110,6 +111,14 @@ fn handle(conn: TcpStream, app: &AppHandle) -> std::io::Result<()> {
         let e = json!({ "jsonrpc": "2.0", "id": null, "error": { "code": -32700, "message": "Parse error" } });
         return respond(&mut w, "400 Bad Request", "application/json", e.to_string().as_bytes(), &[]);
     };
+    // The Codex launcher, before it starts Codex (agents.rs).
+    if sub == "codex-trust" {
+        let field = |k: &str| msg.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+        return match crate::agents::trust_codex(&field("bin"), &field("home")) {
+            Ok(()) => respond(&mut w, "200 OK", "text/plain", b"", &[]),
+            Err(e) => respond(&mut w, "500 Internal Server Error", "text/plain", e.as_bytes(), &[]),
+        };
+    }
     if text {
         let r = rpc(&msg, tab, app).unwrap_or(Value::Null);
         let result = &r["result"];
