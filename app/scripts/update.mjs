@@ -1,4 +1,5 @@
-// usage: node scripts/update.mjs <latest.json's url or path>
+// usage: node scripts/update.mjs <latest.json's url or path>...
+//   Each latest.json is tried in turn until one answers; each names its own host's archives.
 //   run from the installed server (<app data>/server) by lib/server/update.ts, and by CI on a fresh
 //   install (.github/scripts/check-update.sh). When latest.json names a newer release than this
 //   server's release.json, the release for this system is downloaded, checked against its sha256 and
@@ -30,7 +31,7 @@ const newer = (a, b) => {
   const i = x.findIndex((n, k) => n !== y[k]);
   return i >= 0 && x[i] > y[i];
 };
-// CI hands it files; the app, GitHub.
+// CI hands it files; the app, S3 and then GitHub.
 const open = async (where, timeout) => {
   if (!/^https?:/.test(where)) return fs.createReadStream(where.startsWith("file:") ? fileURLToPath(where) : where);
   const r = await fetch(where, { signal: AbortSignal.timeout(timeout) });
@@ -40,9 +41,18 @@ const open = async (where, timeout) => {
 
 const current = versionIn(server);
 if (!current) throw new Error("This Blueprint was built from source, so it has no release to update.");
-const chunks = [];
-for await (const c of await open(process.argv[2], 30_000)) chunks.push(c);
-const latest = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+let latest;
+for (const where of process.argv.slice(2)) {
+  try {
+    const chunks = [];
+    for await (const c of await open(where, 30_000)) chunks.push(c);
+    latest = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    break;
+  } catch (e) {
+    console.error(e.message);
+  }
+}
+if (!latest) throw new Error("No latest.json answered.");
 const system = `${process.platform === "win32" ? "windows" : process.platform}-${process.arch === "arm64" ? "arm64" : "x86_64"}`;
 const asset = latest.assets?.[system];
 if (!asset || !newer(latest.version, current) || versionIn(path.join(staged, "server")) === latest.version) process.exit(0);

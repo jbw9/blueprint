@@ -2,6 +2,7 @@
 set -e
 
 API_URL=https://rn24aj5jclm6ioyeqrlsxbztky0bfwgc.lambda-url.us-east-1.on.aws
+RELEASES=https://blueprint-releases-891376942131.s3.us-east-1.amazonaws.com
 
 main() {
   trap finish EXIT
@@ -29,7 +30,11 @@ main() {
     "On Windows, run the install command in Git Bash: https://git-scm.com/downloads/win" ;;
   esac
   case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
-  release=${BLUEPRINT_RELEASE:-https://github.com/jbw9/blueprint/releases/latest/download/blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz}
+  file=blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz
+  # GitHub's copy of the release is the fallback: its anonymous downloads have gone down for hours.
+  if [ -n "$BLUEPRINT_RELEASE" ]; then release=$BLUEPRINT_RELEASE mirror=
+  else release=$RELEASES/latest/$file mirror=https://github.com/jbw9/blueprint/releases/latest/download/$file
+  fi
   check_node
   done_line "Checked your system" "$name $arch · Node $(node -v | tr -d v)"
 
@@ -59,18 +64,22 @@ main() {
 
 find_release() {
   total=
-  for try in 1 2 3 4; do
-    rc=0
-    # HTTP/1.1: over HTTP/2 some curls (8.7 on macOS) end a 404 with error 56.
-    hdr=$(curl -sSLI --http1.1 -w 'status %{http_code}\n' "$release" 2>/dev/null) || rc=$?
-    code=$(printf '%s\n' "$hdr" | awk '$1 == "status" { c = $2 } END { print c }')
-    if [ "$rc" = 0 ] && [ "$code" = 404 ]; then
-      warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
-      return 1
-    fi
-    # 000 is a file:// release, which has no status.
+  for url in "$release" $mirror; do
+    release=$url
+    for try in 1 2 3 4; do
+      rc=0
+      # HTTP/1.1: over HTTP/2 some curls (8.7 on macOS) end a 404 with error 56.
+      hdr=$(curl -sSLI --http1.1 -w 'status %{http_code}\n' "$release" 2>/dev/null) || rc=$?
+      code=$(printf '%s\n' "$hdr" | awk '$1 == "status" { c = $2 } END { print c }')
+      if [ "$rc" = 0 ] && [ "$code" = 404 ]; then
+        warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
+        return 1
+      fi
+      # 000 is a file:// release, which has no status.
+      case $rc:$code in 0:2?? | 0:000) break ;; esac
+      [ "$try" = 4 ] || sleep $((try * 2))
+    done
     case $rc:$code in 0:2?? | 0:000) break ;; esac
-    [ "$try" = 4 ] || sleep $((try * 2))
   done
   if [ "$rc" != 0 ]; then
     fail "Couldn't reach GitHub to download Blueprint" "curl stopped with error $rc." \

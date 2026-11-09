@@ -9,7 +9,11 @@ import { dirname, join } from "node:path";
  * release.json, so it never looks.
  */
 
-const MANIFEST = "https://github.com/jbw9/blueprint/releases/latest/download/latest.json";
+// GitHub's copy of the release is the fallback: its anonymous downloads have gone down for hours.
+const MANIFESTS = [
+  "https://blueprint-releases-891376942131.s3.us-east-1.amazonaws.com/latest/latest.json",
+  "https://github.com/jbw9/blueprint/releases/latest/download/latest.json",
+];
 const SERVER = process.cwd();
 
 const versionIn = (dir: string) => {
@@ -30,7 +34,7 @@ export function checkUpdate(now = false) {
   if (!VERSION || state.running || Date.now() - state.at < (now ? 60_000 : 6 * 3600_000)) return;
   state.at = Date.now();
   state.running = true;
-  const p = spawn(process.execPath, [join(SERVER, "scripts", "update.mjs"), MANIFEST], { stdio: ["ignore", "ignore", "inherit"], windowsHide: true });
+  const p = spawn(process.execPath, [join(SERVER, "scripts", "update.mjs"), ...MANIFESTS], { stdio: ["ignore", "ignore", "inherit"], windowsHide: true });
   const done = () => void (state.running = false);
   p.on("exit", done);
   p.on("error", done);

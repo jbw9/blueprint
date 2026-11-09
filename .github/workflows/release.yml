@@ -3,12 +3,17 @@ name: Release
 # A version tag (git tag v0.2.0 && git push origin v0.2.0) publishes Blueprint: install.yml builds and
 # checks it on each system, then one release takes every system's archive and latest.json, which the
 # installed app reads to update itself (app/scripts/update.mjs) and install.sh downloads from.
+# The release goes to S3 first and GitHub second; install.sh and the app fall back to GitHub's copy.
+# Needs the repository variable AWS_RELEASE_ROLE: a role in 891376942131 that GitHub's OIDC provider can
+# assume from this repository's v* tags, allowed s3:PutObject, s3:GetObject and s3:ListBucket on
+# blueprint-releases-891376942131 (.github/aws/releases.yml).
 on:
   push:
     tags: ["v*"]
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   version:
@@ -46,8 +51,19 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_RELEASE_ROLE }}
+          aws-region: us-east-1
+
+      # latest/ holds the newest archives under fixed names for install.sh; each latest.json names its own host's.
       - name: Publish
         run: |
+          s3=s3://blueprint-releases-891376942131
+          sh .github/scripts/manifest.sh "$VERSION" "https://blueprint-releases-891376942131.s3.us-east-1.amazonaws.com/$GITHUB_REF_NAME" dist >latest.json
           sh .github/scripts/manifest.sh "$VERSION" "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME" dist >dist/latest.json
-          cat dist/latest.json
+          cat latest.json dist/latest.json
+          aws s3 cp dist "$s3/$GITHUB_REF_NAME/" --recursive --exclude latest.json
+          aws s3 cp "$s3/$GITHUB_REF_NAME/" "$s3/latest/" --recursive
+          aws s3 cp latest.json "$s3/latest/latest.json"
           gh release create "$GITHUB_REF_NAME" dist/* -R "$GITHUB_REPOSITORY" --latest --title "Blueprint $VERSION" --generate-notes
