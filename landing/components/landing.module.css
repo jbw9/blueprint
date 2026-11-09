@@ -101,7 +101,7 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  max-width: 1040px;
+  max-width: calc(1480px - 2 * var(--gutter));
   height: 52px;
   margin: 0 auto;
   padding: 0 10px 0 14px;
