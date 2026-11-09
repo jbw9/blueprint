@@ -59,15 +59,28 @@ main() {
 
 find_release() {
   total=
-  rc=0
-  # HTTP/1.1: over HTTP/2 some curls (8.7 on macOS) end a 404 under -f with error 56, not 22.
-  hdr=$(curl -fsSLI --http1.1 "$release" 2>/dev/null) || rc=$?
-  if [ "$rc" = 22 ]; then
-    warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
-    return 1
+  for try in 1 2 3 4; do
+    rc=0
+    # HTTP/1.1: over HTTP/2 some curls (8.7 on macOS) end a 404 with error 56.
+    hdr=$(curl -sSLI --http1.1 -w 'status %{http_code}\n' "$release" 2>/dev/null) || rc=$?
+    code=$(printf '%s\n' "$hdr" | awk '$1 == "status" { c = $2 } END { print c }')
+    if [ "$rc" = 0 ] && [ "$code" = 404 ]; then
+      warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
+      return 1
+    fi
+    # 000 is a file:// release, which has no status.
+    case $rc:$code in 0:2?? | 0:000) break ;; esac
+    [ "$try" = 4 ] || sleep $((try * 2))
+  done
+  if [ "$rc" != 0 ]; then
+    fail "Couldn't reach GitHub to download Blueprint" "curl stopped with error $rc." \
+      "Check your internet connection, then run the install command again."
   fi
-  [ "$rc" = 0 ] || fail "Couldn't reach GitHub to download Blueprint" "curl stopped with error $rc." \
-    "Check your internet connection, then run the install command again."
+  # GitHub's CDN can fail a HEAD it would serve as a GET, so a 5xx still tries the download.
+  case $code in 2?? | 000 | 5??) ;; *)
+    fail "GitHub couldn't hand over the Blueprint download" "It answered HTTP $code." \
+      "Wait a few minutes; it's on GitHub's side, not your computer's." ;;
+  esac
   total=$(printf '%s\n' "$hdr" | tr -d '\r' | awk 'tolower($1) == "content-length:" { n = $2 } END { print n }')
 }
 
