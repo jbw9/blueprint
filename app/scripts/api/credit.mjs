@@ -43,7 +43,7 @@ export const DEFAULTS = {
   // reaches. It is what holds the lane to its price, since anyone signed in can call it without the generator.
   gen_usd_week: 200,
   // A tab's own throttles; map generation has none, so it runs as fast as Bedrock takes it.
-  tab_inflight: 3,
+  tab_inflight: 10,
   usd_per_minute: 1,
   max_tokens: 32000,
   // The generator's authors ask for 64,000 (scripts/generate/author.ts); cut at 32,000 they stop mid-answer.
