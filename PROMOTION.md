@@ -125,8 +125,6 @@ Per million tokens, global profiles, 5.5 models (`PRICE` in `credit.mjs`):
 | Sonnet 5.5 | $2.00 | $10.00 | $0.20 | $2.50 | $4.00 |
 | Opus 5.5 (gen only) | $4.00 | $20.00 | $0.20 | $5.00 | $8.00 |
 
-> These 5.5 prices are in the working tree; they aren't committed yet. The committed version still has the 4.x prices.
-
 ---
 
 ## 8. Expected costs
@@ -234,5 +232,5 @@ Per account (`account / gh:<id>`): any of the limits above, or `uncapped`, `allo
 - [ ] Bedrock TPM quotas + Lambda concurrency (console)
 - [ ] Mark the owner's `account / gh:<id>` as `uncapped` + `allowed`
 - [ ] After ~1 week of reading `req#` flags: `policy` → `"enforce"`
-- [ ] Commit the 5.5 price change in `credit.mjs` / `policy.mjs` / `claude.rs` and redeploy the Lambda
+- [ ] Redeploy the Lambda so it charges the 5.5 prices
 - [ ] Remove the `devices: []` shim in `admin.mjs` once the admin page is redeployed
