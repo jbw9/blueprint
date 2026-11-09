@@ -253,8 +253,7 @@ button.project:hover {
   width: 12px;
   height: 12px;
 }
-.statusbar kbd,
-.statusbar code {
+.statusbar kbd {
   padding: 0 4px;
   border: 1px solid var(--color-border-strong);
   font: 10.5px var(--font-mono);
@@ -1179,9 +1178,6 @@ button.project:hover {
   padding: 7px 12px;
   font-size: 13px;
 }
-.hunkWrap + .change {
-  border-top: 1px solid var(--color-border-gray);
-}
 .caret {
   width: 10px;
   font-size: 11px;
@@ -1325,30 +1321,6 @@ button.project:hover {
   padding: 2px 10px;
   background: var(--color-accent);
   color: var(--color-on-accent);
-}
-.building {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--color-accent-line);
-  background: var(--color-accent-surface);
-  font-size: 12px;
-}
-.building i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  animation: blink 1s ease-in-out infinite;
-}
-.building span {
-  flex: 1;
-}
-.building u {
-  text-decoration: none;
-  color: var(--color-accent);
 }
 .dock {
   display: grid;

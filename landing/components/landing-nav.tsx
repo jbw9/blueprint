@@ -15,7 +15,7 @@ export function LandingNav({ github }: { github: string }) {
   const [floating, setFloating] = useState(false);
   useEffect(() => {
     // The page scrolls itself, not the window: the layout locks the body.
-    const page = bar.current!.parentElement!;
+    const page = bar.current!.closest<HTMLElement>(`.${s.page}`)!;
     const on = () => setFloating(page.scrollTop > 24);
     on();
     page.addEventListener("scroll", on, { passive: true });
@@ -31,7 +31,7 @@ export function LandingNav({ github }: { github: string }) {
           onClick={(e) => {
             // "#" scrolls the window, and the window never scrolls here.
             e.preventDefault();
-            bar.current!.parentElement!.scrollTo({ top: 0 });
+            bar.current!.closest(`.${s.page}`)!.scrollTo({ top: 0 });
           }}
         >
           <Logo />

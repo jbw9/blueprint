@@ -1,6 +1,4 @@
 /* Blueprint's landing page: one ink, cobalt, on a white sheet that lies on a
-   blueprint grid. In dark, the sheet is the blueprint and the ink is white. */
-/* Blueprint's landing page: one ink, cobalt, on a white sheet that lies on a
    blueprint grid. Always light, whatever the reader picked in the app. */
 .page {
   --desk: #1a2fa0;
@@ -1243,9 +1241,6 @@
   align-items: center;
   gap: 40px 72px;
 }
-.agent .intro + .intro {
-  margin-top: 14px;
-}
 /* The agents it works with, by their marks, in the page's one ink. */
 .agents {
   display: flex;
@@ -1415,13 +1410,6 @@
 }
 
 /* ── questions ─────────────────────── */
-.section .cap {
-  margin-top: 28px;
-}
-.section .cap a {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .faq {
   max-width: 860px;
   margin-top: 36px;
