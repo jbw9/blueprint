@@ -7,24 +7,16 @@ import { signal } from "@/lib/client/signal";
  * or in the code, collected in the review tray (components/review/review-tray.tsx) and
  * sent to Claude together as one turn.
  *
- * A note is a comment ("this should retry") or a suggested edit: the blueprint's own
- * words for something, rewritten into what they should say. The blueprint is never
- * edited by it — it stays generated from the code — so a suggestion is the
- * code's spec for one turn, and the blueprint after the turn shows whether it took.
+ * A note is a comment ("this should retry") on one thing.
  *
  * Kept per blueprint in localStorage, so a review half written survives a reload.
  */
 
 export interface Note {
   id: string;
-  kind: "comment" | "suggest";
   /** What it is pinned to, and that thing's text for Claude (lib/agent/context.ts). */
   anchor: Target;
-  /** The comment, or what goes with a suggestion. */
   note: string;
-  /** A suggestion: the words on screen, and what they should say. */
-  before?: string;
-  after?: string;
   status: "draft" | "sending" | "sent";
 }
 
@@ -32,9 +24,7 @@ export interface Note {
 export interface Editing {
   x: number;
   y: number;
-  kind: Note["kind"];
   anchor: Target;
-  before?: string;
 }
 
 interface State {
@@ -61,7 +51,10 @@ export function reviewFor(blueprint: string) {
   if (state.blueprint === blueprint) return;
   let notes: Note[] = [];
   try {
-    notes = (JSON.parse(localStorage.getItem(KEY + blueprint) ?? "[]") as Note[]).map((n) => ({ ...n, status: "draft" as const }));
+    // Suggested edits are gone; one kept from before is dropped.
+    notes = (JSON.parse(localStorage.getItem(KEY + blueprint) ?? "[]") as (Note & { kind?: string })[])
+      .filter((n) => n.kind !== "suggest")
+      .map((n) => ({ ...n, status: "draft" as const }));
   } catch {}
   set({ blueprint, notes, editing: null });
 }
@@ -79,7 +72,7 @@ export function addNote(n: Omit<Note, "id" | "status">) {
   set({ ...state, editing: null, notes: [...state.notes, { ...n, id, status: "draft" }] });
 }
 
-export function editNote(id: string, change: Partial<Pick<Note, "note" | "after">>) {
+export function editNote(id: string, change: Partial<Pick<Note, "note">>) {
   set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...change } : n)) });
 }
 
@@ -93,16 +86,6 @@ export function clearSent() {
 
 /** What Claude reads for one note: the thing as the blueprint describes it, then the note. */
 function describeNote(n: Note): string {
-  if (n.kind === "suggest")
-    return [
-      `[Suggested edit — ${n.anchor.title}]`,
-      n.anchor.text,
-      `On screen it says: "${(n.before ?? "").trim()}"`,
-      `It should say: "${(n.after ?? "").trim()}"`,
-      n.note.trim() ? `Also: ${n.note.trim()}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
   return [`[Review comment — ${n.anchor.title}]`, n.anchor.text, `Comment: ${n.note.trim()}`].join("\n");
 }
 
@@ -117,16 +100,9 @@ export async function sendReview(extra: string, now = false) {
   const ids = new Set(drafts.map((n) => n.id));
   const mark = (status: Note["status"]) => set({ ...state, notes: state.notes.map((n) => (ids.has(n.id) ? { ...n, status } : n)) });
   mark("sending");
-  const comments = drafts.filter((n) => n.kind === "comment").length;
-  const suggests = drafts.length - comments;
-  const counted = [
-    comments ? `${comments} comment${comments === 1 ? "" : "s"}` : "",
-    suggests ? `${suggests} suggested edit${suggests === 1 ? "" : "s"}` : "",
-  ]
-    .filter(Boolean)
-    .join(" and ");
+  const counted = `${drafts.length} comment${drafts.length === 1 ? "" : "s"}`;
   const question = [
-    `Apply my review (${counted}, attached). For a suggested edit, change the code so the blueprint's wording would become true; for a comment, do what it asks. If one is unclear or would be a bad idea, say so instead of guessing.`,
+    `Apply my review (${counted}, attached): do what each comment asks. If one is unclear or would be a bad idea, say so instead of guessing.`,
     extra.trim(),
   ]
     .filter(Boolean)

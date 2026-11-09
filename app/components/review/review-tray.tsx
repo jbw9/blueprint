@@ -29,7 +29,7 @@ export function ReviewTray() {
   if (!desktop) return null;
   return (
     <>
-      {editing ? <NoteEditor key={`${editing.anchor.key}:${editing.kind}`} e={editing} /> : null}
+      {editing ? <NoteEditor key={editing.anchor.key} e={editing} /> : null}
       {notes.length ? <Tray notes={notes} /> : null}
     </>
   );
@@ -117,14 +117,6 @@ function NoteRow({ n }: { n: Note }) {
   return (
     <li className={cn("group border-b border-border-gray px-3 py-2 last:border-b-0", !draft && "opacity-60")}>
       <div className="flex items-start gap-2">
-        <span
-          className={cn(
-            "mt-px shrink-0 px-1 font-mono text-[10px] uppercase",
-            n.kind === "suggest" ? "bg-accent/12 text-accent" : "bg-surface-container text-muted-slate",
-          )}
-        >
-          {n.kind === "suggest" ? "edit" : "note"}
-        </span>
         <button
           type="button"
           onClick={() => draft && setOpen((o) => !o)}
@@ -132,11 +124,6 @@ function NoteRow({ n }: { n: Note }) {
           title={draft ? "Edit this note" : undefined}
         >
           <p className="truncate text-[11.5px] text-faint">{n.anchor.title}</p>
-          {n.kind === "suggest" ? (
-            <p className="text-[12.5px] leading-snug">
-              <del className="text-muted-slate">{n.before}</del> <ins className="text-ink no-underline">{n.after}</ins>
-            </p>
-          ) : null}
           {n.note.trim() ? <p className="whitespace-pre-line text-[12.5px] leading-snug text-ink">{n.note}</p> : null}
         </button>
         <span className="shrink-0 text-[11px] text-faint">{n.status === "sending" ? "◷" : n.status === "sent" ? "✓" : null}</span>
@@ -153,19 +140,11 @@ function NoteRow({ n }: { n: Note }) {
       </div>
       {open && draft ? (
         <div className="mt-1.5 flex flex-col gap-1.5">
-          {n.kind === "suggest" ? (
-            <textarea
-              value={n.after ?? ""}
-              onChange={(e) => editNote(n.id, { after: e.target.value })}
-              rows={2}
-              className={cn(FIELD, "resize-none py-1")}
-            />
-          ) : null}
           <textarea
             value={n.note}
             onChange={(e) => editNote(n.id, { note: e.target.value })}
             rows={2}
-            placeholder={n.kind === "suggest" ? "Why, or anything else (optional)" : "Your comment"}
+            placeholder="Your comment"
             className={cn(FIELD, "resize-none py-1")}
           />
         </div>
@@ -174,14 +153,8 @@ function NoteRow({ n }: { n: Note }) {
   );
 }
 
-/**
- * Writing one note, at the pointer. A comment is one field; a suggestion
- * starts from the words on screen, to be rewritten, and can say why.
- * ⌘/Ctrl+Enter adds it, Escape lets it go.
- */
+/** Writing one comment, at the pointer. ⌘/Ctrl+Enter adds it, Escape lets it go. */
 function NoteEditor({ e }: { e: Editing }) {
-  const suggest = e.kind === "suggest";
-  const [after, setAfter] = useState(e.before ?? "");
   const [note, setNote] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef<HTMLTextAreaElement>(null);
@@ -194,13 +167,12 @@ function NoteEditor({ e }: { e: Editing }) {
         y: Math.max(4, Math.min(e.y, window.innerHeight - box.height - 4)),
       });
     first.current?.focus();
-    if (suggest) first.current?.select();
-  }, [e.x, e.y, suggest]);
+  }, [e.x, e.y]);
 
-  const ready = suggest ? after.trim() !== (e.before ?? "").trim() || note.trim() !== "" : note.trim() !== "";
+  const ready = note.trim() !== "";
   const add = () => {
     if (!ready) return;
-    addNote({ kind: e.kind, anchor: e.anchor, note, ...(suggest ? { before: e.before, after } : {}) });
+    addNote({ anchor: e.anchor, note });
   };
   const onKey = (k: React.KeyboardEvent) => {
     if (k.key === "Escape") {
@@ -218,7 +190,7 @@ function NoteEditor({ e }: { e: Editing }) {
     <div
       ref={ref}
       role="dialog"
-      aria-label={suggest ? "Suggest an edit" : "Comment"}
+      aria-label="Comment"
       data-chrome
       data-note-editor
       onKeyDown={onKey}
@@ -226,24 +198,16 @@ function NoteEditor({ e }: { e: Editing }) {
       className="fixed z-[70] flex w-[340px] flex-col gap-2 border border-border-gray bg-card p-3 shadow-lift"
     >
       <p className="truncate text-[11.5px] text-faint">
-        {suggest ? "Suggest an edit to" : "Comment on"} <span className="text-ink">{e.anchor.title}</span>
+        Comment on <span className="text-ink">{e.anchor.title}</span>
       </p>
-      {suggest ? (
-        <>
-          <p className="max-h-20 overflow-y-auto text-[12px] leading-snug text-muted-slate line-through">{e.before}</p>
-          <textarea ref={first} value={after} onChange={(x) => setAfter(x.target.value)} rows={3} className={field} />
-          <textarea value={note} onChange={(x) => setNote(x.target.value)} rows={1} placeholder="Why (optional)" className={field} />
-        </>
-      ) : (
-        <textarea
-          ref={first}
-          value={note}
-          onChange={(x) => setNote(x.target.value)}
-          rows={3}
-          placeholder="What should change here?"
-          className={field}
-        />
-      )}
+      <textarea
+        ref={first}
+        value={note}
+        onChange={(x) => setNote(x.target.value)}
+        rows={3}
+        placeholder="What should change here?"
+        className={field}
+      />
       <div className="flex items-center justify-end gap-2">
         <span className="mr-auto text-[11px] text-faint">{keys(mac, mac ? "↵" : "Enter")} to add</span>
         <button type="button" onClick={stopEditing} className={QUIET}>

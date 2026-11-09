@@ -52,7 +52,7 @@ function Gap({ h, prev, path }: { h: HunkLines; prev?: HunkLines; path?: string 
       {path ? (
         <button
           type="button"
-          onClick={(e) => startNote({ x: e.clientX, y: e.clientY + 12, kind: "comment", anchor: hunkTarget(path, h) })}
+          onClick={(e) => startNote({ x: e.clientX, y: e.clientY + 12, anchor: hunkTarget(path, h) })}
           className="cursor-pointer text-accent hover:underline"
         >
           {noted ? "✎ commented — add another" : "✎ Comment on this change"}
