@@ -91,22 +91,12 @@
 }
 
 /* ── the window ──────────────────────────────────────── */
-/* Classic's bars ([data-chrome="bar"] in the app): black, white ink, the
-   accent lifted to read on black. Set here rather than borrowed, so the
-   drawing is Classic whatever the page's own theme. */
+/* The app's bars ([data-chrome="bar"]) in its Dark theme, whose tokens the
+   demo window sets (landing.module.css .canvas). */
 .black {
-  --color-paper: #0a0a0b;
-  --color-card: #18181b;
-  --color-surface-container: #1c1c1f;
-  --color-ink: #fafafa;
-  --color-muted-slate: #a1a1aa;
-  --color-faint: #7a7a83;
-  --color-accent: #6b7dff;
-  --color-border-gray: #222225;
-  --color-border-strong: #333338;
   display: flex;
   flex-shrink: 0;
-  background: #0a0a0b;
+  background: var(--color-surface-container-low);
   color: var(--color-muted-slate);
 }
 .titlebar {
@@ -138,8 +128,9 @@
 .project {
   display: flex;
   align-items: center;
+  gap: 6px;
   height: 24px;
-  padding: 0 10px 0 8px;
+  padding: 0 4px 0 8px;
   font: 11.5px var(--font-mono);
 }
 /* The live frame's bars, outside a drawing's scaled stage. */
@@ -163,30 +154,47 @@ button.project:hover {
   color: var(--color-ink);
   font-weight: 600;
 }
+.gap {
+  width: 4px;
+}
 .add {
   display: grid;
   place-items: center;
+  flex-shrink: 0;
   width: 24px;
-  font-size: 15px;
+  height: 24px;
   color: var(--color-faint);
+}
+.strip .add {
+  align-self: center;
+}
+.add svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
 }
 .glyph {
   display: grid;
   place-items: center;
   width: 28px;
-  height: 26px;
+  height: 28px;
+  margin: 0 1px;
 }
 .glyph svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.3;
+  stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .glyph[data-on] {
-  color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 .divider {
   width: 1px;
@@ -215,7 +223,7 @@ button.project:hover {
   align-items: center;
   gap: 6px;
   height: 29px;
-  padding: 0 10px;
+  padding: 0 4px 0 10px;
   border: 1px solid transparent;
   border-bottom: 0;
   font-size: 12px;
@@ -223,6 +231,7 @@ button.project:hover {
 }
 .tab[data-on] {
   border-color: var(--color-border-gray);
+  background: var(--color-paper);
   color: var(--color-ink);
   font-weight: 600;
 }
@@ -231,16 +240,38 @@ button.project:hover {
   height: 12px;
   flex-shrink: 0;
 }
+.tab > .x svg {
+  width: 8px;
+  height: 8px;
+}
+/* The top of the blueprint's tab: its floor plan, then its name. */
+.home {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* A tab's close (components/chrome/tabs.tsx TabClose): an 8px cross in a 16px square. */
 .x {
-  margin-left: 4px;
-  font-weight: 400;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   color: var(--color-faint);
+}
+.x svg {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
 }
 .statusbar {
   align-items: center;
-  gap: 14px;
+  gap: 2px;
   height: 24px;
-  padding: 0 10px;
+  padding: 0 8px;
   border-top: 1px solid var(--color-border-gray);
   font-size: 11.5px;
 }
@@ -248,15 +279,39 @@ button.project:hover {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 0 6px;
+}
+.statusbar > .grow {
+  padding: 0;
 }
 .statusbar svg {
   width: 12px;
   height: 12px;
 }
+/* The blueprint's own button: its name in the ink, the commit beside it. */
+.statusbar > .where {
+  color: var(--color-ink);
+}
+.where b {
+  font-weight: 500;
+}
+.where code {
+  font: 11px var(--font-mono);
+  color: var(--color-muted-slate);
+}
+.statusbar .chev {
+  width: 8px;
+  height: 8px;
+  color: var(--color-muted-slate);
+}
 .statusbar kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
   padding: 0 4px;
-  border: 1px solid var(--color-border-strong);
-  font: 10.5px var(--font-mono);
+  border: 1px solid var(--color-border-gray);
+  background: var(--color-surface);
+  font: 500 10px var(--font-sans);
 }
 
 /* ── a level ─────────────────────────────────────────── */
@@ -280,16 +335,16 @@ button.project:hover {
   overscroll-behavior: contain;
 }
 .head {
-  margin-bottom: 22px;
-  padding-bottom: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
   border-bottom: 1px solid var(--color-border-gray);
 }
 .trail {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-height: 28px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   font: 500 11.5px var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -298,7 +353,7 @@ button.project:hover {
 .trail > span:not(.here, .grow) {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .trail i {
   font-style: normal;
@@ -327,14 +382,14 @@ button.project:hover {
 }
 .title {
   margin-top: 8px;
-  font: 400 40px/1.02 var(--font-display), Georgia, serif;
+  font: 400 35px/1.02 var(--font-display), Georgia, serif;
   letter-spacing: -0.018em;
 }
 .sub {
   max-width: 40em;
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.375;
   color: var(--color-on-surface-variant);
 }
 .meta {
@@ -363,52 +418,58 @@ button.project:hover {
   height: auto;
   overflow: visible;
 }
-/* A level's steps, numbered on one line as the app draws a sequence. */
+/* A level's steps (components/blueprint/anatomy/flow.tsx): a numbered dot on a
+   rail, the step's title with its code to the right, and its line under it. */
 .flow {
   display: grid;
-  max-width: 600px;
   counter-reset: step;
 }
 .flow li {
   position: relative;
   counter-increment: step;
   display: grid;
-  gap: 2px;
-  padding: 0 0 18px 38px;
+  padding: 2px 7px 14px 40px;
 }
 .flow li::before {
   content: counter(step);
   position: absolute;
   left: 0;
-  top: 1px;
-  width: 22px;
-  height: 22px;
+  top: 0;
+  width: 21px;
+  height: 21px;
   border: 1px solid var(--color-accent-line);
+  border-radius: 50%;
   background: var(--color-accent-surface);
-  font: 600 10.5px/20px var(--font-mono);
+  font: 600 10.5px/19px var(--font-mono);
   text-align: center;
   color: var(--color-accent);
 }
 .flow li:not(:last-child)::after {
   content: "";
   position: absolute;
-  left: 11px;
-  top: 26px;
-  bottom: 3px;
-  border-left: 1px solid var(--color-border-strong);
+  left: 10px;
+  top: 21px;
+  bottom: 0;
+  border-left: 1px solid var(--color-border-gray);
 }
 .flow b {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.25;
+}
+.flow b code {
+  margin-left: auto;
+  font: 400 10.5px var(--font-mono);
+  color: var(--color-faint);
 }
 .flow span {
-  font-size: 13.5px;
-  line-height: 1.45;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.625;
   color: var(--color-on-surface-variant);
-}
-.flow code {
-  font-size: 11px;
-  color: var(--color-accent);
 }
 .btn {
   display: inline-flex;
@@ -509,8 +570,8 @@ button.project:hover {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--color-border-gray);
-  background: var(--color-card);
-  box-shadow: 0 8px 28px -8px rgba(0, 0, 0, 0.35);
+  background: var(--color-surface-container-low);
+  box-shadow: var(--shadow-lift);
   color: var(--color-ink);
 }
 .wsTabs {
@@ -520,7 +581,7 @@ button.project:hover {
 .wsTab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 0 8px 0 12px;
   border-right: 1px solid var(--color-border-gray);
   border-bottom: 1px solid var(--color-border-gray);
@@ -529,8 +590,12 @@ button.project:hover {
 }
 .wsTab[data-on] {
   border-bottom-color: transparent;
-  background: #0a0a0b;
+  background: var(--color-surface-container-low);
   color: var(--color-ink);
+}
+.wsTab > .x {
+  width: 18px;
+  height: 18px;
 }
 .wsTab svg {
   flex-shrink: 0;
@@ -542,7 +607,10 @@ button.project:hover {
   place-items: center;
   width: 28px;
   border-bottom: 1px solid var(--color-border-gray);
-  font-size: 13px;
+  font-size: 15px;
+}
+.wsBtn:last-child {
+  font-size: 12px;
 }
 .wsRest {
   flex: 1;
@@ -556,36 +624,55 @@ button.project:hover {
   min-height: 0;
   padding-top: 6px;
 }
+/* components/agent/status-dot.tsx: amber while the agent works, red when it needs you, green when done. */
 .dot {
+  position: relative;
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4caf50;
+  background: var(--color-diff-add-ink);
 }
 .dot[data-status="working"] {
-  background: #f0c674;
-  box-shadow: 0 0 0 3px rgba(240, 198, 116, 0.3);
+  background: var(--color-amber-line);
 }
 .dot[data-status="waiting"] {
-  background: #cf3e3e;
-  box-shadow: 0 0 0 3px rgba(207, 62, 62, 0.25);
+  background: var(--color-clay-ink);
 }
-/* The window put away: its tabs' dots in a pill in the corner. */
+.dot:not([data-status="done"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.6;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+/* The window put away: its tabs' dots in a square frame in the top corner. */
 .dots {
   position: absolute;
+  top: -20px;
   right: 12px;
-  bottom: 12px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid #222225;
-  background: #0a0a0b;
-  box-shadow: 0 8px 28px -8px rgba(0, 0, 0, 0.35);
+  padding: 2px;
+  border: 1px solid var(--color-border-gray);
+  background: var(--color-card);
+  box-shadow: var(--shadow-lift);
 }
-.dots svg {
-  width: 13px;
-  height: 13px;
+.dots > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
 }
 
 /* Claude Code, in its terminal. */
@@ -773,14 +860,14 @@ button.project:hover {
 }
 .planTitle {
   margin-top: 10px;
-  font: 400 40px/1.02 var(--font-display), Georgia, serif;
+  font: 400 35px/1.02 var(--font-display), Georgia, serif;
   letter-spacing: -0.018em;
 }
 .lede {
   max-width: 40em;
   margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 17px;
+  line-height: 1.625;
   color: var(--color-on-surface-variant);
 }
 .figCap {
@@ -1336,7 +1423,7 @@ button.project:hover {
 @keyframes tab-on {
   to {
     border-bottom-color: transparent;
-    background: #0a0a0b;
+    background: var(--color-surface-container-low);
     color: var(--color-ink);
   }
 }
@@ -1353,6 +1440,7 @@ button.project:hover {
 @keyframes front-on {
   to {
     border-color: var(--color-border-gray);
+    background: var(--color-paper);
     color: var(--color-ink);
     font-weight: 600;
   }
@@ -1360,6 +1448,7 @@ button.project:hover {
 @keyframes front-off {
   to {
     border-color: transparent;
+    background: transparent;
     color: var(--color-muted-slate);
     font-weight: 400;
   }

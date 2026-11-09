@@ -8,7 +8,7 @@ import f from "./landing-features.module.css";
  * The desktop app's other tools, drawn: the workspace, plans, diffs and the
  * running app need the desktop app, so the live frame (a static export of a
  * blueprint) can't show them. Each is drawn from the real components' markup in
- * the app's Classic theme, with the real names from this repo's blueprint and the Wikipedia app's,
+ * the app's Dark theme, with the real names from this repo's blueprint and the Wikipedia app's,
  * and plays once when its tab opens.
  */
 export type Drawing = "claude" | "plan" | "review" | "run";
@@ -94,10 +94,12 @@ function ClaudeScene() {
   return (
     <Window
       projects={<Project on>blueprint</Project>}
+      commit="d542300"
       tabs={
-        <Tab on icon={<BlueprintIcon />}>
+        <Tab on>
           <span className={f.swap}>
-            <span className={f.out} style={at(0, 5.6)}>
+            <span className={`${f.home} ${f.out}`} style={at(0, 5.6)}>
+              <BlueprintIcon />
               Blueprint
             </span>
             <span className={f.in} style={at(5.6)}>
@@ -140,9 +142,11 @@ function ClaudeScene() {
         <ol className={f.flow}>
           {AUTHOR_STEPS.map(([title, body, file], i) => (
             <li key={title} className={f.in} style={at(5.9 + i * 0.12)}>
-              <b>{title}</b>
+              <b>
+                {title}
+                <code title={file}>{"</>"}</code>
+              </b>
               <span>{body}</span>
-              <code>{file}</code>
             </li>
           ))}
         </ol>
@@ -312,10 +316,11 @@ function PlanScene() {
   return (
     <Window
       projects={<Project on>blueprint</Project>}
+      commit="d542300"
       tabs={
         <>
           <Tab icon={<BlueprintIcon />}>Blueprint</Tab>
-          <Tab on icon={<PlanIcon />}>
+          <Tab on many icon={<PlanIcon />}>
             Saved sign-ins for the Preview
           </Tab>
         </>
@@ -343,7 +348,7 @@ function PlanScene() {
             <p className={f.figCap}>
               Where a sign-in is kept<span>green is new · amber changes</span>
             </p>
-            <Diagram boxes={PLAN_BOXES} links={PLAN_LINKS} w={170} gx={44} gy={44} />
+            <Diagram boxes={PLAN_BOXES} links={PLAN_LINKS} w={170} gx={44} gy={44} plan />
           </section>
           <section className={f.in} style={at(0.85)}>
             <Eyebrow>What you&rsquo;ll see</Eyebrow>
@@ -511,8 +516,9 @@ function PlanScene() {
       </Workspace>
       {/* The window put away: its tab's dot waits in the corner for your answer. */}
       <div className={`${f.dots} ${f.blip}`} style={at(1.9, 5.5)}>
-        <ClaudeIcon />
-        <Dot status="waiting" />
+        <span>
+          <Dot status="waiting" />
+        </span>
       </div>
     </Window>
   );
@@ -604,7 +610,7 @@ const PLAN_FILES: [Change, string, string][] = [
 
 function ReviewScene() {
   return (
-    <Window projects={<Project on>blueprint</Project>} git tabs={<Tab on icon={<BlueprintIcon />}>Building The App</Tab>}>
+    <Window projects={<Project on>blueprint</Project>} git commit="6398cf4" tabs={<Tab on>Building The App</Tab>}>
       <div className={f.diffBar}>
         <span className={f.showing}>
           <i />
@@ -630,7 +636,7 @@ function ReviewScene() {
       <div className={`${f.page} ${f.scrolls}`}>
         <Head back={["Blueprint"]} title="Building The App" eyebrow="Inside blueprint" sub="React components for the canvas, menus and dialogs." />
         <div className={`${f.narrow} ${f.in}`} style={at(0.1)}>
-          <Diagram boxes={APP_BOXES} links={APP_LINKS} w={196} gx={56} gy={46} recede />
+          <Diagram boxes={APP_BOXES} links={APP_LINKS} w={180} gx={84} gy={46} recede />
         </div>
         <div className={`${f.changes} ${f.in}`} style={at(0.35)}>
           <p>1 part of this picture changed — open it to read its lines</p>
@@ -740,14 +746,18 @@ function RunScene() {
       projects={
         <>
           <Project>blueprint</Project>
-          <Project on>wikipedia</Project>
+          <Project on many>
+            wikipedia
+          </Project>
         </>
       }
+      commit="0b9980f"
       tabs={
         <>
-          <Tab lit={[TO_IOS]} icon={<BlueprintIcon />}>
+          <Tab lit={[TO_IOS]}>
             <span className={f.swap}>
-              <span className={f.out} style={at(0, ARTICLE)}>
+              <span className={`${f.home} ${f.out}`} style={at(0, ARTICLE)}>
+                <BlueprintIcon />
                 Wikipedia
               </span>
               <span className={f.in} style={at(ARTICLE)}>
@@ -790,9 +800,11 @@ function RunScene() {
         <ol className={f.flow}>
           {ARTICLE_STEPS.map(([title, body, file], i) => (
             <li key={title} className={f.in} style={at(ARTICLE + 0.3 + i * 0.12)}>
-              <b>{title}</b>
+              <b>
+                {title}
+                <code title={file}>{"</>"}</code>
+              </b>
               <span>{body}</span>
-              <code>{file}</code>
             </li>
           ))}
         </ol>
@@ -1370,20 +1382,32 @@ const SCENES: Record<Drawing, () => ReactNode> = {
 /* ── the app's own pieces ───────────────────────────────── */
 
 /**
- * The desktop app's window in Classic: a black title bar with the open
- * projects and the tools (components/chrome/titlebar.tsx), the blueprint's tabs
- * on a black strip (tabs.tsx), the white sheet, and the status bar (statusbar.tsx).
+ * The desktop app's window in Dark: the title bar with the open projects and
+ * the tools (components/chrome/titlebar.tsx), the blueprint's tabs (tabs.tsx),
+ * the sheet, and the status bar (statusbar.tsx).
  */
-function Window({ projects, git, tabs, children }: { projects: ReactNode; git?: boolean; tabs: ReactNode; children: ReactNode }) {
+function Window({
+  projects,
+  git,
+  commit,
+  tabs,
+  children,
+}: {
+  projects: ReactNode;
+  git?: boolean;
+  commit: string;
+  tabs: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <>
       <TitleBar projects={projects} git={git} />
       <div className={`${f.black} ${f.strip}`}>
         {tabs}
-        <span className={f.add}>+</span>
+        <Add />
       </div>
       <div className={f.main}>{children}</div>
-      <StatusBar />
+      <StatusBar commit={commit} />
     </>
   );
 }
@@ -1398,27 +1422,49 @@ function TitleBar({ projects, git }: { projects: ReactNode; git?: boolean }) {
         <i />
       </span>
       {projects}
-      <span className={f.add}>+</span>
+      <Add />
       <span className={f.grow} />
-      <Glyph on={git} d="M4 2v8M12 4a2 2 0 1 1 0 .01M4 12a2 2 0 1 1 0 .01M12 6a6 6 0 0 1-6 6" />
-      <Glyph d="M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12" />
+      <Glyph on={git}>
+        <g transform="scale(0.6667)" strokeWidth="1.875">
+          <path d="M6 3v12" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M18 9a9 9 0 0 1-9 9" />
+        </g>
+      </Glyph>
+      <Glyph>
+        <path d="M4 1.5h5.5L12 4v10.5H4z" />
+        <path d="M9.5 1.5V4H12" />
+      </Glyph>
       <i className={f.divider} />
-      <Glyph d="M1.5 2.5h13v11h-13zM4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
-      <Glyph d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+      <Glyph>
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+        <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
+      </Glyph>
+      <Glyph>
+        <g transform="scale(0.6667)" strokeWidth="1.875">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </g>
+      </Glyph>
     </header>
   );
 }
 
-/** The status bar under the blueprint (components/chrome/statusbar.tsx). */
-function StatusBar() {
+/** The status bar under the blueprint (components/chrome/statusbar.tsx): the blueprint and its commit, then the shortcuts. */
+function StatusBar({ commit }: { commit: string }) {
   return (
     <footer className={`${f.black} ${f.statusbar}`}>
-      <span>
+      <span className={f.where}>
         <svg viewBox="0 0 16 16" className={f.stroke}>
           <circle cx="8" cy="8" r="2.5" />
           <path d="M1.5 8h4M10.5 8h4" />
         </svg>
-        Blueprint ⌃
+        <b>Blueprint</b>
+        <code>{commit.slice(0, 7)}</code>
+        <svg viewBox="0 0 8 8" className={`${f.stroke} ${f.chev}`}>
+          <path d="m1.5 5 2.5-2.5L6.5 5" />
+        </svg>
       </span>
       <span className={f.grow} />
       <span>
@@ -1441,7 +1487,7 @@ export function LiveTitleBar({ repos, open, onOpen }: { repos: string[]; open: s
     <div className={f.live}>
       <TitleBar
         projects={repos.map((id) => (
-          <Project key={id} on={id === open} onClick={() => onOpen(id)}>
+          <Project key={id} on={id === open} many={repos.length > 1} onClick={() => onOpen(id)}>
             {id}
           </Project>
         ))}
@@ -1450,36 +1496,67 @@ export function LiveTitleBar({ repos, open, onOpen }: { repos: string[]; open: s
   );
 }
 
-export function LiveStatusBar() {
+export function LiveStatusBar({ commit }: { commit: string }) {
   return (
     <div className={f.live}>
-      <StatusBar />
+      <StatusBar commit={commit} />
     </div>
   );
 }
 
-/** An open project in the title bar. */
-function Project({ on, onClick, children }: { on?: boolean; onClick?: () => void; children: ReactNode }) {
+/** An open project in the title bar; with more than one open, the one in front shows its close. */
+function Project({ on, many, onClick, children }: { on?: boolean; many?: boolean; onClick?: () => void; children: ReactNode }) {
+  const close = many && on ? <Close /> : <span className={f.gap} />;
   return onClick ? (
     <button className={f.project} data-on={on || undefined} aria-pressed={!!on} onClick={onClick}>
       {children}
+      {close}
     </button>
   ) : (
     <span className={f.project} data-on={on || undefined}>
       {children}
+      {close}
     </span>
   );
 }
 
-/** `lit`: when the tab comes to the front, and when another does. */
+/** components/chrome/tabs.tsx TabClose. */
+function Close({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <span className={`${f.x} ${className ?? ""}`} style={style}>
+      <svg viewBox="0 0 8 8">
+        <path d="m1.5 1.5 5 5m0-5-5 5" />
+      </svg>
+    </span>
+  );
+}
+
+/** The + that opens another project or tab. */
+function Add() {
+  return (
+    <span className={f.add}>
+      <svg viewBox="0 0 10 10">
+        <path d="M5 1.5v7M1.5 5h7" />
+      </svg>
+    </span>
+  );
+}
+
+/**
+ * A tab of the blueprint (components/chrome/tabs.tsx): the floor plan marks the
+ * top of the blueprint, and only a strip of more than one tab can close one.
+ * `lit`: when the tab comes to the front, and when another does.
+ */
 function Tab({
   on,
+  many,
   lit,
   go,
   icon,
   children,
 }: {
   on?: boolean;
+  many?: boolean;
   lit?: [number, number?];
   go?: [number, number];
   icon?: ReactNode;
@@ -1496,8 +1573,8 @@ function Tab({
     >
       {icon}
       {children}
-      {on ? <span className={f.x}>×</span> : null}
-      {lit ? <span className={`${f.x} ${lit[1] === undefined ? f.in : f.blip}`} style={at(...lit)}>×</span> : null}
+      {on && many ? <Close /> : null}
+      {lit ? <Close className={lit[1] === undefined ? f.in : f.blip} style={at(...lit)} /> : null}
     </span>
   );
 }
@@ -1678,8 +1755,11 @@ const TINTS = {
 
 /**
  * Boxes on a grid, `w` wide with `gx`/`gy` between them; a link runs edge to
- * edge between two boxes in one row or one column. `recede`: a diff, where
- * what didn't change fades.
+ * edge between two boxes in one row or one column. A level's picture puts each
+ * label on a chip of paper over its line (blocks.tsx); `plan` draws it as a
+ * plan's picture is (components/review/diff.tsx DiagramDiff), what stays put
+ * faded and each label haloed beside its line. `recede`: a level on a review,
+ * where what didn't change fades.
  */
 function Diagram({
   boxes,
@@ -1688,6 +1768,7 @@ function Diagram({
   gx,
   gy,
   recede,
+  plan,
   children,
 }: {
   boxes: Box[];
@@ -1696,12 +1777,14 @@ function Diagram({
   gx: number;
   gy: number;
   recede?: boolean;
+  plan?: boolean;
   children?: ReactNode;
 }) {
   const pos = (b: Box) => ({ x: 12 + b.col * (w + gx), y: 14 + b.row * (BOX_H + gy) });
   const byId = new Map(boxes.map((b) => [b.id, b]));
   const W = 24 + (Math.max(...boxes.map((b) => b.col)) + 1) * (w + gx) - gx;
   const H = 28 + (Math.max(...boxes.map((b) => b.row)) + 1) * (BOX_H + gy) - gy;
+  const moved = recede && boxes.some((b) => b.v && b.v !== "near");
   return (
     <div className={f.pic}>
       <svg viewBox={`0 0 ${W} ${H}`}>
@@ -1724,24 +1807,40 @@ function Diagram({
             : a.y < b.y
               ? `M${a.x + w / 2} ${a.y + BOX_H}V${b.y - 2}`
               : `M${a.x + w / 2} ${a.y}V${b.y + BOX_H + 2}`;
-          const x = across ? (a.x + b.x + w) / 2 : a.x + w / 2 + 8;
-          const y = across ? a.y + BOX_H / 2 - 8 : (a.y + b.y + BOX_H) / 2 + 4;
+          const mid = across ? { x: (a.x + b.x + w) / 2, y: a.y + BOX_H / 2 } : { x: a.x + w / 2, y: (a.y + b.y + BOX_H) / 2 };
+          const chip = l.label.length * 6.6 + 8;
           return (
-            <g key={`${l.from}-${l.to}`} opacity={recede && !t ? 0.6 : 1}>
-              <path d={d} fill="none" stroke={t?.line ?? "var(--color-wire)"} strokeWidth={t ? 2 : 1.25} markerEnd={`url(#d-${l.v ?? "plain"})`} />
-              <text
-                x={x}
-                y={y}
-                textAnchor={across ? "middle" : "start"}
-                fontSize="12"
-                fill={t?.ink ?? "var(--color-muted-slate)"}
-                stroke="var(--color-paper)"
-                strokeWidth="4"
+            <g key={`${l.from}-${l.to}`} opacity={plan && !t ? 0.45 : 1}>
+              <path
+                d={d}
+                fill="none"
+                stroke={t?.line ?? "var(--color-wire)"}
+                strokeWidth={t ? (plan ? 2 : 2.5) : 1.5}
                 strokeLinejoin="round"
-                paintOrder="stroke"
-              >
-                {l.label}
-              </text>
+                markerEnd={`url(#d-${l.v ?? "plain"})`}
+              />
+              {plan ? (
+                <text
+                  x={across ? mid.x : mid.x + 8}
+                  y={across ? mid.y - 8 : mid.y + 4}
+                  textAnchor={across ? "middle" : "start"}
+                  fontSize="12"
+                  fill={t?.ink ?? "var(--color-muted-slate)"}
+                  stroke="var(--color-paper)"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                >
+                  {l.label}
+                </text>
+              ) : (
+                <g>
+                  <rect x={mid.x - chip / 2} y={mid.y - 9} width={chip} height={18} rx="4" fill="var(--color-paper)" />
+                  <text x={mid.x} y={mid.y + 5} textAnchor="middle" fontSize="12" fill="var(--color-muted-slate)">
+                    {l.label}
+                  </text>
+                </g>
+              )}
             </g>
           );
         })}
@@ -1752,9 +1851,9 @@ function Diagram({
           const fill = t?.surface ?? sec?.fill ?? "var(--color-card)";
           const ink = t?.ink ?? sec?.ink ?? "var(--color-ink)";
           const stroke = t?.line ?? (b.v === "near" ? TINTS.changed.line : (sec?.ink ?? "var(--color-border-strong)"));
-          const fade = recede && !b.v;
+          const fade = moved && !b.v;
           return (
-            <g key={b.id} opacity={fade ? 0.45 : 1}>
+            <g key={b.id} opacity={plan && !t ? 0.5 : 1}>
               <rect
                 x={x}
                 y={y}
@@ -1763,9 +1862,10 @@ function Diagram({
                 rx="3"
                 fill={fill}
                 stroke={stroke}
-                strokeWidth={t ? 2 : 1}
+                strokeWidth={t ? 2 : plan ? 1.5 : 1}
                 strokeOpacity={!b.v && sec ? 0.55 : 1}
                 strokeDasharray={b.v === "near" ? "3 3" : undefined}
+                opacity={fade ? 0.45 : 1}
               />
               <text
                 x={x + w / 2}
@@ -1775,15 +1875,20 @@ function Diagram({
                 fontSize="18"
                 letterSpacing="-0.01em"
                 fill={ink}
+                opacity={fade ? 0.5 : 1}
               >
                 {b.label}
               </text>
               {b.sub ? (
-                <text x={x + w / 2} y={y + 44} textAnchor="middle" fontSize="11.5" fill="var(--color-faint)">
+                <text x={x + w / 2} y={y + 43} textAnchor="middle" fontSize="12" fill="var(--color-faint)" opacity={fade ? 0.5 : 1}>
                   {b.sub}
                 </text>
               ) : null}
-              {t ? (
+              {t && plan ? (
+                <text x={x + w - 11} y={y + 18} textAnchor="middle" fontSize="15" fontWeight="700" fill={t.ink}>
+                  {t.mark}
+                </text>
+              ) : t ? (
                 <text x={x + w - 8} y={y + 15} textAnchor="end" fontSize="12" fontWeight="700" fill={t.ink}>
                   {t.mark}
                 </text>
@@ -1808,12 +1913,11 @@ function Diagram({
 
 /* ── icons, as the app draws them ───────────────────────── */
 
-function Glyph({ d, on }: { d: string; on?: boolean }) {
+/** A tool in the title bar, drawn as titlebar.tsx's Control draws it. */
+function Glyph({ on, children }: { on?: boolean; children: ReactNode }) {
   return (
     <span className={f.glyph} data-on={on || undefined}>
-      <svg viewBox="0 0 16 16">
-        <path d={d} />
-      </svg>
+      <svg viewBox="0 0 16 16">{children}</svg>
     </span>
   );
 }

@@ -211,7 +211,7 @@ export function LandingDemo({ blueprints }: { blueprints: DemoBlueprint[] }) {
             </div>
             {shown.id === "explore" ? null : <Drawn key={shown.id} drawing={shown.id} />}
           </div>
-          {exploring ? <LiveStatusBar /> : null}
+          {exploring ? <LiveStatusBar commit={current.commit} /> : null}
         </div>
       </div>
       <div className={s.under}>
