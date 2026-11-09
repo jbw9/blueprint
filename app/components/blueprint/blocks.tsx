@@ -486,7 +486,8 @@ function Box({
         onActivate?.();
       }}
       onKeyDown={(e) => {
-        if (e.key === " ") {
+        // Enter on an <a> fires a click only when it has an href.
+        if (e.key === " " || (e.key === "Enter" && !href)) {
           e.preventDefault();
           onActivate?.();
         }

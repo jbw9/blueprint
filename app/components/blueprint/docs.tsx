@@ -42,7 +42,7 @@ export function closeDoc() {
   const q = new URLSearchParams(window.location.search);
   q.delete("doc");
   q.delete("line");
-  window.history.pushState(null, "", q.size ? `?${q}` : window.location.pathname);
+  window.history.pushState(null, "", q.toString() ? `?${q}` : window.location.pathname);
 }
 
 /** The doc open in the URL, if any. */

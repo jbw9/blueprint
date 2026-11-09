@@ -97,7 +97,7 @@ export function goTo(next: string[]) {
   // The landing page's frame stays an embed as the visitor goes deeper.
   if (now.has("embed")) q.set("embed", "");
   for (const id of next) q.append("at", id);
-  window.history.pushState(null, "", q.size ? `?${q}` : window.location.pathname);
+  window.history.pushState(null, "", q.toString() ? `?${q}` : window.location.pathname);
 }
 
 /** Which blueprint is open, and every other one of the reader's projects to switch to. */

@@ -47,7 +47,7 @@ export function closeFile() {
   const q = new URLSearchParams(window.location.search);
   q.delete("file");
   q.delete("line");
-  window.history.pushState(null, "", q.size ? `?${q}` : window.location.pathname);
+  window.history.pushState(null, "", q.toString() ? `?${q}` : window.location.pathname);
 }
 
 /** The file open in the URL, if any. */

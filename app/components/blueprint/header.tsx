@@ -30,7 +30,6 @@ export function Header({
   link,
   shape,
   onCode,
-  actions,
 }: {
   /** Where this level is, so it can be handed to Claude from its header. */
   path: string[];
@@ -53,8 +52,6 @@ export function Header({
   link?: { href: string; label: string };
   shape?: Shape;
   onCode?: () => void;
-  /** What the reader can do to this level itself: keep an answer, fix it. */
-  actions?: React.ReactNode;
 }) {
   const stale = useMayBeStale(origin);
   // This level, or the section it sits in, is being redone by an update.
@@ -114,7 +111,6 @@ export function Header({
             View the code
           </Button>
         ) : null}
-        {actions}
       </div>
       {deepening && !rewriting ? (
         <div role="status" className={cn("mb-5 flex max-w-[720px] items-center gap-2 border border-accent-line bg-accent-surface/60 px-3 py-2 text-[13px] text-accent", deepening === "drafting" && "shimmer")}>
