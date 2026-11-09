@@ -241,6 +241,15 @@ export interface CreditStatus {
   meters?: { session: Meter; week: Meter; maps: Meter };
 }
 
+/**
+ * The credit's status asked once, if nothing has since this server started, so a run started before any
+ * page asked (the welcome page has no status bar) still goes on the credit (creditEnv).
+ */
+export async function primeCredit(request: Request) {
+  relayAt(request);
+  if (state.ready === undefined) await creditStatus().catch(() => undefined);
+}
+
 export async function creditStatus(): Promise<CreditStatus> {
   const s = await askStatus();
   // Known before `ready` is, so a generator spawned then (creditEnv) is given it.

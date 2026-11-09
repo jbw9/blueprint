@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { auditOf } from "@/lib/server/blueprints";
+import { primeCredit } from "@/lib/server/credit";
 import { bad, notJson } from "@/lib/server/route";
 import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, blueprintFileOf, progressOf, projectDir, removeProject, setPaused, updateBlueprint, VAULT, type Turn } from "@/lib/server/vault";
 
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
   const { action, id, root, name, url, claude, turn, explain, full, paused, force } = body as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
   const level = (["none", "minimal", "brief", "detailed", "full"] as const).find((l) => l === explain);
+  if (action === "import" || action === "clone" || action === "regenerate" || action === "update" || action === "pause") await primeCredit(request);
   try {
     switch (action) {
       case "import":
