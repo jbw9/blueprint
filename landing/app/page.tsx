@@ -18,7 +18,6 @@ const DESCRIPTION =
   "Blueprint splits a repository into the steps the program takes. Open any step, and keep going until you reach the code. For macOS and Linux.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://blpr.dev"),
   title: TITLE,
   description: DESCRIPTION,
   applicationName: "Blueprint",
@@ -153,7 +152,7 @@ export default function Landing() {
               title: config.title,
               sub: sentence(config.sub ?? ""),
               file: "landing/components/landing-visit.tsx · LandingVisit",
-              start: 28,
+              start: 27,
               lines: VISIT,
             }}
           />

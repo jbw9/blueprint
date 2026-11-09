@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { THEME_SCRIPT } from "../../app/lib/client/theme";
 import "./globals.css";
+
+// Here, not on each page: the share image (opengraph-image.png) belongs to this segment and is made absolute with this segment's base.
+export const metadata: Metadata = { metadataBase: new URL("https://blpr.dev") };
 
 const inter = Inter({
   variable: "--font-sans",

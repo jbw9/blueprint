@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
 import s from "@/components/landing.module.css";
+import { LandingVisit } from "@/components/landing-visit";
 import p from "./promotion.module.css";
 import { PromotionEnd } from "./promotion-end";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://blpr.dev"),
   title: "Blueprint promotion: free Claude Code",
   description: "What Blueprint's free Claude Code promotion includes, how much each person gets, how it may be used, and when it ends.",
   alternates: { canonical: "/promotion" },
@@ -33,7 +33,7 @@ export default function Promotion() {
           </a>
           <h1>Claude Code, free in Blueprint</h1>
           <p className={p.lede}>
-            For a limited time, Blueprint pays for the Claude behind it. Making blueprints has no limit. Claude Code in Blueprint&rsquo;s tabs gets about
+            For a limited time, Blueprint pays for the Claude behind it. Making blueprints is unlimited, within fair use. Claude Code in Blueprint&rsquo;s tabs gets about
             half of a Claude Pro plan.
           </p>
           <p className={p.note}>
@@ -51,7 +51,10 @@ export default function Promotion() {
             <tbody>
               <tr>
                 <td>Making blueprints</td>
-                <td>No limit, at Blueprint&rsquo;s cost. New blueprints and their updates both count.</td>
+                <td>
+                  Unlimited, within fair use: up to $100 of Claude a week per account, about eight blueprints of mid-size codebases. New blueprints and
+                  their updates both count. Past that, new blueprints run on your own Claude Code until the week resets.
+                </td>
               </tr>
               <tr>
                 <td>Claude tabs, per session</td>
@@ -108,6 +111,7 @@ export default function Promotion() {
           </p>
         </main>
       </div>
+      <LandingVisit />
     </div>
   );
 }
