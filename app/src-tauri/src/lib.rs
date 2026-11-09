@@ -124,6 +124,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 dictate::unhush();
+                dictate::stop_download();
                 app.state::<pty::Ptys>().kill_all();
                 app.state::<preview::Previews>().close_all();
                 devices::stop_all();

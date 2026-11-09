@@ -73,7 +73,7 @@ pub fn dictate_download(app: AppHandle) -> Result<(), String> {
         return Ok(());
     }
     std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
-    let child = Command::new("curl")
+    let child = crate::proc::command("curl")
         .args(["-fsSL", "--retry", "3", "-C", "-", "-o"])
         .arg(part(&path))
         .arg(URL)
@@ -81,6 +81,15 @@ pub fn dictate_download(app: AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Couldn't start curl: {e}"))?;
     *download = Some(child);
     Ok(())
+}
+
+/// A download still going, ended as the app quits. Left running, a download
+/// asked for again on the next launch would write into the same file beside it.
+pub fn stop_download() {
+    if let Some(mut child) = DOWNLOAD.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 }
 
 #[tauri::command]

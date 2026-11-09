@@ -201,7 +201,11 @@ pub fn pty_spawn(
     cmd.env_remove("CLAUDE_CODE_CHILD_SESSION");
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let child = pair.slave.spawn_command(cmd).map_err(|e| {
+        // A tab that never started is never closed, which is what clears its files, the credit among them.
+        claude::forget(&context);
+        e.to_string()
+    })?;
     // The slave end belongs to the shell now; holding it here would keep the
     // reader below from ever seeing EOF.
     drop(pair.slave);

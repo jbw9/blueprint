@@ -120,7 +120,7 @@ fn sites(root: &Path) -> Vec<Site> {
             let (rank, start) = site(&d, root)?;
             let dir = d.strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/");
             let named = NESTED.iter().position(|n| *n == dir).unwrap_or(NESTED.len());
-            Some((rank, named, Site { run: format!("cd \"{dir}\" && {start}"), dir }))
+            Some((rank, named, Site { run: format!("cd {} && {start}", q(Path::new(&dir))), dir }))
         })
         .collect();
     found.sort_by_key(|(rank, named, _)| (*rank, *named));
@@ -516,7 +516,8 @@ fn slot<'a>(p: &'a mut Phones, platform: &str) -> Result<&'a mut Option<Running>
 /// Ends the phones the app started, when it quits.
 pub fn stop_all() {
     let mut p = phones().lock().unwrap();
-    if let Some(mut a) = p.android.take() {
+    // An emulator that was already running (Android Studio's) is the user's, and stays.
+    if let Some(mut a) = p.android.take().filter(|a| a.ours) {
         let _ = crate::proc::command(adb(&sdk())).args(["-s", &a.id, "emu", "kill"]).status();
         if let Some(c) = a.child.as_mut() {
             let _ = c.kill();
@@ -641,7 +642,13 @@ fn start(platform: &str) -> Result<Device, String> {
     }
     let running = if platform == "android" { start_android()? } else { start_ios()? };
     let device = Device { id: running.id.clone(), name: running.name.clone() };
-    *slot(&mut phones().lock().unwrap(), platform)? = Some(running);
+    let mut p = phones().lock().unwrap();
+    let s = slot(&mut p, platform)?;
+    // A start racing this one (the tab's Start and Claude's `device`) may have
+    // stored the phone first, as one it booted: that one stays, to be ended on quit.
+    if s.as_ref().is_none_or(|r| !r.ours) {
+        *s = Some(running);
+    }
     Ok(device)
 }
 
@@ -725,9 +732,15 @@ fn frame(platform: &str) -> Result<Vec<u8>, String> {
         }
         out.stdout
     } else {
-        let file = std::env::temp_dir().join(format!("blueprint-sim-{}.png", std::process::id()));
-        ok(crate::proc::command("xcrun").args(["simctl", "io", &id, "screenshot", "--type=png"]).arg(&file)).ok_or("The simulator did not send its screen.")?;
-        std::fs::read(&file).map_err(|e| e.to_string())?
+        // A file per call: the tab's frames and Claude's screenshots are taken at once.
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let file = std::env::temp_dir().join(format!("blueprint-sim-{}-{n}.png", std::process::id()));
+        let png = ok(crate::proc::command("xcrun").args(["simctl", "io", &id, "screenshot", "--type=png"]).arg(&file))
+            .ok_or_else(|| "The simulator did not send its screen.".to_string())
+            .and_then(|_| std::fs::read(&file).map_err(|e| e.to_string()));
+        let _ = std::fs::remove_file(&file);
+        png?
     };
     if let Some(r) = slot(&mut phones().lock().unwrap(), platform)?.as_mut() {
         r.size = crate::mcp::png_size(&png);
@@ -1380,11 +1393,21 @@ mod tests {
         let p = detect(&d);
         let dirs: Vec<&str> = p.web.iter().map(|s| s.dir.as_str()).collect();
         assert_eq!(dirs, ["app", "landing"]);
-        assert_eq!(first(&p), Some(format!("cd \"app\" && {}npm run dev", browser_none()).as_str()));
+        assert_eq!(first(&p), Some(format!("cd {} && {}npm run dev", q(Path::new("app")), browser_none()).as_str()));
         let d = project(&[("apps/site/package.json", r#"{"scripts":{"start":"serve"}}"#), ("apps/web/package.json", r#"{"scripts":{"dev":"vite"}}"#), ("pnpm-lock.yaml", ""), ("node_modules/.keep", "")]);
         let p = detect(&d);
-        assert_eq!(first(&p), Some(format!("cd \"apps/web\" && {}pnpm run dev", browser_none()).as_str()));
+        assert_eq!(first(&p), Some(format!("cd {} && {}pnpm run dev", q(Path::new("apps/web")), browser_none()).as_str()));
         assert_eq!(p.web[1].dir, "apps/site");
+    }
+
+    /// The folder is typed into the tab's shell, which must not read anything in its name.
+    #[cfg(unix)]
+    #[test]
+    fn a_site_in_a_folder_with_shell_characters_in_its_name_is_still_found() {
+        let d = project(&[("my $app \"x\"/package.json", r#"{"scripts":{"dev":"vite"}}"#), ("my $app \"x\"/node_modules/.keep", "")]);
+        let run = first(&detect(&d)).unwrap().to_string();
+        let out = std::process::Command::new("sh").arg("-c").arg(run.replace(" && BROWSER=none npm run dev", " && pwd")).current_dir(d.path()).output().unwrap();
+        assert!(String::from_utf8_lossy(&out.stdout).trim().ends_with("my $app \"x\""), "{run}");
     }
 
     #[test]
