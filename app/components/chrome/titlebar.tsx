@@ -9,7 +9,7 @@ import { openFeedback } from "@/components/chrome/feedback";
 import { openPalette } from "@/components/chrome/palette";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openProjects } from "@/components/projects/projects";
-import { keys } from "@/components/ui/button";
+import { Kbd, keys } from "@/components/ui/button";
 import { openDiff, useDiff } from "@/components/review/diff";
 import { StatusDot } from "@/components/agent/status-dot";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
@@ -81,11 +81,12 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         )}
       </div>
       <div data-tauri-drag-region className="flex h-full items-center justify-end">
-        {bare ? null : <BlueprintTools />}
+        {bare ? null : <BlueprintTools mac={mac} />}
         <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
         {bare ? null : (
           <Control
-            label={`Claude Code & terminal (${keys(mac, "`")})`}
+            label="Claude Code & terminal"
+            kbd={keys(mac, "`")}
             onClick={toggleWorkspace}
           >
             <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
@@ -229,7 +230,7 @@ function Where({ mac }: { mac: boolean }) {
 }
 
 /** The tools that act on the open blueprint. */
-function BlueprintTools() {
+function BlueprintTools({ mac }: { mac: boolean }) {
   const diff = useDiff();
   return (
     <>
@@ -246,7 +247,7 @@ function BlueprintTools() {
           <path d="M18 9a9 9 0 0 1-9 9" />
         </g>
       </Control>
-      <Control label="Files — open a file, folder or symbol in the editor" onClick={() => openPalette("code")}>
+      <Control label="Open a file, folder or symbol" kbd={keys(mac, "K")} onClick={() => openPalette("code")}>
         <path d="M4 1.5h5.5L12 4v10.5H4z" />
         <path d="M9.5 1.5V4H12" />
       </Control>
@@ -261,9 +262,12 @@ function Control({
   win,
   className,
   active,
+  kbd,
   children,
 }: {
   label: string;
+  /** Shown at once on hover, with the label: the native title waits too long for a shortcut to be found. */
+  kbd?: string;
   onClick: () => void;
   danger?: boolean;
   /** On: the mode this button turns on is showing. */
@@ -279,9 +283,10 @@ function Control({
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
-      title={label}
+      aria-keyshortcuts={kbd}
+      title={kbd ? undefined : label}
       className={cn(
-        "flex cursor-pointer items-center justify-center text-muted-slate transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        "group relative flex cursor-pointer items-center justify-center text-muted-slate transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         // Window buttons fill the bar's height, as native ones do; the tools
         // are small square targets, as in an editor's title bar.
         win ? "h-full w-11" : "mx-px h-7 w-7",
@@ -293,6 +298,14 @@ function Control({
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         {children}
       </svg>
+      {kbd ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-full right-0 z-50 mt-1 flex items-center gap-1.5 whitespace-nowrap border border-border-gray bg-surface px-2 py-1 font-sans text-[11.5px] text-ink opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-hover:delay-150"
+        >
+          {label} <Kbd>{kbd}</Kbd>
+        </span>
+      ) : null}
     </button>
   );
 }
