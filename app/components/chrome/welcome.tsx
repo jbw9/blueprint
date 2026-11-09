@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button, Kbd } from "@/components/ui/button";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { cn } from "@/lib/client/utils";
-import { readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
+import { openSettings, readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
+import { readCredit } from "@/lib/client/credit";
 import type { BlueprintEntry } from "@/lib/server/blueprints";
 
 /**
@@ -285,6 +287,37 @@ function Begin() {
       <p className="flex items-center gap-1.5 text-[12px] text-faint sm:col-span-2">
         Once its blueprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
       </p>
+      <Promo />
+    </div>
+  );
+}
+
+const TERMS = "https://blpr.dev/promotion";
+
+/** Blueprint's free Claude Code promotion, while it is on and this machine isn't signed in to it yet. */
+function Promo() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => void readCredit().then((c) => setShown(!!c?.promo && !c.login)), []);
+  if (!shown) return null;
+  return (
+    <div className="border border-accent bg-accent-surface p-4 sm:col-span-2">
+      <span className="block text-[14px] font-semibold text-ink">Claude Code is free for a limited time</span>
+      <span className="mt-1 block text-[12.5px] text-muted-slate">
+        Sign in with GitHub and Blueprint pays for the Claude behind it. Making blueprints has no limit. Claude tabs get about half of a Claude Pro plan,
+        in a 5-hour session and a weekly limit like Claude Code&rsquo;s own. When that runs out, they switch to your own Claude Code by themselves.
+      </span>
+      <span className="mt-3 flex items-center gap-3 text-[12.5px]">
+        <button type="button" onClick={openSettings} className={LINK}>
+          Sign in with GitHub in Settings
+        </button>
+        <a
+          href={TERMS}
+          onClick={(e) => (e.preventDefault(), void invoke("preview_external", { url: TERMS }).catch(() => window.open(TERMS, "_blank")))}
+          className={LINK}
+        >
+          Terms
+        </a>
+      </span>
     </div>
   );
 }
