@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Button, Kbd } from "@/components/ui/button";
+import { Button, Kbd, keys } from "@/components/ui/button";
+import { useMac } from "@/lib/client/platform";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { cn } from "@/lib/client/utils";
 import { openSettings, readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
@@ -68,7 +69,7 @@ export function NoProject({ blueprints }: { blueprints: BlueprintEntry[] }) {
           ) : null}
         </div>
         <p className="mt-10 flex items-center gap-1.5 text-[12px] text-faint">
-          Once its blueprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
+          Once its blueprint is made, <GoTo /> goes to any level.
         </p>
       </div>
     </main>
@@ -269,6 +270,11 @@ function Mini({ look: l }: { look: (typeof LOOKS)[number] }) {
 
 /* ── step 3: the way in ───────────────────────────────────────── */
 
+/** The palette's Go to key (components/chrome/palette.tsx), as this platform writes it. */
+function GoTo() {
+  return <Kbd>{keys(useMac(), "P")}</Kbd>;
+}
+
 function Begin() {
   const go = (f: () => unknown) => () => {
     finish();
@@ -285,7 +291,7 @@ function Begin() {
         <span className="mt-1 block text-[12.5px] text-muted-slate">Clone one from GitHub, then make its blueprint.</span>
       </button>
       <p className="flex items-center gap-1.5 text-[12px] text-faint sm:col-span-2">
-        Once its blueprint is made, <Kbd>Ctrl K</Kbd> goes to any level.
+        Once its blueprint is made, <GoTo /> goes to any level.
       </p>
       <Promo />
     </div>

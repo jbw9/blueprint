@@ -380,7 +380,7 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
     return behind.length && root ? (
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
         <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
-          Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
+          Editing · {live?.touched.length ? `${live.touched.length} ${live.touched.length === 1 ? "section" : "sections"}` : "no sections"} affected
           {paused ? " · auto-updates paused" : " · blueprint follows on commit"}
         </span>
         {paused ? null : (

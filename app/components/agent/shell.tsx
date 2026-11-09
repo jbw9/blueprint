@@ -296,7 +296,7 @@ export function Shell({
   useEffect(() => {
     if (!isDesktop()) {
       // queueMicrotask, so the effect body itself sets no state.
-      queueMicrotask(() => setError("The terminal needs the desktop app: run `npm run app:dev`."));
+      queueMicrotask(() => setError("The terminal runs in the Blueprint desktop app."));
       return;
     }
     let gone = false;

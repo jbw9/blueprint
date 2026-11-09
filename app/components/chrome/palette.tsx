@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
 import { openFileInTab } from "@/components/blueprint/code";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
-import { Kbd, keys } from "@/components/ui/button";
+import { Kbd, dictateKeys, keys } from "@/components/ui/button";
 import { StateChip } from "@/components/ui/state";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { openAudit } from "@/components/blueprint/audit";
@@ -20,7 +20,7 @@ import type { Theme } from "@/lib/client/theme";
 import { startDictation } from "@/lib/agent/dictate";
 import type { Node } from "@/lib/blueprint/schema";
 import { cn } from "@/lib/client/utils";
-import { useMac } from "@/lib/client/platform";
+import { useDesktop, useMac } from "@/lib/client/platform";
 
 /**
  * The palette: one box that goes anywhere. Type part of a level's name and
@@ -87,6 +87,7 @@ export function Palette() {
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const mac = useMac();
+  const desktop = useDesktop();
 
   useEffect(() => {
     const show = (m: PaletteMode) => {
@@ -259,12 +260,14 @@ export function Palette() {
       { key: "a:blueprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("blueprints")) },
       { key: "a:settings", label: "Settings", kind: "action", run: openSettings },
       // After the palette has closed, so the words go to Claude's prompt rather than the palette's field.
-      { key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the key", kind: "action", kbd: "Hold ⌃⌥", run: () => setTimeout(startDictation) },
+      ...(desktop
+        ? [{ key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the keys", kind: "action" as const, kbd: `Hold ${dictateKeys(mac)}`, run: () => setTimeout(startDictation) }]
+        : []),
       { key: "a:classic", label: "Theme: classic", hint: "Cobalt ink, as on the landing page", kind: "action", run: theme("classic") },
       { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
       { key: "a:dark", label: "Theme: dark", kind: "action", run: theme("dark") },
     ];
-  }, [blueprint.name, path, mac]);
+  }, [blueprint.name, path, mac, desktop]);
 
   const blueprints = useMemo<Item[]>(
     () =>
@@ -380,8 +383,8 @@ export function Palette() {
           }}
           placeholder={
             mode === "blueprints" ? "Switch to a blueprint…"
-            : mode === "unsure" ? `${findings.unsure.length} levels the blueprint is not certain about — filter…`
-            : mode === "problems" ? `${findings.problems.length} problems found in the code — filter…`
+            : mode === "unsure" ? `${findings.unsure.length} ${findings.unsure.length === 1 ? "level" : "levels"} the blueprint is not certain about — filter…`
+            : mode === "problems" ? `${findings.problems.length} ${findings.problems.length === 1 ? "problem" : "problems"} found in the code — filter…`
             : mode === "docs" ? (docList === null ? "Finding the docs…" : `${docList.length} docs in this project — filter…`)
             : mode === "code" ? "Open a file, folder or symbol in the editor…"
             : "Go to a level, or type > for actions"

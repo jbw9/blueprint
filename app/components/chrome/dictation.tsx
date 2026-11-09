@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { answerQuietMedia, cancelDictation, stopDictation, useDictation, useDictationKey } from "@/lib/agent/dictate";
 import { cn } from "@/lib/client/utils";
+import { dictateKeys } from "@/components/ui/button";
+import { useMac } from "@/lib/client/platform";
 
 const BUTTON = "cursor-pointer px-3 py-1 text-[13px]";
 
@@ -14,6 +16,7 @@ const BUTTON = "cursor-pointer px-3 py-1 text-[13px]";
 export function Dictation() {
   useDictationKey();
   const d = useDictation();
+  const mac = useMac();
   // The note on an empty result goes after a few seconds; a new one brings it back.
   const [faded, setFaded] = useState<typeof d | null>(null);
   useEffect(() => {
@@ -43,7 +46,7 @@ export function Dictation() {
               No
             </button>
           </>
-        ) : listening ? "Listening… let go of ⌃⌥" : d.phase === "working" ? "Writing it out…" : d.error}
+        ) : listening ? `Listening… let go of ${dictateKeys(mac)}` : d.phase === "working" ? "Writing it out…" : d.error}
         {listening ? (
           <>
             <button type="button" onClick={() => void stopDictation()} className={cn(BUTTON, "bg-accent text-on-accent hover:bg-accent-strong")}>

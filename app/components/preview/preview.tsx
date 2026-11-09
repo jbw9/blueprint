@@ -188,7 +188,8 @@ export function Preview({
   const go = (url: string) => navigation(parts()).go(url);
 
   const fail = (e: unknown) => {
-    setError(String(e));
+    // Outside the desktop app every failure is its missing shell, not something to show raw.
+    setError(isDesktop() ? String(e) : "Web pages open in the Blueprint desktop app.");
     missed.current = String(e);
     loads.current.splice(0).forEach((f) => f());
   };
