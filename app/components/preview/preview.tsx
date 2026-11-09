@@ -337,14 +337,14 @@ export function Preview({
   );
   useEffect(() => void agent("marks", { marks }).catch(() => {}), [marks, page]);
 
-  /** A path, an address on this machine or the web, a search, or back, forward, reload (navigation.ts). */
+  /** A path, an address on this machine or the web, a search, or back, forward, reload, hard-reload (navigation.ts). */
   const navigate = (raw: string) => navigation(parts()).navigate(raw);
 
   // A browser's keys, given to this tab while it is the one in use (keys.ts).
   useEffect(() => {
     keyed.current = (k) => {
       if (k === "address") address.current?.focus();
-      else if (k === "reload" || k === "back" || k === "forward") void navigate(k).catch(() => {});
+      else if (k === "reload" || k === "hard-reload" || k === "back" || k === "forward") void navigate(k).catch(() => {});
     };
   });
   useEffect(() => {
@@ -500,7 +500,7 @@ export function Preview({
         <Tool label="Forward" onClick={() => void navigate("forward").catch(() => {})} disabled={!ready}>
           <path d="M6 3.5 10.5 8 6 12.5" />
         </Tool>
-        <Tool label="Reload" onClick={() => void navigate("reload").catch(() => {})} disabled={!ready}>
+        <Tool label="Reload" onClick={() => void navigate("hard-reload").catch(() => {})} disabled={!ready}>
           <path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10" />
         </Tool>
         <form

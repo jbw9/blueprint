@@ -35,6 +35,8 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com"
 # The webview's own widget, to take a touchpad pinch before WebKitGTK does (src/lib.rs).
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+# The webview itself, for its reload that skips the cache (src/browser.rs). Already in the build through wry.
+webkit2gtk = "2.0"
 
 # The preview's screenshot for Claude, WebKit's own snapshot of the window
 # (src/mcp.rs), and Claude's clicks and keys as AppKit events (src/browser.rs).

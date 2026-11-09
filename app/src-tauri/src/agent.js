@@ -78,8 +78,8 @@
     addEventListener(
       "keydown",
       (e) => {
-        if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || !e.isTrusted) return;
-        const key = e.code === "KeyR" ? "reload" : e.code === "KeyL" ? "address" : null;
+        if (!e.ctrlKey || e.altKey || e.metaKey || !e.isTrusted) return;
+        const key = e.code === "KeyR" ? (e.shiftKey ? "hard-reload" : "reload") : e.code === "KeyL" && !e.shiftKey ? "address" : null;
         if (!key) return;
         e.preventDefault();
         post({ type: "key", key });

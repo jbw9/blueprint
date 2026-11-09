@@ -4,10 +4,10 @@
 export const REAL = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 
 /**
- * The Previews on screen, by tab, for a browser's keys: Cmd+R, Cmd+[, Cmd+]
- * and Cmd+L from the menu bar on a Mac (src-tauri/src/lib.rs), Ctrl+R and
- * Ctrl+L elsewhere. A key pressed in a page stays in its webview or frame,
- * so the Preview last clicked or focused is remembered here.
+ * The Previews on screen, by tab, for a browser's keys: Cmd+R, Cmd+Shift+R,
+ * Cmd+[, Cmd+] and Cmd+L from the menu bar on a Mac (src-tauri/src/lib.rs),
+ * Ctrl+R, Ctrl+Shift+R and Ctrl+L elsewhere. A key pressed in a page stays in
+ * its webview or frame, so the Preview last clicked or focused is remembered here.
  */
 export const onScreen = new Map<number, { el: HTMLElement; key: (k: string) => void }>();
 export let touched: number | null = null;
@@ -34,7 +34,7 @@ if (typeof window !== "undefined") {
     window.addEventListener(
       "keydown",
       (e) => {
-        if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || (e.code !== "KeyR" && e.code !== "KeyL")) return;
+        if (!e.ctrlKey || e.altKey || e.metaKey || (e.code !== "KeyR" && e.code !== "KeyL") || (e.shiftKey && e.code !== "KeyR")) return;
         // A terminal's Ctrl+R is its shell's history search, and Ctrl+L its clear: its own to take.
         if ((e.target as Element | null)?.closest?.(".xterm")) return;
         const at = focused();
@@ -44,7 +44,7 @@ if (typeof window !== "undefined") {
         }
         e.preventDefault();
         e.stopPropagation();
-        onScreen.get(at)?.key(e.code === "KeyR" ? "reload" : "address");
+        onScreen.get(at)?.key(e.code === "KeyL" ? "address" : e.shiftKey ? "hard-reload" : "reload");
       },
       true,
     );

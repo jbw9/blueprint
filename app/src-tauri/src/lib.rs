@@ -117,6 +117,7 @@ pub fn run() {
             browser::browser_open,
             browser::browser_place,
             browser::browser_go,
+            browser::browser_reload,
             browser::browser_eval,
             browser::browser_close,
             browser::browser_picture,
@@ -242,10 +243,11 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
     // A Preview's own keys, as a browser's (components/preview/preview.tsx): its page is
     // a webview of its own or a frame, and the keys pressed in it stay there.
     let reload = MenuItem::with_id(app, "preview-reload", "Reload Page", true, Some("Cmd+R"))?;
+    let hard = MenuItem::with_id(app, "preview-hard-reload", "Hard Reload Page", true, Some("Cmd+Shift+R"))?;
     let back = MenuItem::with_id(app, "preview-back", "Back", true, Some("Cmd+["))?;
     let forward = MenuItem::with_id(app, "preview-forward", "Forward", true, Some("Cmd+]"))?;
     let address = MenuItem::with_id(app, "preview-address", "Open Location", true, Some("Cmd+L"))?;
-    menu.append(&Submenu::with_items(app, "Preview", true, &[&reload, &back, &forward, &address])?)?;
+    menu.append(&Submenu::with_items(app, "Preview", true, &[&reload, &hard, &back, &forward, &address])?)?;
     // A menu key reaches the menu before the page, so the page is handed these
     // and the tab strip with focus acts on them (components/agent/workspace.tsx).
     let next = MenuItem::with_id(app, "tab-next", "Next Tab", true, Some("Ctrl+Tab"))?;

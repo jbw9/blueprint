@@ -78,15 +78,21 @@ export function navigation({
     return `Now at ${display(here.current)}.`;
   };
 
-  /** A path, an address on this machine or the web, a search, or back, forward, reload. */
+  /** A path, an address on this machine or the web, a search, or back, forward, reload, hard-reload. */
   const navigate = async (raw: string): Promise<string> => {
     const v = raw.trim();
-    if (v === "back" || v === "forward" || v === "reload") {
+    const label = browser.current;
+    // The page itself loaded again, not opened afresh, so its server is asked
+    // whether it changed; a hard reload skips the cache altogether.
+    if ((v === "reload" || v === "hard-reload") && label && here.current)
+      return arrive(() => void invoke("browser_reload", { label, hard: v === "hard-reload" }).catch(fail));
+    if (v === "back" || v === "forward" || v === "reload" || v === "hard-reload") {
       const t = trail.current;
       const at = v === "back" ? t.at - 1 : v === "forward" ? t.at + 1 : t.at;
-      const url = v === "reload" ? here.current : t.list[at];
+      const again = v === "reload" || v === "hard-reload";
+      const url = again ? here.current : t.list[at];
       if (!url) return `There is no page to go ${v} to.`;
-      if (v !== "reload") {
+      if (!again) {
         t.at = at;
         t.stepping = true;
       }

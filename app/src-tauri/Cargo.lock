@@ -244,6 +244,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "transcribe-cpp",
+ "webkit2gtk",
  "webview2-com",
  "windows",
  "windows-sys 0.61.2",

@@ -90,6 +90,66 @@ pub async fn browser_go(app: AppHandle, label: String, url: String) -> Result<()
     app.get_webview(&label).ok_or(GONE)?.navigate(web(&url)?).map_err(|e| e.to_string())
 }
 
+/// Loads the page again: `hard` skips the cache for the page and everything it
+/// loads, as a browser's Ctrl+Shift+R does; otherwise the page is checked with
+/// its server first, as a browser's Ctrl+R does.
+#[tauri::command]
+pub async fn browser_reload(app: AppHandle, label: String, hard: bool) -> Result<(), String> {
+    let view = app.get_webview(&label).ok_or(GONE)?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    view.with_webview(move |w| {
+        let _ = tx.send(reload(w, hard));
+    })
+    .map_err(|e| e.to_string())?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(Err(_)) | Err(_) => view.eval("location.reload()").map_err(|e| e.to_string()),
+        Ok(Ok(())) => Ok(()),
+    }
+}
+
+#[cfg(windows)]
+fn reload(w: tauri::webview::PlatformWebview, hard: bool) -> Result<(), String> {
+    use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
+    use windows::core::w;
+    unsafe {
+        let core = w.controller().CoreWebView2().map_err(|e| e.to_string())?;
+        if !hard {
+            return core.Reload().map_err(|e| e.to_string());
+        }
+        let done = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(|_, _| Ok(())));
+        core.CallDevToolsProtocolMethod(w!("Page.reload"), w!(r#"{"ignoreCache":true}"#), &done).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn reload(w: tauri::webview::PlatformWebview, hard: bool) -> Result<(), String> {
+    use objc2::msg_send;
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    unsafe {
+        let view = &*(w.inner() as *const AnyObject);
+        let _: Option<Retained<AnyObject>> = if hard { msg_send![view, reloadFromOrigin] } else { msg_send![view, reload] };
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn reload(w: tauri::webview::PlatformWebview, hard: bool) -> Result<(), String> {
+    use webkit2gtk::WebViewExt;
+    let view = w.inner();
+    if hard {
+        view.reload_bypass_cache();
+    } else {
+        view.reload();
+    }
+    Ok(())
+}
+
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+fn reload(_: tauri::webview::PlatformWebview, _: bool) -> Result<(), String> {
+    Err("no native reload".into())
+}
+
 /// Runs `js` in the page and returns its value. The tab's agent calls go
 /// through this, and so does collecting what the page has said since.
 #[tauri::command]
