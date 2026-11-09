@@ -23,6 +23,7 @@ Every colour is a token on `.page`. Use the tokens and never a raw value.
 | `--desk` | `#080e2f` | The darker blueprint around the sheet |
 | `--desk-line` | white at 6% | The desk's 64px grid |
 | `--paper` | `#111e4f` | The sheet: night blue |
+| `--bar` | `#0b153f` | The nav's band: darker than the sheet, so it reads as a bar over the page |
 | `--low` | `#212e5d` | Hover fill on a ghost button |
 | `--ink` | `#dbe1f8` | Text, borders, fills: the one colour |
 | `--muted` | `#afb6d3` | Secondary text |
@@ -84,7 +85,7 @@ When you replace a picture, give the file a new name. Browsers cache by name.
 
 ## The page, top to bottom
 
-1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It sticks to the top in the sheet's blue at 88% with a blur, and gains a hairline once the page scrolls. It has no theme switch.
+1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It is its own band in `--bar`, a blue darker than the sheet, at 94% with a blur. A hairline runs under it, and turns to `--strong` once the page scrolls under it. It has no theme switch.
 2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe. On the right is the claim in light slab, plain text with no pictures or marks in it: "Understand the code you didn't write." Under it is one sentence on what Blueprint does, then the install line. "Scroll to open the app ↓" sits at the bottom.
 3. **How we got here** (`landing-evolution.tsx`). One wavy line drawn down the sheet as the reader scrolls, through three people, each a tilted plate with a year, a name and one line: Lovelace (1843), Turing (1936) and Karpathy (2025, who coined vibe coding). Keep it to three. The point is a glance, not a history lesson.
 4. **And now there's you.** Uncle Sam points out at the reader from behind the heading. Then comes the live app, which zooms up out of the page as the reader reaches it.

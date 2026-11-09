@@ -5,6 +5,7 @@
   --desk: #080e2f;
   --desk-line: rgba(255, 255, 255, 0.06);
   --paper: #111e4f;
+  --bar: #0b153f;
   --low: #212e5d;
   --ink: #dbe1f8;
   --muted: #afb6d3;
@@ -94,8 +95,13 @@
   top: 0;
   z-index: 20;
   padding: 0 var(--gutter);
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bar) 94%, transparent);
   backdrop-filter: blur(10px);
+  transition: border-color 0.3s ease-out;
+}
+.nav[data-float="true"] {
+  border-bottom-color: var(--strong);
 }
 .navBar {
   display: flex;
@@ -104,11 +110,6 @@
   max-width: calc(1480px - 2 * var(--gutter));
   height: 56px;
   margin: 0 auto;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.3s ease-out;
-}
-.nav[data-float="true"] .navBar {
-  border-bottom-color: var(--line);
 }
 .mark {
   display: flex;
