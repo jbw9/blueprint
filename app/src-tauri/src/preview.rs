@@ -83,8 +83,9 @@ impl Previews {
 
 fn stop(p: &Proxy) {
     p.closed.store(true, Ordering::Relaxed);
-    // The accept loop is blocked; one connection wakes it to see the flag.
+    // The accept loops are blocked; one connection each wakes it to see the flag.
     let _ = TcpStream::connect(("127.0.0.1", p.port));
+    let _ = TcpStream::connect(("::1", p.port));
 }
 
 #[derive(serde::Serialize)]
@@ -316,6 +317,12 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
     let mut from = BufReader::new(client.try_clone()?);
     let mut client = client;
     let req = read_head(&mut from)?;
+    // Only ever addressed as the loopback: the dev server is told it is asked for
+    // as itself, so a page that rebinds a name of its own to here would get past
+    // the dev server's own check of who is asking.
+    if !req.get("host").is_some_and(loopback) {
+        return respond(&mut client, "403 Forbidden", "text/plain", b"", &[]);
+    }
     let here = format!("http://localhost:{port}");
     let there = to.origin();
     let swap = |v: &str| match v.strip_prefix(&here) {
@@ -447,6 +454,17 @@ fn serve(client: TcpStream, to: &Upstream, port: u16) -> std::io::Result<()> {
     Ok(())
 }
 
+/// A Host naming this machine, with any port: `localhost` or a name under it
+/// (which no public DNS can answer for), `127.0.0.1`, `[::1]`.
+fn loopback(host: &str) -> bool {
+    let name = match host.rsplit_once(':') {
+        Some((name, port)) if port.bytes().all(|b| b.is_ascii_digit()) => name,
+        _ => host,
+    }
+    .to_ascii_lowercase();
+    name == "localhost" || name.ends_with(".localhost") || name == "127.0.0.1" || name == "[::1]"
+}
+
 /// The agent, first thing in the page's head, so it hears the page's own
 /// console from the start. It takes itself out of the page as it runs: React
 /// hydrates a server-rendered head in order, and would read a script left
@@ -573,7 +591,7 @@ mod tests {
         let (conn, _) = l.accept().unwrap();
         let to = Upstream { host: "127.0.0.1".into(), port };
         let h = std::thread::spawn(move || serve(conn, &to, me).unwrap());
-        c.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n").unwrap();
+        c.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
         let t0 = std::time::Instant::now();
         let mut first = String::new();
         let mut r = BufReader::new(c);
@@ -594,7 +612,7 @@ mod tests {
     #[test]
     fn everything_else_is_copied_through() {
         let (port, _) = server(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:PORT/next\r\nContent-Length: 2\r\n\r\nok");
-        let out = through(port, "GET /a.js HTTP/1.1\r\nHost: x\r\n\r\n");
+        let out = through(port, "GET /a.js HTTP/1.1\r\nHost: localhost:{me}\r\n\r\n");
         assert!(out.starts_with("HTTP/1.1 302 Found"));
         assert!(out.ends_with("\r\n\r\nok"));
         assert!(!out.contains("blueprint-agent"));
@@ -613,7 +631,7 @@ mod tests {
             s.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n").unwrap();
             (head.headers.iter().filter(|(k, _)| k.eq_ignore_ascii_case("content-length")).count(), body)
         });
-        through(port, "POST /api HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\nping");
+        through(port, "POST /api HTTP/1.1\r\nHost: 127.0.0.1:{me}\r\nContent-Length: 4\r\n\r\nping");
         assert_eq!(seen.join().unwrap(), (1, b"ping".to_vec()));
     }
 
@@ -622,8 +640,18 @@ mod tests {
         let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = l.local_addr().unwrap().port();
         drop(l);
-        let out = through(port, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+        let out = through(port, "GET / HTTP/1.1\r\nHost: [::1]:{me}\r\n\r\n");
         assert!(out.starts_with("HTTP/1.1 502"));
         assert!(out.contains("http-equiv=\"refresh\""));
+    }
+
+    #[test]
+    fn a_name_rebound_to_the_loopback_is_turned_away() {
+        let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = l.local_addr().unwrap().port();
+        let out = through(port, "GET / HTTP/1.1\r\nHost: evil.example:{me}\r\n\r\n");
+        assert!(out.starts_with("HTTP/1.1 403"));
+        assert!(through(port, "GET / HTTP/1.1\r\n\r\n").starts_with("HTTP/1.1 403"));
+        assert!(loopback("app.localhost:3000") && loopback("LOCALHOST") && !loopback("localhost.evil.io:80") && !loopback("127.0.0.1.nip.io"));
     }
 }
