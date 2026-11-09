@@ -24,8 +24,6 @@ const OPS = new Set(["invoke-with-response-stream", "invoke", "count-tokens"]);
 const PRICE = { haiku: { in: 0.1, out: 0.5, cr: 0.01 }, sonnet: { in: 2, out: 10, cr: 0.2 }, opus: { in: 4, out: 20, cr: 0.2 } };
 
 const familyOf = (model) => (/haiku/i.test(model) ? "haiku" : /opus/i.test(model) ? "opus" : "sonnet");
-/** A tab gets Sonnet or Haiku whatever it asks for; generation gets the family it asks for. */
-const familyFor = (lane, model) => (lane === "tab" && familyOf(model) === "opus" ? "sonnet" : familyOf(model));
 
 /* ── settings ── */
 
@@ -369,7 +367,7 @@ export async function relay({ stream, reply, account, ip, lane, model, op, heade
     return forward({ stream, op, target: id, headers, body });
   }
 
-  const family = familyFor(lane, decodeURIComponent(model));
+  const family = familyOf(decodeURIComponent(model));
   const shaped = shape({ lane, body, headers, maxTokens: lane === "gen" ? c.gen_max_tokens : c.max_tokens });
   if (!shaped.body) return reply(400, { message: "Not a model call." }, { "x-amzn-errortype": "ValidationException" });
   if (shaped.flags.length && (lane === "gen" ? (c.gen_policy ?? c.policy) : c.policy) === "enforce") {

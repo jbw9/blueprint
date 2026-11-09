@@ -327,9 +327,9 @@ pub struct Credit {
     token: String,
 }
 
-/// What Claude Code on Blueprint credit asks for: model ids it knows on Bedrock. A tab gets Sonnet or
-/// Haiku whatever it is asked for; the proxy (scripts/api/credit.mjs) holds it to that too.
+/// What Claude Code on Blueprint credit asks for: model ids it knows on Bedrock.
 const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-5-5";
+const CREDIT_OPUS: &str = "global.anthropic.claude-opus-5-5";
 const CREDIT_HAIKU: &str = "global.anthropic.claude-haiku-5-5";
 
 /// Runs Claude with the hook, and marks the tab live while it does. The marker,
@@ -862,6 +862,10 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
     if launch.voice {
         settings["voice"] = serde_json::json!({ "enabled": true });
     }
+    // Fable is not on the relay's Bedrock account: leave it out of /model rather than offer a pick that fails.
+    if launch.credit.is_some() {
+        settings["availableModels"] = serde_json::json!(["sonnet", "opus", "haiku"]);
+    }
     // Lets plan mode research without a prompt per step; plan mode still blocks edits.
     if launch.research {
         if let Some(allow) = settings["permissions"]["allow"].as_array_mut() {
@@ -927,7 +931,7 @@ fn credit(queue: &Path, credit: Option<&Credit>) -> std::io::Result<()> {
         ("AWS_REGION", "us-east-1"),
         ("ANTHROPIC_MODEL", CREDIT_SONNET),
         ("ANTHROPIC_DEFAULT_SONNET_MODEL", CREDIT_SONNET),
-        ("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDIT_SONNET),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDIT_OPUS),
         ("ANTHROPIC_DEFAULT_HAIKU_MODEL", CREDIT_HAIKU),
         // The proxy holds every call to these too (scripts/api/policy.mjs); asking for more only fails.
         ("CLAUDE_CODE_DISABLE_1M_CONTEXT", "1"),
