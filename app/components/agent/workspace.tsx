@@ -90,6 +90,9 @@ async function until<T>(get: () => T | undefined, ms: number): Promise<T> {
 /** Tab keys, unique for the app's life. */
 let nextKey = 1;
 
+/** Sent to a Claude moved off Blueprint credit after a call was refused, so its turn goes on. */
+const CARRY_ON = "Blueprint credit ran out partway through. You're on my own Claude Code now: carry on where you left off.";
+
 
 export function Workspace() {
   const blueprint = useBlueprint();
@@ -641,36 +644,62 @@ export function Workspace() {
 
   useTurnFollowing({ tabs, setTabs, planning, opening, closedPlans, printed, rang, latest });
 
-  // A Claude tab on Blueprint credit whose turn ends with the credit used up starts again in place on
-  // the reader's own Claude Code, resuming its conversation (Settings, "Switch to my Claude Code").
-  // Its key changes, so its Shell remounts: the old Claude is stopped and the new one launched.
-  const idleOnCredit = JSON.stringify(tabs.filter((t) => t.credit && t.live && t.session && t.status !== "working").map((t) => t.key));
+  // Claude tabs on Blueprint credit started again in place on the reader's own Claude Code, resuming
+  // their conversations. A key changes, so its Shell remounts: the old Claude is stopped and the new
+  // one launched. One whose call was refused is told to carry on, as its last prompt went unanswered.
+  const toOwnClaude = (keys: number[]) => {
+    const all = tabsNow.current.filter((x) => keys.includes(x.key) && x.credit && x.session);
+    if (!all.length) return;
+    const moved = new Map(all.map((x) => [x.key, nextKey++]));
+    setTabs((tabs) =>
+      tabs.map((x) => {
+        // A plan's tab follows its Claude to the new key.
+        if (x.of !== undefined && moved.has(x.of)) return { ...x, of: moved.get(x.of) };
+        const key = moved.get(x.key);
+        if (key === undefined) return x;
+        if (x.pty !== undefined) tabEnded(x.pty);
+        // Started in Claude even if it was run from the strip of a plain terminal: only a start resumes.
+        return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, outOfCredit: false, start: CLAUDE.id, run: undefined, resume: x.session };
+      }),
+    );
+    const refused = all.filter((x) => x.outOfCredit);
+    if (refused.length)
+      setToPaste((p) => ({ ...p, ...Object.fromEntries(refused.map((x) => [moved.get(x.key)!, { text: CARRY_ON, send: true }])) }));
+    const follow = (m: Record<string, number | null>) =>
+      Object.fromEntries(Object.entries(m).map(([cwd, k]) => [cwd, k != null ? (moved.get(k) ?? k) : k]));
+    setActive((a) => follow(a) as typeof a);
+    setFront((f) => follow(f) as typeof f);
+  };
+  const ownClaude = useRef(toOwnClaude);
   useEffect(() => {
-    const keys: number[] = JSON.parse(idleOnCredit);
-    if (!keys.length) return;
+    ownClaude.current = toOwnClaude;
+  });
+  // With "Switch to my Claude Code" on in Settings, an idle tab moves by itself once the credit is used up.
+  const idleOnCredit = JSON.stringify(tabs.filter((t) => t.credit && t.live && t.session && t.status !== "working").map((t) => [t.key, !!t.outOfCredit]));
+  useEffect(() => {
+    const idle: [number, boolean][] = JSON.parse(idleOnCredit);
+    if (!idle.length) return;
     let stop = false;
     void readCredit().then((c) => {
-      // No meters: the proxy could not be reached, which is not the credit used up.
-      if (stop || !c?.on || !c.login || !c.fallback || !c.meters || c.relay) return;
-      const moved = new Map(keys.map((k) => [k, nextKey++]));
-      setTabs((all) =>
-        all.map((x) => {
-          // A plan's tab follows its Claude to the new key.
-          if (x.of !== undefined && moved.has(x.of)) return { ...x, of: moved.get(x.of) };
-          const key = moved.get(x.key);
-          if (key === undefined || !x.credit || !x.session) return x;
-          if (x.pty !== undefined) tabEnded(x.pty);
-          // Started in Claude even if it was run from the strip of a plain terminal: only a start resumes.
-          return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, start: CLAUDE.id, run: undefined, resume: x.session };
-        }),
-      );
-      const follow = (m: Record<string, number | null>) =>
-        Object.fromEntries(Object.entries(m).map(([cwd, k]) => [cwd, k != null ? (moved.get(k) ?? k) : k]));
-      setActive((a) => follow(a) as typeof a);
-      setFront((f) => follow(f) as typeof f);
+      if (stop || !c?.fallback) return;
+      // No meters: the proxy could not be reached, which is not the credit used up. A refused call is.
+      const usedUp = !!c.on && !!c.login && !!c.meters && !c.relay;
+      const keys = idle.filter(([, refused]) => refused || usedUp).map(([k]) => k);
+      if (keys.length) ownClaude.current(keys);
     });
     return () => void (stop = true);
   }, [idleOnCredit]);
+  // Claude Code prints the proxy's refusal (scripts/api/credit.mjs) as an API error, wrapped and styled.
+  const creditTails = useRef<Record<number, string>>({});
+  const watchCredit = (t: Tab, text: string) => {
+    if (!t.credit || t.outOfCredit) return;
+    const tail = ((creditTails.current[t.key] ?? "") + text.replace(/\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\s/g, "")).slice(-400);
+    creditTails.current[t.key] = tail;
+    if (tail.includes("creditforClaudeCodeisusedup")) {
+      delete creditTails.current[t.key];
+      patch(t.key, { outOfCredit: true });
+    }
+  };
 
   useTabStatus(tabs, desktop);
 
@@ -1078,7 +1107,8 @@ export function Workspace() {
   // Terminals and the agents in them can be renamed; their glyph stays.
   const rename = (t: Tab) =>
     t.kind === "shell"
-      ? () => {
+      ? (e: React.MouseEvent) => {
+          e.preventDefault();
           nameKept.current = true;
           setNaming(t.key);
         }
@@ -1128,7 +1158,7 @@ export function Workspace() {
             {nameField(t)}
           </span>
         ) : (
-          <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
+          <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onContextMenu={rename(t)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
             {iconOf(t)}
             <TabLabel>{nameOf(t)}</TabLabel>
             {t.status ? <StatusDot status={t.status} /> : driven[t.key] && !selected ? <StatusDot status="working" /> : null}
@@ -1155,7 +1185,7 @@ export function Workspace() {
           {nameField(t)}
         </span>
       ) : (
-        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onDoubleClick={rename(t)} className="flex cursor-pointer items-center gap-1.5">
+        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onContextMenu={rename(t)} className="flex cursor-pointer items-center gap-1.5">
           {iconOf(t)}
           {nameOf(t)}
           {t.status ? <StatusDot status={t.status} /> : driven[t.key] && !selected ? <StatusDot status="working" /> : null}
@@ -1546,6 +1576,7 @@ export function Workspace() {
             visible={visible}
             onOutput={(text) => {
               if (t.dev) heard(t, text);
+              watchCredit(t, text);
               printing(t.key, text);
             }}
             onInput={() => {
@@ -1557,7 +1588,7 @@ export function Workspace() {
             onTitle={(title) => patch(t.key, { title })}
             onScreen={(read) => (screens.current[t.key] = read)}
             onClaude={(found) => patch(t.key, { found })}
-            onCredit={(credit) => patch(t.key, { credit })}
+            onCredit={(credit) => patch(t.key, { credit, outOfCredit: false })}
             onOpenPlan={() => reopenPlan(t.key, t.cwd)}
             session={t.session}
             onOpenFile={(file, line) => openFile(t.cwd, file, line)}
@@ -1578,6 +1609,14 @@ export function Workspace() {
             ) : (
               shell
             )}
+            {t.credit && t.outOfCredit && visible ? (
+              <div data-chrome className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 border border-accent-line bg-accent-surface px-3 py-2 font-mono text-[12px] text-ink shadow-sm">
+                <span className="min-w-0 flex-1">Your Blueprint credit for Claude Code is used up. Claude picks this conversation up on your own Claude Code and carries on.</span>
+                <button type="button" onClick={() => toOwnClaude([t.key])} className="shrink-0 bg-accent px-3 py-1 font-medium text-on-accent hover:bg-accent-strong">
+                  Switch to my Claude Code
+                </button>
+              </div>
+            ) : null}
           </Held>
           );
         })}

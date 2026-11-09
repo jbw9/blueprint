@@ -50,6 +50,8 @@ export interface Tab {
   resume?: string;
   /** Its Claude was started on Blueprint credit (lib/client/credit.ts). */
   credit?: boolean;
+  /** Its Claude was refused a call because the credit is used up. */
+  outOfCredit?: boolean;
 }
 
 /** How a project is run, from its files (src-tauri/src/devices.rs). */

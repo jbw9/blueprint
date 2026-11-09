@@ -398,7 +398,7 @@ function BlueprintCredit() {
                 className="mt-0.5 accent-accent"
               />
               <span>
-                <span className="text-ink">Switch to my Claude Code when it runs out.</span> A Claude tab on Blueprint credit picks its conversation up on your own Claude Code, signed in as it is, and goes back to Blueprint credit once it resets.
+                <span className="text-ink">Switch to my Claude Code when it runs out.</span> A Claude tab on Blueprint credit picks its conversation up on your own Claude Code, signed in as it is, and carries on. New tabs are on Blueprint credit again once it resets.
               </span>
             </label>
           )}
