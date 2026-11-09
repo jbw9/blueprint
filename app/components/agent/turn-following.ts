@@ -22,6 +22,7 @@ export function useTurnFollowing({
   closedPlans,
   printed,
   rang,
+  latest,
 }: {
   tabs: Tab[];
   setTabs: Dispatch<SetStateAction<Tab[]>>;
@@ -31,11 +32,14 @@ export function useTurnFollowing({
   /** When each tab last printed, and whether it rang the bell since the user typed. */
   printed: RefObject<Record<number, number>>;
   rang: RefObject<Record<number, boolean>>;
+  /** The project in front: only a Claude working there moves its blueprint. */
+  latest: RefObject<{ here: string }>;
 }) {
   const started = JSON.stringify(tabs.filter((t) => t.pty !== undefined).map((t) => [t.key, t.pty, t.cwd]));
   useEffect(() => {
     const ids: [number, number, string][] = JSON.parse(started);
     if (!ids.length) return;
+    let stopped = false;
     const tick = () =>
       ids.forEach(([key, pty, cwd]) =>
         invoke<{
@@ -51,7 +55,9 @@ export function useTurnFollowing({
         }>("pty_state", { id: pty })
           .then(({ claude: live, busy, status: said, turn, acts, plan, approved, steps = [], session }) => {
             if (turn && cwd) void followTurn(cwd, turn);
-            if (live && cwd && (said === "working" || said === "waiting")) midTurn.set(pty, cwd);
+            // Not once stopped: a poll answered after its tab closed would leave the project
+            // mid-turn for good, and its commits would never update the blueprint (statusbar.tsx).
+            if (!stopped && live && cwd && (said === "working" || said === "waiting")) midTurn.set(pty, cwd);
             else midTurn.delete(pty);
             if (plan) planning.current(key, cwd, plan);
             if (approved) {
@@ -72,8 +78,9 @@ export function useTurnFollowing({
                 : all,
             );
             // Mid-turn, deliberately: Claude shows a section while it is still
-            // explaining it (lib/agent/act.ts).
-            acts?.forEach(announceAct);
+            // explaining it (lib/agent/act.ts). One in a project not in front would move
+            // another project's blueprint, so its acts are dropped.
+            if (cwd === latest.current.here) acts?.forEach(announceAct);
             // Same array when nothing moved: a new one every tick would reset
             // the paste effect's timer below before it could ever fire.
             const statusOf = (x: Tab): Status | undefined =>
@@ -96,7 +103,7 @@ export function useTurnFollowing({
       );
     tick();
     const timer = setInterval(tick, 1000);
-    return () => (clearInterval(timer), ids.forEach(([, pty]) => midTurn.delete(pty)));
+    return () => ((stopped = true), clearInterval(timer), ids.forEach(([, pty]) => midTurn.delete(pty)));
     // The rest are the workspace's refs and state setter, the same on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started]);

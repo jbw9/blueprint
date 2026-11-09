@@ -102,13 +102,15 @@ export function useInstalled(): Agent[] {
 /** Whether Claude Code was found, where Settings says or wherever it is installed; unknown while looking. */
 function useClaudeFound(): boolean | undefined {
   const [found, setFound] = useState<boolean>();
+  // Looked for again when Settings names another path, as the strip's "not found" asks.
+  const path = useSettings().claudePath;
   useEffect(() => {
     let live = true;
-    void findClaude().then((f) => live && setFound(!!f));
+    void findClaude(path).then((f) => live && setFound(!!f));
     return () => {
       live = false;
     };
-  }, []);
+  }, [path]);
   return found;
 }
 

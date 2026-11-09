@@ -637,7 +637,7 @@ export function Workspace() {
     planning.current = showPlan;
   });
 
-  useTurnFollowing({ tabs, setTabs, planning, closedPlans, printed, rang });
+  useTurnFollowing({ tabs, setTabs, planning, closedPlans, printed, rang, latest });
 
   // A Claude tab on Blueprint credit whose turn ends with the credit used up starts again in place on
   // the reader's own Claude Code, resuming its conversation (Settings, "Switch to my Claude Code").
@@ -648,14 +648,18 @@ export function Workspace() {
     if (!keys.length) return;
     let stop = false;
     void readCredit().then((c) => {
-      if (stop || !c?.on || !c.login || !c.fallback || c.relay) return;
+      // No meters: the proxy could not be reached, which is not the credit used up.
+      if (stop || !c?.on || !c.login || !c.fallback || !c.meters || c.relay) return;
       const moved = new Map(keys.map((k) => [k, nextKey++]));
       setTabs((all) =>
         all.map((x) => {
+          // A plan's tab follows its Claude to the new key.
+          if (x.of !== undefined && moved.has(x.of)) return { ...x, of: moved.get(x.of) };
           const key = moved.get(x.key);
           if (key === undefined || !x.credit || !x.session) return x;
           if (x.pty !== undefined) tabEnded(x.pty);
-          return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, resume: x.session };
+          // Started in Claude even if it was run from the strip of a plain terminal: only a start resumes.
+          return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, start: CLAUDE.id, run: undefined, resume: x.session };
         }),
       );
       const follow = (m: Record<string, number | null>) =>
@@ -709,7 +713,8 @@ export function Workspace() {
       const last = gone.kind === "preview" && !tabs.some((x) => x !== gone && x.kind === "preview" && x.cwd === gone.cwd);
       const dev = last ? tabs.find((x) => x.dev && x.cwd === gone.cwd) : undefined;
       const rest = tabs.filter((x) => x.key !== key && x !== dev);
-      setTabs(rest);
+      // By key, from the latest tabs: a close after an await (portTaken) must not undo what changed meanwhile.
+      setTabs((all) => all.filter((x) => x.key !== key && x.key !== dev?.key));
       // A stopped dev server's address answers no more: kept, a Preview opened
       // later would wait on it with no terminal to show why.
       const stopped = gone.dev ? gone : dev;
@@ -805,7 +810,6 @@ export function Workspace() {
       return;
     }
     // From storage the server render cannot read, as the restore on launch above.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     for (const session of sessions) add(CLAUDE.id, { cwd: here, session, resume: session });
   }, [desktop, here, add]);
 
@@ -1047,9 +1051,11 @@ export function Workspace() {
   const nameOf = (t: Tab) => {
     if (t.name) return t.name;
     // Numbered among the terminals alone, so a Preview or a plan before it never shifts it.
-    const i = mine.filter((x) => x.kind === "shell" && !x.dev).indexOf(t);
+    // Among its own project's, for an agent in a project not in front (terminal).
+    const own = tabs.filter((x) => x.cwd === t.cwd);
+    const i = own.filter((x) => x.kind === "shell" && !x.dev).indexOf(t);
     const front = inFront(t);
-    const previews = mine.filter((x) => x.kind === "preview");
+    const previews = own.filter((x) => x.kind === "preview");
     return t.kind === "preview"
       ? previews.length > 1
         ? `Preview ${previews.indexOf(t) + 1}`

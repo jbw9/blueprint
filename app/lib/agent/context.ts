@@ -333,14 +333,6 @@ export function unmention(pty: number, before: string[]): number {
   return found[0].n;
 }
 
-/** The web panel's prompt hook: what is queued, as text for this prompt, and marked sent. */
-export function takePicks(pty: number): string[] {
-  const mine = state.picks[pty] ?? [];
-  const queued = mine.filter((p) => p.status === "queued").map((p) => p.text);
-  if (queued.length) withPicks(pty, mine.map((p) => ({ ...p, status: "sent" as const })));
-  return queued;
-}
-
 /* ── handing to any agent ─────────────────────────────────────── */
 
 const HAND = "blueprint:hand";
