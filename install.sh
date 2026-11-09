@@ -370,10 +370,12 @@ finish() {
   [ -n "$tty" ] && printf '\033[?25h'
   [ -z "$tmp" ] || rm -rf "$tmp"
   worked=$([ "$status" = 0 ] && echo true || echo false)
+  # CI is set by GitHub Actions and most other CI systems, so the dashboard can count people apart.
+  ci=$([ -n "$CI" ] && echo true || echo false)
   [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
-    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"version\":\"${version:-source}\"}" 2>/dev/null || true
+    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"ci\":$ci,\"version\":\"${version:-source}\"}" 2>/dev/null || true
 }
 
 main "$@"
