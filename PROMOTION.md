@@ -63,9 +63,7 @@ Each lane has its own per-minute budget, so a map run never slows down a chat.
 | Limit | Value | What the caller sees |
 |---|---|---|
 | Concurrent tab calls | **3** (`tab_inflight`) | 429 `ThrottlingException`, retry in 5 s |
-| Concurrent gen calls | **4** (`gen_inflight`) | same |
 | Tab spend per minute | **$1** (`usd_per_minute`) | 429, retry when the minute rolls over |
-| Gen spend per minute | **$5** (`gen_usd_per_minute`) | same |
 
 ### Size limits (applied to every call)
 
@@ -204,8 +202,8 @@ Per million tokens, global profiles, 5.5 models (`PRICE` in `credit.mjs`):
 | `policy` / `gen_policy` | "log" / null | `"enforce"` refuses out-of-shape calls |
 | `tab_usd_5h`, `tab_usd_week`, `gen_usd_week` | 4, 40, 100 | allowances (null = no cap) |
 | `window_hours`, `week_hours` | 5, 168 | window lengths |
-| `tab_inflight`, `gen_inflight` | 3, 4 | concurrency |
-| `usd_per_minute`, `gen_usd_per_minute` | 1, 5 | burst limits |
+| `tab_inflight` | 3 | concurrency (tabs only) |
+| `usd_per_minute` | 1 | burst limit (tabs only) |
 | `monthly_usd_ceiling` | 4500 | global stop |
 | `gh_min_age_days`, `devices_per_account`, `new_accounts_per_ip_day` | 30, 2, 5 | sign-up gates |
 

@@ -44,11 +44,9 @@ export const DEFAULTS = {
   // Maps are offered as unlimited: this is fair use, about eight mid-size maps a week, which nobody making maps
   // reaches. It is what holds the lane to its price, since anyone signed in can call it without the generator.
   gen_usd_week: 100,
+  // A tab's own throttles; map generation has none, so it runs as fast as Bedrock takes it.
   tab_inflight: 3,
-  gen_inflight: 4,
   usd_per_minute: 1,
-  // Its own minute, so a map run never slows a chat; an honest run spends under $2 a minute.
-  gen_usd_per_minute: 5,
   max_tokens: 32000,
   // The generator's authors ask for 64,000 (scripts/generate/author.ts); cut at 32,000 they stop mid-answer.
   gen_max_tokens: 64000,
@@ -185,13 +183,14 @@ async function admit(c, account, a, lane, guess) {
   const held = { guess, windows: [], minute: null, day: null, month: null, slot: null };
   const no = async (r) => (await settle(account, lane, held, 0), { ok: false, ...r });
 
-  held.slot = await takeSlot(account, lane, pick(c, a, lane === "tab" ? "tab_inflight" : "gen_inflight"));
-  if (!held.slot) return no({ kind: "slots", wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
+  if (lane === "tab") {
+    held.slot = await takeSlot(account, lane, pick(c, a, "tab_inflight"));
+    if (!held.slot) return no({ kind: "slots", wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
+  }
 
-  // Each lane has its own minute, so a map run never slows a chat.
-  if (!a.uncapped) {
-    const minute = `${lane === "gen" ? "gen#" : ""}${new Date().toISOString().slice(0, 16)}`;
-    const cap = pick(c, a, lane === "gen" ? "gen_usd_per_minute" : "usd_per_minute") * MICRO;
+  if (lane === "tab" && !a.uncapped) {
+    const minute = new Date().toISOString().slice(0, 16);
+    const cap = pick(c, a, "usd_per_minute") * MICRO;
     try {
       await update(`rate#${account}`, minute, "ADD micro :m SET #ttl = :ttl", { ":m": guess, ":cap": cap, ":ttl": epoch() + 3600 }, "attribute_not_exists(micro) OR micro < :cap", { "#ttl": "ttl" });
       held.minute = minute;
