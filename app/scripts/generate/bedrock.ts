@@ -17,13 +17,12 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 
 /**
- * What this AWS account can invoke (probed 2026-10-22). The 5.x profiles are
- * listed in us-east-1 but every one answers AccessDeniedException.
+ * What this AWS account can invoke (probed 2026-11-08: each answered).
  */
 export const MODELS = {
-  haiku: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-  sonnet: "global.anthropic.claude-sonnet-4-6",
-  opus: "global.anthropic.claude-opus-4-6-v1",
+  haiku: "global.anthropic.claude-haiku-5-5",
+  sonnet: "global.anthropic.claude-sonnet-5-5",
+  opus: "global.anthropic.claude-opus-5-5",
 } as const;
 
 /** The model without its routing prefix: `us.` and `global.` run the same model on the same request. */
@@ -36,9 +35,10 @@ const bare = (model: string) => model.replace(/^(us|eu|apac|global)\./, "");
  * rounding — Cost Explorer shows the same charge a day later, per service.
  */
 const PRICE: Record<string, { in: number; out: number; cacheRead: number }> = {
-  [bare(MODELS.haiku)]: { in: 1, out: 5, cacheRead: 0.1 },
-  [bare(MODELS.sonnet)]: { in: 3, out: 15, cacheRead: 0.3 },
-  [bare(MODELS.opus)]: { in: 5, out: 25, cacheRead: 0.5 },
+  // Haiku's is for prompts up to 100K tokens; past that it is five times this.
+  [bare(MODELS.haiku)]: { in: 0.1, out: 0.5, cacheRead: 0.01 },
+  [bare(MODELS.sonnet)]: { in: 2, out: 10, cacheRead: 0.2 },
+  [bare(MODELS.opus)]: { in: 4, out: 20, cacheRead: 0.2 },
 };
 const priceOf = (model: string) => {
   const p = PRICE[bare(model)];
@@ -122,7 +122,7 @@ export interface Request {
   messages: Message[];
   tools?: Tool[];
   maxTokens?: number;
-  /** Turns on adaptive thinking at this effort (Sonnet/Opus only). Absent: temperature 0, no thinking. */
+  /** Adaptive thinking at this effort. Absent: "low" — the 5.5 models cannot turn thinking off or take a temperature. */
   effort?: "low" | "medium" | "high" | "max";
   /** Tags the bill, e.g. "summarize". */
   stage: string;
@@ -252,7 +252,8 @@ export async function invoke(req: Request): Promise<Reply> {
     system: req.system,
     messages: req.messages,
     ...(req.tools ? { tools: req.tools, tool_choice: { type: "auto" } } : {}),
-    ...(req.effort ? { thinking: { type: "adaptive" }, output_config: { effort: req.effort } } : { temperature: 0 }),
+    thinking: { type: "adaptive" },
+    output_config: { effort: req.effort ?? "low" },
   };
   const json = JSON.stringify(body);
   // Keyed on one spelling of the model whatever the routing — the `us.` one

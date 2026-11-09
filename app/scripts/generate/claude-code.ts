@@ -27,9 +27,9 @@ import { cacheFile, chargeUsage, slot, slowDown, UsageLimitError, type Message, 
 
 /** Bedrock profile → the name Claude Code takes for the same model. */
 const CC_MODEL: Record<string, string> = {
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0": "claude-haiku-4-5-20251001",
-  "global.anthropic.claude-sonnet-4-6": "claude-sonnet-4-6",
-  "global.anthropic.claude-opus-4-6-v1": "claude-opus-4-6",
+  "global.anthropic.claude-haiku-5-5": "claude-haiku-5-5",
+  "global.anthropic.claude-sonnet-5-5": "claude-sonnet-5-5",
+  "global.anthropic.claude-opus-5-5": "claude-opus-5-5",
 };
 const ccModel = (model: string) => CC_MODEL[model] ?? model;
 
