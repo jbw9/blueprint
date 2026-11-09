@@ -14,7 +14,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- model tool inputs */
 import type { Node } from "@/lib/blueprint/schema";
 import type { Overview } from "@/lib/blueprint/build";
-import { authorTool, converse } from "./author";
+import { authorTool, converse, tryJson } from "./author";
 import { type Handled } from "./claude-code";
 import { INFERRED_RULE } from "./graph-tools";
 import { bareLines, check, EXPLAIN_LEVEL, fileReader, OVERVIEW_ID, WALK_STEPS, WALKS } from "./check";
@@ -171,7 +171,7 @@ export async function overviewOf(roots: Node[], cut: Cut, inv: Inventory, model:
     if (name !== "submit") return { content: authorTool({ name, input }) };
     res.submits++;
     // A fix after a rejection may send only what changed; it lands on the last submit.
-    const fixes = typeof input?.replace === "string" ? JSON.parse(input.replace) : input?.replace;
+    const fixes = typeof input?.replace === "string" ? tryJson(input.replace) : input?.replace;
     const o = input?.root ?? (Array.isArray(fixes) && last ? Object.assign(structuredClone(last), ...fixes) : null);
     if (o && typeof o === "object") last = structuredClone(o);
     const problems = overviewProblems(o, roots, inv.repo, cut);

@@ -92,13 +92,16 @@ function targets(blueprint: BlueprintFile, cut: Cut, byPath: Map<string, Change>
   const all = walk(blueprint.AUTHORED);
   const picked = new Set<Placed>(also.map((a) => all.find((p) => p.node === a.node)!).filter(Boolean));
   const covered = new Set<string>();
-  for (const p of all)
-    for (const r of refs(p.node)) {
-      const c = byPath.get(r.file);
-      if (c && touches(c, r.s, r.e)) {
-        picked.add(p);
-        covered.add(c.path);
-      }
+  const cites = all.map((p) => ({ p, rs: refs(p.node) }));
+  // Per changed hunk, only the deepest sections citing it: a group cites the
+  // ranges its children explain, and taking it too redid the whole group, all
+  // of it resubmitted, for a one-line edit. A deleted file takes every section citing it.
+  for (const c of byPath.values())
+    for (const h of c.after === null ? [null] : c.hunks) {
+      const one = h ? { ...c, hunks: [h] } : c;
+      const hit = cites.filter(({ rs }) => rs.some((r) => r.file === c.path && touches(one, r.s, r.e))).map(({ p }) => p);
+      if (hit.length) covered.add(c.path);
+      for (const p of hit) if (!h || !hit.some((q) => q !== p && q.path.includes(p.node))) picked.add(p);
     }
   const homeless: string[] = [];
   for (const c of byPath.values()) {
@@ -556,7 +559,7 @@ export async function update(args: string[]) {
   atomic(`${out}/index.json`, JSON.stringify(catalogOf(inv, sums, cut)) + "\n");
   // The blueprint now describes these files as they are: the next update starts here.
   for (const c of found) base[c.path] = c.after;
-  writeFileSync(`${out}/base.json`, JSON.stringify(base) + "\n");
+  atomic(`${out}/base.json`, JSON.stringify(base) + "\n");
   rmSync(`${out}/moved.json`, { force: true });
 
   const usd = Math.round(Object.values(bill).reduce((a, b) => a + b.usd, 0) * 100) / 100;
@@ -568,7 +571,7 @@ export async function update(args: string[]) {
   if (existsSync(`${out}/report.json`)) {
     const report = JSON.parse(readFileSync(`${out}/report.json`, "utf8"));
     report.updates = [...(report.updates ?? []), { at: new Date().toISOString(), mapperVersion: MAPPER_VERSION, changed: found.map((c) => c.path), sections: sections.map((s) => s.id), failed, seconds: Math.round((Date.now() - t0) / 1000), usd, bill }];
-    writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1) + "\n");
+    atomic(`${out}/report.json`, JSON.stringify(report, null, 1) + "\n");
   }
   // What asked for it, in the user's words where a prompt did: the line the turns list shows.
   const last = [...turns].reverse().find((t) => t.transcript)?.transcript;
@@ -577,7 +580,7 @@ export async function update(args: string[]) {
   const log = existsSync(`${out}/changes.json`) ? JSON.parse(readFileSync(`${out}/changes.json`, "utf8")) : [];
   log.push({ id: turnId, at: new Date().toISOString(), prompt, files: found.map((c) => c.path), sections, usd, seconds: Math.round((Date.now() - t0) / 1000) });
   const kept = log.slice(-SNAPSHOTS);
-  writeFileSync(`${out}/changes.json`, JSON.stringify(kept, null, 1) + "\n");
+  atomic(`${out}/changes.json`, JSON.stringify(kept, null, 1) + "\n");
   // By the log, not by count: a run that died after its snapshot leaves one no turn names.
   const listed = new Set(kept.map((c: { id: string }) => `${c.id}.json`));
   for (const f of readdirSync(`${out}/snapshots`)) if (!listed.has(f)) rmSync(`${out}/snapshots/${f}`);

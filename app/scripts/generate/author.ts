@@ -401,7 +401,7 @@ function unlisted(repo: string, path: string): boolean {
   return !readFileSync(abs).includes(0);
 }
 
-const tryJson = (s: string) => {
+export const tryJson = (s: string) => {
   try { return JSON.parse(s); } catch { return null; }
 };
 
@@ -575,7 +575,13 @@ export async function converse<T>(a: Agent): Promise<{ value: T | null; turns: n
       continue;
     }
     const results: Block[] = [];
+    // A call the token limit cut off arrives with empty input; handled, it would be refused for missing fields and sent again as long.
+    const cut = r.stop_reason === "max_tokens" && r.content.at(-1)?.type === "tool_use" ? calls.at(-1) : undefined;
     for (const c of calls) {
+      if (c === cut) {
+        results.push({ type: "tool_result", tool_use_id: c.id, is_error: true, content: "Your reply was cut off at the token limit, so this call was not run. Send it again, shorter; keep labels short." });
+        continue;
+      }
       const h = a.handle(c.name, c.input);
       if (h.done) return { value: h.done as T, turns, log };
       // Key order as before, so the requests of blueprints already made still replay from cache.

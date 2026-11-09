@@ -265,6 +265,9 @@ async function claude(args: string[], prompt: string, stage: string, effort?: st
             }
           });
         } else p.stdout.on("data", (d) => (stdout += d));
+        // Decoded across chunk boundaries: a character split between two reads otherwise comes out as U+FFFD.
+        p.stdout.setEncoding("utf8");
+        p.stderr.setEncoding("utf8");
         p.stderr.on("data", (d) => (stderr += d));
         // A missing binary emits "error", not "close"; unheard, it crashes the run.
         p.on("error", (e) => resolve({ code: null, stdout: "", stderr: String(e) }));
@@ -326,13 +329,14 @@ export async function ccAsk<T>(req: { model: string; system: string | { type: st
   if (hit) return hit.value;
   // Two built-in turns at least: the answer, then the structured-output call.
   const run = (turns: number) => claude([...base(req.model, system), "--tools", "", "--json-schema", schema, "--max-turns", String(turns), "--no-session-persistence"], prompt, req.stage, effort);
-  let r = await run(4);
+  const runs = [await run(4)];
   // An answer that failed the schema until the turns ran out (a root's split
   // cut did, and took the whole run with it) gets one more try with more room.
-  if (r.structured_output === undefined && r.subtype === "error_max_turns") r = await run(8);
+  if (runs[0].structured_output === undefined && runs[0].subtype === "error_max_turns") runs.push(await run(8));
+  const r = runs.at(-1)!;
   // What it said instead, so a schema it kept failing says why.
   if (r.structured_output === undefined) throw new Error(`${req.stage}: claude -p returned no structured output (${r.subtype})${r.result ? `: ${String(r.result).slice(0, 400)}` : ""}`);
-  const usage = usageOf(r);
+  const usage = usageOf(...runs);
   chargeUsage(req.stage, req.model, usage, false);
   store(key, { value: r.structured_output, usage });
   return r.structured_output as T;

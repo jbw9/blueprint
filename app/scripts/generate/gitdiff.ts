@@ -84,14 +84,15 @@ export function diffOf(path: string, before: string | null, after: string | null
 /** Every file whose text differs from what the blueprint last saw. */
 export function changes(repo: string, commit: string, base: Base): Change[] {
   const paths = new Set([
-    ...git(repo, "diff", "--name-only", commit).split("\n"),
+    // Relative, as ls-files and the inventory are: a project in a subfolder of its repository otherwise names every edit from the top.
+    ...git(repo, "diff", "--name-only", "--relative", commit).split("\n"),
     ...git(repo, "ls-files", "--others", "--exclude-standard").split("\n"),
     ...Object.keys(base),
   ]);
   paths.delete("");
   const out: Change[] = [];
   for (const path of [...paths].sort()) {
-    const before = path in base ? base[path] : hasAt(repo, commit, path) ? git(repo, "show", `${commit}:${path}`) : null;
+    const before = path in base ? base[path] : hasAt(repo, commit, `./${path}`) ? git(repo, "show", `${commit}:./${path}`) : null;
     const after = readText(join(repo, path));
     if (before === after) continue;
     out.push({ path, before, after, ...diffOf(path, before, after) });

@@ -62,7 +62,10 @@ async function* viaCredit(model: string, body: string): AsyncIterable<StreamEven
   });
   if (!res.ok || !res.body) {
     const j = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(`${res.headers.get("x-amzn-errortype") ?? res.status}: ${j?.message ?? res.statusText}`);
+    const msg = `${res.headers.get("x-amzn-errortype") ?? res.status}: ${j?.message ?? res.statusText}`;
+    // The credit itself is used up (a throttle says to retry): every later call is refused too, so the run stops.
+    if (res.status === 429 && res.headers.get("x-should-retry") === "false") throw new UsageLimitError(msg);
+    throw new Error(msg);
   }
   let buf = Buffer.alloc(0);
   const reader = res.body.getReader();
@@ -239,7 +242,8 @@ let coolUntil = 0;
 /** Seconds of request time spent waiting out throttles, summed over calls — the account's quota, not the work — and the fewest lanes the run fell to. */
 export const throttle = { waits: 0, seconds: 0, lanes: MAX_LANES };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const RETRYABLE = /Throttling|TooManyRequests|ServiceUnavailable|ModelNotReady|InternalServer|ModelError|timeout|ECONNRESET|socket hang up/i;
+// The last three are the credit's door (viaCredit): fetch's own failures, and a relay or proxy 5xx with no Bedrock error type.
+const RETRYABLE = /Throttling|TooManyRequests|ServiceUnavailable|ModelNotReady|InternalServer|ModelError|ModelStreamError|timeout|ECONNRESET|socket hang up|fetch failed|terminated|^Error: 5\d\d:/i;
 
 export async function invoke(req: Request): Promise<Reply> {
   const body = {
@@ -274,6 +278,7 @@ export async function invoke(req: Request): Promise<Reply> {
         );
         return await assemble(res.body!);
       } catch (e) {
+        if (e instanceof UsageLimitError) throw e;
         const msg = `${(e as Error).name}: ${(e as Error).message}`;
         // A daily cap does not lift in minutes; retrying only burns them.
         if (/per day/i.test(msg)) throw new UsageLimitError(`${req.stage} ${req.model}: daily token quota spent — ${msg}`);
