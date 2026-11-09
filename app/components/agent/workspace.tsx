@@ -633,11 +633,13 @@ export function Workspace() {
     bring(open.key);
   };
   const planning = useRef(showPlan);
+  const opening = useRef(openFile);
   useEffect(() => {
     planning.current = showPlan;
+    opening.current = openFile;
   });
 
-  useTurnFollowing({ tabs, setTabs, planning, closedPlans, printed, rang, latest });
+  useTurnFollowing({ tabs, setTabs, planning, opening, closedPlans, printed, rang, latest });
 
   // A Claude tab on Blueprint credit whose turn ends with the credit used up starts again in place on
   // the reader's own Claude Code, resuming its conversation (Settings, "Switch to my Claude Code").

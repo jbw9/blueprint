@@ -41,6 +41,8 @@ export function Acts() {
           return goTo(path);
         }
         if (a.verb === "timeline") return openTimeline();
+        // The workspace opens files (turn-following.ts).
+        if (a.verb === "file") return;
         // Empty `from` and null `to` are the defaults the diff API already
         // has for an absent parameter, so they pass straight through as
         // undefined. Resolving a phrase like "last commit by someone" is

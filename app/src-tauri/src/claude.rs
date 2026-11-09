@@ -171,8 +171,16 @@ timeline)
   printf 'timeline\t\t\n' >> "$BLUEPRINT_CONTEXT.act"
   echo "Showing the history of the code over the blueprint."
   ;;
+file)
+  [ -n "$2" ] || { echo 'usage: blueprint-show file "<path>" [<line>]' >&2; exit 2; }
+  case "$2" in /*) p=$2 ;; *) p="$PWD/$2" ;; esac
+  [ -f "$p" ] || { echo "No file at $p." >&2; exit 1; }
+  case "$3" in ''|*[!0-9]*) n= ;; *) n=$3 ;; esac
+  printf 'file\t%s\t%s\n' "$(clean "$p")" "$n" >> "$BLUEPRINT_CONTEXT.act"
+  echo "Opening $p in Blueprint."
+  ;;
 *)
-  echo 'usage: blueprint-show section "<section title or id>" | blueprint-show diff "<from>" ["<to>"] | blueprint-show timeline' >&2
+  echo 'usage: blueprint-show section "<section title or id>" | blueprint-show diff "<from>" ["<to>"] | blueprint-show timeline | blueprint-show file "<path>" [<line>]' >&2
   exit 2
   ;;
 esac
@@ -247,6 +255,10 @@ user said them, `HEAD~1`, a sha, a branch, or a phrase like \"last commit by hin
 app resolves them against the repository, so do not run git to work one out first. When they \
 ask how the code got here or how it changed over time, run `blueprint-show timeline`: it draws \
 every commit on the blueprint's sections, and they can click through it while you tell the history. \
+To put a file in front of them, such as a Markdown doc you wrote, a config or a log, run \
+`blueprint-show file \"<path>\"` (a line number may follow): it opens in Blueprint's editor beside you, \
+and Markdown is drawn as the page it makes, with headings, tables, code, quotes and task lists. That is \
+how to preview Markdown here, so never render it to HTML or open a file in the preview or a browser. \
 The `blueprint_search`, `blueprint_section` and `blueprint_where` tools read the blueprint itself. Before you change a \
 file, ask `blueprint_where` which sections explain it, so the change fits the part of the product it \
 lives in and the user can follow what you are building on the blueprint. \
@@ -637,6 +649,8 @@ pub enum Act {
     Diff { from: String, to: Option<String> },
     /// The history of the code, drawn over the blueprint's sections.
     Timeline,
+    /// A file on disk, opened in an editor tab: Markdown as the page it draws.
+    File { file: String, line: Option<u32> },
 }
 
 /// What Claude has asked to show since this was last asked. Taking it clears
@@ -659,6 +673,7 @@ pub fn take_acts(queue: &Path) -> Vec<Act> {
                     to: (!to.is_empty()).then(|| to.to_string()),
                 }),
                 ("timeline", _, _) => Some(Act::Timeline),
+                ("file", f, n) if f.starts_with('/') => Some(Act::File { file: f.to_string(), line: n.parse().ok() }),
                 _ => None,
             }
         })
@@ -1181,6 +1196,11 @@ mod tests {
         assert!(run(&["diff", "last commit by hindra2"]).status.success());
         assert!(run(&["diff", "", "HEAD"]).status.success());
         assert!(run(&["timeline"]).status.success());
+        // A file is opened by its full path; one that isn't there is refused.
+        let doc = dir.path().join("notes.md");
+        std::fs::write(&doc, "# Notes\n").unwrap();
+        assert!(run(&["file", doc.to_str().unwrap(), "3"]).status.success());
+        assert!(!run(&["file", dir.path().join("gone.md").to_str().unwrap()]).status.success());
         // No stop hook has fired, and the acts are already there.
         assert_eq!(
             take_acts(&q),
@@ -1189,6 +1209,7 @@ mod tests {
                 Act::Diff { from: "last commit by hindra2".into(), to: None },
                 Act::Diff { from: String::new(), to: Some("HEAD".into()) },
                 Act::Timeline,
+                Act::File { file: doc.to_str().unwrap().into(), line: Some(3) },
             ]
         );
         // Taken once, and nothing left behind.
@@ -1226,7 +1247,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let q = dir.path().join("context-1.md");
         let show = launcher().unwrap().with_file_name("blueprint-show");
-        for args in [vec!["section"], vec!["diff"], vec!["zoom", "in"], vec![]] {
+        for args in [vec!["section"], vec!["diff"], vec!["file"], vec!["zoom", "in"], vec![]] {
             let out = Command::new(&show).args(&args).env("BLUEPRINT_CONTEXT", &q).output().unwrap();
             assert_eq!(out.status.code(), Some(2), "{args:?}");
             assert!(String::from_utf8_lossy(&out.stderr).contains("usage:"));

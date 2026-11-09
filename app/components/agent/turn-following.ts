@@ -19,6 +19,7 @@ export function useTurnFollowing({
   tabs,
   setTabs,
   planning,
+  opening,
   closedPlans,
   printed,
   rang,
@@ -26,6 +27,8 @@ export function useTurnFollowing({
 }: {
   tabs: Tab[];
   setTabs: Dispatch<SetStateAction<Tab[]>>;
+  /** Opens a file Claude asked to show in an editor tab (the workspace's openFile, as of the latest render). */
+  opening: RefObject<(cwd: string, file: string, line?: number) => void>;
   /** Opens a plan Claude wrote beside it (the workspace's showPlan, as of the latest render). */
   planning: RefObject<(from: number, cwd: string, got: { text: string; file: string | null }) => void>;
   closedPlans: RefObject<Record<number, Plan>>;
@@ -80,7 +83,8 @@ export function useTurnFollowing({
             // Mid-turn, deliberately: Claude shows a section while it is still
             // explaining it (lib/agent/act.ts). One in a project not in front would move
             // another project's blueprint, so its acts are dropped.
-            if (cwd === latest.current.here) acts?.forEach(announceAct);
+            // A file opens beside its own Claude, whichever project is in front.
+            acts?.forEach((a) => (a.verb === "file" ? opening.current(cwd, a.file, a.line ?? undefined) : cwd === latest.current.here && announceAct(a)));
             // Same array when nothing moved: a new one every tick would reset
             // the paste effect's timer below before it could ever fire.
             const statusOf = (x: Tab): Status | undefined =>

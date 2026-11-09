@@ -32,7 +32,9 @@ import type { Node } from "@/lib/blueprint/schema";
 export type Act =
   | { verb: "section"; section: string }
   | { verb: "diff"; from: string; to: string | null }
-  | { verb: "timeline" };
+  | { verb: "timeline" }
+  /** A file by its full path, opened in an editor tab by the workspace, not the canvas. */
+  | { verb: "file"; file: string; line: number | null };
 
 /** A node and the id path that reaches it. */
 interface Found {
