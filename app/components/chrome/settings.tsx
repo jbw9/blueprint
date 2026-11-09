@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
 import { Button, dictateKeys, keys } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
@@ -146,6 +146,7 @@ export function SettingsDialog() {
           {desktop ? (
             <>
               <Group title="Claude Code">
+                <BlueprintCredit />
                 <Field label="Claude Code" hint="Leave blank to find it automatically.">
                   <input
                     value={draft.claudePath}
@@ -227,7 +228,6 @@ export function SettingsDialog() {
                     />
                   </Field>
                 ) : null}
-                <BlueprintCredit />
                 <p className="text-[12px] text-faint">These apply to Claude tabs opened from now on.</p>
               </Group>
               <Group title="Dictation">
@@ -343,7 +343,7 @@ function BlueprintCredit() {
     setSignin(r);
     if ("code" in r) external(r.url);
   };
-  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week]] as const) : [];
+  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week], ["Blueprints", c.meters.maps]] as const) : [];
   return (
     <Field
       group
@@ -367,19 +367,21 @@ function BlueprintCredit() {
             />
           )}
           {meters.length > 0 && (
-            <div className="mt-2.5 grid grid-cols-[auto_6rem_auto_1fr] items-center gap-x-3 gap-y-1 font-mono text-[11.5px]">
+            <div className="mt-3 flex flex-col gap-2.5 font-mono text-[11.5px]">
               {meters.map(([label, m]) => {
                 const used = percent(m);
                 const at = resetsAt(m);
                 return (
-                  <Fragment key={label}>
-                    <span className="text-ink">{label}</span>
-                    <span className="h-1 bg-border-gray">
+                  <div key={label} className="flex flex-col gap-1">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-ink">{label}</span>
+                      <span className="ml-auto text-ink">{used == null ? "no limit" : `${used}% used`}</span>
+                      {at && <span className="text-faint">resets {at}</span>}
+                    </div>
+                    <span className="h-1 w-full bg-border-gray">
                       <span className="block h-full bg-accent" style={{ width: `${used ?? 0}%` }} />
                     </span>
-                    <span className="text-ink">{used == null ? "no limit" : `${used}% used`}</span>
-                    <span className="text-faint">{at ? `resets ${at}` : ""}</span>
-                  </Fragment>
+                  </div>
                 );
               })}
             </div>
