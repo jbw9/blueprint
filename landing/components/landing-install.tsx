@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import s from "./landing.module.css";
+import { copiedInstall } from "./landing-visit";
 
 const CMD = "curl -fsSL https://blpr.dev/install.sh | sh";
 
@@ -17,7 +18,8 @@ export function LandingInstall() {
 
   return (
     <div className={s.install}>
-      <div className={s.installBox}>
+      {/* A copy by hand counts too; the button's own copy fires no copy event. */}
+      <div className={s.installBox} onCopy={copiedInstall}>
         <code>
           <span aria-hidden>$</span>
           {CMD}
@@ -27,7 +29,16 @@ export function LandingInstall() {
           className={`${s.btn} ${s.primary} ${s.copy}`}
           aria-label={copied ? "Copied" : "Copy install command"}
           title={copied ? "Copied" : "Copy"}
-          onClick={() => navigator.clipboard.writeText(CMD).then(() => setCopied(true))}
+          onClick={() =>
+            navigator.clipboard
+              .writeText(CMD)
+              .then(() => {
+                setCopied(true);
+                copiedInstall();
+              })
+              // Denied (an embedded or insecure page): the command can still be selected and copied by hand.
+              .catch(() => {})
+          }
         >
           <svg viewBox="0 0 24 24" aria-hidden>
             {copied ? (

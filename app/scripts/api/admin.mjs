@@ -3,6 +3,7 @@
 // did when this lived in Supabase. Writes are open to anyone and keep only what fits; every read
 // checks the one dashboard password.
 import { randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { config } from "./credit.mjs";
 import { daysAgo, get, getMany, put, query, today, update, without } from "./db.mjs";
 
 const clip = (s, n) => (typeof s === "string" ? s.slice(0, n) : undefined);
@@ -15,16 +16,26 @@ export async function trackInstall({ os, arch, ok } = {}) {
   await put({ pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true });
 }
 
-export async function trackVisit({ vid, path, referrer, country } = {}) {
+/** One browser's day on blpr.dev: where it first came from that day, and whether it copied the install command. Kept 400 days. */
+export async function trackVisit({ vid, path, referrer, country, source, medium, campaign, copied } = {}) {
   if (typeof vid !== "string" || !/^[0-9a-f-]{36}$/i.test(vid)) return;
   const now = new Date().toISOString();
+  const ttl = Math.floor(Date.now() / 1000) + 400 * 86400;
+  if (copied === true) {
+    await update(`visit#${today()}`, vid, "SET copied = :t, last_at = :now, #ttl = :ttl", { ":t": true, ":now": now, ":ttl": ttl }, undefined, { "#ttl": "ttl" });
+    return;
+  }
   await update(
     `visit#${today()}`,
     vid,
-    "SET views = if_not_exists(views, :zero) + :one, last_at = :now, first_at = if_not_exists(first_at, :now), #p = if_not_exists(#p, :path), referrer = if_not_exists(referrer, :ref), country = if_not_exists(country, :country)",
-    { ":zero": 0, ":one": 1, ":now": now, ":path": clip(path, 200) ?? null, ":ref": clip(referrer, 300) ?? null, ":country": clip(country, 80) ?? null },
+    "SET #v = if_not_exists(#v, :zero) + :one, last_at = :now, first_at = if_not_exists(first_at, :now), #p = if_not_exists(#p, :path), referrer = if_not_exists(referrer, :ref), country = if_not_exists(country, :country), #src = if_not_exists(#src, :src), medium = if_not_exists(medium, :med), campaign = if_not_exists(campaign, :camp), #ttl = :ttl",
+    {
+      ":zero": 0, ":one": 1, ":now": now, ":path": clip(path, 200) ?? null, ":ref": clip(referrer, 300) ?? null, ":country": clip(country, 80) ?? null,
+      ":src": clip(source, 80) ?? null, ":med": clip(medium, 80) ?? null, ":camp": clip(campaign, 120) ?? null, ":ttl": ttl,
+    },
     undefined,
-    { "#p": "path" },
+    // VIEWS, PATH, SOURCE and TTL are DynamoDB reserved words.
+    { "#v": "views", "#p": "path", "#src": "source", "#ttl": "ttl" },
   );
 }
 
@@ -110,7 +121,9 @@ export async function overview({ pw } = {}) {
   await allowed(pw);
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
   const [installs, runs, ...visitDays] = await Promise.all([query("install"), query("run").then((rs) => rs.map(summary)), ...days.map((d) => query(`visit#${d}`))]);
-  const visits = visitDays.flatMap((vs, i) => vs.map((v) => ({ day: days[i], visitor: v.sk, views: Number(v.views) || 0, referrer: v.referrer, country: v.country })));
+  const visits = visitDays.flatMap((vs, i) =>
+    vs.map((v) => ({ day: days[i], visitor: v.sk, views: Number(v.views) || 0, referrer: v.referrer, country: v.country, source: v.source, medium: v.medium, campaign: v.campaign, path: v.path, copied: !!v.copied })),
+  );
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
   const fresh = runs.filter((r) => r.kind !== "update");
   const osRows = new Map();
@@ -139,10 +152,15 @@ export async function overview({ pw } = {}) {
       installs_failed: installs.filter((i) => !i.ok && i.at.startsWith(day)).length,
       visitors: visits.filter((v) => v.day === day).length,
       views: visits.filter((v) => v.day === day).reduce((a, v) => a + v.views, 0),
+      copied: visits.filter((v) => v.day === day && v.copied).length,
       runs_ok: fresh.filter((r) => r.status === "ok" && r.at.startsWith(day)).length,
       runs_failed: fresh.filter((r) => r.status !== "ok" && r.at.startsWith(day)).length,
     })),
-    referrers: top(visits.map((v) => ({ key: v.referrer || "direct", visitor: v.visitor })), "referrer"),
+    copied_30: new Set(visits.filter((v) => v.copied).map((v) => v.visitor)).size,
+    // A tagged link (?utm_source= or ?ref=) names its source; otherwise the site the visitor came from.
+    referrers: top(visits.map((v) => ({ key: v.source || v.referrer || "direct", visitor: v.visitor })), "referrer"),
+    campaigns: top(visits.filter((v) => v.source || v.campaign).map((v) => ({ key: [v.source, v.medium, v.campaign].filter(Boolean).join(" / "), visitor: v.visitor })), "campaign"),
+    pages: top(visits.map((v) => ({ key: v.path || "/", visitor: v.visitor })), "page"),
     countries: top(visits.map((v) => ({ key: v.country ?? "unknown", visitor: v.visitor })), "country"),
     os: [...osRows.values()].sort((a, b) => b.installs - a.installs),
     versions: [...versions]
@@ -167,6 +185,7 @@ export async function overview({ pw } = {}) {
     updates_30: runs.filter((r) => r.kind === "update" && r.at > since).length,
     usd_30: runs.filter((r) => r.at > since).reduce((a, r) => a + (r.usd ?? 0), 0),
     machines: new Set(runs.map((r) => r.install_id ?? null)).size,
+    machines_30: new Set(runs.filter((r) => r.at > since).map((r) => r.install_id ?? null)).size,
     recent: fresh
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, 200)
@@ -214,30 +233,61 @@ export async function repo({ pw, repo_name } = {}) {
     }));
 }
 
-/** The credit's settings, each account's use over 30 days, and the spend per day (credit.mjs). */
+/**
+ * The credit's settings, each account's use over 30 days, the spend per day, and every model's tokens
+ * and cost (credit.mjs): cost is at list price, as the credit charges it.
+ */
 export async function credit({ pw } = {}) {
   await allowed(pw);
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
-  const [config, accounts, spend, ...use] = await Promise.all([
-    get("credit", "config"),
+  const [c, accounts, spend, months, use, usage] = await Promise.all([
+    config(),
     query("account"),
     query("creditday", { from: days[0] }),
-    ...days.map((d) => query(`use#${d}`)),
+    query("creditmonth"),
+    Promise.all(days.map((d) => query(`use#${d}`))),
+    Promise.all(days.map((d) => query(`usage#${d}`))),
   ]);
-  const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, flagged_30: 0, last_at: null });
+  const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, tokens_30: 0, flagged_30: 0, last_at: null });
+  const tok = (u) => (Number(u.in_tok) || 0) + (Number(u.out_tok) || 0) + (Number(u.cr_tok) || 0) + (Number(u.cw_tok) || 0);
   const by = new Map();
   for (const u of use.flat()) {
     const d = by.get(u.sk) ?? none();
     d.tab_usd_30 += (Number(u.tab_micro) || 0) / 1e6;
     d.gen_usd_30 += (Number(u.gen_micro) || 0) / 1e6;
     d.calls_30 += (Number(u.tab_calls) || 0) + (Number(u.gen_calls) || 0);
+    d.tokens_30 += tok(u);
     d.flagged_30 += Number(u.flagged) || 0;
     if (!d.last_at || u.last_at > d.last_at) d.last_at = u.last_at;
     by.set(u.sk, d);
   }
+
+  // usage#<day> / <lane>#<family>, summed over the 30 days; usage#<day> / refused, by why.
+  const FIELDS = ["calls", "micro", "in_tok", "out_tok", "cr_tok", "cw_tok", "cw1h_tok", "flagged", "failed", "throttled"];
+  const models = new Map();
+  const refusedBy = {};
+  const tokensDaily = days.map((day, i) => {
+    const row = { day, tab: 0, gen: 0 };
+    for (const u of usage[i]) {
+      if (u.sk === "refused") {
+        for (const [k, v] of Object.entries(without(u, "pk", "sk", "ttl"))) refusedBy[k] = (refusedBy[k] ?? 0) + (Number(v) || 0);
+        continue;
+      }
+      const [lane, family] = u.sk.split("#");
+      const m = models.get(u.sk) ?? Object.fromEntries([["lane", lane], ["family", family], ...FIELDS.map((f) => [f, 0])]);
+      for (const f of FIELDS) m[f] += Number(u[f]) || 0;
+      models.set(u.sk, m);
+      row[lane] = (row[lane] ?? 0) + tok(u);
+    }
+    return row;
+  });
+
+  const month = today().slice(0, 7);
   return {
-    config: config ? summary(config) : null,
+    config: c,
     usd_30: spend.reduce((a, d) => a + (Number(d.usd) || 0), 0),
+    usd_month: Number(months.find((m) => m.sk === month)?.usd) || 0,
+    usd_all: months.reduce((a, m) => a + (Number(m.usd) || 0), 0),
     accounts: accounts
       .map((a) => ({
         account: a.sk, login: a.login ?? null, gh_created: a.gh_created ?? null, first_at: a.first_at ?? null, machines: a.devices?.size ?? 0,
@@ -245,8 +295,20 @@ export async function credit({ pw } = {}) {
       }))
       .sort((a, b) => b.tab_usd_30 + b.gen_usd_30 - (a.tab_usd_30 + a.gen_usd_30))
       .slice(0, 200),
-    daily: spend.map((d) => ({ day: d.sk, tab_usd: d.tab_usd ?? 0, gen_usd: d.gen_usd ?? 0 })),
-    // The dashboard as deployed before accounts reads machines; empty, it still draws. Goes once blpr.dev/admin is redeployed.
-    devices: [],
+    accounts_all: accounts.length,
+    daily: days.map((day, i) => {
+      const d = spend.find((x) => x.sk === day);
+      return {
+        day,
+        tab_usd: Number(d?.tab_usd) || 0,
+        gen_usd: Number(d?.gen_usd) || 0,
+        signups: accounts.filter((a) => a.first_at?.startsWith(day)).length,
+        active: use[i].length,
+        tab_tokens: tokensDaily[i].tab,
+        gen_tokens: tokensDaily[i].gen,
+      };
+    }),
+    models: [...models.values()].map(({ micro, ...m }) => ({ ...m, usd: micro / 1e6 })).sort((a, b) => b.usd - a.usd),
+    refused: Object.entries(refusedBy).map(([k, n]) => ({ kind: k.replace("_", " · "), n })).sort((a, b) => b.n - a.n),
   };
 }

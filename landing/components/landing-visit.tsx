@@ -39,14 +39,39 @@ export function LandingVisit() {
             })
             .catch(() => null);
     const referrer = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : null;
+    // A tagged link names where it was posted: ?utm_source=… or ?ref=….
+    const q = new URLSearchParams(location.search);
     void country.then((c) =>
       fetch(`${API_URL}/rpc/bp_track_visit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vid, path: location.pathname, referrer, country: c }),
+        body: JSON.stringify({
+          vid,
+          path: location.pathname,
+          referrer,
+          country: c,
+          source: q.get("utm_source") ?? q.get("ref"),
+          medium: q.get("utm_medium"),
+          campaign: q.get("utm_campaign"),
+        }),
         keepalive: true,
       }).catch(() => {}),
     );
   }, []);
   return null;
+}
+
+/** Marks this browser's visit today as one that copied the install command. */
+export function copiedInstall() {
+  let vid: string | null = null;
+  try {
+    vid = localStorage.getItem("bp-visitor");
+  } catch {}
+  if (!vid) return;
+  void fetch(`${API_URL}/rpc/bp_track_visit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vid, copied: true }),
+    keepalive: true,
+  }).catch(() => {});
 }
