@@ -76,6 +76,8 @@ export function relayAt(request: Request) {
 
 interface Saved {
   on?: boolean;
+  /** Whether Claude moves to the reader's own Claude Code once the credit is used up; unset is yes. */
+  fallback?: boolean;
   session?: string;
   login?: string;
 }
@@ -109,6 +111,8 @@ export async function setCreditOn(on: boolean) {
   await creditStatus();
 }
 
+export const setFallback = async (fallback: boolean) => save({ ...(await saved()), fallback });
+
 /** The session's access token, swapped for a new one in its last five minutes; null when signed out. */
 export async function accessToken(): Promise<string | null> {
   if (state.access && state.access.exp * 1000 - Date.now() > 300_000) return state.access.token;
@@ -126,7 +130,7 @@ async function refresh(): Promise<Access | null> {
   const r = await fetch(`${CREDIT_URL}/token`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   // The session was signed out elsewhere or has lapsed: the reader signs in again.
   if (r?.status === 401) {
-    await save({ on: s.on });
+    await save({ on: s.on, fallback: s.fallback });
     return null;
   }
   const t = r?.ok ? ((await r.json().catch(() => null)) as Access | null) : null;
@@ -184,7 +188,7 @@ export async function pollSignIn(): Promise<{ login: string } | { wait: number }
   const b = (await s?.json().catch(() => null)) as { session?: string; login?: string; message?: string } | null;
   if (!b?.session || !b.login) return { reason: b?.message ?? "Blueprint credit could not be reached." };
   // Signing in is asking for the credit, so it is turned on.
-  await save({ on: true, session: b.session, login: b.login });
+  await save({ ...(await saved()), on: true, session: b.session, login: b.login });
   state.access = undefined;
   await creditStatus();
   return { login: b.login };
@@ -194,7 +198,7 @@ export async function signOut() {
   const s = await saved();
   if (s.session)
     await fetch(`${CREDIT_URL}/signout`, { method: "POST", headers: { authorization: `Bearer ${s.session}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
-  await save({ on: s.on });
+  await save({ on: s.on, fallback: s.fallback });
   state.access = undefined;
   state.ready = false;
 }
@@ -213,6 +217,8 @@ export interface CreditStatus {
   /** Whether the credit can run Claude here: signed in, and open to the account. */
   available: boolean;
   on: boolean;
+  /** Whether Claude tabs move to the reader's own Claude Code once Session or Week is used up. */
+  fallback: boolean;
   /** Whether the promotion is on for anyone, which is what a reader not signed in is offered. */
   promo: boolean;
   login: string | null;
@@ -241,8 +247,8 @@ async function promoOn() {
 async function askStatus(): Promise<CreditStatus> {
   const [token, promo] = await Promise.all([accessToken(), promoOn()]);
   // Read after the token, which clears a session the proxy no longer knows.
-  const { on = false, session, login } = await saved();
-  const away = { available: false, on, promo, login: session ? (login ?? null) : null };
+  const { on = false, fallback = true, session, login } = await saved();
+  const away = { available: false, on, fallback, promo, login: session ? (login ?? null) : null };
   if (!session) return away;
   if (!token) return { ...away, reason: "Blueprint credit could not be reached." };
   const r = await fetch(`${CREDIT_URL}/status`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
@@ -257,6 +263,7 @@ async function askStatus(): Promise<CreditStatus> {
   return {
     available: !!j.available,
     on,
+    fallback,
     promo,
     login: j.login ?? login ?? null,
     reason: j.reason,

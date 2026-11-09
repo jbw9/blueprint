@@ -233,6 +233,7 @@ export function Shell({
   onTitle,
   onSpawn,
   onClaude,
+  onCredit,
   onOutput,
   onInput,
   onScreen,
@@ -255,6 +256,8 @@ export function Shell({
   onSpawn?: (pty: number) => void;
   /** Whether Claude Code was found, so this tab can run it. */
   onClaude?: (found: boolean) => void;
+  /** Whether its Claude started on Blueprint credit. */
+  onCredit?: (on: boolean) => void;
   /** What the program prints, as text: how the dev server's tab hears its address. */
   onOutput?: (text: string) => void;
   /** The user typed into it: what the program prints next is the echo, not its own work. */
@@ -278,9 +281,9 @@ export function Shell({
   const show = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Latest callbacks, so the effect below runs once per shell, not per render.
-  const handlers = useRef({ claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit });
+  const handlers = useRef({ claude, onTitle, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit });
   useEffect(() => {
-    handlers.current = { claude, onTitle, onSpawn, onClaude, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
+    handlers.current = { claude, onTitle, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
   });
   // The blueprint's sections, for `blueprint-list`. Through a ref for the same
   // reason: a blueprint that updates must not restart the shell.
@@ -309,6 +312,7 @@ export function Shell({
       handlers.current.onClaude?.(!!found);
       const credit = found ? await creditRelay() : null;
       if (gone) return;
+      handlers.current.onCredit?.(!!credit);
       const launch = found ? { path: found.path, model: model || null, voice, research, credit } : null;
       // xterm measures one glyph to size every cell, so it needs the face's
       // name (not a var()) and the face itself loaded: measured against the

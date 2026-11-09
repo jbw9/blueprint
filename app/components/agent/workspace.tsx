@@ -31,6 +31,7 @@ import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIE
 import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
 import { findAddress, findQuestion, findTaken, hostOf, previewOf, type Call } from "@/lib/agent/preview";
 import { readSettings } from "@/lib/client/settings";
+import { readCredit } from "@/lib/client/credit";
 import { onClosed } from "@/lib/client/open-projects";
 import { cn, sleep } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
@@ -637,6 +638,33 @@ export function Workspace() {
   });
 
   useTurnFollowing({ tabs, setTabs, planning, closedPlans, printed, rang });
+
+  // A Claude tab on Blueprint credit whose turn ends with the credit used up starts again in place on
+  // the reader's own Claude Code, resuming its conversation (Settings, "Switch to my Claude Code").
+  // Its key changes, so its Shell remounts: the old Claude is stopped and the new one launched.
+  const idleOnCredit = JSON.stringify(tabs.filter((t) => t.credit && t.live && t.session && t.status !== "working").map((t) => t.key));
+  useEffect(() => {
+    const keys: number[] = JSON.parse(idleOnCredit);
+    if (!keys.length) return;
+    let stop = false;
+    void readCredit().then((c) => {
+      if (stop || !c?.on || !c.login || !c.fallback || c.relay) return;
+      const moved = new Map(keys.map((k) => [k, nextKey++]));
+      setTabs((all) =>
+        all.map((x) => {
+          const key = moved.get(x.key);
+          if (key === undefined || !x.credit || !x.session) return x;
+          if (x.pty !== undefined) tabEnded(x.pty);
+          return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, resume: x.session };
+        }),
+      );
+      const follow = (m: Record<string, number | null>) =>
+        Object.fromEntries(Object.entries(m).map(([cwd, k]) => [cwd, k != null ? (moved.get(k) ?? k) : k]));
+      setActive((a) => follow(a) as typeof a);
+      setFront((f) => follow(f) as typeof f);
+    });
+    return () => void (stop = true);
+  }, [idleOnCredit]);
 
   useTabStatus(tabs, desktop);
 
@@ -1521,6 +1549,7 @@ export function Workspace() {
             onTitle={(title) => patch(t.key, { title })}
             onScreen={(read) => (screens.current[t.key] = read)}
             onClaude={(found) => patch(t.key, { found })}
+            onCredit={(credit) => patch(t.key, { credit })}
             onOpenPlan={() => reopenPlan(t.key, t.cwd)}
             session={t.session}
             onOpenFile={(file, line) => openFile(t.cwd, file, line)}

@@ -48,6 +48,8 @@ export interface Tab {
   session?: string;
   /** Reopened after a restart: the conversation its Claude picks up again. */
   resume?: string;
+  /** Its Claude was started on Blueprint credit (lib/client/credit.ts). */
+  credit?: boolean;
 }
 
 /** How a project is run, from its files (src-tauri/src/devices.rs). */

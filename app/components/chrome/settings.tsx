@@ -9,7 +9,7 @@ import { PanelHead } from "@/components/ui/panel";
 import { cn } from "@/lib/client/utils";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
 import { useMac } from "@/lib/client/platform";
-import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, signOut, startSignIn, type Credit } from "@/lib/client/credit";
+import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, setFallback, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
 /**
  * Settings, as a dialog over the blueprint. There is little to set: the theme,
@@ -374,12 +374,12 @@ function BlueprintCredit() {
     setSignin(r);
     if ("code" in r) void invoke("preview_external", { url: r.url }).catch(() => window.open(r.url, "_blank"));
   };
-  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week], ["Maps", c.meters.maps]] as const) : [];
+  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week]] as const) : [];
   return (
     <Field
       group
       label="Blueprint credit"
-      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Making blueprints has no limit. Once Session or Week is full, new Claude tabs use your own Claude Code until it resets.`}
+      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Making blueprints has no limit. Claude tabs get about half of a Claude Pro plan, in a 5-hour Session and a Week.`}
     >
       {c.login ? (
         <>
@@ -423,9 +423,28 @@ function BlueprintCredit() {
               })}
             </div>
           )}
+          {c.available && (
+            <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-[12px] text-muted-slate">
+              <input
+                type="checkbox"
+                checked={c.fallback}
+                onChange={(e) => {
+                  setC({ ...c, fallback: e.target.checked });
+                  void setFallback(e.target.checked);
+                }}
+                className="mt-0.5 accent-accent"
+              />
+              <span>
+                <span className="text-ink">Switch to my Claude Code when it runs out.</span> A Claude tab on Blueprint credit picks its conversation up on your own Claude Code, signed in as it is, and goes back to Blueprint credit once it resets.
+              </span>
+            </label>
+          )}
           {c.reason && <p className="mt-1.5 text-[12px] text-clay-ink">{c.reason}</p>}
           <p className="mt-2 font-mono text-[11.5px] text-faint">
-            Signed in as @{c.login} ·{" "}
+            <a href="https://blpr.dev/promotion" target="_blank" rel="noreferrer" onClick={(e) => (e.preventDefault(), void invoke("preview_external", { url: "https://blpr.dev/promotion" }).catch(() => window.open("https://blpr.dev/promotion", "_blank")))} className="text-accent hover:underline">
+              Promotion terms
+            </a>{" "}
+            · Signed in as @{c.login} ·{" "}
             <button type="button" onClick={() => void signOut()} className="cursor-pointer text-accent hover:underline">
               Sign out
             </button>

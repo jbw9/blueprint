@@ -23,6 +23,11 @@ export async function setCredit(on: boolean) {
   changed();
 }
 
+export async function setFallback(fallback: boolean) {
+  await post({ fallback });
+  changed();
+}
+
 /** GitHub's code for the reader to enter at `url`, or why there is none. */
 export const startSignIn = () => post({ signin: "start" }) as Promise<{ code: string; url: string; interval: number } | { reason: string }>;
 
