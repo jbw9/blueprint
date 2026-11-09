@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Menu } from "@/components/ui/menu";
 import { bare, isWeb, originOf, pathOf } from "@/components/preview/address";
 import { Devices } from "@/components/preview/devices";
@@ -19,26 +19,25 @@ import { Tool } from "@/components/preview/tool";
 import { agent as ask, tools } from "@/components/preview/tools";
 import { PAD, clamp, keepSize, storedSize, type Size } from "@/components/preview/viewport";
 import { keepOver } from "@/components/preview/webview";
-import { mention, usePicks, type Target } from "@/lib/agent/context";
+import { usePicks, type Target } from "@/lib/agent/context";
 import { PRESETS, registerPreview, type Call } from "@/lib/agent/preview";
 import { cn } from "@/lib/client/utils";
 import { isDesktop } from "@/lib/client/platform";
 
 /**
- * A project's running web app, in a workspace tab (components/agent/workspace.tsx).
- * The page is framed through the app's proxy (src-tauri/src/preview.rs), which
- * adds an agent to it (agent.js): that is how the page's address and console
- * reach this tab, and how Claude reads and uses the page (lib/agent/preview.ts).
- *
- * A page from the web (a search, a library's docs) cannot be framed: it opens
- * in a webview of its own, laid over the viewport and kept there
- * (src-tauri/src/browser.rs), with the same agent inside it, asked through the
- * app instead of by message. Both kinds are one trail of pages, back and forth.
+ * A project's running web app, in a workspace tab (components/agent/workspace.tsx),
+ * through the app's proxy (src-tauri/src/preview.rs), or a page from the web
+ * (a search, a library's docs): one trail of pages, back and forth. Each opens
+ * in a webview of the tab's own, laid over the viewport and kept there
+ * (src-tauri/src/browser.rs), with an agent inside it (agent.js): that is how
+ * the page's address and console reach this tab, and how Claude reads and
+ * uses the page (lib/agent/preview.ts). Not a frame in the app's page, which
+ * shares its focus: Claude's clicks there would take the user's keyboard.
  *
  * Claude's clicks and keys are real on macOS: AppKit events at the point on
  * screen, so every button that works for a person works for Claude. The
  * agent draws Claude's pointer gliding to each one. Where they cannot be real
- * (the frame is out of sight, or not on a Mac), the agent acts in the page.
+ * (the page is out of sight, or not on a Mac), the agent acts in the page.
  *
  * The viewport fills the tab until it is given a size: by dragging its right
  * or bottom edge, from the size menu, or by Claude. A size bigger than the tab
@@ -106,12 +105,9 @@ export function Preview({
     setPointed(undefined);
   }
   const target = pointed ?? served;
-  const frame = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const whole = useRef<HTMLDivElement>(null);
   const address = useRef<HTMLInputElement>(null);
-  // Where the frame starts. Set once: every later move is made on the frame itself.
-  const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The address bar: where the page is, or what is being typed into it.
   const [shown, setShown] = useState("");
@@ -125,7 +121,7 @@ export function Preview({
   const [selecting, setSelecting] = useState(false);
   // Counts the pages the agent has come up on, each needing its outlines again.
   const [page, setPage] = useState(0);
-  // A page from the web is in front, in the webview of this label.
+  // The webview the page is in, by its label.
   const [web, setWeb] = useState<string | null>(null);
   const [picture, setPicture] = useState<string | null>(null);
   const [claude, setClaude] = useState(false);
@@ -140,7 +136,6 @@ export function Preview({
   const ownStore = useRef(false);
   const signingNow = useRef<Signing | null>(null);
   const signedIn = useRef<((done: boolean) => void) | null>(null);
-  const onWeb = useRef(false);
   const here = useRef("");
   const server = useRef(target);
   const log = useRef<Line[]>([]);
@@ -179,8 +174,8 @@ export function Preview({
   // What the Preview's code kept outside it works with (parts.ts): gathered
   // when that code is called, not in render.
   const parts = (): Parts => ({
-    id, root, frame, stage, sheet, sizeBadge, proxy, browser, ownStore, signingNow, signedIn, onWeb, here, server, log, dialogs,
-    pending, everLoaded, missed, trail, view, hear, replace, setPointed, setSrc, setShown, setBadge, setWeb, setSigning,
+    id, root, stage, sheet, sizeBadge, proxy, browser, ownStore, signingNow, signedIn, here, server, log, dialogs,
+    pending, everLoaded, missed, trail, view, hear, replace, setPointed, setShown, setBadge, setWeb, setSigning,
     display, go, fail, loaded, nextLoad, navigate, agent, resize,
   });
 
@@ -202,10 +197,8 @@ export function Preview({
     const open = proxy.current;
     if (open) {
       void invoke("preview_target", { id: open.id, target }).then(() => {
-        // A page from the web in front is left there; the frame behind follows.
-        const url = `http://localhost:${open.port}${pathOf(target)}`;
-        if (onWeb.current) frame.current?.contentWindow?.location.replace(url);
-        else go(url);
+        // A page from the web in front is left there; back is the new server.
+        if (!isWeb(here.current)) go(`http://localhost:${open.port}${pathOf(target)}`);
       }, fail);
       return;
     }
@@ -215,13 +208,12 @@ export function Preview({
         if (gone) return void invoke("preview_close", { id: p.id });
         proxy.current = p;
         const url = `http://localhost:${p.port}${pathOf(target)}`;
-        // Opened behind a page from the web, which keeps the address bar.
-        if (!onWeb.current) {
-          here.current = url;
-          setShown(display(url));
-        }
-        setSrc(url);
+        // A page from the web already in front is kept there.
+        if (isWeb(here.current)) return;
+        here.current = url;
+        setShown(display(url));
         setError(null);
+        go(url);
       })
       .catch(fail);
     return () => {
@@ -257,18 +249,6 @@ export function Preview({
       loads.current.push(resolve);
       setTimeout(resolve, 15000);
     });
-
-  // Moved between the window and the main view, the frame is taken out of
-  // the page and put back, which loads it afresh from its src: made the page
-  // it was showing, not the one it started on. Before the move, which the
-  // workspace makes after this.
-  const place = useRef(docked);
-  useLayoutEffect(() => {
-    if (place.current === docked) return;
-    place.current = docked;
-    const el = frame.current;
-    if (el && here.current && !isWeb(here.current)) el.src = here.current;
-  }, [docked]);
 
   const keyed = useRef<(k: string) => void>(() => {});
   // What the agent in the page says: where it is, what it logged, its answers.
@@ -320,9 +300,8 @@ export function Preview({
           ...t,
           text: p && server.current ? t.text.replaceAll(`http://localhost:${p.port}`, originOf(server.current)) : t.text,
         }));
-        // A page from the web is a webview over the app, which would hide a menu.
-        if (onWeb.current) return targets.forEach(mention);
-        const r = frame.current?.getBoundingClientRect();
+        // Over the webview, the menu has the page's picture under it (webview.ts).
+        const r = sheet.current?.getBoundingClientRect();
         const k = view.current.scale;
         setPicking({ x: (r?.x ?? 0) + m.x * k, y: (r?.y ?? 0) + m.y * k, targets });
       } else if (m.type === "unpick") {
@@ -336,7 +315,7 @@ export function Preview({
       }
     };
   });
-  useEffect(() => listenToPage({ frame, onWeb, browser, hear, replace, setShown }), []);
+  useEffect(() => listenToPage({ browser, hear, replace, setShown }), []);
 
   useEffect(() => {
     if (!web) return;
@@ -348,7 +327,7 @@ export function Preview({
     return keepOver({ sheet, stage, view, replace }, web, setPicture);
   }, [web]);
 
-  const agent = (name: string, args: Record<string, unknown>) => ask({ frame, proxy, onWeb, browser, pending }, name, args);
+  const agent = (name: string, args: Record<string, unknown>) => ask({ browser, pending }, name, args);
 
   // What is added from the page and not yet sent stays outlined there, under its name in the prompt.
   const picks = usePicks();
@@ -446,7 +425,6 @@ export function Preview({
     const x0 = e.clientX;
     const y0 = e.clientY;
     let last: Size = { w: from.w, h: from.h };
-    // The frame would take the pointer's moves for its own page.
     document.body.dataset.dragging = "";
     const move = (m: PointerEvent) => {
       // Centred, so the edge follows the pointer when the width grows twice as fast.
@@ -471,7 +449,7 @@ export function Preview({
   const left = fill ? 0 : (box.w - bw) / 2;
   const top = fill ? 0 : PAD;
   const dims = `${vw} × ${vh}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}`;
-  const ready = (src !== null && !!target) || web !== null;
+  const ready = web !== null;
 
   // The size it last had in sight: staged at that size, the page lays out as it did.
   const [sized, setSized] = useState({ w: 0, h: 0 });
@@ -622,17 +600,7 @@ export function Preview({
               className={cn("absolute overflow-hidden bg-card", !fill && "shadow-[0_0_0_1px_var(--color-border-strong)]")}
               style={{ left, top, width: bw, height: bh }}
             >
-              {src ? (
-                <iframe
-                  ref={frame}
-                  src={src}
-                  title="Preview"
-                  onLoad={() => !onWeb.current && loaded()}
-                  style={{ width: vw, height: vh, transform: scale < 1 ? `scale(${scale})` : undefined, transformOrigin: "0 0" }}
-                  className={cn("block border-0", web && "invisible")}
-                />
-              ) : null}
-              {web && picture ? <div className="absolute inset-0" style={{ backgroundImage: `url(${picture})`, backgroundSize: "100% 100%" }} /> : null}
+              {picture ? <div className="absolute inset-0" style={{ backgroundImage: `url(${picture})`, backgroundSize: "100% 100%" }} /> : null}
             </div>
             <Handle
               label="Resize width"

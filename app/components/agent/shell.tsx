@@ -4,6 +4,7 @@ import "@xterm/xterm/css/xterm.css";
 import type { ITheme, Terminal } from "@xterm/xterm";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { showCopied } from "@/components/chrome/copied";
@@ -544,11 +545,21 @@ export function Shell({
           term.focus();
         }
       });
+      // A Preview's page is a webview of its own, which keeps the keys a click
+      // gave it (components/preview/preview.tsx): taken back for the terminal,
+      // while the window is the one in front.
+      const take = () => {
+        if (!document.hasFocus())
+          void getCurrentWindow()
+            .isFocused()
+            .then((front) => (front ? getCurrentWebview().setFocus() : undefined))
+            .catch(() => {});
+        term.focus();
+      };
       // Pointing at the terminal is enough to type into it, no click needed.
-      const focusOnHover = () => term.focus();
-      host.addEventListener("mouseenter", focusOnHover);
+      host.addEventListener("mouseenter", take);
       const offFocus = onFocusClaude((pty) => {
-        if (pty === id && host.checkVisibility()) term.focus();
+        if (pty === id && host.checkVisibility()) take();
       });
       const seen = new ResizeObserver(refit);
       seen.observe(el.current);
@@ -572,7 +583,7 @@ export function Shell({
         host.removeEventListener("contextmenu", noKeyMenu, true);
         window.removeEventListener("mousedown", keepFocus, true);
         void drops.then((off) => off());
-        host.removeEventListener("mouseenter", focusOnHover);
+        host.removeEventListener("mouseenter", take);
         offFocus();
         seen.disconnect();
         input.dispose();

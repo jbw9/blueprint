@@ -479,7 +479,7 @@ fn after_tag(lower: &[u8], tag: &[u8]) -> Option<usize> {
 fn waiting(origin: &str) -> String {
     format!(
         // A server that stopped never answers, so the page says where to see why.
-        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><script>parent.postMessage({{__blueprint:true,type:"down"}},"*")</script><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
+        r#"<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Waiting</title><script>window.__blueprint&&__blueprint.down()</script><body style="font:13px/1.6 -apple-system,system-ui,sans-serif;color:#85858e;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div>Waiting for {origin}…<br>If the dev server stopped, <b style="font-weight:500">Server</b> above shows its terminal.</div></body>"#
     )
 }
 

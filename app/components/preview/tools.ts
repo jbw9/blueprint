@@ -1,7 +1,6 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { covers, isWeb, originOf, SHARED, siteOf, toWeb } from "@/components/preview/address";
 import { REAL } from "@/components/preview/keys";
 import { DRAIN, type Parts, type Said } from "@/components/preview/parts";
@@ -18,24 +17,20 @@ let nextCall = 1;
 
 /** A call to the agent in the page, answered by its reply as the Preview hears it. */
 export const agent = (
-  { frame, proxy, onWeb, browser, pending }: Pick<Parts, "frame" | "proxy" | "onWeb" | "browser" | "pending">,
+  { browser, pending }: Pick<Parts, "browser" | "pending">,
   name: string,
   args: Record<string, unknown>,
 ) =>
   new Promise<unknown>((resolve, reject) => {
-    const w = frame.current?.contentWindow;
-    const p = proxy.current;
-    const label = onWeb.current ? browser.current : null;
-    if (!label && (!w || !p)) return reject(new Error("The preview has no page open yet."));
+    const label = browser.current;
+    if (!label) return reject(new Error("The preview has no page open yet."));
     const id = nextCall++;
     pending.current.set(id, { resolve, reject });
-    if (label)
-      void invoke<boolean>("browser_eval", { label, js: `window.__blueprint ? (window.__blueprint.run(${id}, ${JSON.stringify(name)}, ${JSON.stringify(args)}), true) : false` })
-        .then((ok) => {
-          if (!ok && pending.current.delete(id)) reject(new Error("This page cannot be read or used yet: it may still be loading."));
-        })
-        .catch((e) => pending.current.delete(id) && reject(new Error(String(e))));
-    else w!.postMessage({ __blueprintCmd: true, id, name, args }, `http://localhost:${p!.port}`);
+    void invoke<boolean>("browser_eval", { label, js: `window.__blueprint ? (window.__blueprint.run(${id}, ${JSON.stringify(name)}, ${JSON.stringify(args)}), true) : false` })
+      .then((ok) => {
+        if (!ok && pending.current.delete(id)) reject(new Error("This page cannot be read or used yet: it may still be loading."));
+      })
+      .catch((e) => pending.current.delete(id) && reject(new Error(String(e))));
     const wait = args.action === "wait" ? 15000 : 10000;
     setTimeout(() => {
       if (pending.current.delete(id))
@@ -46,7 +41,6 @@ export const agent = (
 /** Claude's browser tools on a Preview, and the sign-in it asks the user for. */
 export function tools({
   root,
-  frame,
   stage,
   sheet,
   sizeBadge,
@@ -54,7 +48,6 @@ export function tools({
   browser,
   signingNow,
   signedIn,
-  onWeb,
   here,
   server,
   log,
@@ -72,23 +65,14 @@ export function tools({
   resize,
 }: Parts) {
   /**
-   * Whether real input can reach the page: for a page from the web, while
-   * its own webview is shown (it is hidden with its tab, as when Claude works
-   * behind what the user reads); for the frame, only while it is on screen and
-   * nothing is over it, since the input lands at that point of the window.
+   * Whether real input can reach the page: while its webview is shown (it is
+   * hidden with its tab, as when Claude works behind what the user reads).
    */
   const reachable = () => {
     if (!REAL) return false;
-    if (onWeb.current) {
-      const r = sheet.current?.getBoundingClientRect();
-      const top = r && r.width >= 2 ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
-      return !!browser.current && !!top && !!(stage.current ?? sheet.current)?.contains(top);
-    }
-    const el = frame.current;
-    const r = el?.getBoundingClientRect();
-    if (!el || !r || r.width < 2) return false;
-    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-    return top === el;
+    const r = sheet.current?.getBoundingClientRect();
+    const top = r && r.width >= 2 ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+    return !!browser.current && !!top && !!(stage.current ?? sheet.current)?.contains(top);
   };
 
   /**
@@ -96,17 +80,16 @@ export function tools({
    * Whether the window was active, as a hover needs it to be.
    */
   const real = async (acts: Act[]) => {
-    const label = onWeb.current ? browser.current : null;
+    const label = browser.current;
+    if (!label) throw new Error("The preview has no page open yet.");
     const { scale: k } = view.current;
-    const r = frame.current?.getBoundingClientRect();
-    const ox = label ? 0 : (r?.x ?? 0);
-    const oy = label ? 0 : (r?.y ?? 0);
-    // Only when the keyboard is elsewhere in the app: focusing the frame's
-    // window takes it from a frame inside the page that a click just gave it to.
-    if (!label && document.activeElement !== frame.current) frame.current?.contentWindow?.focus();
+    // The keyboard goes back to wherever the user has it (browser.rs), unless
+    // that is nowhere in the app's page, when the page may keep what it took.
+    const idle = document.hasFocus() && (!document.activeElement || document.activeElement === document.body);
     return invoke<boolean>("native_input", {
       view: label,
-      acts: acts.map((a) => (a.x === undefined ? a : { ...a, x: ox + a.x * k, y: oy + (a.y ?? 0) * k })),
+      back: !idle,
+      acts: acts.map((a) => (a.x === undefined ? a : { ...a, x: a.x * k, y: (a.y ?? 0) * k })),
     });
   };
 
@@ -229,10 +212,10 @@ export function tools({
         sizeBadge.current?.style.setProperty("display", "none");
         setBadge(false);
         await agent("veil", {}).catch(() => {});
-        const label = onWeb.current ? browser.current : null;
-        const r = (label ? sheet.current : frame.current)?.getBoundingClientRect();
-        if (!r || (!label && !proxy.current)) throw new Error("The preview has no page open yet.");
-        // Whole pixels inside the frame, so no edge of what surrounds it is caught.
+        const label = browser.current;
+        const r = sheet.current?.getBoundingClientRect();
+        if (!r || !label) throw new Error("The preview has no page open yet.");
+        // Whole pixels inside the page, so no edge of what surrounds it is caught.
         const x = Math.ceil(r.x);
         const y = Math.ceil(r.y);
         return {
@@ -251,22 +234,10 @@ export function tools({
         if (signingNow.current)
           throw new Error(`The user is signing in to ${signingNow.current.site} in the preview. Wait for sign_in to return before using the page.`);
         dialogs.current = [];
-        // Real input takes the keyboard: where the user was typing elsewhere in the
-        // app, a Claude prompt, it is handed back, so their keys never land in the page.
-        const theirs = document.hasFocus() ? document.activeElement : null;
-        const handBack = theirs instanceof HTMLElement && theirs !== document.body && !stage.current?.contains(theirs);
-        let said: string | null;
-        try {
-          said = call.name === "computer" && reachable() ? await act(call.args) : null;
-        } finally {
-          if (handBack && theirs.isConnected) {
-            if (onWeb.current) await getCurrentWebview().setFocus().catch(() => {});
-            theirs.focus({ preventScroll: true });
-          }
-        }
+        let said = call.name === "computer" && reachable() ? await act(call.args) : null;
         if (said === null) said = (await agent(call.name, call.args)) as string;
-        // A page from the web is heard by polling: heard once more, so a dialog the action set off is in its answer.
-        if (onWeb.current && browser.current)
+        // The page is heard by polling: heard once more, so a dialog the action set off is in its answer.
+        if (browser.current)
           (await invoke<Said[] | null>("browser_eval", { label: browser.current, js: DRAIN }).catch(() => null))?.forEach((m) => hear.current(m));
         if (dialogs.current.length) said += ` The page showed a dialog, answered OK: ${dialogs.current.join("; ")}.`;
         // The page knows itself by the proxy's address; Claude knows the dev server's.

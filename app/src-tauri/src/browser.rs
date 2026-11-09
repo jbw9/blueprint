@@ -214,25 +214,26 @@ fn one() -> isize {
     1
 }
 
-/// Does `acts` in a webview: a page from the web by its label, or the
-/// window's own (where the preview's frame is) when there is none. Whether
-/// the window was active: WebKit follows a hover only in one that is.
+/// Does `acts` in a preview's webview, by its label. With `back`, the
+/// keyboard is given back to whatever had it, so Claude's clicks never take
+/// it from the user. Whether the window was active: WebKit follows a hover
+/// only in one that is.
 #[tauri::command]
-pub async fn native_input(app: AppHandle, view: Option<String>, acts: Vec<Act>) -> Result<bool, String> {
+pub async fn native_input(app: AppHandle, view: String, back: bool, acts: Vec<Act>) -> Result<bool, String> {
     #[cfg(target_os = "macos")]
     {
         let (tx, rx) = mpsc::channel();
         let run = move |w: tauri::webview::PlatformWebview| {
             // On the main thread: Tauri's promise for with_webview.
-            let _ = tx.send(unsafe { macos::send(&*(w.inner() as *const objc2_app_kit::NSView), &acts) });
+            let _ = tx.send(unsafe { macos::send(&*(w.inner() as *const objc2_app_kit::NSView), &acts, back) });
         };
-        let target = app.get_webview(view.as_deref().unwrap_or("main")).ok_or(GONE)?;
+        let target = app.get_webview(&view).ok_or(GONE)?;
         target.with_webview(run).map_err(|e| e.to_string())?;
         rx.recv_timeout(Duration::from_secs(5)).map_err(|_| "The input was not taken.".to_string())?
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, view, acts);
+        let _ = (app, view, back, acts);
         Err("native input is macOS only".into())
     }
 }
@@ -245,16 +246,29 @@ mod macos {
     use objc2_app_kit::{NSApplication, NSEvent, NSEventModifierFlags, NSEventType, NSView};
     use objc2_foundation::{NSPoint, NSProcessInfo, NSString};
 
-    pub fn send(view: &NSView, acts: &[Act]) -> Result<bool, String> {
+    pub fn send(view: &NSView, acts: &[Act], back: bool) -> Result<bool, String> {
         let window = view.window().ok_or("The preview is not in a window.")?;
+        // A press or a key takes the keyboard, as a person's click would; a hover does not.
+        let takes = acts.iter().any(|a| a.kind != "move");
+        let had = window.firstResponder();
+        if takes {
+            window.makeFirstResponder(Some(view));
+        }
+        let done = deliver(view, &window, acts);
+        // Given back in this same turn of the main thread, so no key the user
+        // presses can land in the page in between.
+        if takes && back {
+            window.makeFirstResponder(had.as_deref());
+        }
+        done?;
+        Ok(window.isKeyWindow())
+    }
+
+    fn deliver(view: &NSView, window: &objc2_app_kit::NSWindow, acts: &[Act]) -> Result<(), String> {
         let number = window.windowNumber();
         let start = NSProcessInfo::processInfo().systemUptime();
         let (flipped, height) = (view.isFlipped(), view.bounds().size.height);
         let at = |x: f64, y: f64| view.convertPoint_toView(NSPoint::new(x, if flipped { y } else { height - y }), None);
-        // A press or a key takes the keyboard, as a person's click would; a hover does not.
-        if acts.iter().any(|a| a.kind != "move") {
-            window.makeFirstResponder(Some(view));
-        }
         for (i, a) in acts.iter().enumerate() {
             let time = start + i as f64 * 0.001;
             match a.kind.as_str() {
@@ -310,7 +324,7 @@ mod macos {
                 other => return Err(format!("Unknown input: {other}")),
             }
         }
-        Ok(window.isKeyWindow())
+        Ok(())
     }
 
     fn key(view: &NSView, number: isize, time: f64, code: u16, chars: &str, flags: NSEventModifierFlags) -> Result<(), String> {

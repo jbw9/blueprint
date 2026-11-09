@@ -990,6 +990,8 @@
     Object.defineProperty(window, "__blueprint", {
       value: Object.freeze({
         run: (id, name, args) => void answer(id, name, args),
+        // The proxy's waiting page saying so (src-tauri/src/preview.rs).
+        down: () => post({ type: "down" }),
         drain: () => {
           const all = outbox;
           outbox = [];

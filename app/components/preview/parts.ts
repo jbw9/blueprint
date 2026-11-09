@@ -28,7 +28,7 @@ export type Said =
   | { type: "focus" }
   | { type: "key"; key: string };
 
-/** What a page from the web has said since it was last asked (agent.js). */
+/** What a page has said since it was last asked (agent.js). */
 export const DRAIN = "window.__blueprint ? window.__blueprint.drain() : []";
 
 type Set<T> = Dispatch<SetStateAction<T>>;
@@ -42,7 +42,6 @@ type Set<T> = Dispatch<SetStateAction<T>>;
 export type Parts = {
   id: number;
   root: string;
-  frame: RefObject<HTMLIFrameElement | null>;
   stage: RefObject<HTMLDivElement | null>;
   sheet: RefObject<HTMLDivElement | null>;
   sizeBadge: RefObject<HTMLDivElement | null>;
@@ -51,7 +50,6 @@ export type Parts = {
   ownStore: RefObject<boolean>;
   signingNow: RefObject<Signing | null>;
   signedIn: RefObject<((done: boolean) => void) | null>;
-  onWeb: RefObject<boolean>;
   here: RefObject<string>;
   server: RefObject<string | undefined>;
   log: RefObject<Line[]>;
@@ -64,7 +62,6 @@ export type Parts = {
   hear: RefObject<(m: Said) => void>;
   replace: RefObject<() => void>;
   setPointed: Set<string | undefined>;
-  setSrc: Set<string | null>;
   setShown: Set<string>;
   setBadge: Set<boolean>;
   setWeb: Set<string | null>;
