@@ -309,7 +309,7 @@ function Promo() {
     <div className="border border-accent bg-accent-surface p-4 sm:col-span-2">
       <span className="block text-[14px] font-semibold text-ink">Claude Code is free for a limited time</span>
       <span className="mt-1 block text-[12.5px] text-muted-slate">
-        Sign in with GitHub and Blueprint pays for the Claude behind it. Making blueprints has no limit. Claude tabs get about half of a Claude Pro plan,
+        Sign in with GitHub and Blueprint pays for the Claude behind it. Making blueprints is unlimited, within fair use. Claude tabs get about half of a Claude Pro plan,
         in a 5-hour session and a weekly limit like Claude Code&rsquo;s own. When that runs out, they switch to your own Claude Code by themselves.
       </span>
       <span className="mt-3 flex items-center gap-3 text-[12.5px]">

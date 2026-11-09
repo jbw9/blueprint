@@ -11,8 +11,12 @@
 //
 // Env: TABLE, TOKEN_SECRET, PROFILES ({"haiku": arn, "sonnet": arn, "opus": arn}).
 import * as admin from "./admin.mjs";
-import { accessOf, refresh, signIn, signOut } from "./auth.mjs";
+import { accessOf, network, refresh, signIn, signOut } from "./auth.mjs";
 import { promo, relay, status } from "./credit.mjs";
+import { under } from "./db.mjs";
+
+/** Asks per minute from one network: generous for a person, small for a script. The dashboard's ask a password. */
+const PER_MINUTE = { bp_track_install: 30, bp_track_visit: 120, bp_record_run: 30, admin: 30, signin: 10 };
 
 const RPC = {
   bp_track_install: admin.trackInstall,
@@ -47,11 +51,15 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
     const rpc = method === "POST" && path.match(/^\/rpc\/(\w+)$/);
     if (rpc) {
       const fn = Object.hasOwn(RPC, rpc[1]) ? RPC[rpc[1]] : null;
-      return fn ? reply(200, await fn(json())) : reply(404, { message: "Not found." });
+      if (!fn) return reply(404, { message: "Not found." });
+      const route = rpc[1].startsWith("bp_admin_") ? "admin" : rpc[1];
+      if (!(await under(`${route}#${network(ip)}`, PER_MINUTE[route]))) return reply(429, { message: "Too many requests. Try again in a minute." });
+      return reply(200, await fn(json()));
     }
 
     if (method === "GET" && path === "/promo") return reply(200, await promo(), { "cache-control": "public, max-age=300" });
     if (method === "POST" && path === "/signin") {
+      if (!(await under(`signin#${network(ip)}`, PER_MINUTE.signin))) return reply(429, { message: "Too many sign-ins from this network. Try again in a minute." });
       const r = await signIn(json(), ip);
       return r.session ? reply(200, r) : reply(403, { message: r.reason });
     }

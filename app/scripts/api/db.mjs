@@ -13,6 +13,8 @@
 //   creditmonth / <YYYY-MM>      everyone's credit spend that month, held under its ceiling
 //   creditday / <day>            the credit's spend that day; use#<day> / <acct> one account's tokens and spend
 //   req#<acct> / <at>            one call, kept 30 days for review
+//   usage#<day> / <lane>#<family>   every account's calls on one model that day; usage#<day> / refused, the calls turned away
+//   limit#<route>#<network> / <minute>   how often one network asked a public route that minute (index.mjs)
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { BatchGetCommand, DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
@@ -83,6 +85,18 @@ export const without = (item, ...keys) => Object.fromEntries(Object.entries(item
 
 /** A failed condition, which several writes here expect. */
 export const refused = (e) => e?.name === "ConditionalCheckFailedException";
+
+/** Whether `key` has been asked for fewer than `max` times this minute, counting this ask. */
+export async function under(key, max) {
+  try {
+    await update(`limit#${key}`, new Date().toISOString().slice(0, 16), "ADD n :one SET #ttl = :ttl",
+      { ":one": 1, ":max": max, ":ttl": Math.floor(Date.now() / 1000) + 120 }, "attribute_not_exists(n) OR n < :max", { "#ttl": "ttl" });
+    return true;
+  } catch (e) {
+    if (refused(e)) return false;
+    throw e;
+  }
+}
 
 export const today = () => new Date().toISOString().slice(0, 10);
 export const daysAgo = (n) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);

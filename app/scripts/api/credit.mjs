@@ -41,12 +41,19 @@ export const DEFAULTS = {
   // About half of Claude Pro: its 5-hour session runs to roughly $6–8 of Claude Code at list price.
   tab_usd_5h: 4,
   tab_usd_week: 40,
-  // Maps are free to make: null is no cap. The window still counts them, for the meter and the admin page.
-  gen_usd_week: null,
+  // Maps are offered as unlimited: this is fair use, about eight mid-size maps a week, which nobody making maps
+  // reaches. It is what holds the lane to its price, since anyone signed in can call it without the generator.
+  gen_usd_week: 100,
   tab_inflight: 3,
   gen_inflight: 4,
   usd_per_minute: 1,
+  // Its own minute, so a map run never slows a chat; an honest run spends under $2 a minute.
+  gen_usd_per_minute: 5,
   max_tokens: 32000,
+  // The generator's authors ask for 64,000 (scripts/generate/author.ts); cut at 32,000 they stop mid-answer.
+  gen_max_tokens: 64000,
+  // What `gen` calls are held to when it differs from `policy`: the generator is Blueprint's own, so its shape is known.
+  gen_policy: null,
   // Everyone's spend this calendar month, kept under the AWS Budget's own cut-off (80% of $6,000), so
   // the credit stops with a clear message before Bedrock is taken away from this function.
   monthly_usd_ceiling: 4500,
@@ -104,23 +111,28 @@ export async function status(account) {
 
 /**
  * Adds `micro` to an open window while it is under `cap`, or starts the window afresh once the last has
- * closed. The update is conditional, so calls made at once each see the others' share. Null when it
- * is admitted, else when the window opens again.
+ * closed. The update is conditional, so calls made at once each see the others' share. `started` names
+ * the window it was charged to, so settling never lands on the next one; `resets` is when a full window opens again.
  */
 async function charge(account, w, hours, cap, micro, again = true) {
   const key = `win#acct:${account}`;
   const cut = new Date(Date.now() - hours * 3600_000).toISOString();
   try {
-    await update(key, w, "SET micro = micro + :m", { ":m": micro, ":cut": cut, ":cap": cap }, "started > :cut AND micro < :cap");
-    return null;
+    const row = await update(key, w, "SET micro = micro + :m", { ":m": micro, ":cut": cut, ":cap": cap }, "started > :cut AND micro < :cap");
+    return { started: row.started };
   } catch (e) {
     if (!refused(e)) throw e;
   }
   const row = await get(key, w);
-  if (row?.started > cut) return new Date(Date.parse(row.started) + hours * 3600_000).toISOString();
+  if (row?.started > cut) {
+    // Opened by a call made at the same moment, after this one's update missed it: under the cap, charge it.
+    if (again && Number(row.micro) < cap) return charge(account, w, hours, cap, micro, false);
+    return { resets: new Date(Date.parse(row.started) + hours * 3600_000).toISOString() };
+  }
+  const started = new Date().toISOString();
   try {
-    await put({ pk: key, sk: w, started: new Date().toISOString(), micro, ttl: epoch() + hours * 3600 + 86400 }, "attribute_not_exists(pk) OR attribute_not_exists(started) OR started <= :cut", { ":cut": cut });
-    return null;
+    await put({ pk: key, sk: w, started, micro, ttl: epoch() + hours * 3600 + 86400 }, "attribute_not_exists(pk) OR attribute_not_exists(started) OR started <= :cut", { ":cut": cut });
+    return { started };
   } catch (e) {
     // Another call opened the window first: it is open now.
     if (!refused(e) || !again) throw e;
@@ -151,7 +163,8 @@ const quiet = (p) =>
 async function settle(account, lane, held, micro) {
   const d = micro - held.guess;
   await Promise.all([
-    ...held.windows.map((w) => quiet(update(`win#acct:${account}`, w, "ADD micro :d", { ":d": d }, "attribute_exists(started)"))),
+    // Only to the window the call was charged to: one that has since closed and reopened is left alone.
+    ...held.windows.map(({ w, started }) => quiet(update(`win#acct:${account}`, w, "ADD micro :d", { ":d": d, ":s": started }, "started = :s"))),
     held.minute && quiet(update(`rate#${account}`, held.minute, "ADD micro :d", { ":d": d })),
     held.day && quiet(update("creditday", held.day, "ADD usd :u, #lane :u", { ":u": d / MICRO }, undefined, { "#lane": `${lane}_usd` })),
     held.month && quiet(update("creditmonth", held.month, "ADD usd :u", { ":u": d / MICRO })),
@@ -168,22 +181,23 @@ const until = (iso) => Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 1
  * the others last until `resets`.
  */
 async function admit(c, account, a, lane, guess) {
-  if (!open(c, a)) return { ok: false, reason: ended(c) && !a?.allowed ? "Blueprint's free Claude Code promotion has ended." : "Blueprint credit isn't available to this account." };
+  if (!open(c, a)) return { ok: false, kind: "closed", reason: ended(c) && !a?.allowed ? "Blueprint's free Claude Code promotion has ended." : "Blueprint credit isn't available to this account." };
   const held = { guess, windows: [], minute: null, day: null, month: null, slot: null };
   const no = async (r) => (await settle(account, lane, held, 0), { ok: false, ...r });
 
   held.slot = await takeSlot(account, lane, pick(c, a, lane === "tab" ? "tab_inflight" : "gen_inflight"));
-  if (!held.slot) return no({ wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
+  if (!held.slot) return no({ kind: "slots", wait: 5, reason: "Too many Claude calls at once on this account; this one waits its turn." });
 
-  // Maps are left out: a map run never slows a chat, and maps have no cap to pace.
-  if (!a.uncapped && lane === "tab") {
-    const minute = new Date().toISOString().slice(0, 16);
+  // Each lane has its own minute, so a map run never slows a chat.
+  if (!a.uncapped) {
+    const minute = `${lane === "gen" ? "gen#" : ""}${new Date().toISOString().slice(0, 16)}`;
+    const cap = pick(c, a, lane === "gen" ? "gen_usd_per_minute" : "usd_per_minute") * MICRO;
     try {
-      await update(`rate#${account}`, minute, "ADD micro :m SET #ttl = :ttl", { ":m": guess, ":cap": pick(c, a, "usd_per_minute") * MICRO, ":ttl": epoch() + 3600 }, "attribute_not_exists(micro) OR micro < :cap", { "#ttl": "ttl" });
+      await update(`rate#${account}`, minute, "ADD micro :m SET #ttl = :ttl", { ":m": guess, ":cap": cap, ":ttl": epoch() + 3600 }, "attribute_not_exists(micro) OR micro < :cap", { "#ttl": "ttl" });
       held.minute = minute;
     } catch (e) {
       if (!refused(e)) throw e;
-      return no({ wait: 61 - new Date().getSeconds(), reason: "This account is spending fast; calls slow down for a minute." });
+      return no({ kind: "minute", wait: 61 - new Date().getSeconds(), reason: "This account is spending fast; calls slow down for a minute." });
     }
   }
 
@@ -196,25 +210,27 @@ async function admit(c, account, a, lane, guess) {
     held.month = month;
   } catch (e) {
     if (!refused(e)) throw e;
-    return no({ reason: "Blueprint credit has run out for this month. Switch to your own Claude Code in Settings.", resets: new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 1)).toISOString() });
+    return no({ kind: "month", reason: "Blueprint credit has run out for this month. Switch to your own Claude Code in Settings.", resets: new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 1)).toISOString() });
   }
   // The day's spend, for the admin page.
   await update("creditday", day, "ADD usd :u, #lane :u", { ":u": guess / MICRO }, undefined, { "#lane": `${lane}_usd` });
   held.day = day;
 
   for (const w of WINDOWS[lane]) {
-    const resets = await charge(account, w, hoursOf(c, w), capOf(c, a, w), guess);
-    if (resets) return no({ reason: w === "genweek" ? "This week's Blueprint credit for maps is used up." : "Your Blueprint credit for Claude Code is used up for now. New Claude tabs open on your own Claude Code; run `claude --continue` in one to pick this conversation up.", resets });
-    held.windows.push(w);
+    const { started, resets } = await charge(account, w, hoursOf(c, w), capOf(c, a, w), guess);
+    if (resets) return no({ kind: w, reason: w === "genweek" ? "This week's Blueprint credit for maps is used up." : "Your Blueprint credit for Claude Code is used up for now.", resets });
+    held.windows.push({ w, started });
   }
   return { ok: true, held };
 }
 
 /** A rough price for a call before Bedrock says what it used: its prompt as if a tenth were new, and up to 4,000 tokens out. */
 const guessOf = (family, bytes, maxTokens) => Math.ceil((bytes / 4) * PRICE[family].in * 0.1 + Math.min(maxTokens, 4000) * PRICE[family].out);
+/** A one-hour cache write costs twice the input price; `cache_write` counts both kinds. */
 const microOf = (family, u) => {
   const p = PRICE[family];
-  return Math.ceil(u.input * p.in + u.cache_write * p.in * 1.25 + u.cache_read * p.in * 0.1 + u.output * p.out);
+  const hour = Math.min(u.cache_write_1h ?? 0, u.cache_write);
+  return Math.ceil(u.input * p.in + (u.cache_write - hour) * p.in * 1.25 + hour * p.in * 2 + u.cache_read * p.in * 0.1 + u.output * p.out);
 };
 
 /* ── SigV4, for the one host and two headers this needs ── */
@@ -246,7 +262,7 @@ function signed(path, body, extra) {
  * cut off before its final usage is counted by the characters that did come.
  */
 function meter() {
-  const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0, cache_write_1h: 0 };
   let buf = Buffer.alloc(0);
   let chars = 0;
   let final = false;
@@ -258,6 +274,7 @@ function meter() {
     if (u.input_tokens != null) usage.input = u.input_tokens;
     if (u.cache_read_input_tokens != null) usage.cache_read = u.cache_read_input_tokens;
     if (u.cache_creation_input_tokens != null) usage.cache_write = u.cache_creation_input_tokens;
+    if (u.cache_creation?.ephemeral_1h_input_tokens != null) usage.cache_write_1h = u.cache_creation.ephemeral_1h_input_tokens;
     if (u.output_tokens != null) usage.output = u.output_tokens;
   };
   return {
@@ -290,10 +307,19 @@ function meter() {
   };
 }
 
-/** One call kept 30 days, for review, and its tokens added to the account's day. */
+/** A refused call, counted by why for the admin page: none of them reached Bedrock. */
+const countRefusal = (lane, kind) =>
+  quiet(update(`usage#${today()}`, "refused", "ADD #k :one SET #ttl = if_not_exists(#ttl, :ttl)", { ":one": 1, ":ttl": epoch() + 400 * 86400 }, undefined, { "#k": `${lane}_${kind ?? "other"}`, "#ttl": "ttl" }));
+
+/** One call kept 30 days, for review, and its tokens added to the account's day and to its model's. */
 async function record(account, lane, family, ip, headers, flags, code, u, micro) {
   const now = new Date();
   await Promise.all([
+    quiet(
+      update(`usage#${today()}`, `${lane}#${family}`, "ADD calls :one, micro :m, in_tok :i, out_tok :o, cr_tok :r, cw_tok :w, cw1h_tok :h, flagged :f, failed :x, throttled :t SET #ttl = if_not_exists(#ttl, :ttl)",
+        { ":one": 1, ":m": micro, ":i": u.input, ":o": u.output, ":r": u.cache_read, ":w": u.cache_write, ":h": u.cache_write_1h ?? 0, ":f": flags.length ? 1 : 0, ":x": code >= 200 && code < 300 ? 0 : 1, ":t": code === 429 ? 1 : 0, ":ttl": epoch() + 400 * 86400 },
+        undefined, { "#ttl": "ttl" }),
+    ),
     quiet(
       put({
         pk: `req#${account}`,
@@ -306,6 +332,7 @@ async function record(account, lane, family, ip, headers, flags, code, u, micro)
         out_tok: u.output,
         cr_tok: u.cache_read,
         cw_tok: u.cache_write,
+        cw1h_tok: u.cache_write_1h || undefined,
         micro,
         net: network(ip),
         flags: flags.length ? flags : undefined,
@@ -344,16 +371,16 @@ export async function relay({ stream, reply, account, ip, lane, model, op, heade
   }
 
   const family = familyFor(lane, decodeURIComponent(model));
-  const shaped = shape({ lane, body, headers, maxTokens: c.max_tokens });
+  const shaped = shape({ lane, body, headers, maxTokens: lane === "gen" ? c.gen_max_tokens : c.max_tokens });
   if (!shaped.body) return reply(400, { message: "Not a model call." }, { "x-amzn-errortype": "ValidationException" });
-  if (shaped.flags.length && c.policy === "enforce") {
+  if (shaped.flags.length && (lane === "gen" ? (c.gen_policy ?? c.policy) : c.policy) === "enforce") {
     await record(account, lane, family, ip, headers, shaped.flags, 403, { input: 0, output: 0, cache_read: 0, cache_write: 0 }, 0);
     return reply(403, { message: "Blueprint credit only runs Claude Code in Blueprint's tabs and Blueprint's own map generation." }, { "x-amzn-errortype": "AccessDeniedException" });
   }
 
   const guess = guessOf(family, shaped.body.length, shaped.maxTokens);
   const ok = await admit(c, account, a, lane, guess);
-  if (!ok.ok) return refuse(ok);
+  if (!ok.ok) return (await countRefusal(lane, ok.kind), refuse(ok));
 
   const meters = meter();
   let code = 0;
@@ -371,19 +398,25 @@ export async function relay({ stream, reply, account, ip, lane, model, op, heade
 /** Sends one call to Bedrock and its reply back as Bedrock gave it; the reply's status. */
 async function forward({ stream, op, target, headers, body, meters }) {
   const upstream = `/model/${encodeURIComponent(target)}/${op}`;
-  const pass = Object.fromEntries(Object.entries(headers).filter(([k]) => k === "content-type" || k === "accept" || k.startsWith("x-amzn-bedrock-")));
+  // Nothing else: Bedrock's own headers can pick a dearer service tier or a guardrail, billed but not metered here.
+  const pass = Object.fromEntries(Object.entries(headers).filter(([k]) => k === "content-type" || k === "accept"));
   const res = await fetch(`https://${HOST}${upstream}`, { method: "POST", headers: signed(upstream, body, pass), body });
   const out = awslambda.HttpResponseStream.from(stream, {
     statusCode: res.status,
     headers: Object.fromEntries([...res.headers].filter(([k]) => k === "content-type" || k.startsWith("x-amzn-"))),
   });
   if (op === "invoke-with-response-stream" && res.ok) {
-    for await (const chunk of res.body) {
-      const b = Buffer.from(chunk);
-      meters?.push(b);
-      // The caller has gone: stop reading, so Bedrock stops writing what nobody reads.
-      if (out.destroyed) break;
-      out.write(b);
+    try {
+      for await (const chunk of res.body) {
+        const b = Buffer.from(chunk);
+        meters?.push(b);
+        // The caller has gone: stop reading, so Bedrock stops writing what nobody reads.
+        if (out.destroyed) break;
+        out.write(b);
+      }
+    } catch (e) {
+      // Bedrock dropped the stream partway: the caller sees it end short and retries, and what it used is still billed.
+      console.error(e);
     }
   } else {
     const text = await res.text();

@@ -15,9 +15,9 @@ const BLUEPRINT = "This session was opened from Blueprint";
 
 /** Every tool the generator offers a model, as its stages name them. */
 const GEN_TOOLS = new Set([
-  "answer", "blueprint_search", "blueprint_section", "blueprint_where", "component", "cut", "grade", "graph_callees", "graph_callers",
+  "answer", "blueprint_search", "blueprint_section", "blueprint_where", "component", "cut", "files", "grade", "graph_callees", "graph_callers",
   "graph_entrypoints", "graph_file", "graph_find", "graph_links", "graph_path", "graph_show", "grep", "groups", "leaves", "levels", "list",
-  "overview", "parts", "place", "read_file", "slop", "story", "submit", "summaries", "summary",
+  "overview", "parts", "place", "read_file", "shortened", "story", "submit", "summaries", "summary",
 ]);
 
 const textOf = (system) =>
@@ -42,7 +42,10 @@ export function shape({ lane, body, headers, maxTokens }) {
     if ((cls === "main" || (!cls && system.includes(MAIN))) && !system.includes(BLUEPRINT)) flags.push("not-blueprint");
   } else {
     if (system.includes(MAIN) || system.includes(CLAUDE_CODE)) flags.push("not-generator");
-    if ((Array.isArray(j.tools) ? j.tools : []).some((t) => !GEN_TOOLS.has(t?.name))) flags.push("not-generator-tool");
+    // Every generator call answers through a tool (scripts/generate/bedrock.ts `ask`, author.ts), so one with none is plain chat.
+    const tools = Array.isArray(j.tools) ? j.tools : [];
+    if (!tools.length) flags.push("no-tools");
+    if (tools.some((t) => !GEN_TOOLS.has(t?.name))) flags.push("not-generator-tool");
   }
 
   if (!(typeof j.max_tokens === "number" && j.max_tokens <= maxTokens)) j.max_tokens = maxTokens;

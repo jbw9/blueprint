@@ -312,7 +312,7 @@ function BlueprintCredit() {
     <Field
       group
       label="Blueprint credit"
-      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Making blueprints has no limit. Claude tabs get about half of a Claude Pro plan, in a 5-hour Session and a Week.`}
+      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Making blueprints is unlimited, within fair use. Claude tabs get about half of a Claude Pro plan, in a 5-hour Session and a Week.`}
     >
       {c.login ? (
         <>

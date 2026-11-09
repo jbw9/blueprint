@@ -94,7 +94,8 @@ export async function refresh(headers) {
   const s = bearer(headers);
   if (!s.startsWith("s1.")) return null;
   const row = await get("session", hash(s));
-  if (!row) return null;
+  // DynamoDB deletes an expired row up to days later; until then it is still gone.
+  if (!row || Number(row.ttl) < epoch()) return null;
   // Kept alive by use, written at most hourly.
   if (Date.now() - Date.parse(row.last_at) > 3600_000)
     await update("session", row.sk, "SET last_at = :now, #ttl = :ttl", { ":now": new Date().toISOString(), ":ttl": epoch() + SESSION_DAYS * 86400 }, undefined, { "#ttl": "ttl" });
