@@ -138,7 +138,7 @@
 }
 .navBar nav a {
   padding: 6px 12px;
-  color: var(--muted);
+  color: var(--ink);
   font: 12px/1.4 var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
