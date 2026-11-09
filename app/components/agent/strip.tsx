@@ -6,11 +6,11 @@ import type { Tab } from "@/components/agent/workspace-tab";
 import { openSettings } from "@/lib/client/settings";
 
 /**
- * The agent in front in a tab, if any: Claude when its launcher says so,
+ * The agent in front in a tab, if any: the one whose launcher says so,
  * else the agent last started there while the shell is busy with something.
  */
 export function inFront(t: Tab): Agent | undefined {
-  if (t.live) return CLAUDE;
+  if (t.live) return agentById(t.agent) ?? CLAUDE;
   if (t.busy && t.ran !== CLAUDE.id) return agentById(t.ran ?? undefined);
   return undefined;
 }
@@ -46,7 +46,7 @@ export function Strip({
           title={
             a.id === CLAUDE.id
               ? "Runs blueprint-claude in this shell: your Claude Code, able to take blueprint context"
-              : `Runs ${a.command} in this shell`
+              : `Runs ${a.command} in this shell: your ${a.label}, able to take blueprint context`
           }
           className="flex shrink-0 cursor-pointer items-center gap-1.5 border border-border-strong px-2 py-px text-ink hover:bg-surface-container"
         >

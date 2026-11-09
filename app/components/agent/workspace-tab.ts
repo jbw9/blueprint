@@ -17,8 +17,10 @@ export interface Tab {
   cwd: string;
   /** The pty behind it, once started. */
   pty?: number;
-  /** Claude is running in it, through the app's launcher. */
+  /** An agent is running in it through the app's launcher, able to take picks. */
   live: boolean;
+  /** Which agent that is: `claude`, `codex`, `opencode` or `pi`. */
+  agent?: string;
   /** Some other program is in front of the shell. */
   busy: boolean;
   /** Whether Claude Code was found for it; unknown while it starts. */

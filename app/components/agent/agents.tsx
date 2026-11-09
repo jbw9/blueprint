@@ -9,10 +9,10 @@ import { findClaude } from "@/lib/client/claude";
 /**
  * The coding agents a workspace tab can start, and how each is drawn.
  *
- * Claude goes through the app's launcher, `blueprint-claude`, so it can take blueprint
- * context (src-tauri/src/claude.rs); the others start as the user's own CLI,
- * typed into the shell. Logos come from Simple Icons (CC0) where it has one;
- * an agent without one gets the terminal glyph. Adding an agent is one entry.
+ * Each goes through the app's launcher, `blueprint-<agent>`, so it can take blueprint
+ * context: Claude's in src-tauri/src/claude.rs, the others' in src-tauri/src/agents.rs.
+ * Logos come from Simple Icons (CC0) where it has one; an agent without one gets the
+ * terminal glyph.
  */
 
 export interface Agent {
@@ -21,15 +21,17 @@ export interface Agent {
   label: string;
   /** What is typed into the shell to start it. */
   command: string;
+  /** The user's own CLI, looked for to know it is installed. */
+  bin?: string;
 }
 
 export const CLAUDE: Agent = { id: "claude", label: "Claude Code", command: "blueprint-claude" };
 
 /** Every other agent, shown when installed. */
 const AGENTS: Agent[] = [
-  { id: "codex", label: "Codex", command: "codex" },
-  { id: "opencode", label: "OpenCode", command: "opencode" },
-  { id: "pi", label: "Pi", command: "pi" },
+  { id: "codex", label: "Codex", command: "blueprint-codex", bin: "codex" },
+  { id: "opencode", label: "OpenCode", command: "blueprint-opencode", bin: "opencode" },
+  { id: "pi", label: "Pi", command: "blueprint-pi", bin: "pi" },
 ];
 
 export const agentById = (id: string | undefined) => (id === CLAUDE.id ? CLAUDE : AGENTS.find((a) => a.id === id));
@@ -89,14 +91,14 @@ let installed: Promise<string[]> | null = null;
 export function useInstalled(): Agent[] {
   const [names, setNames] = useState<string[]>([]);
   useEffect(() => {
-    installed ??= invoke<string[]>("pty_which", { names: AGENTS.map((a) => a.command) }).catch(() => []);
+    installed ??= invoke<string[]>("pty_which", { names: AGENTS.map((a) => a.bin ?? a.command) }).catch(() => []);
     let live = true;
     void installed.then((n) => live && setNames(n));
     return () => {
       live = false;
     };
   }, []);
-  return AGENTS.filter((a) => names.includes(a.command));
+  return AGENTS.filter((a) => names.includes(a.bin ?? a.command));
 }
 
 /** Whether Claude Code was found, where Settings says or wherever it is installed; unknown while looking. */

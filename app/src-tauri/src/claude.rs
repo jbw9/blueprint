@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 /// since the last prompt, so one page read for a while is not sent each turn.
 /// Then it drains the queue: the `mv` is atomic, so a pick appended while
 /// Claude reads lands in a fresh file for the next prompt rather than being lost.
-const HOOK: &str = r#"f="$BLUEPRINT_CONTEXT"; w="$f.where"; if [ -s "$w" ]; then head -n 1 "$w"; cmp -s "$w" "$w.sent" || { tail -n +2 "$w"; cp "$w" "$w.sent"; }; fi; [ -s "$f" ] || exit 0; mv "$f" "$f.sent" && cat "$f.sent""#;
+pub const HOOK: &str = r#"f="$BLUEPRINT_CONTEXT"; w="$f.where"; if [ -s "$w" ]; then head -n 1 "$w"; cmp -s "$w" "$w.sent" || { tail -n +2 "$w"; cp "$w" "$w.sent"; }; fi; [ -s "$f" ] || exit 0; mv "$f" "$f.sent" && cat "$f.sent""#;
 
 /// The scripts beside the launcher, on the PATH of Claude's Bash tool. The
 /// tab's PATH has them, but Claude Code builds its Bash tool's environment
@@ -228,7 +228,12 @@ printf '%s\t%s\t%s\n' "$n" "$state" "$(printf '%s' "$*" | tr '\t\n' '  ')" >> "$
 echo "Step $n: $state."
 "#;
 
-const SYSTEM: &str = "This session was opened from Blueprint, an app that blueprints this \
+/// What every agent in a tab is told about the blueprint: how picks arrive, where the
+/// user is, `blueprint-fix`, `blueprint-show`, the blueprint's tools and the preview.
+/// A macro, so SYSTEM and AGENT_SYSTEM are one text each.
+macro_rules! blueprint_system {
+    () => {
+        "This session was opened from Blueprint, an app that blueprints this \
 repository as a tree of sections (user journey, data flow, the code behind each). The user \
 can attach things they picked on the blueprint: a whole section arrives as a block starting with \
 `[Blueprint section:`, one element of a section (a row, a diagram box, a step, a line of code) as \
@@ -276,8 +281,13 @@ reads the dev server's logs (and the project's other terminals) when something f
 your browser: to search the web or read a page as the user would see it, navigate the preview \
 there, never another browser: not Chrome, not a headless Chromium. When a skill says to \
 drive its own browser (gstack's `$B`), do those steps with the blueprint-preview tools instead. WebSearch and WebFetch are fine for reading docs as text; they \
-stay out of the preview. \
-A plan you finish in plan mode opens beside you as a short design doc, drawn from its Markdown, \
+stay out of the preview. "
+    };
+}
+
+const SYSTEM: &str = concat!(
+    blueprint_system!(),
+    "A plan you finish in plan mode opens beside you as a short design doc, drawn from its Markdown, \
 and is accepted from there. Developers skip a wall of text, so write a plan they take in at a \
 glance: short sentences, bullets over paragraphs, a table wherever facts line up in columns, \
 nothing restated from the request and nothing written to fill a section. In this order, leaving \
@@ -307,7 +317,11 @@ changes` or `- path — why it goes`. `## Risks` only when there are real ones, 
 what you will do about it. `## Check`: one to three bullets on how you will know it works. A \
 one-file fix is the title, its two sentences, Steps, Files and Check. Stay under 250 words outside \
 the fenced blocks, and write code only where a signature is the decision. \
-End on the answer itself.";
+End on the answer itself."
+);
+
+/// What Codex, OpenCode and Pi are told (agents.rs): the same, without Claude Code's plan mode.
+pub const AGENT_SYSTEM: &str = concat!(blueprint_system!(), "End on the answer itself.");
 
 #[derive(serde::Deserialize)]
 pub struct Launch {
@@ -715,12 +729,18 @@ pub fn take_turn(queue: &Path) -> Option<Turn> {
 }
 
 /// Present while the launcher's Claude runs in the tab that owns `queue`.
-fn live(queue: &Path) -> PathBuf {
+pub fn live(queue: &Path) -> PathBuf {
     queue.with_extension("md.live")
 }
 
 pub fn running(queue: &Path) -> bool {
     live(queue).exists()
+}
+
+/// The agent whose launcher marked the tab live: Claude's leaves the marker empty.
+pub fn agent_of(queue: &Path) -> Option<String> {
+    let id = std::fs::read_to_string(live(queue)).ok()?;
+    Some(if id.trim().is_empty() { "claude".into() } else { id.trim().to_string() })
 }
 
 fn session(queue: &Path) -> PathBuf {
@@ -759,6 +779,7 @@ fn launcher() -> std::io::Result<PathBuf> {
     install(&dir.join("blueprint-list"), LIST)?;
     install(&dir.join("blueprint-plan-step"), STEP)?;
     install(&dir.join("blueprint-terminal"), TERMINAL)?;
+    crate::agents::install(&dir)?;
     let path = dir.join("blueprint-claude");
     install(&path, LAUNCHER)?;
     #[cfg(unix)]
@@ -792,7 +813,7 @@ if not defined BLUEPRINT_BASH (\r\n\
 )\r\n\
 \"%BLUEPRINT_BASH%\" \"%~dp0blueprint-claude\" %*\r\n";
 
-fn install(path: &Path, script: &str) -> std::io::Result<()> {
+pub fn install(path: &Path, script: &str) -> std::io::Result<()> {
     if std::fs::read_to_string(path).ok().as_deref() != Some(script) {
         std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
         std::fs::write(path, script)?;
@@ -805,11 +826,10 @@ fn install(path: &Path, script: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-/// What a tab's shell needs so that the launcher works in it: the user's
-/// `claude`, the hook, the system prompt, the preview's tools (mcp.rs), and
-/// the launcher on PATH. Returns the launcher's own path, for starting Claude
-/// without relying on PATH.
-pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline: Option<&str>, tab: u32) -> std::io::Result<PathBuf> {
+/// What every tab's shell needs, Claude found or not: the launchers on PATH
+/// (Claude's, and agents.rs's), the tab's queue, and the preview's address.
+/// Returns Claude's launcher's path, for starting Claude without relying on PATH.
+pub fn prepare_tab(cmd: &mut CommandBuilder, queue: &Path, outline: Option<&str>, tab: u32) -> std::io::Result<PathBuf> {
     let path = launcher()?;
     // The page has the blueprint; this only keeps it where blueprint-list can read it.
     // Written per tab and cleared with the tab, so it never outlives the blueprint it
@@ -820,6 +840,41 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
         }
         std::fs::write(queue.with_extension("md.blueprint"), format!("{text}\n"))?;
     }
+    cmd.env("BLUEPRINT_CONTEXT", queue);
+    cmd.env("BLUEPRINT_LAUNCHER", &path);
+    if let Some(url) = crate::mcp::url(tab) {
+        cmd.env("BLUEPRINT_MCP_URL", url);
+    }
+    #[cfg(windows)]
+    if let Some(bash) = git_bash() {
+        cmd.env("BLUEPRINT_BASH", bash);
+    }
+    if let Some(dir) = path.parent() {
+        crate::agents::prepare(cmd, dir, tab);
+        cmd.env("BLUEPRINT_BIN", dir);
+        let rest = std::env::var_os("PATH").unwrap_or_default();
+        let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
+            .map_err(std::io::Error::other)?;
+        cmd.env("PATH", joined);
+    }
+    // Other shells ignore it.
+    #[cfg(unix)]
+    {
+        // A Blueprint started from one of Blueprint's own terminals inherits our
+        // ZDOTDIR: taken as theirs, our .zshenv would source itself forever.
+        if let Some(theirs) = std::env::var_os("ZDOTDIR").filter(|z| Path::new(z) != zdotdir()) {
+            cmd.env("BLUEPRINT_ZDOTDIR", theirs);
+        }
+        cmd.env("ZDOTDIR", zdotdir());
+    }
+    Ok(path)
+}
+
+/// What a tab's shell needs so that Claude's launcher works in it, besides
+/// `prepare_tab`: the user's `claude`, the hooks, the system prompt and the
+/// preview's tools (mcp.rs).
+pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline: Option<&str>, tab: u32) -> std::io::Result<PathBuf> {
+    let path = prepare_tab(cmd, queue, outline, tab)?;
     let hook = |c: &str| serde_json::json!({ "type": "command", "command": c });
     let mut settings = serde_json::json!({
         "hooks": {
@@ -872,42 +927,16 @@ pub fn prepare(cmd: &mut CommandBuilder, launch: &Launch, queue: &Path, outline:
             allow.extend(["Skill", "WebSearch", "WebFetch"].map(serde_json::Value::from));
         }
     }
-    cmd.env("BLUEPRINT_CONTEXT", queue);
-    cmd.env("BLUEPRINT_LAUNCHER", &path);
     cmd.env("BLUEPRINT_CLAUDE_BIN", &launch.path);
     cmd.env("BLUEPRINT_CLAUDE_SETTINGS", settings.to_string());
     cmd.env("BLUEPRINT_CLAUDE_SYSTEM", SYSTEM);
     if let Some(mcp) = crate::mcp::config(tab) {
         cmd.env("BLUEPRINT_CLAUDE_MCP", mcp);
     }
-    if let Some(url) = crate::mcp::url(tab) {
-        cmd.env("BLUEPRINT_MCP_URL", url);
-    }
     if let Some(m) = launch.model.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
         cmd.env("BLUEPRINT_CLAUDE_MODEL", m);
     }
     credit(queue, launch.credit.as_ref())?;
-    #[cfg(windows)]
-    if let Some(bash) = git_bash() {
-        cmd.env("BLUEPRINT_BASH", bash);
-    }
-    if let Some(dir) = path.parent() {
-        cmd.env("BLUEPRINT_BIN", dir);
-        let rest = std::env::var_os("PATH").unwrap_or_default();
-        let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
-            .map_err(std::io::Error::other)?;
-        cmd.env("PATH", joined);
-    }
-    // Other shells ignore it.
-    #[cfg(unix)]
-    {
-        // A Blueprint started from one of Blueprint's own terminals inherits our
-        // ZDOTDIR: taken as theirs, our .zshenv would source itself forever.
-        if let Some(theirs) = std::env::var_os("ZDOTDIR").filter(|z| Path::new(z) != zdotdir()) {
-            cmd.env("BLUEPRINT_ZDOTDIR", theirs);
-        }
-        cmd.env("ZDOTDIR", zdotdir());
-    }
     Ok(path)
 }
 
