@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { cn } from "@/lib/client/utils";
 
 /**
  * The pieces the app's dialogs share: a dimmed layer over the blueprint that closes
@@ -72,5 +73,38 @@ export function Field({ label, hint, group, children }: { label: string; hint: s
       <span className="mb-2 mt-0.5 block text-[12px] text-muted-slate">{hint}</span>
       {children}
     </Box>
+  );
+}
+
+/** A setting's row of choices, the picked one filled with ink. `null` picks none, while it is unknown. */
+export function Segmented<T extends string | boolean>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T | null;
+  options: { value: T; label: React.ReactNode }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="inline-flex border border-border-gray p-0.5">
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "flex cursor-pointer items-center gap-1.5 px-3.5 py-1 text-[12.5px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+            value === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }

@@ -2,20 +2,19 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { DIALOG, Field, INPUT, Overlay } from "@/components/ui/dialog";
-import { keys } from "@/components/ui/button";
+import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
+import { Button, dictateKeys, keys } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
-import { PanelHead } from "@/components/ui/panel";
-import { cn } from "@/lib/client/utils";
+import { PanelClose, PanelHead } from "@/components/ui/panel";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
-import { useMac } from "@/lib/client/platform";
+import { useDesktop, useMac } from "@/lib/client/platform";
 import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, setFallback, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
 /**
- * Settings, as a dialog over the blueprint. There is little to set: the theme,
- * the agent new tabs open into, where Claude Code is when it was not found by
- * itself, which model it runs, and what the blueprint is drawn on. Every change is
- * saved as it is made, so there is nothing to confirm and nothing to undo.
+ * Settings, as a dialog over the blueprint, in groups: how it looks, Claude Code,
+ * dictation, the Preview, and what is sent to Blueprint. Every change is saved as
+ * it is made, so there is nothing to confirm and nothing to undo. Outside the
+ * desktop app (a page framed in a Preview) only the look applies, so only it shows.
  */
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -32,9 +31,18 @@ const GROUNDS: { value: Ground; label: string }[] = [
 
 type Found = { path: string; version: string | null } | null;
 
-/** One choice of a row of them. */
-const SEGMENT =
-  "cursor-pointer px-3.5 py-1 text-[12.5px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+/** Opens a page in the reader's own browser, not a Preview tab. */
+const external = (url: string) => void invoke("preview_external", { url }).catch(() => window.open(url, "_blank"));
+
+/** A group of settings under its name. */
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-5 border-t border-border-gray pt-4 first:border-t-0 first:pt-0">
+      <h3 className="-mb-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">{title}</h3>
+      {children}
+    </section>
+  );
+}
 
 export function SettingsDialog() {
   const [open, setOpen] = useState(false);
@@ -44,6 +52,8 @@ export function SettingsDialog() {
   const [found, setFound] = useState<Found | undefined>(undefined);
   const agents = [CLAUDE, ...useInstalled()];
   const mac = useMac();
+  const desktop = useDesktop();
+  const hold = dictateKeys(mac);
 
   const detect = useCallback((claudePath: string) => {
     setFound(undefined);
@@ -56,9 +66,9 @@ export function SettingsDialog() {
     () =>
       onOpenSettings(() => {
         setOpen(true);
-        detect(readSettings().claudePath);
+        if (desktop) detect(readSettings().claudePath);
       }),
-    [detect],
+    [detect, desktop],
   );
 
   // Mounted for the app's whole life, so this keeps the page on the saved theme.
@@ -85,249 +95,172 @@ export function SettingsDialog() {
           e.preventDefault();
           close();
         }}
-        className={cn(DIALOG, "max-w-[520px]")}
+        className={`${DIALOG} max-w-[520px]`}
       >
-        <PanelHead
-          title="Settings"
-          right={
-            <button
-              type="submit"
-              aria-label="Close"
-              title="Close (Esc)"
-              className="-mr-1.5 -mt-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center text-muted-slate hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden>
-                <path d="m4.5 4.5 7 7m0-7-7 7" />
-              </svg>
-            </button>
-          }
-        />
-        <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-5 py-5">
-          <Field group label="Theme" hint="Classic is the landing page's cobalt ink. Light and Dark are plain.">
-            <div role="radiogroup" aria-label="Theme" className="inline-flex border border-border-gray p-0.5">
-              {THEMES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.theme === t.value}
-                  onClick={() => set({ theme: t.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.theme === t.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
+        <PanelHead title="Settings" right={<PanelClose type="submit" />} />
+        <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-5 py-5">
+          <Group title="Appearance">
+            <Field group label="Theme" hint="Classic is the landing page's cobalt ink. Light and Dark are plain.">
+              <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
+            </Field>
+            <Field group label="Background" hint="What the blueprint is drawn on.">
+              <Segmented label="Background" value={draft.ground} options={GROUNDS} onChange={(ground) => set({ ground })} />
+            </Field>
+          </Group>
+          {desktop ? (
+            <>
+              <Group title="Claude Code">
+                <Field label="Claude Code" hint="Leave blank to find it automatically.">
+                  <input
+                    value={draft.claudePath}
+                    onChange={(e) => set({ claudePath: e.target.value })}
+                    onBlur={() => {
+                      tidy();
+                      detect(draft.claudePath);
+                    }}
+                    placeholder={found?.path ?? "~/.local/bin/claude"}
+                    spellCheck={false}
+                    className={INPUT}
+                  />
+                  <div className="mt-1.5 flex items-baseline gap-3 font-mono text-[11.5px]">
+                    {found === undefined ? (
+                      <span className="text-faint">Looking…</span>
+                    ) : found ? (
+                      <span className="truncate text-accent">
+                        ✓ {found.path}
+                        {found.version ? ` (${found.version})` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-clay-ink">
+                        {draft.claudePath.trim() ? "Nothing at that path." : "Not found — install Claude Code, or enter its path."}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => detect(draft.claudePath)}
+                      className="ml-auto shrink-0 cursor-pointer text-accent hover:underline"
+                    >
+                      Detect again
+                    </button>
+                  </div>
+                </Field>
+                <Field label="Model" hint="Blank uses Claude Code's default. An alias like sonnet or opus, or a full model id.">
+                  <input
+                    value={draft.model}
+                    onChange={(e) => set({ model: e.target.value })}
+                    onBlur={tidy}
+                    placeholder="default"
+                    spellCheck={false}
+                    className={INPUT}
+                  />
+                </Field>
+                <Field
+                  group
+                  label="Skills and web research"
+                  hint="Claude loads skills and searches or reads the web without asking each time. Plan mode always does, and still never edits files."
                 >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field group label="Background" hint="What the blueprint is drawn on.">
-            <div role="radiogroup" aria-label="Background" className="inline-flex border border-border-gray p-0.5">
-              {GROUNDS.map((g) => (
-                <button
-                  key={g.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.ground === g.value}
-                  onClick={() => set({ ground: g.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.ground === g.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
+                  <Segmented
+                    label="Skills and web research"
+                    value={draft.research}
+                    options={[
+                      { value: true, label: "Without asking" },
+                      { value: false, label: "As in Claude Code" },
+                    ]}
+                    onChange={(research) => set({ research })}
+                  />
+                </Field>
+                {agents.length > 1 ? (
+                  <Field
+                    group
+                    label="Default agent"
+                    hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Blueprint context goes to Claude either way.`}
+                  >
+                    <Segmented
+                      label="Default agent"
+                      value={draft.agent}
+                      options={agents.map((a) => ({
+                        value: a.id,
+                        label: (
+                          <>
+                            <AgentIcon id={a.id} />
+                            {a.label}
+                          </>
+                        ),
+                      }))}
+                      onChange={(agent) => set({ agent })}
+                    />
+                  </Field>
+                ) : null}
+                <BlueprintCredit />
+                <p className="text-[12px] text-faint">These apply to Claude tabs opened from now on.</p>
+              </Group>
+              <Group title="Dictation">
+                <Field
+                  group
+                  label="Claude Code dictation"
+                  hint={`Hold ${hold}, or Space in a Claude tab, and speak into Claude's prompt. Transcribed by Anthropic at no cost to your usage; needs a claude.ai sign-in, not Bedrock or an API key.`}
                 >
-                  {g.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field
-            group
-            label="Default agent"
-            hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Blueprint context goes to Claude either way.`}
-          >
-            <div role="radiogroup" aria-label="Default agent" className="inline-flex border border-border-gray p-0.5">
-              {agents.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.agent === a.id}
-                  onClick={() => set({ agent: a.id })}
-                  className={cn(
-                    SEGMENT, "flex items-center gap-1.5",
-                    draft.agent === a.id ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
+                  <Segmented
+                    label="Claude Code dictation"
+                    value={draft.voice}
+                    options={[
+                      { value: true, label: "On" },
+                      { value: false, label: "As in Claude Code" },
+                    ]}
+                    onChange={(voice) => set({ voice })}
+                  />
+                </Field>
+                <Field
+                  group
+                  label="On-device dictation"
+                  hint={`Hold ${hold} in a field in the app, or for Claude's prompt where Claude Code dictation isn't available. Runs on this machine, for any sign-in; nothing is sent anywhere.`}
                 >
-                  <AgentIcon id={a.id} />
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field group label="Dev server" hint="Start a project's dev server when it opens, and show the running app in a Preview tab.">
-            <div role="radiogroup" aria-label="Dev server" className="inline-flex border border-border-gray p-0.5">
-              {[
-                { value: true, label: "Start it" },
-                { value: false, label: "Leave it" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.devServer === o.value}
-                  onClick={() => set({ devServer: o.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.devServer === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
+                  <OnDevice />
+                </Field>
+                <Field group label="Media while dictating" hint={`Pauses Music and Spotify, and mutes everything else, while you hold ${hold}; all of it comes back when you let go.`}>
+                  <Segmented
+                    label="Media while dictating"
+                    // Unset until the first dictation asks; until then nothing is quieted.
+                    value={draft.quietMedia ?? false}
+                    options={[
+                      { value: true, label: "Quiet it" },
+                      { value: false, label: "Leave it" },
+                    ]}
+                    onChange={(quietMedia) => set({ quietMedia })}
+                  />
+                </Field>
+              </Group>
+              <Group title="Preview">
+                <Field group label="Dev server" hint="Start a project's dev server when it opens, and show the running app in a Preview tab.">
+                  <Segmented
+                    label="Dev server"
+                    value={draft.devServer}
+                    options={[
+                      { value: true, label: "Start it" },
+                      { value: false, label: "Leave it" },
+                    ]}
+                    onChange={(devServer) => set({ devServer })}
+                  />
+                </Field>
+                <Field
+                  group
+                  label="Saved sign-ins"
+                  hint="Sites you signed in to in the Preview when Claude asked. Blueprint keeps their sign-in cookies, never your password. Forget signs you out."
                 >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Claude Code" hint="Leave blank to find it automatically.">
-            <input
-              value={draft.claudePath}
-              onChange={(e) => set({ claudePath: e.target.value })}
-              onBlur={() => {
-                tidy();
-                detect(draft.claudePath);
-              }}
-              placeholder={found?.path ?? "~/.local/bin/claude"}
-              spellCheck={false}
-              className={INPUT}
-            />
-            <div className="mt-1.5 flex items-baseline gap-3 font-mono text-[11.5px]">
-              {found === undefined ? (
-                <span className="text-faint">Looking…</span>
-              ) : found ? (
-                <span className="truncate text-accent">
-                  ✓ {found.path}
-                  {found.version ? ` (${found.version})` : ""}
-                </span>
-              ) : (
-                <span className="text-clay-ink">
-                  {draft.claudePath.trim() ? "Nothing at that path." : "Not found — install Claude Code, or enter its path."}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => detect(draft.claudePath)}
-                className="ml-auto shrink-0 cursor-pointer text-accent hover:underline"
-              >
-                Detect again
-              </button>
-            </div>
-          </Field>
-          <Field label="Model" hint="Blank uses Claude Code's default. An alias like sonnet or opus, or a full model id.">
-            <input
-              value={draft.model}
-              onChange={(e) => set({ model: e.target.value })}
-              onBlur={tidy}
-              placeholder="default"
-              spellCheck={false}
-              className={INPUT}
-            />
-          </Field>
-          <Field
-            group
-            label="Claude Code dictation"
-            hint="Hold Control+Option (⌃⌥), or Space in a Claude tab, and speak into Claude's prompt. Transcribed by Anthropic at no cost to your usage; needs a claude.ai sign-in, not Bedrock or an API key."
-          >
-            <div role="radiogroup" aria-label="Claude Code dictation" className="inline-flex border border-border-gray p-0.5">
-              {[
-                { value: true, label: "On" },
-                { value: false, label: "As in Claude Code" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.voice === o.value}
-                  onClick={() => set({ voice: o.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.voice === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
+                  <SignIns />
+                </Field>
+              </Group>
+              <Group title="Privacy">
+                <Field
+                  group
+                  label="Run reports"
+                  hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
                 >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field
-            group
-            label="Skills and web research"
-            hint="Claude loads skills and searches or reads the web without asking each time. Plan mode always does, and still never edits files."
-          >
-            <div role="radiogroup" aria-label="Skills and web research" className="inline-flex border border-border-gray p-0.5">
-              {[
-                { value: true, label: "Without asking" },
-                { value: false, label: "As in Claude Code" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.research === o.value}
-                  onClick={() => set({ research: o.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.research === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <BlueprintCredit />
-          <p className="text-[12px] text-faint">Claude Code changes apply to Claude tabs opened from now on.</p>
-          <Field
-            group
-            label="On-device dictation"
-            hint="Hold Control+Option (⌃⌥) in a field in the app, or for Claude's prompt where Claude Code dictation isn't available. Runs on this machine, for any sign-in; nothing is sent anywhere."
-          >
-            <OnDevice />
-          </Field>
-          <Field
-            group
-            label="Saved sign-ins"
-            hint="Sites you signed in to in the Preview when Claude asked. Blueprint keeps their sign-in cookies, never your password. Forget signs you out."
-          >
-            <SignIns />
-          </Field>
-          <Field group label="Media while dictating" hint="Pauses Music and Spotify, and mutes everything else, while you hold ⌃⌥; all of it comes back when you let go.">
-            <div role="radiogroup" aria-label="Media while dictating" className="inline-flex border border-border-gray p-0.5">
-              {[
-                { value: true, label: "Quiet it" },
-                { value: false, label: "Leave it" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.quietMedia === o.value}
-                  onClick={() => set({ quietMedia: o.value })}
-                  className={cn(
-                    SEGMENT,
-                    draft.quietMedia === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink",
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field
-            group
-            label="Run reports"
-            hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
-          >
-            <RunReports />
-          </Field>
+                  <RunReports />
+                </Field>
+              </Group>
+            </>
+          ) : null}
         </div>
       </form>
     </Overlay>
@@ -372,7 +305,7 @@ function BlueprintCredit() {
   const begin = async () => {
     const r = await startSignIn().catch(() => ({ reason: "Blueprint could not start the sign-in." }));
     setSignin(r);
-    if ("code" in r) void invoke("preview_external", { url: r.url }).catch(() => window.open(r.url, "_blank"));
+    if ("code" in r) external(r.url);
   };
   const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week]] as const) : [];
   return (
@@ -384,26 +317,18 @@ function BlueprintCredit() {
       {c.login ? (
         <>
           {c.available && (
-            <div role="radiogroup" aria-label="Blueprint credit" className="inline-flex border border-border-gray p-0.5">
-              {[
+            <Segmented
+              label="Blueprint credit"
+              value={c.on}
+              options={[
                 { value: true, label: "Use Blueprint credit" },
                 { value: false, label: "Use my Claude Code" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={c.on === o.value}
-                  onClick={() => {
-                    setC({ ...c, on: o.value });
-                    void setCredit(o.value);
-                  }}
-                  className={cn(SEGMENT, c.on === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+              ]}
+              onChange={(on) => {
+                setC({ ...c, on });
+                void setCredit(on);
+              }}
+            />
           )}
           {meters.length > 0 && (
             <div className="mt-2.5 grid grid-cols-[auto_6rem_auto_1fr] items-center gap-x-3 gap-y-1 font-mono text-[11.5px]">
@@ -441,7 +366,7 @@ function BlueprintCredit() {
           )}
           {c.reason && <p className="mt-1.5 text-[12px] text-clay-ink">{c.reason}</p>}
           <p className="mt-2 font-mono text-[11.5px] text-faint">
-            <a href="https://blpr.dev/promotion" target="_blank" rel="noreferrer" onClick={(e) => (e.preventDefault(), void invoke("preview_external", { url: "https://blpr.dev/promotion" }).catch(() => window.open("https://blpr.dev/promotion", "_blank")))} className="text-accent hover:underline">
+            <a href="https://blpr.dev/promotion" onClick={(e) => (e.preventDefault(), external("https://blpr.dev/promotion"))} className="text-accent hover:underline">
               Promotion terms
             </a>{" "}
             · Signed in as @{c.login} ·{" "}
@@ -455,7 +380,7 @@ function BlueprintCredit() {
           <span className="select-all text-[15px] tracking-[0.15em] text-ink">{signin.code}</span>
           <p className="mt-1 text-muted-slate">
             Enter this code at{" "}
-            <a href={signin.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            <a href={signin.url} onClick={(e) => (e.preventDefault(), external(signin.url))} className="text-accent hover:underline">
               {signin.url.replace(/^https:\/\//, "")}
             </a>
             . Waiting for GitHub…{" "}
@@ -466,9 +391,7 @@ function BlueprintCredit() {
         </div>
       ) : (
         <>
-          <button type="button" onClick={() => void begin()} className={cn(SEGMENT, "border border-border-gray text-ink hover:border-accent")}>
-            Sign in with GitHub
-          </button>
+          <Button onClick={() => void begin()}>Sign in with GitHub</Button>
           {signin && <p className="mt-1.5 text-[12px] text-clay-ink">{signin.reason}</p>}
         </>
       )}
@@ -489,23 +412,15 @@ function RunReports() {
     void fetch("/api/telemetry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on: value }) });
   };
   return (
-    <div role="radiogroup" aria-label="Run reports" className="inline-flex border border-border-gray p-0.5">
-      {[
+    <Segmented
+      label="Run reports"
+      value={on}
+      options={[
         { value: true, label: "Send" },
         { value: false, label: "Don't send" },
-      ].map((o) => (
-        <button
-          key={o.label}
-          type="button"
-          role="radio"
-          aria-checked={on === o.value}
-          onClick={() => choose(o.value)}
-          className={cn(SEGMENT, on === o.value ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+      ]}
+      onChange={choose}
+    />
   );
 }
 

@@ -61,6 +61,9 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
 export const keys = (mac: boolean, key: string, { ctrl = false, shift = false } = {}) =>
   mac ? `${ctrl ? "⌃" : "⌘"}${shift ? "⇧" : ""}${key}` : `Ctrl+${shift ? "Shift+" : ""}${key}`;
 
+/** The keys held to dictate (lib/agent/dictate.ts): Control and Option, Ctrl+Alt off a Mac. */
+export const dictateKeys = (mac: boolean) => (mac ? "⌃⌥" : "Ctrl+Alt");
+
 /** A key, as the app writes one everywhere: in tooltips, the palette, the status bar. */
 export function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
