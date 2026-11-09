@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { api } from "@/lib/server/api";
+import { signedInDevice } from "@/lib/server/credit";
 import { VERSION } from "@/lib/server/update";
 
 /**
  * Run reports for the admin dashboard (blpr.dev/admin, scripts/api/admin.mjs).
  * Each finished blueprint run sends what its report says, the end of its log and the
- * generator version, under an id that names this install and nothing else. On
+ * generator version, under an id that names this install and, while it is signed in to
+ * Blueprint credit, the GitHub account it is signed in as (by its credit device id). On
  * unless turned off in Settings; the choice lives beside the vault so the
  * server, which sends them, can read it.
  */
@@ -67,6 +69,7 @@ export async function sendRun(dir: string, kind: "generate" | "update", status: 
     const last = kind === "update" ? report?.updates?.at(-1) : null;
     const r = {
       install_id: t.installId,
+      device: (await signedInDevice().catch(() => null)) ?? undefined,
       app_version: VERSION ?? "source",
       mapper_version: (last ?? report)?.mapperVersion ?? blueprint?.RUN?.mapperVersion,
       kind,

@@ -116,6 +116,8 @@ async function save(s: Saved) {
 
 /** Whether the reader has turned the credit on. */
 export const creditOn = async () => (await saved()).on === true;
+/** This machine's credit id while it is signed in, which names the GitHub account its run reports come from; null otherwise. */
+export const signedInDevice = async () => ((await saved()).session ? deviceId() : null);
 
 export async function setCreditOn(on: boolean) {
   await save({ ...(await saved()), on });

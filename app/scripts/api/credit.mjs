@@ -347,6 +347,14 @@ async function record(account, lane, family, ip, headers, flags, code, u, micro)
         { ":one": 1, ":m": micro, ":i": u.input, ":o": u.output, ":r": u.cache_read, ":w": u.cache_write, ":f": flags.length ? 1 : 0, ":now": now.toISOString(), ":ttl": epoch() + 120 * 86400 },
         undefined, { "#calls": `${lane}_calls`, "#micro": `${lane}_micro`, "#ttl": "ttl" }),
     ),
+    // Kept for good, everyone's and each account's: the dashboard's lifetime totals, which the dated rows above expire out of.
+    ...["all", account].map((sk) =>
+      quiet(
+        update("life", sk, "ADD #calls :one, #micro :m, #tok :t, in_tok :i, out_tok :o, cr_tok :r, cw_tok :w, failed :x, flagged :f SET first_at = if_not_exists(first_at, :now), last_at = :now",
+          { ":one": 1, ":m": micro, ":t": u.input + u.output + u.cache_read + u.cache_write, ":i": u.input, ":o": u.output, ":r": u.cache_read, ":w": u.cache_write, ":x": code >= 200 && code < 300 ? 0 : 1, ":f": flags.length ? 1 : 0, ":now": now.toISOString() },
+          undefined, { "#calls": `${lane}_calls`, "#micro": `${lane}_micro`, "#tok": `${lane}_tok` }),
+      ),
+    ),
   ]);
 }
 

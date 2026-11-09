@@ -290,7 +290,7 @@ export function SettingsDialog() {
                 <Field
                   group
                   label="Run reports"
-                  hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, so the mapping keeps getting better. Never your code."
+                  hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, and the GitHub account you're signed in to Blueprint credit with, so the mapping keeps getting better. Never your code."
                 >
                   <RunReports />
                 </Field>

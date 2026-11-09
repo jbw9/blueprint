@@ -2,8 +2,8 @@
 // and read back by the dashboard at blpr.dev/admin (admin/index.html), which names each call as it
 // did when this lived in Supabase. Writes are open to anyone and keep only what fits; every read
 // checks the one dashboard password.
-import { randomInt, scryptSync, timingSafeEqual } from "node:crypto";
-import { config } from "./credit.mjs";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { config, status } from "./credit.mjs";
 import { daysAgo, get, getMany, put, query, today, update, without } from "./db.mjs";
 
 const clip = (s, n) => (typeof s === "string" ? s.slice(0, n) : undefined);
@@ -53,6 +53,8 @@ export async function recordRun({ r } = {}) {
     id,
     at,
     install_id: typeof r.install_id === "string" && /^[0-9a-f-]{36}$/.test(r.install_id) ? r.install_id : undefined,
+    // The machine's Blueprint credit id, sent while it is signed in: which GitHub account made the blueprint.
+    device: typeof r.device === "string" && /^[0-9a-f]{64}$/.test(r.device) ? r.device : undefined,
     app_version: clip(r.app_version, 20),
     mapper_version: Number.isInteger(r.mapper_version) ? r.mapper_version : undefined,
     kind: clip(r.kind, 20),
@@ -73,6 +75,60 @@ export async function recordRun({ r } = {}) {
     accepted: Array.isArray(report?.deepened) ? report.deepened.filter((s) => s?.accepted === true).length : undefined,
     tokens: bill ? bill.reduce((a, b) => a + (Number(b?.input) || 0) + (Number(b?.output) || 0) + (Number(b?.cacheRead) || 0), 0) : undefined,
   });
+}
+
+const IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const sha = (s) => createHash("sha256").update(s).digest("hex");
+export const FEEDBACK_STATUS = ["pending", "in progress", "resolved", "closed"];
+
+/**
+ * A bug report or feedback, from the app's Feedback dialog (components/chrome/feedback.tsx) or the
+ * landing page's contact form, which must give an email to be answered at. Up to three pictures,
+ * each its own item since one item holds at most 400 KB; the sender shrinks them to fit. The sender
+ * gets back a key, kept only as its hash here, that lets it read the report's status later.
+ */
+export async function sendFeedback({ f } = {}) {
+  const message = typeof f?.message === "string" ? f.message.trim().slice(0, 8000) : "";
+  const email = clip(f?.email, 200)?.trim() || undefined;
+  const source = f?.source === "landing" ? "landing" : "app";
+  if (!message) return { error: "Say what happened." };
+  if (email && !EMAIL.test(email)) return { error: "That email doesn't look right." };
+  if (source === "landing" && !email) return { error: "Add an email so we can write back." };
+  const images = (Array.isArray(f.images) ? f.images : []).filter((s) => typeof s === "string" && s.length < 380_000 && IMAGE.test(s)).slice(0, 3);
+  const at = new Date().toISOString();
+  const id = Date.now() * 1000 + randomInt(1000);
+  const key = randomBytes(24).toString("base64url");
+  await Promise.all(images.map((data, i) => put({ pk: `feedbackimg#${id}`, sk: String(i), data })));
+  await put({
+    pk: "feedback",
+    sk: `${at}#${id}`,
+    id,
+    at,
+    source,
+    kind: f.kind === "bug" ? "bug" : "feedback",
+    status: "pending",
+    message,
+    email,
+    install_id: typeof f.install_id === "string" && /^[0-9a-f-]{36}$/.test(f.install_id) ? f.install_id : undefined,
+    app_version: clip(f.app_version, 20),
+    os: clip(f.os, 80),
+    images: images.length,
+    key_hash: sha(key),
+  });
+  return { ok: true, id, at, key };
+}
+
+/** `{reports: [{id, at, key}]}` → the status of each the sender holds the key to, by id. */
+export async function feedbackStatus({ reports } = {}) {
+  const asked = (Array.isArray(reports) ? reports : [])
+    .filter((r) => Number.isSafeInteger(r?.id) && typeof r.at === "string" && r.at.length < 40 && typeof r.key === "string")
+    .slice(0, 100);
+  const rows = await getMany(asked.map((r) => ({ pk: "feedback", sk: `${r.at}#${r.id}` })));
+  const keyOf = new Map(asked.map((r) => [r.id, r.key]));
+  return Object.fromEntries(
+    rows.filter((r) => keyOf.has(r.id) && r.key_hash === sha(keyOf.get(r.id))).map((r) => [r.id, { status: r.status ?? "pending", updated_at: r.updated_at ?? null }]),
+  );
 }
 
 /* ── the dashboard ── */
@@ -251,15 +307,53 @@ export async function repo({ pw, repo_name } = {}) {
 export async function credit({ pw } = {}) {
   await allowed(pw);
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
-  const [c, accounts, spend, months, use, usage] = await Promise.all([
+  const [c, accounts, spend, months, use, usage, life, devices, runs] = await Promise.all([
     config(),
     query("account"),
     query("creditday", { from: days[0] }),
     query("creditmonth"),
     Promise.all(days.map((d) => query(`use#${d}`))),
     Promise.all(days.map((d) => query(`usage#${d}`))),
+    query("life"),
+    query("device"),
+    query("run"),
   ]);
-  const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, tokens_30: 0, flagged_30: 0, last_at: null });
+  const lifeOf = new Map(life.map((l) => [l.sk, l]));
+  const lifetime = (l) => ({
+    tab_usd: (Number(l?.tab_micro) || 0) / 1e6,
+    gen_usd: (Number(l?.gen_micro) || 0) / 1e6,
+    tab_tokens: Number(l?.tab_tok) || 0,
+    gen_tokens: Number(l?.gen_tok) || 0,
+    calls: (Number(l?.tab_calls) || 0) + (Number(l?.gen_calls) || 0),
+    tab_calls: Number(l?.tab_calls) || 0,
+    gen_calls: Number(l?.gen_calls) || 0,
+    in_tok: Number(l?.in_tok) || 0, out_tok: Number(l?.out_tok) || 0, cr_tok: Number(l?.cr_tok) || 0, cw_tok: Number(l?.cw_tok) || 0,
+    since: l?.first_at ?? null,
+  });
+  // Blueprints by GitHub account, through the machine each was made on.
+  const accountOf = new Map(devices.map((d) => [d.sk, d.account]));
+  const madeBy = new Map();
+  for (const r of runs) {
+    const a = r.device && accountOf.get(r.device);
+    if (!a) continue;
+    const m = madeBy.get(a) ?? { maps: 0, maps_failed: 0, updates: 0, map_report_usd: 0, repos: new Set(), last_map_at: null };
+    if (r.kind === "update") m.updates++;
+    else if (r.status === "ok") m.maps++;
+    else m.maps_failed++;
+    m.map_report_usd += Number(r.usd) || 0;
+    if (r.repo) m.repos.add(r.repo);
+    if (r.kind !== "update" && (!m.last_map_at || r.at > m.last_map_at)) m.last_map_at = r.at;
+    madeBy.set(a, m);
+  }
+  const fresh = runs.filter((r) => r.kind !== "update");
+  // Each account's allowance this week, as the app shows it; only for the accounts listed.
+  const listed = [...accounts].sort((a, b) => {
+    const t = (x) => { const l = lifetime(lifeOf.get(x.sk)); return l.tab_usd + l.gen_usd; };
+    return t(b) - t(a);
+  }).slice(0, 200);
+  const nowMeters = new Map(await Promise.all(listed.map(async (a) => [a.sk, (await status(a.sk).catch(() => null))?.meters ?? null])));
+  const none = () => ({ tab_usd_30: 0, gen_usd_30: 0, calls_30: 0, tokens_30: 0, flagged_30: 0, active_days_30: 0, active_7: false, last_at: null });
+  const weekAgo = daysAgo(6);
   const tok = (u) => (Number(u.in_tok) || 0) + (Number(u.out_tok) || 0) + (Number(u.cr_tok) || 0) + (Number(u.cw_tok) || 0);
   const by = new Map();
   for (const u of use.flat()) {
@@ -269,6 +363,8 @@ export async function credit({ pw } = {}) {
     d.calls_30 += (Number(u.tab_calls) || 0) + (Number(u.gen_calls) || 0);
     d.tokens_30 += tok(u);
     d.flagged_30 += Number(u.flagged) || 0;
+    d.active_days_30++;
+    if (u.pk.slice(4) >= weekAgo) d.active_7 = true;
     if (!d.last_at || u.last_at > d.last_at) d.last_at = u.last_at;
     by.set(u.sk, d);
   }
@@ -299,13 +395,22 @@ export async function credit({ pw } = {}) {
     usd_30: spend.reduce((a, d) => a + (Number(d.usd) || 0), 0),
     usd_month: Number(months.find((m) => m.sk === month)?.usd) || 0,
     usd_all: months.reduce((a, m) => a + (Number(m.usd) || 0), 0),
-    accounts: accounts
-      .map((a) => ({
+    life: lifetime(lifeOf.get("all")),
+    maps_all: fresh.filter((r) => r.status === "ok").length,
+    maps_failed_all: fresh.filter((r) => r.status !== "ok").length,
+    updates_all: runs.length - fresh.length,
+    active_7: [...by.values()].filter((d) => d.active_7).length,
+    accounts: listed.map((a) => {
+      const m = madeBy.get(a.sk);
+      return {
         account: a.sk, login: a.login ?? null, gh_created: a.gh_created ?? null, first_at: a.first_at ?? null, machines: a.devices?.size ?? 0,
         allowed: !!a.allowed, blocked: !!a.blocked, uncapped: !!a.uncapped, note: a.note ?? null, ...(by.get(a.sk) ?? none()),
-      }))
-      .sort((a, b) => b.tab_usd_30 + b.gen_usd_30 - (a.tab_usd_30 + a.gen_usd_30))
-      .slice(0, 200),
+        life: lifetime(lifeOf.get(a.sk)),
+        maps: m?.maps ?? 0, maps_failed: m?.maps_failed ?? 0, updates: m?.updates ?? 0, map_report_usd: m?.map_report_usd ?? 0,
+        repos: m ? [...m.repos].slice(0, 50) : [], last_map_at: m?.last_map_at ?? null,
+        meters: nowMeters.get(a.sk) ?? null,
+      };
+    }),
     accounts_all: accounts.length,
     daily: days.map((day, i) => {
       const d = spend.find((x) => x.sk === day);
@@ -322,4 +427,24 @@ export async function credit({ pw } = {}) {
     models: [...models.values()].map(({ micro, ...m }) => ({ ...m, usd: micro / 1e6 })).sort((a, b) => b.usd - a.usd),
     refused: Object.entries(refusedBy).map(([k, n]) => ({ kind: k.replace("_", " · "), n })).sort((a, b) => b.n - a.n),
   };
+}
+
+/** Every bug report and piece of feedback, newest first, without its pictures. */
+export async function feedback({ pw } = {}) {
+  await allowed(pw);
+  return (await query("feedback")).map((r) => without(r, "pk", "sk", "key_hash")).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+
+/** One report's pictures, as the data URLs the sender sent. */
+export async function feedbackImages({ pw, id } = {}) {
+  await allowed(pw);
+  if (!Number.isSafeInteger(Number(id))) return [];
+  return (await query(`feedbackimg#${Number(id)}`)).sort((a, b) => Number(a.sk) - Number(b.sk)).map((i) => i.data);
+}
+
+/** Moves a report along; its sender sees the new status in the app. */
+export async function setFeedbackStatus({ pw, id, at, status } = {}) {
+  await allowed(pw);
+  if (!Number.isSafeInteger(id) || typeof at !== "string" || !FEEDBACK_STATUS.includes(status)) return null;
+  return update("feedback", `${at}#${id}`, "SET #s = :s, updated_at = :now", { ":s": status, ":now": new Date().toISOString() }, "attribute_exists(pk)", { "#s": "status" });
 }
