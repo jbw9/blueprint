@@ -5,12 +5,12 @@ import { CREDIT_URL, accessToken, dropAccess, relaySecret } from "@/lib/server/c
  * Calls on Blueprint credit, passed to the proxy under the signed-in account's access token, which
  * the caller never sees: a Claude tab's (Claude Code in Bedrock mode, src-tauri/src/claude.rs) to
  * its `tab` lane, and the generator's (scripts/generate/bedrock.ts), sent under `/gen`, to its
- * `gen` lane. They answer only to the secret this server made when it started, so the credit works
- * through Blueprint while it runs and nowhere else.
+ * `gen` lane. They answer only to the secret this machine's Blueprint keeps (lib/server/credit.ts,
+ * relaySecret), so the credit works through Blueprint and nowhere else.
  */
 export async function POST(request: Request) {
   const given = Buffer.from((request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""));
-  const want = Buffer.from(relaySecret());
+  const want = Buffer.from(await relaySecret());
   if (given.length !== want.length || !timingSafeEqual(given, want))
     return Response.json({ message: "Not a Blueprint credit tab." }, { status: 401 });
 

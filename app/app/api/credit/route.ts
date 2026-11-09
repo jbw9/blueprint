@@ -12,7 +12,7 @@ import { notJson } from "@/lib/server/route";
 export async function GET(request: Request) {
   const url = relayAt(request);
   const s = await creditStatus();
-  const relay = s.available && s.on && !(s.fallback && (usedUp(s.meters?.session) || usedUp(s.meters?.week))) ? { url, token: relaySecret() } : null;
+  const relay = s.available && s.on && !(s.fallback && (usedUp(s.meters?.session) || usedUp(s.meters?.week))) ? { url, token: await relaySecret() } : null;
   return Response.json({ ...s, relay });
 }
 

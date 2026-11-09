@@ -8,7 +8,7 @@ import { join } from "node:path";
  * GitHub account signed in here, metered by the proxy (scripts/api). Signing in leaves a session in
  * credit.json, which only this user can read; the session buys access tokens that last 30 minutes
  * and stay in this server's memory. A Claude tab and the generator get only the relay's secret,
- * which works against this server alone and only while it runs (app/api/credit/relay).
+ * which works against this machine's Blueprint alone (app/api/credit/relay).
  */
 
 import { API_URL as CREDIT_URL } from "@/lib/server/api";
@@ -40,7 +40,8 @@ type Access = { token: string; exp: number };
 const state = ((
   globalThis as {
     __blueprintCredit?: {
-      secret: string;
+      secret?: Promise<string>;
+      secretNow?: string;
       device?: string | null;
       access?: Access;
       refreshing?: Promise<Access | null>;
@@ -51,7 +52,7 @@ const state = ((
       origin?: string;
     };
   }
-).__blueprintCredit ??= { secret: randomBytes(32).toString("hex") });
+).__blueprintCredit ??= {});
 
 /** This machine, as the proxy keeps a GitHub account to a few of them: a hash of the hardware's id, which is never sent. */
 function deviceId() {
@@ -62,8 +63,19 @@ function deviceId() {
   return state.device;
 }
 
-/** What a Claude tab or the generator presents to the relay; a new one each time this server starts. */
-export const relaySecret = () => state.secret;
+/**
+ * What a Claude tab or the generator presents to the relay. Kept in credit.json beside the session, which
+ * can do more than it, so a generator still running when the app restarts (an update) still gets through.
+ */
+export function relaySecret() {
+  state.secret ??= saved().then(async (s) => {
+    if (s.relay) return s.relay;
+    const relay = randomBytes(32).toString("hex");
+    await save({ ...s, relay });
+    return relay;
+  });
+  return state.secret;
+}
 
 /**
  * Where this server answers, as the page reached it; the relay is given as 127.0.0.1, which the
@@ -80,6 +92,7 @@ interface Saved {
   fallback?: boolean;
   session?: string;
   login?: string;
+  relay?: string;
 }
 
 async function file() {
@@ -230,6 +243,8 @@ export interface CreditStatus {
 
 export async function creditStatus(): Promise<CreditStatus> {
   const s = await askStatus();
+  // Known before `ready` is, so a generator spawned then (creditEnv) is given it.
+  state.secretNow = await relaySecret();
   state.ready = s.available && s.on;
   state.maps = s.meters?.maps;
   return s;
@@ -294,11 +309,11 @@ function filesIn(root: string) {
  * a run waits on nothing.
  */
 export function creditEnv(root?: string): Record<string, string> {
-  if (!state.ready || !state.origin) return {};
+  if (!state.ready || !state.origin || !state.secretNow) return {};
   const m = state.maps;
   if (m?.limit != null) {
     const used = m.resets && Date.parse(m.resets) > Date.now() ? m.used : 0;
     if (m.limit - used <= (root ? filesIn(root) * MICRO_PER_FILE : 0)) return {};
   }
-  return { SLOP_BACKEND: "bedrock", SLOP_BEDROCK_URL: `${state.origin}/api/credit/relay/gen`, SLOP_BEDROCK_TOKEN: relaySecret(), SLOP_CONCURRENCY: "4", AWS_REGION: "us-east-1" };
+  return { SLOP_BACKEND: "bedrock", SLOP_BEDROCK_URL: `${state.origin}/api/credit/relay/gen`, SLOP_BEDROCK_TOKEN: state.secretNow, SLOP_CONCURRENCY: "4", AWS_REGION: "us-east-1" };
 }
