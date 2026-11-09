@@ -89,7 +89,7 @@
   content: " ]";
 }
 
-/* ── the bar at the top: a rounded band floating over the sheet ── */
+/* ── the bar at the top: a band floating over the sheet ── */
 .nav {
   position: sticky;
   top: 0;
@@ -106,7 +106,6 @@
   margin: 0 auto;
   padding: 0 10px 0 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
   background: color-mix(in srgb, var(--bar) 94%, transparent);
   backdrop-filter: blur(10px);
   pointer-events: auto;
@@ -131,7 +130,7 @@
 .markLogo .blush {
   fill: var(--blush);
 }
-/* Plain words that light up on a soft fill, rounded like the band they sit in. */
+/* Plain words that light up on a soft fill. */
 .navBar nav {
   display: flex;
   margin: 0 auto;
@@ -139,7 +138,6 @@
 }
 .navBar nav a {
   padding: 6px 12px;
-  border-radius: 8px;
   color: var(--muted);
   font: 12px/1.4 var(--mono);
   letter-spacing: 0.04em;
