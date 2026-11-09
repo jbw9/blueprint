@@ -5,6 +5,7 @@
   --desk: #080e2f;
   --desk-line: rgba(255, 255, 255, 0.06);
   --paper: #111e4f;
+  --bar: #0b153f;
   --low: #212e5d;
   --ink: #dbe1f8;
   --muted: #afb6d3;
@@ -88,21 +89,31 @@
   content: " ]";
 }
 
-/* ── the bar at the top: in the sheet's colour, it stays at the top as the page scrolls under it ── */
+/* ── the bar at the top: a rounded band floating over the sheet ── */
 .nav {
   position: sticky;
   top: 0;
   z-index: 20;
-  padding: 0 var(--gutter);
-  background: var(--paper);
+  padding: 10px var(--gutter) 0;
+  pointer-events: none;
 }
 .navBar {
   display: flex;
   align-items: center;
   gap: 20px;
   max-width: calc(1480px - 2 * var(--gutter));
-  height: 56px;
+  height: 52px;
   margin: 0 auto;
+  padding: 0 10px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bar) 94%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  transition: border-color 0.3s ease-out;
+}
+.nav[data-float="true"] .navBar {
+  border-color: var(--strong);
 }
 .mark {
   display: flex;
@@ -120,23 +131,29 @@
 .markLogo .blush {
   fill: var(--blush);
 }
+/* Plain words that light up on a soft fill, rounded like the band they sit in. */
 .navBar nav {
   display: flex;
   margin: 0 auto;
-  gap: 8px;
+  gap: 2px;
 }
 .navBar nav a {
-  padding: 3px 8px;
-  border: 1px solid var(--strong);
-  font: 11.5px/1.4 var(--mono);
-  letter-spacing: 0.03em;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  font: 12px/1.4 var(--mono);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
   transition: background-color 0.15s ease-out, color 0.15s ease-out;
 }
 .navBar nav a:hover {
-  background: var(--ink);
-  color: var(--on-ink);
+  background: var(--low);
+  color: var(--ink);
+}
+.navBar nav .out {
+  margin-left: 4px;
+  opacity: 0.7;
 }
 .navBar .navCta {
   height: 32px;
@@ -153,7 +170,7 @@
   grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.5fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 24px clamp(24px, 4vw, 64px);
-  min-height: max(680px, calc(100svh - 2 * var(--edge) - 56px));
+  min-height: max(680px, calc(100svh - 2 * var(--edge) - 62px));
   max-width: 1480px;
   margin: 0 auto;
   padding: 12px var(--gutter) 28px;

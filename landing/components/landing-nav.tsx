@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import s from "./landing.module.css";
 
 const LINKS = [
@@ -8,10 +9,21 @@ const LINKS = [
   { href: "#questions", label: "Questions" },
 ];
 
-/** The bar across the top of the sheet, in its colour, which stays at the top as the page scrolls under it. */
+/** The bar across the top, which pulls in to a floating pill once the page scrolls. */
 export function LandingNav({ github }: { github: string }) {
+  const bar = useRef<HTMLElement>(null);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    // The page scrolls itself, not the window: the layout locks the body.
+    const page = bar.current!.closest<HTMLElement>(`.${s.page}`)!;
+    const on = () => setFloating(page.scrollTop > 24);
+    on();
+    page.addEventListener("scroll", on, { passive: true });
+    return () => page.removeEventListener("scroll", on);
+  }, []);
+
   return (
-    <header className={s.nav}>
+    <header ref={bar} className={s.nav} data-float={floating}>
       <div className={s.navBar}>
         <a
           className={s.mark}
@@ -19,7 +31,7 @@ export function LandingNav({ github }: { github: string }) {
           onClick={(e) => {
             // "#" scrolls the window, and the window never scrolls here.
             e.preventDefault();
-            e.currentTarget.closest(`.${s.page}`)!.scrollTo({ top: 0 });
+            bar.current!.closest(`.${s.page}`)!.scrollTo({ top: 0 });
           }}
         >
           <Logo />
@@ -31,7 +43,12 @@ export function LandingNav({ github }: { github: string }) {
               {l.label}
             </a>
           ))}
-          <a href={github}>GitHub</a>
+          <a href={github}>
+            GitHub
+            <span className={s.out} aria-hidden>
+              ↗
+            </span>
+          </a>
         </nav>
         <a className={`${s.btn} ${s.primary} ${s.navCta}`} href="#install">
           Install
