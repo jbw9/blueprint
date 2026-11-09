@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import s from "./landing.module.css";
 
 const LINKS = [
@@ -9,21 +8,10 @@ const LINKS = [
   { href: "#questions", label: "Questions" },
 ];
 
-/** The bar across the top, which pulls in to a floating pill once the page scrolls. */
+/** The bar across the top of the sheet, on the sheet itself; it scrolls away with the page. */
 export function LandingNav({ github }: { github: string }) {
-  const bar = useRef<HTMLElement>(null);
-  const [floating, setFloating] = useState(false);
-  useEffect(() => {
-    // The page scrolls itself, not the window: the layout locks the body.
-    const page = bar.current!.closest<HTMLElement>(`.${s.page}`)!;
-    const on = () => setFloating(page.scrollTop > 24);
-    on();
-    page.addEventListener("scroll", on, { passive: true });
-    return () => page.removeEventListener("scroll", on);
-  }, []);
-
   return (
-    <header ref={bar} className={s.nav} data-float={floating}>
+    <header className={s.nav}>
       <div className={s.navBar}>
         <a
           className={s.mark}
@@ -31,7 +19,7 @@ export function LandingNav({ github }: { github: string }) {
           onClick={(e) => {
             // "#" scrolls the window, and the window never scrolls here.
             e.preventDefault();
-            bar.current!.closest(`.${s.page}`)!.scrollTo({ top: 0 });
+            e.currentTarget.closest(`.${s.page}`)!.scrollTo({ top: 0 });
           }}
         >
           <Logo />
