@@ -73,6 +73,8 @@ pub async fn browser_open(
         .add_child(builder, LogicalPosition::new(x, y), LogicalSize::new(width, height))
         .map_err(|e| e.to_string())?;
     let _ = view.set_zoom(zoom);
+    #[cfg(target_os = "linux")]
+    over_app(&view, x, y, width, height);
     Ok(label)
 }
 
@@ -81,8 +83,60 @@ pub async fn browser_place(app: AppHandle, label: String, x: f64, y: f64, width:
     let view = app.get_webview(&label).ok_or(GONE)?;
     let bounds = Rect { position: LogicalPosition::new(x, y).into(), size: LogicalSize::new(width, height).into() };
     view.set_bounds(bounds).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    over_app(&view, x, y, width, height);
     view.set_zoom(zoom).map_err(|e| e.to_string())?;
     if shown { view.show() } else { view.hide() }.map_err(|e| e.to_string())
+}
+
+/// On Linux, Tauri packs a window's webviews one under another in a box,
+/// where `set_bounds` cannot move them: a page would sit below the app,
+/// taking half the window. So the app's own webview is put in an overlay
+/// (`overlay_app`, as the window opens) and each page is laid over it there,
+/// at `x`, `y` of the app's page, in logical pixels.
+#[cfg(target_os = "linux")]
+fn over_app(view: &tauri::Webview, x: f64, y: f64, width: f64, height: f64) {
+    use gtk::prelude::*;
+    let _ = view.with_webview(move |page| {
+        let w: gtk::Widget = page.inner().upcast();
+        let Some(parent) = w.parent() else { return };
+        if parent.downcast_ref::<gtk::Overlay>().is_none() {
+            // Still where Tauri packed it, in the window's box beside the overlay.
+            let Some(container) = parent.downcast_ref::<gtk::Box>() else { return };
+            let Some(overlay) = container.children().into_iter().find_map(|c| c.downcast::<gtk::Overlay>().ok()) else {
+                return;
+            };
+            container.remove(&w);
+            w.set_halign(gtk::Align::Start);
+            w.set_valign(gtk::Align::Start);
+            overlay.add_overlay(&w);
+        }
+        // Margins cannot be negative: a page partly out of sight is hidden (webview.ts).
+        w.set_margin_start(x.max(0.0).round() as i32);
+        w.set_margin_top(y.max(0.0).round() as i32);
+        w.set_size_request(width.max(1.0).round() as i32, height.max(1.0).round() as i32);
+    });
+}
+
+/// The app's webview, moved from the window's box into an overlay in its
+/// place, for pages from the web to be laid over (`over_app`).
+#[cfg(target_os = "linux")]
+pub fn overlay_app(window: &tauri::WebviewWindow) {
+    use gtk::prelude::*;
+    let _ = window.with_webview(|app_view| {
+        let view: gtk::Widget = app_view.inner().upcast();
+        let Some(container) = view.parent().and_then(|p| p.downcast::<gtk::Box>().ok()) else {
+            return;
+        };
+        let at = container.child_position(&view);
+        let overlay = gtk::Overlay::new();
+        container.remove(&view);
+        overlay.add(&view);
+        container.pack_start(&overlay, true, true, 0);
+        container.reorder_child(&overlay, at);
+        overlay.show();
+        view.grab_focus();
+    });
 }
 
 #[tauri::command]

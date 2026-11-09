@@ -171,7 +171,10 @@ fn open_main(app: &tauri::AppHandle) -> tauri::Result<()> {
         .on_new_window(move |url, features| popup::open(&opener, &url, features))
         .build()?;
     #[cfg(target_os = "linux")]
-    pinch_to_page(&_window);
+    {
+        pinch_to_page(&_window);
+        browser::overlay_app(&_window);
+    }
     Ok(())
 }
 
