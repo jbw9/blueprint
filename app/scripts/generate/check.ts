@@ -21,6 +21,43 @@ export interface CheckResult {
 
 /** A detail's length as D38 counts it: two short sentences at most. */
 export const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
+/** Text cut to its first n words, its own line breaks and paragraphs kept. */
+export const fitWords = (s: string, n: number) => {
+  const end = [...s.matchAll(/\S+/g)][n - 1];
+  return (end ? s.slice(0, end.index! + end[0].length) : s).trim();
+};
+/** Lines an explainer's prose cannot hold: the page shows it as plain paragraphs. */
+const FENCED = /```[\s\S]*?(```|$)/g;
+const DRAWN = /^\s*(?:[+|].*[-|+]\s*$|[-=+_]{4,}\s*$)/m;
+const LISTED = /^\s*(?:[-*•]|\d+[.)])\s+/m;
+const HEADED = /^\s*#{1,6}\s/m;
+/** What an explainer's body holds that is not plain prose. */
+export function proseProblems(body: string): string[] {
+  const rest = body.replace(FENCED, "");
+  return [
+    rest !== body ? "a code block" : "",
+    DRAWN.test(rest) ? "a text drawing" : "",
+    LISTED.test(rest) ? "a list" : "",
+    HEADED.test(rest) ? "a heading" : "",
+  ].filter(Boolean);
+}
+/** An explainer's body as plain paragraphs: code blocks, drawings and headings dropped, list items and lines run together. */
+export const plainProse = (body: string) =>
+  body
+    .replace(FENCED, "\n\n")
+    .split(/\n\s*\n/)
+    .map((p) =>
+      p
+        .split("\n")
+        .filter((l) => !DRAWN.test(l) && !HEADED.test(l))
+        .map((l) => l.replace(LISTED, "").trim())
+        .filter(Boolean)
+        .join(" "),
+    )
+    .filter(Boolean)
+    .join("\n\n");
+/** The rule an explainer's body is written to, as a model is told it. */
+export const PROSE_RULE = "Plain prose in short paragraphs with a blank line between them: no code blocks, text drawings, lists or headings.";
 /** A card's `sub` is a glance, not a summary: its children already name its parts. */
 export const SUB_WORDS = 8;
 /** A block's caption is a heading over the picture, not a sentence about it.
@@ -454,10 +491,10 @@ export const EXPLAIN_LEVEL: ExplainLevel = (["none", "minimal", "brief", "detail
 
 /** An explainer's body: enough to define the words a level leans on, short enough to read. */
 export const BOUNDS = {
-  full: { min: 25, max: 200, blocks: 2, terms: [4, 12], steps: [3, 8], say: "a few short paragraphs, and a picture where it says more", words: "a newcomer must know to read this blueprint" },
-  detailed: { min: 15, max: 120, blocks: 1, terms: [4, 10], steps: [3, 6], say: "one or two short paragraphs", words: "a newcomer must know to read this blueprint" },
-  brief: { min: 8, max: 60, blocks: 0, terms: [3, 8], steps: [3, 5], say: "a sentence or two", words: "a developer outside this field would not know" },
-  minimal: { min: 4, max: 30, blocks: 0, terms: [2, 5], steps: [3, 4], say: "one sentence", words: "this project uses in its own sense" },
+  full: { min: 25, max: 200, top: 90, blocks: 2, terms: [4, 12], steps: [3, 8], say: "a few short paragraphs, and a picture where it says more", words: "a newcomer must know to read this blueprint" },
+  detailed: { min: 15, max: 120, top: 70, blocks: 1, terms: [4, 10], steps: [3, 6], say: "one or two short paragraphs", words: "a newcomer must know to read this blueprint" },
+  brief: { min: 8, max: 60, top: 50, blocks: 0, terms: [3, 8], steps: [3, 5], say: "a sentence or two", words: "a developer outside this field would not know" },
+  minimal: { min: 4, max: 30, top: 30, blocks: 0, terms: [2, 5], steps: [3, 4], say: "one sentence", words: "this project uses in its own sense" },
 } as const;
 
 /**
@@ -474,8 +511,11 @@ function explainProblems(n: any, level: ExplainLevel): string[] {
     out.push(`EXPLAIN ${n.id} has no explain — give \`explain.body\`: this level in plain words for someone new to the project and its field, defining each word it leans on`);
   else {
     const w = words(e.body);
+    const max = n.id === OVERVIEW_ID ? EXPLAIN.top : EXPLAIN.max;
     if (w < EXPLAIN.min) out.push(`EXPLAIN ${n.id} — ${w} words (min ${EXPLAIN.min}); say what problem this solves and how, defining its terms`);
-    if (w > EXPLAIN.max) out.push(`EXPLAIN ${n.id} — ${w} words (max ${EXPLAIN.max}); ${EXPLAIN.say}`);
+    if (w > max) out.push(`EXPLAIN ${n.id} — ${w} words (max ${max}); ${EXPLAIN.say}`);
+    const kinds = proseProblems(e.body);
+    if (kinds.length) out.push(`EXPLAIN ${n.id} body has ${kinds.join(", ")} — ${PROSE_RULE} A picture goes in \`explain.blocks\``);
   }
   if ((e?.blocks ?? []).length > EXPLAIN.blocks) out.push(`EXPLAIN ${n.id} has ${e.blocks.length} pictures (max ${EXPLAIN.blocks})`);
   if (!n.children?.length) {

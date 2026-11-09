@@ -17,7 +17,7 @@ import type { Overview } from "@/lib/blueprint/build";
 import { authorTool, converse, tryJson } from "./author";
 import { type Handled } from "./claude-code";
 import { INFERRED_RULE } from "./graph-tools";
-import { bareLines, check, EXPLAIN_LEVEL, fileReader, OVERVIEW_ID, WALK_STEPS, WALKS } from "./check";
+import { bareLines, BOUNDS, check, EXPLAIN_LEVEL, PROSE_RULE, fileReader, OVERVIEW_ID, WALK_STEPS, WALKS } from "./check";
 import { owners, type Cut } from "./cut";
 import type { Inventory } from "./inventory";
 import { shapeProblems } from "./schema";
@@ -121,18 +121,18 @@ ${WAY_IN[EXPLAIN_LEVEL]}Budget: about 10 tool calls before you submit.`,
   ].filter(Boolean).join("\n\n");
 }
 
-/** What the top level adds for a newcomer, at the blueprint's explain level (D70). The full text is D68's, unchanged. */
+/** What the top level adds for a newcomer, at the blueprint's explain level (D70), kept short: the picture and the sections follow it. */
 const WAY_IN = {
-  full: `Then the way in for a reader who has never seen this project or its field — shown at the top of the blueprint, so it can say more than the rest of the blueprint:
-- \`explain\`: \`body\` is 2-4 short paragraphs (blank line between, at most 200 words): what this system is for and who uses it, the problem it solves, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds 0-2 pictures only where they teach more than the prose — usually one \`diagram\` of the system in its world (the users, the machines, the outside services, and what flows between them), its boxes opening nothing and its arrows needing no \`at\`.
+  full: `Then the way in for a reader who has never seen this project or its field — shown at the top of the blueprint:
+- \`explain\`: \`body\` is one or two short paragraphs (blank line between, at most ${BOUNDS.full.top} words): what this system is for and who uses it, and the idea behind how it works, defining each word of its field the first time. ${PROSE_RULE} \`blocks\` holds 0-2 pictures only where they teach more than the prose — usually one \`diagram\` of the system in its world (the users, the machines, the outside services, and what flows between them), its boxes opening nothing and its arrows needing no \`at\`.
 - \`glossary\`: 4-12 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field ("quorum", "webhook") and of this project ("metadata image") alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   detailed: `Then the way in for a reader who knows a little of this kind of software and none of this project — shown at the top of the blueprint:
-- \`explain\`: \`body\` is one or two short paragraphs (blank line between, at most 120 words): what this system is for and who uses it, and the idea behind how it works, defining each word of its field the first time. \`blocks\` holds at most one picture, only where it teaches more than the prose — usually a \`diagram\` of the system in its world, its boxes opening nothing and its arrows needing no \`at\`.
+- \`explain\`: \`body\` is one short paragraph, at most ${BOUNDS.detailed.top} words: what this system is for and who uses it, and the idea behind how it works, defining each word of its field the first time. ${PROSE_RULE} \`blocks\` holds at most one picture, only where it teaches more than the prose — usually a \`diagram\` of the system in its world, its boxes opening nothing and its arrows needing no \`at\`.
 - \`glossary\`: 4-10 terms the blueprint's titles and details lean on, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words. Terms of the field and of this project alike; skip words everyone knows. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   brief: `Then a short way in for a reader who knows this kind of software but not this project — shown at the top of the blueprint:
-- \`explain\`: \`body\` is one to three sentences, at most 60 words: what this system is for and the idea behind how it is built. No \`blocks\`.
+- \`explain\`: \`body\` is one to three sentences, at most ${BOUNDS.brief.top} words: what this system is for and the idea behind how it is built. No \`blocks\`.
 - \`glossary\`: 3-8 terms, as \`{term, meaning}\`, each meaning one plain sentence of at most 25 words — only this project's own words, or words a developer outside this field would not know. It is never listed — each term is defined on hover where the blueprint uses it, so use the exact word the text uses.
 `,
   minimal: `Then a one-line way in for a reader who knows this kind of software and has used this project — shown at the top of the blueprint:
