@@ -88,7 +88,9 @@ if [ -z "$pre" ]; then
   if [ "$os" = Linux ]; then
     export TRANSCRIBE_CMAKE_ARGS="${TRANSCRIBE_CMAKE_ARGS:+$TRANSCRIBE_CMAKE_ARGS }-DTRANSCRIBE_USE_SYSTEM_BLAS=OFF"
   fi
-  if [ "$os" = Darwin ]; then npx tauri build --bundles app; else npx tauri build --no-bundle; fi
+  # A release's version (release.yml) goes into the app too, so About shows it; tauri.conf.json's stays for builds from source.
+  set -- ${BLUEPRINT_VERSION:+--config "{\"version\":\"$BLUEPRINT_VERSION\"}"}
+  if [ "$os" = Darwin ]; then npx tauri build --bundles app "$@"; else npx tauri build --no-bundle "$@"; fi
 fi
 
 if [ "$os" = Windows ]; then
