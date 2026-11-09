@@ -56,7 +56,7 @@ Headings are short sentences in sentence case, ending in a full stop: "People us
 - **Note card**: a small `--strong` box of mono uppercase text, sometimes with a tiny drawn diagram (`.note`).
 - **Window**: a picture in a `--strong` frame with a mono caption bar and a × (`.window`).
 - **Ring**: a word circled in a pill outline (`.ring2`), used once, on "checked".
-- **Buttons and nav links**: square corners, a 1px ink or `--strong` border, mono uppercase, and an ink fill on hover. Nothing on the sheet is rounded except the sheet itself (6px) and the ring.
+- **Buttons and nav links**: square corners, a 1px ink or `--strong` border, mono uppercase, and an ink fill on hover. Nothing on the sheet is rounded except the sheet itself (6px), the nav band (12px) and the ring.
 - **Title block**: the footer is a drawing's title block (`.end`), with Title, Source, Site, Scale ("Repo to line") and Sheet.
 
 ## Pictures
@@ -85,7 +85,7 @@ When you replace a picture, give the file a new name. Browsers cache by name.
 
 ## The page, top to bottom
 
-1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It is its own band in `--bar`, a blue darker than the sheet, at 94% with a blur. A hairline runs under it, and turns to `--strong` once the page scrolls under it. It has no theme switch.
+1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It floats 10px below the top of the sheet as a rounded band (12px corners, at most 1040px wide, centred) in `--bar`, a blue darker than the sheet, at 94% with a blur. Its hairline border turns to `--strong` once the page scrolls under it. The space around it lets clicks through to the page. It has no theme switch.
 2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe. On the right is the claim in light slab, plain text with no pictures or marks in it: "Understand the code you didn't write." Under it is one sentence on what Blueprint does, then the install line. "Scroll to open the app ↓" sits at the bottom.
 3. **How we got here** (`landing-evolution.tsx`). One wavy line drawn down the sheet as the reader scrolls, through three people, each a tilted plate with a year, a name and one line: Lovelace (1843), Turing (1936) and Karpathy (2025, who coined vibe coding). Keep it to three. The point is a glance, not a history lesson.
 4. **And now there's you.** Uncle Sam points out at the reader from behind the heading. Then comes the live app, which zooms up out of the page as the reader reaches it.
