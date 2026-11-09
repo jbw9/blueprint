@@ -11,9 +11,9 @@ const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : undefined)
 const fits = (x, n) => (x != null && JSON.stringify(x).length < n ? x : undefined);
 const count = (x) => (Array.isArray(x) ? x.length : undefined);
 
-export async function trackInstall({ os, arch, ok } = {}) {
+export async function trackInstall({ os, arch, ok, version } = {}) {
   const at = new Date().toISOString();
-  await put({ pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true });
+  await put({ pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true, version: clip(version, 20) });
 }
 
 /** One browser's day on blpr.dev: where it first came from that day, and whether it copied the install command. Kept 400 days. */
@@ -53,6 +53,7 @@ export async function recordRun({ r } = {}) {
     id,
     at,
     install_id: typeof r.install_id === "string" && /^[0-9a-f-]{36}$/.test(r.install_id) ? r.install_id : undefined,
+    app_version: clip(r.app_version, 20),
     mapper_version: Number.isInteger(r.mapper_version) ? r.mapper_version : undefined,
     kind: clip(r.kind, 20),
     status: clip(r.status, 20) ?? "unknown",
@@ -117,6 +118,15 @@ function updatesOf(g, runs) {
 
 const summary = (r) => without(r, "pk", "sk");
 
+/** The app version each machine ran last, from its runs: what is still in use, so how long the backend must keep answering it. */
+function appsInUse(runs) {
+  const last = new Map();
+  for (const r of runs) if (!last.has(r.install_id ?? null) || last.get(r.install_id ?? null).at < r.at) last.set(r.install_id ?? null, r);
+  const by = new Map();
+  for (const r of last.values()) by.set(r.app_version ?? "unknown", (by.get(r.app_version ?? "unknown") ?? 0) + 1);
+  return [...by].map(([version, machines]) => ({ version, machines })).sort((a, b) => b.machines - a.machines);
+}
+
 export async function overview({ pw } = {}) {
   await allowed(pw);
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
@@ -163,6 +173,7 @@ export async function overview({ pw } = {}) {
     pages: top(visits.map((v) => ({ key: v.path || "/", visitor: v.visitor })), "page"),
     countries: top(visits.map((v) => ({ key: v.country ?? "unknown", visitor: v.visitor })), "country"),
     os: [...osRows.values()].sort((a, b) => b.installs - a.installs),
+    apps: appsInUse(runs.filter((r) => r.at > since)),
     versions: [...versions]
       .map(([v, rs]) => {
         const ok = rs.filter((r) => r.status === "ok");

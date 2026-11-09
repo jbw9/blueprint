@@ -1,0 +1,45 @@
+name: API
+
+# The backend (app/scripts/api), deployed to the bluprint-api Lambda when main changes it. It must keep
+# answering every app version still in use (the admin dashboard's App versions), so a change only adds;
+# MIN_CLIENT in index.mjs is the way to drop something old. Deploy it before the app release that uses it.
+# Needs the repository variable AWS_DEPLOY_ROLE: a role in 891376942131 that GitHub's OIDC provider can
+# assume from this repository's main, allowed lambda:UpdateFunctionCode and lambda:GetFunction on bluprint-api.
+on:
+  push:
+    branches: [main]
+    paths:
+      - app/scripts/api/**
+      - .github/workflows/api.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.AWS_DEPLOY_ROLE != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check
+        working-directory: app/scripts/api
+        run: for f in *.mjs; do node --check "$f"; done
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+
+      - name: Deploy
+        working-directory: app
+        run: |
+          sh scripts/api/pack.sh
+          aws lambda update-function-code --function-name bluprint-api --zip-file fileb://out/api.zip >/dev/null
+          aws lambda wait function-updated-v2 --function-name bluprint-api

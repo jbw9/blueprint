@@ -9,7 +9,7 @@
 //   GET  /status                        Bearer <token>      → the account's windows
 //   POST /{tab|gen}/model/{id}/{op}     Bearer <token>      → Bedrock's own reply
 //
-// Env: TABLE, TOKEN_SECRET, PROFILES ({"haiku": arn, "sonnet": arn, "opus": arn}).
+// Env: TABLE, TOKEN_SECRET, PROFILES ({"haiku": arn, "sonnet": arn, "opus": arn}), MIN_CLIENT (tooOld).
 import * as admin from "./admin.mjs";
 import { accessOf, network, refresh, signIn, signOut } from "./auth.mjs";
 import { promo, relay, status } from "./credit.mjs";
@@ -27,6 +27,19 @@ const RPC = {
   bp_admin_repo: admin.repo,
   bp_admin_credit: admin.credit,
 };
+
+/**
+ * Whether an app is older than MIN_CLIENT (env, e.g. "0.3.0"), the oldest the backend still answers:
+ * set it only to drop something an older app relies on, as it is otherwise kept. A build from source,
+ * or an app from before versions, says no number and is let through.
+ */
+function tooOld(version) {
+  const min = process.env.MIN_CLIENT;
+  if (!min || !/^\d+\.\d+\.\d+$/.test(version ?? "")) return false;
+  const [a, b] = [version, min].map((v) => v.split(".").map(Number));
+  const i = a.findIndex((n, k) => n !== b[k]);
+  return i >= 0 && a[i] < b[i];
+}
 
 export const handler = awslambda.streamifyResponse(async (event, stream) => {
   const reply = (status, body, headers = {}) => {
@@ -48,6 +61,8 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
   };
 
   try {
+    if (tooOld(headers["x-blueprint-version"]))
+      return reply(426, { message: "This Blueprint is out of date. It's downloading the new one now; restart it when the status bar says so." });
     const rpc = method === "POST" && path.match(/^\/rpc\/(\w+)$/);
     if (rpc) {
       const fn = Object.hasOwn(RPC, rpc[1]) ? RPC[rpc[1]] : null;

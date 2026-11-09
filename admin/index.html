@@ -431,6 +431,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
       '<div class="card"><h3>First page</h3>' + list(d.pages || [], "page", "visitors") + "</div>" +
       '<div class="card"><h3>Countries</h3>' + list(d.countries, "country", "visitors") + "</div>" +
       '<div class="card"><h3>Installs by system</h3>' + list(d.os, "os", "installs") + "</div>" +
+      '<div class="card"><h3>App versions <span>machines, by their last run</span></h3>' + list(d.apps || [], "version", "machines") + "</div>" +
       "</div></section>" +
 
       '<section><p class="eyebrow">Generator</p><h2>By version</h2><p class="lede">Full blueprint runs only, not updates. Times and cost are medians and averages of runs that finished.</p>' +

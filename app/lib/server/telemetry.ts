@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { API_URL } from "@/lib/server/api";
+import { api } from "@/lib/server/api";
+import { VERSION } from "@/lib/server/update";
 
 /**
  * Run reports for the admin dashboard (blpr.dev/admin, scripts/api/admin.mjs).
@@ -66,6 +67,7 @@ export async function sendRun(dir: string, kind: "generate" | "update", status: 
     const last = kind === "update" ? report?.updates?.at(-1) : null;
     const r = {
       install_id: t.installId,
+      app_version: VERSION ?? "source",
       mapper_version: (last ?? report)?.mapperVersion ?? blueprint?.RUN?.mapperVersion,
       kind,
       status,
@@ -81,7 +83,7 @@ export async function sendRun(dir: string, kind: "generate" | "update", status: 
       report: kind === "update" ? last : report,
       log_tail: tail(join(dir, kind === "update" ? "update.log" : "generate.log")),
     };
-    await fetch(`${API_URL}/rpc/bp_record_run`, {
+    await api("/rpc/bp_record_run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ r }),
