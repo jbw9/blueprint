@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         return Response.json(updateBlueprint(root as string, str(claude), turnOf(turn), force === true, body.opened === true) ?? { skipped: true });
       case "pause":
         if (!str(id)) return bad("bad request");
-        setPaused(id as string, paused === true);
+        setPaused(id as string, paused === true, str(claude));
         return Response.json({ ok: true });
       case "focus":
         // The section the reader opened, written in full next.

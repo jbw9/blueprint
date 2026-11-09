@@ -261,6 +261,7 @@ export function ProjectsDialog() {
                       onOpen={(at) => openBlueprint(p.id, at)}
                       onRegenerate={(explain, full) => void regenerate(p.id, explain, full)}
                       onCancel={() => void act({ action: "cancel", id: p.id })}
+                      onPause={async () => void act({ action: "pause", id: p.id, paused: !p.paused, claude: p.paused ? await claudePath() : undefined })}
                       onRemove={() => void remove(p.id)}
                     />
                   ))}
@@ -690,6 +691,7 @@ function ProjectRow({
   onOpen,
   onRegenerate,
   onCancel,
+  onPause,
   onRemove,
 }: {
   p: Listed;
@@ -699,6 +701,7 @@ function ProjectRow({
   onOpen: (at?: string) => void;
   onRegenerate: (explain: Explain, full?: boolean) => void;
   onCancel: () => void;
+  onPause: () => void;
   onRemove: () => void;
 }) {
   // What opens under the row: making the blueprint (again), or confirming removal,
@@ -717,6 +720,7 @@ function ProjectRow({
   else {
     if (status === "failed" || status === "cancelled") items.push({ label: "Retry blueprint", onClick: () => onRegenerate(p.explain ?? "full"), disabled: busy });
     if (!p.hasBlueprint) items.push({ label: "Make a blueprint…", onClick: () => setPanel("make") });
+    else items.push({ label: p.paused ? "Start auto-updates" : "Stop auto-updates", onClick: onPause, disabled: busy });
   }
   items.push({ label: "Remove from Projects…", onClick: () => setPanel("remove"), separated: true });
 

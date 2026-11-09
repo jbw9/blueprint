@@ -516,12 +516,14 @@ function reviewPids(id: string): number[] {
 /**
  * Turn a project's blueprint on or off. Off ends any run, update, story or review
  * in flight, so nothing more is spent on it, and keeps whatever blueprint is
- * already there.
+ * already there. On catches up with the commits made while it was off.
  */
-export function setPaused(id: string, paused: boolean) {
-  if (!getProject(id)) return;
+export function setPaused(id: string, paused: boolean, claude?: string) {
+  const p = getProject(id);
+  if (!p) return;
   if (paused) stopAll(id);
   update(id, (q) => (q.paused = paused || undefined));
+  if (!paused) updateBlueprint(p.root, claude);
 }
 
 /** End a run started here and every `claude` it started: each is the leader of its own process group. */

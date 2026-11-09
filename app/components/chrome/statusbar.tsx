@@ -191,7 +191,7 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
       label: p.paused ? "Start Auto-Updates" : "Stop Auto-Updates",
       disabled: generating,
       separated: true,
-      onClick: () => void run(async () => ({ action: "pause", id, paused: !p.paused })),
+      onClick: () => void run(async () => ({ action: "pause", id, paused: !p.paused, claude: p.paused ? await claudePath() : undefined })),
     },
   ];
   return (
@@ -341,10 +341,12 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
   };
   // A new commit updates the blueprint; the server runs it only for a HEAD it
   // has not updated at (lib/server/vault.ts). Claude mid-turn asks with its turn when it ends.
+  // Paused, nothing follows: turning updates back on catches up (lib/server/vault.ts, setPaused).
+  const paused = Boolean(p?.paused);
   useEffect(() => {
-    if (!head || !root || claudeMidTurnIn(root)) return;
+    if (!head || !root || paused || claudeMidTurnIn(root)) return;
     void followTurn(root, { transcript: null, corrections: [] });
-  }, [head, root]);
+  }, [head, root, paused]);
 
   useEffect(() => {
     if (!fresh) return;
@@ -379,11 +381,13 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
       <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
         <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
           Editing · {live?.touched.length ?? 0} {live?.touched.length === 1 ? "section" : "sections"} affected
- · blueprint follows on commit
+          {paused ? " · auto-updates paused" : " · blueprint follows on commit"}
         </span>
-        <button type="button" onClick={follow} className={BAR_ACTION}>
-          Update now
-        </button>
+        {paused ? null : (
+          <button type="button" onClick={follow} className={BAR_ACTION}>
+            Update now
+          </button>
+        )}
       </span>
     ) : null;
   const what = u.sections?.length ? u.sections.join(", ") : u.changed?.join(", ");
