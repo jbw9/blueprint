@@ -150,8 +150,9 @@ const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
  * `before`/`after` carry no text here — just `null` where the file is absent.
  */
 function between(repo: string, from: string, to: string): Change[] {
-  const full = perFile(git(repo, "diff", "--no-color", "--no-renames", "-U3", from, to));
-  const zero = perFile(git(repo, "diff", "--no-color", "--no-renames", "-U0", from, to));
+  // Relative, as the blueprint's paths are: a project in a subfolder of its repository otherwise gets the whole repository's, named from its top.
+  const full = perFile(git(repo, "diff", "--no-color", "--no-renames", "--relative", "-U3", from, to));
+  const zero = perFile(git(repo, "diff", "--no-color", "--no-renames", "--relative", "-U0", from, to));
   const out: Change[] = [];
   for (const [path, lines] of [...full].sort(([a], [b]) => a.localeCompare(b))) {
     const created = lines.some((l) => l.startsWith("new file mode"));
@@ -544,7 +545,7 @@ function movesBetween(root: string, a: string, b: string): Map<string, string> {
   // Today's path for each path as it was at `from`, renamed oldest commit first.
   const now = new Map<string, string>();
   const was = new Map<string, string>();
-  for (const l of git(root, "log", "--reverse", "--format=", "--name-status", "-M", `${from}..${to}`).split("\n")) {
+  for (const l of git(root, "log", "--reverse", "--format=", "--name-status", "--relative", "-M", `${from}..${to}`).split("\n")) {
     const [status, old, moved] = l.split("\t");
     if (!status?.startsWith("R") || !moved) continue;
     const first = was.get(old) ?? old;
@@ -607,12 +608,12 @@ export function blueprintDiff(root: string, from: string | undefined, to: string
   const byPath = new Map(found.map((c) => [renamed.get(c.path) ?? c.path, c]));
 
   const carried = new Map<string, Change | undefined>();
-  const start = (path: string) => (path in seen ? seen[path] : hasAt(root, made, path) ? git(root, "show", `${made}:${path}`) : null);
+  const start = (path: string) => (path in seen ? seen[path] : hasAt(root, made, `./${path}`) ? git(root, "show", `${made}:./${path}`) : null);
   const carry = (path: string) => {
     if (!carried.has(path)) {
       const before = start(path);
       const there = back.get(path) ?? path;
-      const after = hasAt(root, base, there) ? git(root, "show", `${base}:${there}`) : null;
+      const after = hasAt(root, base, `./${there}`) ? git(root, "show", `${base}:./${there}`) : null;
       carried.set(path, before !== null && after !== null && before !== after ? { path, before, after, ...diffOf(path, before, after) } : undefined);
     }
     return carried.get(path);
@@ -724,6 +725,7 @@ export function commitLog(root: string, n = 50): Commit[] {
     `-n${n}`,
     "--format=%x1e%H%x1f%h%x1f%aI%x1f%an%x1f%s%x1f%ae%x1f%cn%x1f%ce%x1f%cI%x1f%P%x1f%D%x1f%b%x1d",
     "--numstat",
+    "--relative",
   );
   for (const block of log.split("\x1e")) {
     const cut = block.indexOf("\x1d");

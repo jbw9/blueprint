@@ -19,7 +19,7 @@ const FRESH = 24 * 60 * 60 * 1000;
 const MAX = 5 << 20;
 
 /** Hosts that name this machine or a private network: never fetched. */
-const LOCAL = /^(localhost|.*\.local|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1\]?$|\[?f[cd][0-9a-f]{2}:|\[?fe80:)/i;
+const LOCAL = /^(localhost|.*\.local|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1\]?$|\[::|\[?f[cd][0-9a-f]{2}:|\[?fe80:)/i;
 
 export class NotAnImage extends Error {}
 

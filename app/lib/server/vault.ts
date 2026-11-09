@@ -259,6 +259,12 @@ export function listProjects(): Project[] {
       updated(p);
       changed = true;
     }
+    // Cancelled after a restart, the run is no child of this server, so no exit clears its pid,
+    // and a later pause or remove would signal whatever process takes that pid next.
+    if (p.blueprint.status === "cancelled" && p.blueprint.pid && !alive(p.blueprint.pid)) {
+      p.blueprint.pid = undefined;
+      changed = true;
+    }
     if (p.blueprint.status !== "generating" || (p.blueprint.pid && alive(p.blueprint.pid))) continue;
     const blueprint = join(projectDir(p.id), "blueprint.json");
     const ok = existsSync(blueprint) && statSync(blueprint).mtimeMs > Date.parse(p.blueprint.startedAt);
@@ -509,6 +515,8 @@ function reviewPids(id: string): number[] {
   const dir = join(projectDir(id), "reviews");
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
+    // A finished review keeps its pid file, and once the pid is reused it names someone else's process.
+    .filter((c) => !existsSync(join(dir, c, "update.json")))
     .map((c) => pidIn(join(dir, c, "review.pid")))
     .filter((pid): pid is number => !!pid && alive(pid));
 }
@@ -543,6 +551,8 @@ function stop(pid: number) {
  */
 export async function removeProject(id: string) {
   const root = getProject(id)?.root;
+  // The id arrives from the page: `..` or a path would name a folder that is no project's, the vault itself among them.
+  if (!root) return;
   const pids = stopAll(id);
   const v = readVault();
   v.projects = v.projects.filter((p) => p.id !== id);

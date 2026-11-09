@@ -9,6 +9,7 @@
  * Server only: it runs git and gh.
  */
 import { execFileSync } from "node:child_process";
+import { delimiter } from "node:path";
 import { git } from "@/scripts/generate/gitdiff";
 
 export interface Review {
@@ -43,7 +44,7 @@ export interface Pull {
 }
 
 // A desktop app's server starts with launchd's PATH, which has no Homebrew.
-const PATH = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(":");
+const PATH = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(delimiter);
 
 function gh(root: string, args: string[]): string | null {
   try {
