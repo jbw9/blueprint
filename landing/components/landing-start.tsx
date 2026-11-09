@@ -4,37 +4,48 @@ import s from "./landing.module.css";
 const QUESTIONS = [
   {
     q: "Is this an IDE?",
-    a: "No. Keep the editor you use. An editor shows one file at a time and an agent panel one message at a time; Blueprint shows how the whole repository fits together and what a change did to it. It opens the code where you need it, and hands your questions to the agent beside it.",
+    a: "Yes, the next one: you read your repository as a blueprint instead of line by line, and it's built so you can hand an agent context in a click and the agent finds the rest itself.",
+  },
+  {
+    q: "Do I still need my editor?",
+    a: "Keep it if you like; any line in the blueprint opens there.",
+  },
+  {
+    q: "How does it work with agents?",
+    a: "Pick any section, box or line and it goes to Claude as context, and Claude reads the blueprint to find the code it needs.",
   },
   {
     q: "Does my code leave my computer?",
-    a: "Only the way it does whenever you use Claude Code: your own Claude Code reads the files it needs to make the blueprint. The blueprint itself is saved on your computer and nowhere else.",
+    a: "Only to your own Claude Code, as it would anyway; the blueprint stays on your machine.",
   },
   {
     q: "What do I need?",
+    a: "A Mac or Linux desktop and Claude Code on a Claude plan.",
+  },
+  {
+    q: "What does it cost?",
     a: (
       <>
-        A Mac or a Linux desktop, and Claude Code signed in with a Claude plan. Making a blueprint counts against that plan&rsquo;s usage, like any other Claude
-        Code session.
+        Making a blueprint uses your Claude plan, like any Claude Code session.
         <LandingPromo>
           {" "}
-          For a limited time the plan is optional: sign in with GitHub in Blueprint&rsquo;s settings, and Claude tabs and new blueprints run on Blueprint&rsquo;s
-          own Claude: blueprints with no limit, and Claude tabs up to about half a Claude Pro plan (<a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/promotion`}>the terms</a>).
+          For a limited time, sign in with GitHub in settings and it runs on Blueprint&rsquo;s Claude instead (
+          <a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/promotion`}>the terms</a>).
         </LandingPromo>
       </>
     ),
   },
   {
     q: "Which languages does it read?",
-    a: "TypeScript, JavaScript, Python, Go, Ruby, Rust, Java, Kotlin, Scala, Swift, PHP, C# and Elixir, along with Vue, Svelte and Astro components, and the SQL, Prisma, GraphQL and protobuf files around them.",
+    a: "TypeScript, Python, Go, Rust, Java, Swift and most other major languages, plus SQL, Prisma, GraphQL and protobuf.",
   },
   {
-    q: "How do I tell what's proven from what's a guess?",
-    a: "A solid line or a plain card came from the code. Anything the blueprint couldn't prove is marked: a dashed line, or a card labelled partial or inferred. Sentences that failed the check are taken out before you see them.",
+    q: "What's proven and what's a guess?",
+    a: "Solid lines came from the code; dashed lines and cards marked inferred didn't.",
   },
   {
     q: "What happens when the code changes?",
-    a: "An update finds the files that changed since the blueprint last looked, redoes only the sections whose code they touch, and moves every other line reference along with the code, so the rest stays true.",
+    a: "Only the sections whose code changed are redone; the rest stays put.",
   },
 ];
 
