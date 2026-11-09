@@ -212,27 +212,8 @@
   left: -12%;
   width: 118%;
   max-width: none;
+  opacity: 0.55;
   pointer-events: none;
-}
-/* From the pointing finger to the claim. */
-/* The hand is 118% of the plate wide, so its fingertip sits at a fixed share of the plate's width. */
-.lead {
-  position: absolute;
-  z-index: 1;
-  top: calc(34% + 10.4cqw);
-  left: 66%;
-  right: -44px;
-  border-top: 1px solid var(--ink);
-}
-.lead::after {
-  content: "";
-  position: absolute;
-  right: -4px;
-  top: -5px;
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--ink);
-  background: var(--paper);
 }
 .window {
   position: absolute;
@@ -1693,9 +1674,6 @@
   }
   .plate {
     min-height: 380px;
-  }
-  .lead {
-    display: none;
   }
   .coverFoot {
     flex-direction: column-reverse;

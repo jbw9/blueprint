@@ -22,8 +22,7 @@ export function LandingCover() {
             &mdash; every sentence <span className={s.ring2}>checked</span> against the lines it cites.
           </p>
         </div>
-        <img className={s.hand} src={img("hand")} alt="" />
-        <span className={s.lead} />
+        <img className={s.hand} src={img("hand-clean")} alt="" />
         <figure className={s.window}>
           <figcaption>
             ENIAC, 1946 <i>×</i>
