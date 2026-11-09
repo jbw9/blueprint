@@ -7,8 +7,8 @@ import s from "./landing.module.css";
 const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/night-${name}.png`;
 
 /**
- * The first screen, drawn as a sheet of notes: the claim set in light type
- * with pictures between the words, and down the left a grid with a hand
+ * The first screen, drawn as a sheet of notes: the claim set in light type,
+ * and down the left a grid with a hand
  * reaching for the first step, as the reader will.
  */
 export function LandingCover() {
@@ -34,24 +34,14 @@ export function LandingCover() {
 
       <div className={s.claim}>
         <h1 id="cover-title" className={s.coverTitle}>
-          Understand <Spark /> the code{" "}
-          <span className={s.inline} style={{ "--r": "0.63" } as React.CSSProperties}>
-            <img src={img("hamilton")} alt="Margaret Hamilton beside the printed source code of the Apollo guidance software" />
-          </span>{" "}
+          Understand the code{" "}
           <span className={s.boxed}>
             you didn&rsquo;t write.<small>written by an agent</small>
           </span>
         </h1>
         <p className={s.coverSub}>
-          Blueprint splits a repository{" "}
-          <span className={s.inline} style={{ "--r": "1.6" } as React.CSSProperties}>
-            <img src={img("rope")} alt="" />
-          </span>{" "}
-          into the steps the program takes. Click a step to open its parts, and keep going{" "}
-          <span className={s.inline} style={{ "--r": "0.7" } as React.CSSProperties}>
-            <img src={img("microscope")} alt="" />
-          </span>{" "}
-          until you reach the code.
+          Blueprint splits a repository into the steps the program takes. Click a step to open its parts, and keep
+          going until you reach the code.
         </p>
         <div className={s.card}>
           <LandingInstall />
@@ -69,15 +59,6 @@ export function LandingCover() {
         </a>
       </div>
     </section>
-  );
-}
-
-/** The four-pointed star the sheet uses as its mark. */
-function Spark() {
-  return (
-    <svg className={s.spark} viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 0C12.9 7.6 16.4 11.1 24 12C16.4 12.9 12.9 16.4 12 24C11.1 16.4 7.6 12.9 0 12C7.6 11.1 11.1 7.6 12 0Z" />
-    </svg>
   );
 }
 

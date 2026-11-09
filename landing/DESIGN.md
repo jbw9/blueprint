@@ -46,7 +46,7 @@ A selected or hovered control fills with ink, and its text turns `--on-ink`. Tex
 
 Sizes scale with `clamp()`. The cover is `clamp(46px, 5.5vw, 92px)` and section headings are around `clamp(32px, 4vw, 60px)`. Lettering stays light (300). Weight comes from size, not from bold.
 
-Headings are short sentences in sentence case, ending in a full stop: "People used to write every line." / "And now there's you." The cover is the only place lettering runs mixed case at full size with pictures in it.
+Headings are short sentences in sentence case, ending in a full stop: "People used to write every line." / "And now there's you."
 
 ## The sheet's vocabulary
 
@@ -55,7 +55,6 @@ Headings are short sentences in sentence case, ending in a full stop: "People us
 - **Note card**: a small `--strong` box of mono uppercase text, sometimes with a tiny drawn diagram (`.note`).
 - **Window**: a picture in a `--strong` frame with a mono caption bar and a × (`.window`).
 - **Ring**: a word circled in a pill outline (`.ring2`), used once, on "checked".
-- **The spark**: a four-pointed star (`Spark` in `landing-cover.tsx`), the sheet's one mark. Use it rarely.
 - **Buttons and nav links**: square corners, a 1px ink or `--strong` border, mono uppercase, and an ink fill on hover. Nothing on the sheet is rounded except the sheet itself (6px) and the ring.
 - **Title block**: the footer is a drawing's title block (`.end`), with Title, Source, Site, Scale ("Repo to line") and Sheet.
 
@@ -76,7 +75,7 @@ Recipe (Pillow): grey → `autocontrast(cutoff=1)` → a gamma lift (`v ** 0.6�
 
 There are two kinds:
 
-1. **Framed plates**: the photo in a 1px `--strong` frame, sometimes tilted 1–2°. These are the timeline portraits (`night-tl-*.png`, 4:5) and the pictures set in the cover's lines of text (`.inline`). The inline ones are sized in `em` so they sit in the line; set `--r` to the photo's width ÷ height so nothing is cropped.
+1. **Framed plates**: the photo in a 1px `--strong` frame, sometimes tilted 1–2°. These are the timeline portraits (`night-tl-*.png`, 4:5) and the ENIAC window on the cover.
 2. **Cutouts**: the subject with no background, so it fades into the sheet. Make the background shade transparent after dithering, flood-fill the light background in from the edges, and fade the bottom out. These are Adam's hand on the cover (`night-hand-edge.png`: the fresco's cracks taken out, a thin line along the right hand's top contour so it does not read as hollow, and the right hand at 85% so the left one leads) and Uncle Sam behind "And now there's you." (`night-uncle-sam-cutout.png`). Keep anything pale that belongs to the subject, like Uncle Sam's hat, out of the fill.
 
 **Pick pictures from the history of programming**: people who wrote code by hand, the machines they wrote it for, and the instruments of looking closely (a microscope, a reaching hand). Prefer public domain (Wikimedia Commons). Name every picture in the credits line under the sheet, with its licence if it isn't public domain, and take a picture's credit out when the picture goes.
@@ -86,7 +85,7 @@ When you replace a picture, give the file a new name. Browsers cache by name.
 ## The page, top to bottom
 
 1. **Nav.** The logo (the app icon's drawing, without its paper) and the wordmark in mono on the left, the section links as small boxed tags in the middle, and Install as an ink button on the right. It sticks to the top in the sheet's blue at 88% with a blur, and gains a hairline once the page scrolls. It has no theme switch.
-2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe. On the right is the claim in light slab: "Understand ✦ the code [Hamilton] you didn't write." Under it is one sentence on what Blueprint does, with two more pictures set in it, then the install line. "Scroll to open the app ↓" sits at the bottom.
+2. **Cover** (`landing-cover.tsx`). One screen tall. On the left is a hairline grid with a note card, Adam's hand reaching right, a small ENIAC window and a wireframe globe. On the right is the claim in light slab, plain text with no pictures or marks in it: "Understand the code you didn't write." Under it is one sentence on what Blueprint does, then the install line. "Scroll to open the app ↓" sits at the bottom.
 3. **How we got here** (`landing-evolution.tsx`). One wavy line drawn down the sheet as the reader scrolls, through three people, each a tilted plate with a year, a name and one line: Lovelace (1843), Turing (1936) and Karpathy (2025, who coined vibe coding). Keep it to three. The point is a glance, not a history lesson.
 4. **And now there's you.** Uncle Sam points out at the reader from behind the heading. Then comes the live app, which zooms up out of the page as the reader reaches it.
 5. **The rest**: quotes, why, how it works, beside your agent, your repo, questions, the close and the title block. They are all drawn with the same vocabulary: ink-bar panels, hairline rules, mono labels and light slab headings.
