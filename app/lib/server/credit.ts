@@ -311,20 +311,39 @@ function filesIn(root: string) {
   }
 }
 
+/** A new blueprint of `root` the credit is on for but could not finish: what it would cost, about, against what is left of Maps this week. */
+export interface CreditShort {
+  files: number;
+  usd: number;
+  left: number;
+  resets: string | null;
+}
+
+export function creditShort(root: string): CreditShort | null {
+  if (!state.ready || !state.origin || !state.secretNow) return null;
+  const m = state.maps;
+  if (m?.limit == null) return null;
+  const used = m.resets && Date.parse(m.resets) > Date.now() ? m.used : 0;
+  const files = filesIn(root);
+  const left = m.limit - used;
+  return left > files * MICRO_PER_FILE ? null : { files, usd: (files * MICRO_PER_FILE) / 1e6, left: Math.max(0, left) / 1e6, resets: m.resets ?? null };
+}
+
 /**
  * What a generator run adds to its environment: with the credit on and open to this account, the
  * generator's own Bedrock backend, pointed at the relay's `gen` lane, four calls at a time as the
- * proxy allows; otherwise nothing, and the run stays on the reader's Claude Code. So does a new
- * blueprint of `root` that would cost more than what is left of Maps, rather than stop halfway.
- * Read from the last status the page asked for (the status bar asks as the app opens), so starting
- * a run waits on nothing.
+ * proxy allows; otherwise nothing, and the run stays on the reader's Claude Code. A new blueprint
+ * of `root` that would cost more than what is left of Maps stays there too, rather than stop
+ * halfway: the reader is asked first (vault.ts, generate). Read from the last status the page asked
+ * for (the status bar asks as the app opens), so starting a run waits on nothing.
  */
 export function creditEnv(root?: string): Record<string, string> {
   if (!state.ready || !state.origin || !state.secretNow) return {};
+  if (root && creditShort(root)) return {};
   const m = state.maps;
   if (m?.limit != null) {
     const used = m.resets && Date.parse(m.resets) > Date.now() ? m.used : 0;
-    if (m.limit - used <= (root ? filesIn(root) * MICRO_PER_FILE : 0)) return {};
+    if (m.limit - used <= 0) return {};
   }
   return { SLOP_BACKEND: "bedrock", SLOP_BEDROCK_URL: `${state.origin}/api/credit/relay/gen`, SLOP_BEDROCK_TOKEN: state.secretNow, SLOP_CONCURRENCY: "4", AWS_REGION: "us-east-1" };
 }

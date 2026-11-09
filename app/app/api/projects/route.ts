@@ -104,7 +104,8 @@ export async function POST(request: Request) {
         return Response.json(await cloneProject(url as string, root as string, str(name) ?? "", str(claude), level, paused === true));
       case "regenerate":
         if (!str(id)) return bad("bad request");
-        return Response.json(generate(id as string, str(claude), level, full === true) ?? null);
+        // `own`: the reader chose their own Claude Code for a blueprint too big for the credit left.
+        return Response.json(generate(id as string, str(claude), level, full === true, body.own === true) ?? null);
       case "update":
         if (!str(root)) return bad("bad request");
         // A checkout no project of the user's blueprints (an example's) cannot follow it.

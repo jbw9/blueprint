@@ -344,7 +344,8 @@ export function NoBlueprint({ id }: { id: string }) {
     setStarting(true);
     setError(null);
     try {
-      await projectAction({ action: "regenerate", id, claude: await claudePath() });
+      // Too big for the credit left: no run comes, the reader is asked instead (credit-short.tsx).
+      if ((await projectAction({ action: "regenerate", id, claude: await claudePath() }))?.short) setStarting(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStarting(false);

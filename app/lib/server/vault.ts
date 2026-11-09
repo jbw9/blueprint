@@ -30,7 +30,7 @@ import { pathToFileURL } from "node:url";
 import { cloneUrl, repoName } from "@/lib/client/clone";
 import type { Run } from "@/lib/blueprint/schema";
 import { sendRun } from "@/lib/server/telemetry";
-import { creditEnv } from "@/lib/server/credit";
+import { creditEnv, creditShort, type CreditShort } from "@/lib/server/credit";
 
 const IDENTIFIER = "dev.blueprint.app";
 
@@ -389,7 +389,7 @@ export async function cloneProject(input: string, parentIn: string, nameIn: stri
  * Claude Code. Detached, in its own process group, so it survives a reload of
  * this server and Cancel can end it and every `claude` it started at once.
  */
-export function generate(id: string, claude?: string, explain?: Explain, full?: boolean): Project | undefined {
+export function generate(id: string, claude?: string, explain?: Explain, full?: boolean, own?: boolean): (Project & { short?: CreditShort }) | undefined {
   // Asking for the blueprint by hand is asking for it to be kept up again.
   if (getProject(id)?.paused) update(id, (q) => (q.paused = undefined));
   const was = getProject(id);
@@ -403,6 +403,14 @@ export function generate(id: string, claude?: string, explain?: Explain, full?: 
   const p = getProject(id);
   if (!p) return undefined;
   if (p.blueprint.status === "generating" && p.blueprint.pid && alive(p.blueprint.pid)) return p;
+  // On the credit, a blueprint bigger than what is left of Maps would stop halfway: the reader
+  // chooses their own Claude Code for it, or not now (components/projects/credit-short.tsx).
+  const short = own ? null : creditShort(p.root);
+  if (short) {
+    // A project just imported was marked as generating before this ran; it waits without a blueprint.
+    if (p.blueprint.status === "generating") update(id, (q) => (q.blueprint = { status: "empty", startedAt: q.blueprint.startedAt }));
+    return { ...getProject(id)!, short };
+  }
   // An update still running would write its blueprint over this one when it ends,
   // and it reads the files cleared below: the new blueprint replaces it, so it stops.
   if (p.update?.status === "running" && p.update.pid && alive(p.update.pid)) stop(p.update.pid);

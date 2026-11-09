@@ -6,6 +6,7 @@ import { DiffPanel } from "@/components/review/diff-panel";
 import { FilesPanel } from "@/components/blueprint/files";
 import { BlueprintProvider } from "@/components/blueprint/blueprint-context";
 import { ProjectsDialog } from "@/components/projects/projects";
+import { CreditShortDialog } from "@/components/projects/credit-short";
 import { AuditDialog } from "@/components/blueprint/audit";
 import { HistoryDialog } from "@/components/review/additions";
 import { FeedbackDialog } from "@/components/chrome/feedback";
@@ -55,6 +56,7 @@ export default async function Home({
         <SettingsDialog />
         <FeedbackDialog />
         <ProjectsDialog />
+        <CreditShortDialog />
         <MenuBar />
       </div>
     );
@@ -104,6 +106,7 @@ export default async function Home({
         {STATIC_BLUEPRINT ? null : <Dictation />}
         {STATIC_BLUEPRINT ? null : <Copied />}
         <ProjectsDialog />
+        <CreditShortDialog />
         <HistoryDialog />
         <AuditDialog />
         {STATIC_BLUEPRINT ? null : <MenuBar />}
