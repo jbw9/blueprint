@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useSyncExternalStore } from "react";
 import { claudeTab, insertPrompt } from "@/lib/agent/context";
 import { openSettings, readSettings, saveSettings } from "@/lib/client/settings";
@@ -178,7 +179,7 @@ function put(text: string): boolean {
 
 const MODIFIER = new Set(["Control", "Alt", "Meta", "Shift"]);
 /** Control and Option down together, and nothing else. */
-const both = (e: KeyboardEvent) => e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey;
+const both = (e: KeyboardEvent | PointerEvent) => e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey;
 
 /** Claude Code's dictation for Claude's prompt where it has it; on-device for the rest. */
 function begin() {
@@ -223,18 +224,30 @@ export function useDictationKey() {
       held = false;
       void stopDictation();
     };
-    // A key-up lost to another window would leave the microphone open.
-    const blur = () => {
+    const end = () => {
       held = false;
       void stopDictation();
     };
+    // A key-up lost to another window would leave the microphone open. The
+    // window's own focus, not the page's blur: an agent's preview clicking
+    // takes the keyboard into its frame or webview, which blurs the page
+    // though the window is still the one in front.
+    const focus = getCurrentWindow().onFocusChanged(({ payload }) => {
+      if (!payload) end();
+    });
+    // A key-up that went to the preview while it held the keyboard: the
+    // pointer still knows the keys are up.
+    const moved = (e: PointerEvent) => {
+      if (held && !both(e)) end();
+    };
     window.addEventListener("keydown", down, true);
     window.addEventListener("keyup", up, true);
-    window.addEventListener("blur", blur);
+    window.addEventListener("pointermove", moved, true);
     return () => {
       window.removeEventListener("keydown", down, true);
       window.removeEventListener("keyup", up, true);
-      window.removeEventListener("blur", blur);
+      window.removeEventListener("pointermove", moved, true);
+      void focus.then((off) => off());
     };
   }, []);
 }
