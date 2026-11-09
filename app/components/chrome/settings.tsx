@@ -32,7 +32,44 @@ const GROUNDS: { value: Ground; label: string }[] = [
 type Found = { path: string; version: string | null } | null;
 
 /** Opens a page in the reader's own browser, not a Preview tab. */
-const external = (url: string) => void invoke("preview_external", { url }).catch(() => window.open(url, "_blank"));
+export const external = (url: string) => void invoke("preview_external", { url }).catch(() => window.open(url, "_blank"));
+
+/**
+ * GitHub's device sign-in, as two steps: the code, then the page it goes on.
+ * Shown bare, the code read as something GitHub had sent rather than something
+ * to type in. It is copied as it shows, where the webview allows it.
+ */
+export function GitHubCode({ code, url, onCancel }: { code: string; url: string; onCancel: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = useCallback(() => void navigator.clipboard.writeText(code).then(() => setCopied(true), () => {}), [code]);
+  useEffect(copy, [copy]);
+  return (
+    <div className="flex flex-col gap-3 text-[12.5px]">
+      <div>
+        <p className="text-ink">1. Copy this code</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="select-all border border-border-strong bg-card px-3 py-1.5 font-mono text-[20px] tracking-[0.2em] text-ink">{code}</span>
+          <Button onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
+        </div>
+      </div>
+      <div>
+        <p className="text-ink">2. Paste it on GitHub and authorize Blueprint</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <Button variant="primary" onClick={() => external(url)}>
+            Open GitHub
+          </Button>
+          <span className="font-mono text-[11.5px] text-faint">{url.replace(/^https:\/\//, "")}</span>
+        </div>
+      </div>
+      <p className="text-muted-slate">
+        Waiting for GitHub…{" "}
+        <button type="button" onClick={onCancel} className="cursor-pointer text-accent hover:underline">
+          Cancel
+        </button>
+      </p>
+    </div>
+  );
+}
 
 /** A group of settings under its name. */
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -376,19 +413,7 @@ function BlueprintCredit() {
           </p>
         </>
       ) : signin && "code" in signin ? (
-        <div className="font-mono text-[11.5px]">
-          <span className="select-all text-[15px] tracking-[0.15em] text-ink">{signin.code}</span>
-          <p className="mt-1 text-muted-slate">
-            Enter this code at{" "}
-            <a href={signin.url} onClick={(e) => (e.preventDefault(), external(signin.url))} className="text-accent hover:underline">
-              {signin.url.replace(/^https:\/\//, "")}
-            </a>
-            . Waiting for GitHub…{" "}
-            <button type="button" onClick={() => setSignin(null)} className="cursor-pointer text-accent hover:underline">
-              Cancel
-            </button>
-          </p>
-        </div>
+        <GitHubCode code={signin.code} url={signin.url} onCancel={() => setSignin(null)} />
       ) : (
         <>
           <Button onClick={() => void begin()}>Sign in with GitHub</Button>

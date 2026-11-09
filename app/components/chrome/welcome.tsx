@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button, Kbd, keys } from "@/components/ui/button";
 import { useMac } from "@/lib/client/platform";
 import { newProject, openFolder, openProjects } from "@/components/projects/projects";
 import { cn } from "@/lib/client/utils";
-import { openSettings, readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
-import { readCredit } from "@/lib/client/credit";
+import { readSettings, saveSettings, useSettings, type Theme } from "@/lib/client/settings";
+import { pollSignIn, readCredit, startSignIn } from "@/lib/client/credit";
 import type { BlueprintEntry } from "@/lib/server/blueprints";
+import { external, GitHubCode } from "@/components/chrome/settings";
 
 /**
  * The blank page: what the window shows with no project open — none asked
@@ -80,13 +80,11 @@ const noop = () => () => {};
 const finish = () => saveSettings({ ...readSettings(), onboarded: true });
 
 /**
- * The first run: what a blueprint is, shown by opening one, then the theme, then
- * the way in. Three steps, any of them skippable.
+ * The first run: the theme, then the way in. Two steps, either skippable.
  */
 function Tour() {
   const [step, setStep] = useState(0);
   const steps = [
-    { title: "Your code, as a blueprint", body: "Blueprint reads a repository and draws it a level at a time. Click a box to go down a level.", view: <Demo /> },
     { title: "Pick a look", body: "It changes as you choose. Settings can change it later.", view: <Themes /> },
     { title: "Make your first blueprint", body: "Open a folder on this machine, or clone one from GitHub. Claude Code writes the blueprint. When it finishes, Blueprint sends us how long it took and what it cost, never your code; Settings turns that off.", view: <Begin /> },
   ];
@@ -123,83 +121,7 @@ function Tour() {
   );
 }
 
-/* ── step 1: a blueprint you can open ───────────────────────────────── */
-
-type Node = { label: string; sub: string; kids?: Node[]; code?: string[] };
-
-const SAMPLE: Node = {
-  label: "my-app",
-  sub: "the whole repository",
-  kids: [
-    {
-      label: "Sign in",
-      sub: "what a person does first",
-      kids: [
-        { label: "Login form", sub: "components/login.tsx", code: ["export function Login() {", "  const [email, setEmail] = useState(\"\");", "  return <form onSubmit={send}>…</form>;", "}"] },
-        { label: "Session", sub: "lib/session.ts", code: ["export async function signIn(email: string) {", "  const token = await api.post(\"/login\", { email });", "  cookies.set(\"session\", token);", "}"] },
-      ],
-    },
-    {
-      label: "Checkout",
-      sub: "paying for the cart",
-      kids: [
-        { label: "Cart", sub: "lib/cart.ts", code: ["export const total = (items: Item[]) =>", "  items.reduce((n, i) => n + i.price * i.qty, 0);"] },
-        { label: "Payment", sub: "api/pay.ts", code: ["export async function POST(req: Request) {", "  const { cart } = await req.json();", "  return charge(total(cart.items));", "}"] },
-      ],
-    },
-    { label: "Data", sub: "where things are kept", kids: [{ label: "Database", sub: "db/schema.sql", code: ["create table users (", "  id serial primary key,", "  email text unique", ");"] }] },
-  ],
-};
-
-function Demo() {
-  const [path, setPath] = useState<Node[]>([SAMPLE]);
-  const here = path[path.length - 1];
-  return (
-    <div className="border border-border-strong bg-surface">
-      <div className="flex items-center gap-1 border-b border-border-gray px-3 py-2 font-mono text-[11.5px]">
-        {path.map((n, i) => (
-          <span key={i} className="flex items-center gap-1">
-            {i ? <span className="text-faint">/</span> : null}
-            <button
-              type="button"
-              disabled={i === path.length - 1}
-              onClick={() => setPath(path.slice(0, i + 1))}
-              className={cn(i === path.length - 1 ? "text-ink" : "cursor-pointer text-accent hover:underline")}
-            >
-              {n.label}
-            </button>
-          </span>
-        ))}
-      </div>
-      <div key={here.label} className="min-h-[168px] animate-[tour-in_180ms_ease-out] p-4">
-        {here.code ? (
-          <pre className="overflow-x-auto bg-code p-3 font-mono text-[12px] leading-[1.6] text-code-plain">{here.code.join("\n")}</pre>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {here.kids?.map((k, i) => (
-              <button
-                key={k.label}
-                type="button"
-                onClick={() => setPath([...path, k])}
-                className="group cursor-pointer border border-border-strong bg-card p-3 text-left transition-[border-color,transform] duration-100 hover:-translate-y-px hover:border-accent"
-              >
-                <span className="block font-display text-[16px] text-ink" style={{ color: `var(--color-sec-${i + 1}-ink)` }}>
-                  {k.label}
-                </span>
-                <span className="mt-0.5 block truncate text-[12px] text-muted-slate">{k.sub}</span>
-                <span className="mt-3 block font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint group-hover:text-accent">
-                  {k.code ? "View code →" : "Open →"}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── step 2: the theme ────────────────────────────────────────── */
+/* ── step 1: the theme ────────────────────────────────────────── */
 
 /** Each theme's own colours, so a card shows its theme whatever the page is in. */
 const LOOKS: { value: Theme; label: string; note: string; bar: string; paper: string; ink: string; line: string; box: string; tint: string }[] = [
@@ -268,7 +190,7 @@ function Mini({ look: l }: { look: (typeof LOOKS)[number] }) {
   );
 }
 
-/* ── step 3: the way in ───────────────────────────────────────── */
+/* ── step 2: the way in ───────────────────────────────────────── */
 
 /** The palette's Go to key (components/chrome/palette.tsx), as this platform writes it. */
 function GoTo() {
@@ -303,8 +225,34 @@ const TERMS = "https://blpr.dev/promotion";
 /** Blueprint's free Claude Code promotion, while it is on and this machine isn't signed in to it yet. */
 function Promo() {
   const [shown, setShown] = useState(false);
+  // GitHub's code while the reader enters it, the account once they have, or why signing in stopped.
+  const [signin, setSignin] = useState<{ code: string; url: string; interval: number } | { login: string } | { reason: string } | null>(null);
   useEffect(() => void readCredit().then((c) => setShown(!!c?.promo && !c.login)), []);
+  useEffect(() => {
+    if (!signin || !("code" in signin)) return;
+    let stop = false;
+    let t: ReturnType<typeof setTimeout>;
+    const poll = (wait: number) => {
+      t = setTimeout(async () => {
+        const p = await pollSignIn().catch(() => ({ wait }));
+        if (stop) return;
+        if ("wait" in p) poll(p.wait);
+        else setSignin(p);
+      }, wait * 1000);
+    };
+    poll(signin.interval);
+    return () => {
+      stop = true;
+      clearTimeout(t);
+    };
+  }, [signin]);
   if (!shown) return null;
+
+  const begin = async () => {
+    const r = await startSignIn().catch(() => ({ reason: "Blueprint could not start the sign-in." }));
+    setSignin(r);
+    if ("code" in r) external(r.url);
+  };
   return (
     <div className="border border-accent bg-accent-surface p-4 sm:col-span-2">
       <span className="block text-[14px] font-semibold text-ink">Claude Code is free for a limited time</span>
@@ -312,18 +260,21 @@ function Promo() {
         Sign in with GitHub and Blueprint pays for the Claude behind it. Making blueprints is unlimited, within fair use. Claude tabs get about half of a Claude Pro plan,
         in a 5-hour session and a weekly limit like Claude Code&rsquo;s own. When that runs out, they switch to your own Claude Code by themselves.
       </span>
-      <span className="mt-3 flex items-center gap-3 text-[12.5px]">
-        <button type="button" onClick={openSettings} className={LINK}>
-          Sign in with GitHub in Settings
-        </button>
-        <a
-          href={TERMS}
-          onClick={(e) => (e.preventDefault(), void invoke("preview_external", { url: TERMS }).catch(() => window.open(TERMS, "_blank")))}
-          className={LINK}
-        >
-          Terms
-        </a>
-      </span>
+      {signin && "code" in signin ? (
+        <div className="mt-4">
+          <GitHubCode code={signin.code} url={signin.url} onCancel={() => setSignin(null)} />
+        </div>
+      ) : signin && "login" in signin ? (
+        <span className="mt-3 block text-[12.5px] text-ink">Signed in as @{signin.login}. Claude Code now runs on Blueprint credit.</span>
+      ) : (
+        <span className="mt-3 flex items-center gap-3 text-[12.5px]">
+          <Button onClick={() => void begin()}>Sign in with GitHub</Button>
+          <a href={TERMS} onClick={(e) => (e.preventDefault(), external(TERMS))} className={LINK}>
+            Terms
+          </a>
+        </span>
+      )}
+      {signin && "reason" in signin && <span className="mt-1.5 block text-[12px] text-clay-ink">{signin.reason}</span>}
     </div>
   );
 }
