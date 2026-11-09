@@ -329,8 +329,8 @@ pub struct Credit {
 
 /// What Claude Code on Blueprint credit asks for: model ids it knows on Bedrock. A tab gets Sonnet or
 /// Haiku whatever it is asked for; the proxy (scripts/api/credit.mjs) holds it to that too.
-const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-4-6";
-const CREDIT_HAIKU: &str = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
+const CREDIT_SONNET: &str = "global.anthropic.claude-sonnet-5-5";
+const CREDIT_HAIKU: &str = "global.anthropic.claude-haiku-5-5";
 
 /// Runs Claude with the hook, and marks the tab live while it does. The marker,
 /// and the conversation the tab would be reopened into, go on any exit — a
