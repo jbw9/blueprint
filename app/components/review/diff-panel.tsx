@@ -206,7 +206,7 @@ export function DiffPanel() {
               aria-label="Commits and their files"
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+                if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !items.length) return;
                 e.preventDefault();
                 const at = Math.max(0, Math.min(items.length - 1, (active < 0 ? 0 : active) + (e.key === "ArrowDown" ? 1 : -1)));
                 pick(items[at]);

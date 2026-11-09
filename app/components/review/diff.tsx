@@ -166,8 +166,15 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
     };
   }, [on, asked, again, idle, listed]);
 
+  // Read again each time the history is asked for: commits made since (Claude's) would be missing from it.
+  const [asks, setAsks] = useState(0);
   useEffect(() => {
-    if (!on || listed) return;
+    const ask = () => setAsks((n) => n + 1);
+    window.addEventListener(OPEN_DIFF, ask);
+    return () => window.removeEventListener(OPEN_DIFF, ask);
+  }, []);
+  useEffect(() => {
+    if (!on) return;
     let live = true;
     fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}&commits=1`)
       .then((r) => r.json())
@@ -177,7 +184,7 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
     return () => {
       live = false;
     };
-  }, [blueprint, on, listed]);
+  }, [blueprint, on, asks]);
 
   const setRange = useCallback((from?: string, to?: string) => setR({ from, to }), []);
   const setReview = useCallback((review?: string) => setR({ review }), []);

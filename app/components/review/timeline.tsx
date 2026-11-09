@@ -38,7 +38,8 @@ export function openTimeline() {
 export function closeTimeline() {
   const q = new URLSearchParams(window.location.search);
   q.delete("timeline");
-  window.history.pushState(null, "", q.size ? `?${q}` : window.location.pathname);
+  // Not `q.size`: macOS 11's WebKit lacks it, and the URL would lose `?blueprint=`.
+  window.history.pushState(null, "", q.toString() ? `?${q}` : window.location.pathname);
 }
 
 export const useTimelineOpen = () => useSearchParams().has("timeline");
@@ -68,6 +69,8 @@ export function TimelineView() {
   const [width, setWidth] = useState(0);
 
   const telling = (got && "timeline" in got && got.telling) || asked;
+  // While the POST that starts the run is on its way, a read saying nothing runs is not the run being over.
+  const posting = useRef(false);
   useEffect(() => {
     let live = true;
     const read = () =>
@@ -76,7 +79,7 @@ export function TimelineView() {
         .then((j) => {
           if (!live) return;
           setGot(j);
-          if (!j.telling) setAsked(false);
+          if (!j.telling && !posting.current) setAsked(false);
         })
         .catch(() => live && setGot({ error: "Could not read the checkout's history." }));
     void read();
@@ -117,9 +120,11 @@ export function TimelineView() {
   };
 
   const tell = async () => {
+    posting.current = true;
     setAsked(true);
     const claude = await claudePath().catch(() => undefined);
     await fetch(`/api/timeline?blueprint=${encodeURIComponent(name)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ claude }) }).catch(() => setAsked(false));
+    posting.current = false;
   };
 
   const header = (

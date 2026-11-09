@@ -194,10 +194,16 @@ function BlueprintAfter({ blueprint, spec, commit, pr, onMade }: { blueprint: st
   }, [q, s, onMade]);
   const start = async () => {
     setS({ status: "running" });
+    let claude: string | undefined;
+    try {
+      claude = await claudePath();
+    } catch (e) {
+      return setS({ status: "failed", error: (e as Error).message });
+    }
     const j = await fetch("/api/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ blueprint, review: spec, claude: await claudePath() }),
+      body: JSON.stringify({ blueprint, review: spec, claude }),
     })
       .then((r) => r.json())
       .catch(() => ({ status: "failed", error: "Could not start it." }));

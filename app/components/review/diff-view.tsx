@@ -7,6 +7,7 @@ import { startNote, useNotes } from "@/lib/agent/notes";
 import type { Target } from "@/lib/agent/context";
 import { TOKEN_COLOR, highlight, langOf } from "@/lib/client/highlight";
 import { cn } from "@/lib/client/utils";
+import { useDesktop } from "@/lib/client/platform";
 
 export type View = "split" | "inline";
 
@@ -46,10 +47,12 @@ function Gap({ h, prev, path }: { h: HunkLines; prev?: HunkLines; path?: string 
   const end = prev ? Math.max(...prev.lines.map((l) => l.old ?? 0), prev.oldStart - 1) : 0;
   const n = h.oldStart - end - 1;
   const noted = useNotes().some((x) => x.status === "draft" && x.anchor.key === (path ? hunkKey(path, h) : ""));
+  // The tray the note goes to is the desktop app's only: in a browser the click would do nothing.
+  const desktop = useDesktop();
   return (
     <div className="sticky left-0 flex h-6 w-max items-center gap-3 bg-surface-container-low px-3 font-sans text-[10.5px] leading-6 text-faint">
       <span>{n > 0 ? `⋯ ${n} unchanged ${n === 1 ? "line" : "lines"}` : "⋯"}</span>
-      {path ? (
+      {path && desktop ? (
         <button
           type="button"
           onClick={(e) => startNote({ x: e.clientX, y: e.clientY + 12, anchor: hunkTarget(path, h) })}

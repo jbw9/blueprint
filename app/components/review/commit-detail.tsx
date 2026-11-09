@@ -184,10 +184,17 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
 
   async function ask() {
     setGot({ asking: true });
+    let claude: string | undefined;
+    try {
+      claude = await claudePath();
+    } catch (e) {
+      // Thrown past the button, it would stay "reading" for good.
+      return setGot({ error: (e as Error).message });
+    }
     const r = await fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sha, claude: await claudePath() }),
+      body: JSON.stringify({ sha, claude }),
     })
       .then((r) => r.json() as Promise<{ summary?: Summary; error?: string }>)
       .catch(() => ({ error: "Could not reach the app's server." }));
