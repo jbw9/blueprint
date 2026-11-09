@@ -224,10 +224,10 @@ function Diagram({
           aria-label={block.caption}
           className={navigable ? "dg-nav block h-auto" : "block h-auto"}
           // Visible: a change's tag rides the top edge of a box in the first row.
+          // --dg-zoom is the reader's pinch (components/chrome/zoom.tsx): it
+          // resizes the picture alone, so the prose around it keeps its size.
           style={{
-            width: "100%",
-            maxWidth: W * DIAGRAM_MAX_SCALE,
-            minWidth: W * 0.7,
+            width: `calc(clamp(${W * 0.7}px, 100%, ${W * DIAGRAM_MAX_SCALE}px) * var(--dg-zoom, 1))`,
             overflow: "visible",
             opacity: waiting ? 0 : 1,
             transition: "opacity 160ms ease-out",

@@ -3,20 +3,18 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 /**
- * Magnifying the open level: pinch, ⌘/Ctrl-scroll, or ⌘ +/−/0.
+ * Sizing the open level's diagrams: pinch, ⌘/Ctrl-scroll, or ⌘ +/−/0.
  *
- * Page zoom (CSS `zoom`, the browser's own) reflows, and the diagrams already
- * fill the page width, so reflowing would leave them exactly the size they
- * were. This magnifies instead: the level keeps the layout it has at 100% and
- * grows past the window, to be scrolled around. A transform rather than CSS
- * `zoom` because getBoundingClientRect then means the same thing in Chrome
- * and WebKit (the wires measure with it); text and SVG are re-rasterised at
- * the new scale, so nothing goes soft.
+ * Only the pictures change size; the prose around them keeps its own. A big
+ * diagram drawn to fill the page is too close to be read whole, and
+ * magnifying everything would only push the text off the side with it. The
+ * scale is a CSS variable (`--dg-zoom`) each diagram multiplies its width by
+ * (components/blueprint/blocks.tsx), so a pinch re-renders nothing.
  */
 
-const MIN = 1;
-const MAX = 4;
-const STEPS = [1, 1.25, 1.5, 2, 2.5, 3, 4];
+const MIN = 0.3;
+const MAX = 3;
+const STEPS = [0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 2, 2.5, 3];
 
 /** A pinch the desktop shell took from WebKitGTK (src-tauri/src/lib.rs). */
 const PINCH = "blueprint:pinch";
@@ -27,25 +25,15 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
   const [zoom, setZoom] = useState(1);
 
   // Applied straight to the DOM, not through a render: a pinch delivers
-  // several events a frame, and each one anchors on the scroll position the
-  // last one left. Only the context re-renders — `children` are the same
-  // elements, so the level itself does not.
-  const zoomTo = useRef((next: number, at?: { x: number; y: number }) => {
-    const pane = scrollRef.current;
+  // several events a frame. Only the pill re-renders — `children` are the
+  // same elements, so the level itself does not.
+  const zoomTo = useRef((next: number) => {
     const box = ref.current;
-    if (!pane || !box) return;
+    if (!box) return;
     const z = Math.min(MAX, Math.max(MIN, next));
-    const from = now.current;
-    if (Math.abs(z - from) < 0.001) return;
-    const p = at ?? { x: pane.clientWidth / 2, y: pane.clientHeight / 2 };
-    // The point under the cursor, in unscaled level coordinates, stays put.
-    const top = box.offsetTop;
-    const cx = (pane.scrollLeft + p.x) / from;
-    const cy = (pane.scrollTop + p.y - top) / from;
+    if (Math.abs(z - now.current) < 0.001) return;
     now.current = z;
-    fit(box, pane, z);
-    pane.scrollLeft = cx * z - p.x;
-    pane.scrollTop = cy * z + top - p.y;
+    box.style.setProperty("--dg-zoom", String(z));
     setZoom(z);
   }).current;
 
@@ -60,10 +48,6 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
     const pane = scrollRef.current;
     const box = ref.current;
     if (!pane || !box) return;
-    const local = (e: { clientX: number; clientY: number }) => {
-      const r = pane.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
 
     // Chrome reports a trackpad pinch as a ctrl-wheel; WebKit (the desktop
     // app) as gesture events, and may send both — so a wheel during a gesture
@@ -74,9 +58,9 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
       if (!(e.ctrlKey || e.metaKey) || pinching) return;
       e.preventDefault();
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-      zoomTo(now.current * Math.exp(-Math.max(-25, Math.min(25, dy)) * 0.01), local(e));
+      zoomTo(now.current * Math.exp(-Math.max(-25, Math.min(25, dy)) * 0.01));
     };
-    type Gesture = Event & { scale: number; clientX: number; clientY: number };
+    type Gesture = Event & { scale: number };
     const onStart = (e: Event) => {
       e.preventDefault();
       pinching = true;
@@ -84,7 +68,7 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
     };
     const onChange = (e: Event) => {
       e.preventDefault();
-      zoomTo(from * (e as Gesture).scale, local(e as Gesture));
+      zoomTo(from * (e as Gesture).scale);
     };
     const onEnd = (e: Event) => {
       e.preventDefault();
@@ -95,9 +79,9 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
     // scale since the pinch began (src-tauri/src/lib.rs). A new one starts at 1.
     let last = 1;
     const onPinch = (e: Event) => {
-      const { scale, x, y } = (e as CustomEvent<{ scale: number; x: number; y: number }>).detail;
+      const { scale } = (e as CustomEvent<{ scale: number }>).detail;
       if (scale === 1) last = 1;
-      zoomTo(now.current * (scale / last), local({ clientX: x, clientY: y }));
+      zoomTo(now.current * (scale / last));
       last = scale;
     };
 
@@ -113,11 +97,6 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
       e.preventDefault();
     };
 
-    // The level's width is pinned to the pane's while magnified; follow the window.
-    // At 100% there is nothing to fit, and the workspace's resize fires this every frame.
-    const ro = new ResizeObserver(() => now.current !== 1 && fit(box, pane, now.current));
-    ro.observe(pane);
-
     pane.addEventListener("wheel", onWheel, { passive: false });
     pane.addEventListener("gesturestart", onStart);
     pane.addEventListener("gesturechange", onChange);
@@ -125,7 +104,6 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
     window.addEventListener(PINCH, onPinch);
     window.addEventListener("keydown", onKey);
     return () => {
-      ro.disconnect();
       pane.removeEventListener("wheel", onWheel);
       pane.removeEventListener("gesturestart", onStart);
       pane.removeEventListener("gesturechange", onChange);
@@ -143,7 +121,7 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
         <div className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center overflow-hidden border border-border-gray bg-card text-[12.5px] text-ink shadow-lift">
           <button
             type="button"
-            aria-label="Zoom out"
+            aria-label="Zoom diagrams out"
             onClick={() => step(-1)}
             className="cursor-pointer px-3 py-1 hover:bg-surface-container"
           >
@@ -159,7 +137,7 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
           </button>
           <button
             type="button"
-            aria-label="Zoom in"
+            aria-label="Zoom diagrams in"
             onClick={() => step(1)}
             className="cursor-pointer px-3 py-1 hover:bg-surface-container"
           >
@@ -169,14 +147,4 @@ export function Zoom({ scrollRef, children }: { scrollRef: RefObject<HTMLElement
       )}
     </>
   );
-}
-
-/** At 100% nothing is set, so the level lays out exactly as it always has. */
-function fit(box: HTMLElement, pane: HTMLElement, z: number) {
-  // The pane's width less its padding: what the workspace window leaves of it.
-  const s = getComputedStyle(pane);
-  const w = pane.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
-  box.style.width = z === 1 ? "" : `${w}px`;
-  box.style.transform = z === 1 ? "" : `scale(${z})`;
-  box.style.transformOrigin = z === 1 ? "" : "0 0";
 }
