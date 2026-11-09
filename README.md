@@ -2,6 +2,8 @@
 
 A visual blueprint of a codebase. Start with the product's features, then go deeper, down to the line of code.
 
+<img src="demo/overview.gif" width="800" alt="Blueprint in dark mode opens this repo's blueprint: from the overview diagram it goes into Building The UI, then Agent Workspace, then Session Persistence, and opens the code behind one step">
+
 ## Why
 
 Code gets written faster than anyone can read it. Asking an assistant "how does this work?" answers one question but loses the big picture. blueprint lets you explore instead.
@@ -27,3 +29,4 @@ It downloads the latest build for your system, or builds from source where there
 - `scripts/build-site.sh` - builds blpr.dev (landing, demo blueprints, admin) for the deploy workflow
 - `install.sh` - the one-line install
 - `docs/` - design notes and the decision log
+- `demo/` - the README's GIF; `node demo/record.mjs` records it again from the installed app (Windows, needs ffmpeg)
