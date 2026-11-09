@@ -4,9 +4,9 @@ import { cn } from "@/lib/client/utils";
 import type { Status } from "@/lib/client/open-projects";
 
 export const DOT: Record<Status, { colour: string; label: string }> = {
-  working: { colour: "bg-amber-line", label: "Working" },
+  working: { colour: "bg-[#f0c674]", label: "Working" },
   waiting: { colour: "bg-clay-ink", label: "Needs you" },
-  done: { colour: "bg-[var(--color-diff-add-ink)]", label: "Done" },
+  done: { colour: "bg-[#4caf50]", label: "Done" },
 };
 
 /** Yellow while the agent works, red when it waits on the user, green when it is done. */
