@@ -4,7 +4,7 @@ import { LandingPromo } from "./landing-promo";
 import s from "./landing.module.css";
 
 // Published under the site's base path, like the demo blueprints beside it.
-const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/${name}.png`;
+const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/night-${name}.png`;
 
 /**
  * The first screen, drawn as a sheet of notes: the claim set in light type

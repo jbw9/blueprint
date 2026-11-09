@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Understand the code you didn't write.",
     start_url: "/",
     display: "browser",
-    background_color: "#1a2fa0",
-    theme_color: "#2438c8",
+    background_color: "#080e2f",
+    theme_color: "#111e4f",
     icons: [{ src: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   };
 }

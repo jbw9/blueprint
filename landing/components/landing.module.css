@@ -1,22 +1,23 @@
-/* Blueprint's landing page: one ink, cobalt, on a white sheet that lies on a
-   blueprint grid. Always light, whatever the reader picked in the app. */
+/* Blueprint's landing page: one pale ink on a night-blue sheet that lies on a
+   darker blueprint grid. Always dark, whatever the reader picked in the app. */
 .page {
-  --desk: #1a2fa0;
-  --desk-line: rgba(255, 255, 255, 0.1);
-  --paper: #fcfdff;
-  --low: #eef1fd;
-  --ink: #2438c8;
-  --muted: #4a5bd2;
-  --faint: #8995e2;
-  --line: rgba(36, 56, 200, 0.18);
-  --strong: rgba(36, 56, 200, 0.5);
-  --grid: rgba(36, 56, 200, 0.07);
-  --on-ink: #fcfdff;
+  color-scheme: dark;
+  --desk: #080e2f;
+  --desk-line: rgba(255, 255, 255, 0.06);
+  --paper: #111e4f;
+  --low: #212e5d;
+  --ink: #dbe1f8;
+  --muted: #afb6d3;
+  --faint: #7680a4;
+  --line: rgba(219, 225, 248, 0.18);
+  --strong: rgba(219, 225, 248, 0.5);
+  --grid: rgba(219, 225, 248, 0.07);
+  --on-ink: #111e4f;
   --blush: #f4a3b4;
-  --code-bg: #2438c8;
-  --code-ink: #d5dbff;
-  --code-key: #ffffff;
-  --code-num: rgba(213, 219, 255, 0.5);
+  --code-bg: #0c163f;
+  --code-ink: #c8cfea;
+  --code-key: #eef1fc;
+  --code-num: rgba(200, 207, 234, 0.55);
 }
 .page {
   --display: var(--font-display), Georgia, serif;

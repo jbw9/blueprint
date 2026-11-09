@@ -4,7 +4,7 @@
 import { useEffect, useRef } from "react";
 import s from "./landing.module.css";
 
-const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/${name}.png`;
+const img = (name: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/night-${name}.png`;
 
 // Where each stop sits on the line, in the drawing's own units (1000 wide, H tall).
 const H = 1250;
