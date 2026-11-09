@@ -52,14 +52,15 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub: repo:jbw9/blueprint:ref:refs/tags/v*
+                token.actions.githubusercontent.com:sub: repo:jbw9@143005445/blueprint@1368580503:ref:refs/tags/v*
       Policies:
         - PolicyName: publish
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: [s3:PutObject, s3:GetObject]
+                # s3 cp between keys copies large files in parts, carrying their tags over.
+                Action: [s3:PutObject, s3:GetObject, s3:GetObjectTagging, s3:PutObjectTagging]
                 Resource: !Sub "${Bucket.Arn}/*"
               - Effect: Allow
                 Action: s3:ListBucket
