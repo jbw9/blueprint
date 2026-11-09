@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { goTo } from "@/components/chrome/crumbs";
-import { DIALOG, Overlay, QUIET } from "@/components/ui/dialog";
+import { DIALOG, Overlay } from "@/components/ui/dialog";
 import { openDiff } from "@/components/review/diff";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
-import { PanelHead } from "@/components/ui/panel";
+import { PanelClose, PanelHead } from "@/components/ui/panel";
 import { Ident, Prose, StateChip } from "@/components/ui/state";
 import type { Node } from "@/lib/blueprint/schema";
 import { cn } from "@/lib/client/utils";
@@ -99,11 +99,7 @@ export function AuditDialog() {
         <PanelHead
           title="How sure is this blueprint"
           note="What was checked against the code, and what to double-check."
-          right={
-            <button type="button" onClick={close} className={QUIET}>
-              Close
-            </button>
-          }
+          right={<PanelClose onClick={close} />}
         />
         <div className="min-h-0 flex-1 overflow-auto px-6 py-5 text-[13.5px] leading-relaxed text-on-surface-variant">
           <div className="grid grid-cols-3 gap-3">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DIALOG, INPUT, Overlay, QUIET } from "@/components/ui/dialog";
+import { PanelClose, PanelHead } from "@/components/ui/panel";
 import { goTo } from "@/components/chrome/crumbs";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { followTurn } from "@/lib/agent/turns";
@@ -151,13 +152,16 @@ export function FilesPanel() {
   return (
     <Overlay onClose={close}>
       <div className={DIALOG + " max-w-[760px]"}>
-        <header className="shrink-0 border-b border-border-gray px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold text-ink">Every file</h2>
-          <p className="mt-0.5 text-[12px] text-muted-slate">Where each part of the code is explained. Pick a symbol to open the level that explains it.</p>
+        <PanelHead
+          title="Every file"
+          note="Where each part of the code is explained. Pick a symbol to open the level that explains it."
+          right={<PanelClose onClick={close} />}
+        />
+        <div className="shrink-0 border-b border-border-gray px-5 py-3">
           {files && !files.index ? (
-            <p className="mt-2 text-[12px] text-amber-ink">This blueprint was made before blueprints kept a file index; regenerate it to see every file here.</p>
+            <p className="mb-2.5 text-[12px] text-amber-ink">This blueprint was made before blueprints kept a file index; regenerate it to see every file here.</p>
           ) : null}
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
                 ["all", "All"],
@@ -184,7 +188,7 @@ export function FilesPanel() {
             <span className="flex-1" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by path or symbol" aria-label="Filter files" className={INPUT + " w-[220px] py-1 text-[12px]"} />
           </div>
-        </header>
+        </div>
         <div className="min-h-0 flex-1 overflow-auto px-5 py-3">
           {!files ? <p className="text-[13px] text-muted-slate">Reading the checkout…</p> : null}
           {files && !shown.length ? <p className="text-[13px] text-muted-slate">Nothing matches.</p> : null}
@@ -206,11 +210,6 @@ export function FilesPanel() {
             ))}
           </ul>
         </div>
-        <footer className="flex shrink-0 justify-end border-t border-border-gray px-5 py-2.5">
-          <button type="button" onClick={close} className={QUIET}>
-            Close
-          </button>
-        </footer>
       </div>
     </Overlay>
   );

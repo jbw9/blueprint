@@ -2,6 +2,9 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DIALOG, Overlay } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PanelClose } from "@/components/ui/panel";
+import { cn } from "@/lib/client/utils";
 import { OPEN_DIFF, TINT, useDiff } from "@/components/review/diff";
 import { goTo } from "@/components/chrome/crumbs";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
@@ -146,11 +149,12 @@ export function DiffPanel() {
     >
       {/* With a file open beside it, only the list stays: the commit's details would be crushed, and the file is what is being read. */}
       <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
-        <header className="flex shrink-0 items-center gap-3 border-b border-border-gray px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold text-ink">History</h2>
-          <span className="min-w-0 flex-1 truncate text-[12px] text-muted-slate">{reading?.open ? null : caption}</span>
-          <button
-            type="button"
+        <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface px-5 py-3">
+          <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-slate">{reading?.open ? null : caption}</span>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setShown(false);
               openTimeline();
@@ -158,36 +162,29 @@ export function DiffPanel() {
               showBlueprint();
             }}
             title="How the code got here — every commit on the blueprint's sections, over time"
-            className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
           >
             Timeline
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShown(false)}
             title="Close this and keep the blueprint coloured by what changed"
-            className={(reading?.open ? "hidden " : "") + "shrink-0 cursor-pointer px-2 py-1 text-[12px] text-accent hover:bg-surface-container-low"}
+            className={cn("text-accent", reading?.open && "hidden")}
           >
             See it on the blueprint
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               d.off();
               setShown(false);
             }}
-            className="shrink-0 cursor-pointer px-2 py-1 text-[12px] text-muted-slate hover:bg-surface-container-low hover:text-ink"
           >
             Leave diff
-          </button>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={() => setShown(false)}
-            className="shrink-0 cursor-pointer px-1.5 py-0.5 text-[15px] leading-none text-muted-slate hover:bg-surface-container-low hover:text-ink"
-          >
-            ×
-          </button>
+          </Button>
+          <PanelClose onClick={() => setShown(false)} className="my-0 ml-1" />
         </header>
 
         <div className="flex min-h-0 flex-1">

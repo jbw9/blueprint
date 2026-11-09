@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/client/utils";
 import { Eyebrow, Prose } from "@/components/ui/state";
-import { Button } from "@/components/ui/button";
 import { Overlay, DIALOG } from "@/components/ui/dialog";
+import { PanelClose } from "@/components/ui/panel";
 import { AnatomyView, type RowCtx } from "@/components/blueprint/anatomy";
 import { SourceView } from "@/components/blueprint/source-view";
 import { ExplainedBlock, isExplained } from "@/components/blueprint/blocks";
@@ -99,9 +99,7 @@ export function CodePopup({
         <div className="border-b border-border-gray px-5 pb-4 pt-3.5">
           <div className="flex items-center gap-3">
             <p className="min-w-0 flex-1 truncate text-[12px] text-faint">{trail.join(" › ")}</p>
-            <Button variant="ghost" size="sm" onClick={onClose} title="Close (Esc)">
-              ✕
-            </Button>
+            <PanelClose onClick={onClose} className="-my-1" />
           </div>
           <p className="mt-1.5 text-[17px] font-semibold tracking-[-0.01em] text-ink">{focus.heading}</p>
           {focus.detail ? (

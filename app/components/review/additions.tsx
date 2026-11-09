@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DIALOG, Overlay, PRIMARY, QUIET } from "@/components/ui/dialog";
+import { DIALOG, Overlay, PRIMARY } from "@/components/ui/dialog";
+import { PanelClose, PanelHead } from "@/components/ui/panel";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { cn } from "@/lib/client/utils";
 import type { Entry, Orphan, Version } from "@/lib/server/overlay";
@@ -80,12 +81,11 @@ export function HistoryDialog() {
   return (
     <Overlay onClose={() => setShown(false)}>
       <div className={cn(DIALOG, "max-w-[620px]")}>
-        <header className="border-b border-border-gray px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold text-ink">What you added</h2>
-          <p className="mt-0.5 text-[12px] text-muted-slate">
-            Kept beside the blueprint, never inside it — so remaking the blueprint never writes over your work.
-          </p>
-        </header>
+        <PanelHead
+          title="What you added"
+          note="Kept beside the blueprint, never inside it — so remaking the blueprint never writes over your work."
+          right={<PanelClose onClick={() => setShown(false)} />}
+        />
 
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
           {state === null ? (
@@ -157,9 +157,6 @@ export function HistoryDialog() {
         </div>
 
         <footer className="flex items-center justify-end gap-1.5 border-t border-border-gray px-5 py-3">
-          <button type="button" className={QUIET} onClick={() => setShown(false)}>
-            Close
-          </button>
           <button type="button" className={PRIMARY} onClick={load} disabled={busy}>
             Refresh
           </button>
