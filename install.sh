@@ -29,7 +29,7 @@ main() {
     "On Windows, run the install command in Git Bash: https://git-scm.com/downloads/win" ;;
   esac
   case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
-  release=${BLUEPRINT_RELEASE:-https://github.com/jbw9/blueprint/releases/download/latest/blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz}
+  release=${BLUEPRINT_RELEASE:-https://github.com/jbw9/blueprint/releases/latest/download/blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz}
   check_node
   done_line "Checked your system" "$name $arch · Node $(node -v | tr -d v)"
 
@@ -46,6 +46,8 @@ main() {
     note=${total:+$((total / 1048576)) MB}
     step "Downloading Blueprint" "Downloaded Blueprint" download
     watch= note=
+    # Read here: steps run in a subshell, and installing moves server/ away.
+    version=$(sed -n 's/.*"version":"\([^"]*\)".*/\1/p' "$tmp/server/release.json" 2>/dev/null || true)
     step "Installing Blueprint" "Installed Blueprint" install_release
     check_libs
   else
@@ -58,7 +60,8 @@ main() {
 find_release() {
   total=
   rc=0
-  hdr=$(curl -fsSLI "$release" 2>/dev/null) || rc=$?
+  # HTTP/1.1: over HTTP/2 some curls (8.7 on macOS) end a 404 under -f with error 56, not 22.
+  hdr=$(curl -fsSLI --http1.1 "$release" 2>/dev/null) || rc=$?
   if [ "$rc" = 22 ]; then
     warn "There's no ready-made Blueprint for $name $arch yet, so it's built from source"
     return 1
@@ -348,7 +351,7 @@ finish() {
   [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
-    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked}" 2>/dev/null || true
+    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"version\":\"${version:-source}\"}" 2>/dev/null || true
 }
 
 main "$@"
