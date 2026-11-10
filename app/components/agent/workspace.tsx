@@ -31,7 +31,7 @@ import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIE
 import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
 import { findAddress, findQuestion, findTaken, hostOf, previewOf, type Call } from "@/lib/agent/preview";
 import { readSettings } from "@/lib/client/settings";
-import { readCredit } from "@/lib/client/credit";
+import { onCreditChanged, readCredit } from "@/lib/client/credit";
 import { onClosed } from "@/lib/client/open-projects";
 import { cn, sleep } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
@@ -678,6 +678,19 @@ export function Workspace() {
   useEffect(() => {
     ownClaude.current = toOwnClaude;
   });
+  // Choosing "Use my Claude Code" in Settings, or signing out, moves the open credit tabs too: a Claude
+  // started on the credit keeps its Bedrock settings for as long as it runs, whatever is chosen later.
+  useEffect(
+    () =>
+      onCreditChanged(() => {
+        void readCredit().then((c) => {
+          if (!c || (c.on && c.login)) return;
+          const keys = tabsNow.current.filter((t) => t.credit && t.session).map((t) => t.key);
+          if (keys.length) ownClaude.current(keys);
+        });
+      }),
+    [],
+  );
   // With "Switch to my Claude Code" on in Settings, an idle tab moves by itself once the credit is used up.
   const idleOnCredit = JSON.stringify(tabs.filter((t) => t.credit && t.live && t.session && t.status !== "working").map((t) => [t.key, !!t.outOfCredit]));
   useEffect(() => {
