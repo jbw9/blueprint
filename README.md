@@ -16,10 +16,10 @@ On macOS, Linux, or Windows (in Git Bash):
 curl -fsSL https://blpr.dev/install.sh | sh
 ```
 
-It downloads the latest build for your system, or builds from source where there is none. Run it again to update.
+It downloads the latest build for your system, or builds from source where there is none. Run it again to update. What it needs and doesn't find, it installs: its own Node 22 in `~/.blueprint/node` when yours is missing or older, Apple's command line tools, Linux's system libraries (asking for your password), and Claude Code.
 
 - `BLUEPRINT_FROM_SOURCE=1` builds from source anyway (kept in `~/.blueprint/src`; `BLUEPRINT_DIR` moves it)
-- `BLUEPRINT_NO_TELEMETRY=1` skips the one ping it sends at the end (your OS and whether the install worked)
+- `BLUEPRINT_NO_TELEMETRY=1` skips the two pings it sends as it starts and ends: your OS, the step it reached, why it stopped (with your home folder's path taken out), what it installed for you, and an id the app reuses when it says it opened. The app's Settings → Privacy turns its own reports off.
 
 ## Layout
 

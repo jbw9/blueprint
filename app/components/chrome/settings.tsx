@@ -289,8 +289,8 @@ export function SettingsDialog() {
               <Group title="Privacy">
                 <Field
                   group
-                  label="Run reports"
-                  hint="When a blueprint finishes, Blueprint sends the Blueprint team how long it took, what it cost, the repository's name and the end of its log, and the GitHub account you're signed in to Blueprint credit with, so the mapping keeps getting better. Never your code."
+                  label="Usage reports"
+                  hint="Once a day when it opens, Blueprint tells the Blueprint team its version and your system. When a blueprint finishes, it sends how long it took, what it cost, the repository's name and the end of its log, and the GitHub account you're signed in to Blueprint credit with, so the mapping keeps getting better. Never your code."
                 >
                   <RunReports />
                 </Field>
@@ -444,7 +444,7 @@ function RunReports() {
   };
   return (
     <Segmented
-      label="Run reports"
+      label="Usage reports"
       value={on}
       options={[
         { value: true, label: "Send" },

@@ -17,6 +17,8 @@ import { VERSION } from "@/lib/server/update";
 interface Telemetry {
   installId: string;
   off?: boolean;
+  /** The last day the app said it opened (sendOpen). */
+  opened?: string;
 }
 
 async function file() {
@@ -58,6 +60,34 @@ const tail = (path: string) => {
     return "";
   }
 };
+
+/**
+ * Say the app opened, at most once a day, under the id install.sh wrote here, so the dashboard can
+ * follow an install to the app it gave. Called once as the server starts (instrumentation.ts).
+ */
+export async function sendOpen() {
+  try {
+    const t = await readTelemetry();
+    const day = new Date().toISOString().slice(0, 10);
+    if (t.off || t.opened === day) return;
+    const r = await api("/rpc/bp_track_open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        install_id: t.installId,
+        version: VERSION ?? "source",
+        os: process.platform,
+        arch: process.arch,
+        first: !t.opened,
+        ci: !!process.env.CI,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (r.ok) writeFileSync(await file(), JSON.stringify({ ...t, opened: day }) + "\n");
+  } catch {
+    /* offline: it says so the next time it opens */
+  }
+}
 
 /** Send one finished run; never throws, never waits on the reader. */
 export async function sendRun(dir: string, kind: "generate" | "update", status: string) {

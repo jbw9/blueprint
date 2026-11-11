@@ -6,7 +6,8 @@ RELEASES=https://blueprint-releases-891376942131.s3.us-east-1.amazonaws.com
 
 main() {
   trap finish EXIT
-  trap 'exit 130' INT TERM
+  trap 'reason=interrupted; exit 130' INT TERM HUP
+  began=$(date +%s) at=system reason= fixed=
   BLUEPRINT_DIR=${BLUEPRINT_DIR:-$BLUPRINT_DIR}
   BLUEPRINT_NO_TELEMETRY=${BLUEPRINT_NO_TELEMETRY:-$BLUPRINT_NO_TELEMETRY}
   repo=${BLUEPRINT_REPO:-https://github.com/jbw9/blueprint.git}
@@ -30,12 +31,24 @@ main() {
     "On Windows, run the install command in Git Bash: https://git-scm.com/downloads/win" ;;
   esac
   case $(uname -m) in arm64 | aarch64) arch=arm64 ;; *) arch=x86_64 ;; esac
+  case $os in
+  Darwin) data="$HOME/Library/Application Support/dev.blueprint.app" ;;
+  Linux) data="${XDG_DATA_HOME:-$HOME/.local/share}/dev.blueprint.app" ;;
+  Windows) data="$(cygpath -u "$APPDATA")/dev.blueprint.app" ;;
+  esac
+  # The app's own id when it has one, so this install and the app it opens are followed as one.
+  id=$(sed -n 's/.*"installId":"\([^"]*\)".*/\1/p' "$data/telemetry.json" 2>/dev/null || true)
+  [ -n "$id" ] || id=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n' | sed 's/^\(.\{8\}\)\(.\{4\}\)\(.\{4\}\)\(.\{4\}\)/\1-\2-\3-\4-/')
+  ! grep -q '"off":true' "$data/telemetry.json" 2>/dev/null || BLUEPRINT_NO_TELEMETRY=1
+  report start &
   file=blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz
   # GitHub's copy of the release is the fallback: its anonymous downloads have gone down for hours.
   if [ -n "$BLUEPRINT_RELEASE" ]; then release=$BLUEPRINT_RELEASE mirror=
   else release=$RELEASES/latest/$file mirror=https://github.com/jbw9/blueprint/releases/latest/download/$file
   fi
-  check_node
+  tmp=$(mktemp -d)
+  xcode_tools
+  ensure_node
   done_line "Checked your system" "$name $arch · Node $(node -v | tr -d v)"
 
   case $os in
@@ -45,20 +58,27 @@ main() {
   esac
   updating=$([ -e "$app" ] && echo 1 || true)
 
-  tmp=$(mktemp -d)
+  at=release
   if [ -z "$BLUEPRINT_FROM_SOURCE" ] && find_release; then
     watch="$tmp/blueprint.tar.gz"
     note=${total:+$((total / 1048576)) MB}
+    at=download
     step "Downloading Blueprint" "Downloaded Blueprint" download
     watch= note=
     # Read here: steps run in a subshell, and installing moves server/ away.
     version=$(sed -n 's/.*"version":"\([^"]*\)".*/\1/p' "$tmp/server/release.json" 2>/dev/null || true)
+    at=install
     step "Installing Blueprint" "Installed Blueprint" install_release
+    at=libs
     check_libs
   else
     from_source
   fi
+  [ -e "$data/telemetry.json" ] || { mkdir -p "$data" && printf '{"installId":"%s"}\n' "$id" >"$data/telemetry.json"; }
+  at=claude
+  ensure_claude
   rm -rf "$tmp"
+  at=done
   summary
 }
 
@@ -82,13 +102,13 @@ find_release() {
     case $rc:$code in 0:2?? | 0:000) break ;; esac
   done
   if [ "$rc" != 0 ]; then
-    fail "Couldn't reach GitHub to download Blueprint" "curl stopped with error $rc." \
+    fail "Couldn't reach the server to download Blueprint" "curl stopped with error $rc." \
       "Check your internet connection, then run the install command again."
   fi
   # GitHub's CDN can fail a HEAD it would serve as a GET, so a 5xx still tries the download.
   case $code in 2?? | 000 | 5??) ;; *)
-    fail "GitHub couldn't hand over the Blueprint download" "It answered HTTP $code." \
-      "Wait a few minutes; it's on GitHub's side, not your computer's." ;;
+    fail "The server couldn't hand over the Blueprint download" "It answered HTTP $code." \
+      "Wait a few minutes; it's on the server's side, not your computer's." ;;
   esac
   total=$(printf '%s\n' "$hdr" | tr -d '\r' | awk 'tolower($1) == "content-length:" { n = $2 } END { print n }')
 }
@@ -105,27 +125,131 @@ install_release() {
   BLUEPRINT_PREBUILT="$tmp" sh "$place"
 }
 
-check_node() {
-  if command -v brew >/dev/null; then fix="brew install node"
-  elif [ "$os" = Windows ]; then fix="winget install OpenJS.NodeJS.LTS"
-  elif command -v dnf >/dev/null; then fix="sudo dnf install nodejs"
-  elif command -v pacman >/dev/null; then fix="sudo pacman -S nodejs npm"
-  else fix="Install it from https://nodejs.org"
+# Blueprint's own Node, in $home/node, when the computer's is missing or older than 22 (the
+# generator uses Promise.withResolvers). The computer's Node is left as it is.
+ensure_node() {
+  at=node
+  v=$(node -p 'process.versions.node' 2>/dev/null || true)
+  [ -n "$BLUEPRINT_PRIVATE_NODE" ] || [ -z "$v" ] || [ "${v%%.*}" -lt 22 ] || return 0
+  bin=$home/node/bin
+  [ "$os" != Windows ] || bin=$home/node
+  v=$("$bin/node" -p 'process.versions.node' 2>/dev/null || true)
+  if [ -z "$v" ] || [ "${v%%.*}" -lt 22 ]; then
+    try_step "Installing Node 22 for Blueprint" "Installed Node 22 for Blueprint" install_node ||
+      fail "Blueprint needs Node 22 or newer, and couldn't install it" "" "Install it from https://nodejs.org"
+    fixed="$fixed node"
   fi
-  command -v node >/dev/null || fail "Blueprint needs Node 20 or newer" "Node isn't installed." "$fix"
-  v=$(node -p 'process.versions.node')
-  [ "${v%%.*}" -ge 20 ] || fail "Blueprint needs Node 20 or newer" "You have Node $v." "$fix"
+  PATH="$bin:$PATH"
+}
+
+install_node() {
+  case $os in Darwin) p=darwin ext=tar.gz ;; Linux) p=linux ext=tar.gz ;; Windows) p=win ext=zip ;; esac
+  case $arch in arm64) p=$p-arm64 ;; *) p=$p-x64 ;; esac
+  base=https://nodejs.org/dist/latest-v22.x
+  curl -fsSL "$base/SHASUMS256.txt" -o "$tmp/node.sums"
+  pkg=$(awk -v s="-$p.$ext" '{ if (substr($2, length($2) - length(s) + 1) == s) print $2 }' "$tmp/node.sums")
+  [ -n "$pkg" ] || { echo "nodejs.org has no Node 22 for $p" >&2; exit 1; }
+  curl -fsSL "$base/$pkg" -o "$tmp/$pkg"
+  want=$(awk -v f="$pkg" '$2 == f { print $1 }' "$tmp/node.sums")
+  got=$( (sha256sum "$tmp/$pkg" 2>/dev/null || shasum -a 256 "$tmp/$pkg") | awk '{ print $1 }')
+  [ "$got" = "$want" ] || { echo "The Node download didn't match its checksum" >&2; exit 1; }
+  rm -rf "$tmp/node" "$home/node"
+  mkdir -p "$tmp/node"
+  if [ "$ext" = tar.gz ]; then tar -xzf "$tmp/$pkg" -C "$tmp/node"
+  elif command -v unzip >/dev/null; then unzip -q "$tmp/$pkg" -d "$tmp/node"
+  else powershell -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$tmp/$pkg")' -DestinationPath '$(cygpath -w "$tmp/node")'"
+  fi
+  mv "$tmp/node/${pkg%.$ext}" "$home/node"
+}
+
+# git, and the compiler a build from source needs. Apple's installer asks for a click, then this waits for it.
+xcode_tools() {
+  [ "$os" = Darwin ] || return 0
+  xcode-select -p >/dev/null 2>&1 && return 0
+  at=xcode-tools
+  xcode-select --install >/dev/null 2>&1 || true
+  warn "Blueprint needs Apple's command line tools, which have git" "A window asks to install them: click Install, and this goes on once they're in."
+  try_step "Waiting for Apple's command line tools" "Installed Apple's command line tools" wait_xcode ||
+    fail "Apple's command line tools aren't installed" "" "xcode-select --install"
+  fixed="$fixed xcode-tools"
+}
+
+wait_xcode() {
+  i=0
+  until xcode-select -p >/dev/null 2>&1; do
+    i=$((i + 1))
+    [ "$i" -lt 360 ] || { echo "They weren't installed within 30 minutes" >&2; exit 1; }
+    sleep 5
+  done
+}
+
+ensure_claude() {
+  for c in "$(command -v claude 2>/dev/null)" "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" "$HOME/.local/bin/claude.exe"; do
+    [ -n "$c" ] && [ -x "$c" ] && return 0
+  done
+  if try_step "Installing Claude Code" "Installed Claude Code" install_claude; then
+    fixed="$fixed claude"
+  else
+    reason="claude didn't install"
+    warn "Claude Code didn't install. Blueprint makes blueprints through it" "https://claude.com/claude-code"
+  fi
+}
+
+install_claude() {
+  if [ "$os" = Windows ]; then
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"
+  else
+    curl -fsSL https://claude.ai/install.sh | bash
+  fi
+}
+
+# Runs as root: itself when it is root, or through sudo, asking for the password once, in the open.
+can_root() {
+  [ "$(id -u)" = 0 ] && return 0
+  command -v sudo >/dev/null || return 1
+  sudo -n true 2>/dev/null && return 0
+  (: </dev/tty) 2>/dev/null || return 1
+  printf '    Installing them needs your password.\n'
+  sudo -v </dev/tty
+}
+
+root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
+
+linux_install() {
+  if command -v apt-get >/dev/null; then
+    root apt-get update -q
+    root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+  elif command -v dnf >/dev/null; then root dnf install -y "$@"
+  elif command -v pacman >/dev/null; then root pacman -S --needed --noconfirm "$@"
+  else exit 1
+  fi
+}
+
+# The libraries the app opens with (and git, which it runs) that a ready-made Blueprint on Linux needs.
+missing_libs() {
+  libs=$(ldd "$HOME/.local/bin/blueprint" | awk '/not found/ { print $1 }')
+  command -v git >/dev/null || libs="$libs git"
 }
 
 check_libs() {
   [ "$os" = Linux ] || return 0
-  libs=$(ldd "$HOME/.local/bin/blueprint" | awk '/not found/ { print $1 }')
-  [ -n "$libs" ] || return 0
-  list=$(printf '%s\n' "$libs" | sed 's/^/- /')
+  missing_libs
+  [ -n "$(echo $libs)" ] || return 0
+  if command -v dnf >/dev/null; then
+    pkgs=$(for l in $libs; do [ "$l" = git ] && echo git || printf "%s()(64bit)\n" "$l"; done)
+  elif command -v apt-get >/dev/null; then pkgs="libwebkit2gtk-4.1-0 libgtk-3-0 git"
+  elif command -v pacman >/dev/null; then pkgs="webkit2gtk-4.1 gtk3 git"
+  fi
+  if [ -n "$pkgs" ] && can_root && try_step "Installing the system libraries Blueprint needs" "Installed the system libraries" linux_install $pkgs; then
+    missing_libs
+    fixed="$fixed libs"
+  fi
+  [ -n "$(echo $libs)" ] || return 0
+  list=$(printf '%s\n' $libs | sed 's/^/- /')
   if command -v dnf >/dev/null; then
     fix="sudo dnf install$(printf " '%s()(64bit)'" $libs)"
-  elif command -v apt-get >/dev/null && ! printf '%s\n' "$libs" | grep -qvE 'webkit|javascriptcore|gtk|gdk'; then
-    fix="sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0"
+  elif command -v apt-get >/dev/null && ! printf '%s\n' $libs | grep -qvE 'webkit|javascriptcore|gtk|gdk|git'; then
+    fix="sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 git"
   elif command -v pacman >/dev/null; then
     fix="Find the package that has each one with: pacman -F <library>"
   else
@@ -138,19 +262,40 @@ check_libs() {
 from_source() {
   [ -x "$HOME/.cargo/bin/cargo" ] && PATH="$HOME/.cargo/bin:$PATH"
 
-  missing=""
-  fixes=""
+  at=tools
+  check_tools
+  if [ -n "$missing" ] && get_tools; then
+    check_tools
+    fixed="$fixed build-tools"
+  fi
+  [ -z "$missing" ] || fail "Building Blueprint from source needs a few things first" "$missing" "$fixes"
+  done_line "Checked the build tools"
+
+  if ! command -v cargo >/dev/null; then
+    at=rust
+    step "Installing Rust" "Installed Rust" install_rust
+    PATH="$HOME/.cargo/bin:$PATH"
+    fixed="$fixed rust"
+  fi
+  at=source
+  step "Getting the source" "Got the source" get_source
+  at=packages
+  step "Installing packages" "Installed packages" install_packages
+  at=build
+  step "Building Blueprint (10 to 20 minutes the first time)" "Built Blueprint" build
+}
+
+check_tools() {
+  missing="" fixes="" pkgs=""
   if [ "$os" = Darwin ]; then
     need git "xcode-select --install"
     need c++ "xcode-select --install"
     need cmake "brew install cmake"
   elif [ "$os" = Windows ]; then
     need cmake "winget install Kitware.CMake"
-    vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
-    [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ] ||
+    has_vc ||
       need_ "the Visual Studio C++ build tools" "winget install Microsoft.VisualStudio.2022.BuildTools --override \"--passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\""
   else
-    pkgs=""
     for row in \
       "git git git git" \
       "c++ build-essential gcc-c++ base-devel" \
@@ -180,16 +325,30 @@ from_source() {
     else fixes="sudo pacman -S --needed$pkgs"
     fi
   fi
-  [ -z "$missing" ] || fail "Building Blueprint from source needs a few things first" "$missing" "$fixes"
-  done_line "Checked the build tools"
+}
 
-  if ! command -v cargo >/dev/null; then
-    step "Installing Rust" "Installed Rust" install_rust
-    PATH="$HOME/.cargo/bin:$PATH"
-  fi
-  step "Getting the source" "Got the source" get_source
-  step "Installing packages" "Installed packages" install_packages
-  step "Building Blueprint (10 to 20 minutes the first time)" "Built Blueprint" build
+has_vc() {
+  vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+  [ -n "$("$vswhere" -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>/dev/null)" ]
+}
+
+# What check_tools found missing, installed with the system's own package manager.
+get_tools() {
+  case $os in
+  Linux) [ -n "$pkgs" ] && can_root && try_step "Installing what the build needs" "Installed what the build needs" linux_install $pkgs ;;
+  Darwin) command -v brew >/dev/null && try_step "Installing CMake" "Installed CMake" brew install cmake ;;
+  Windows)
+    command -v winget >/dev/null && try_step "Installing the build tools" "Installed the build tools" windows_tools || return 1
+    PATH="/c/Program Files/CMake/bin:$PATH"
+    ;;
+  esac
+}
+
+windows_tools() {
+  agree="--silent --accept-package-agreements --accept-source-agreements"
+  command -v cmake >/dev/null || winget install -e --id Kitware.CMake $agree
+  has_vc || winget install -e --id Microsoft.VisualStudio.2022.BuildTools $agree \
+    --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 }
 
 install_rust() {
@@ -222,8 +381,6 @@ build() {
 }
 
 summary() {
-  command -v claude >/dev/null ||
-    warn "Claude Code isn't installed. Blueprint makes blueprints through it" "https://claude.com/claude-code"
   printf '\n'
   if [ -n "$updating" ]; then
     printf '  %sBlueprint is updated.%s Quit it if it'"'"'s open, then open it again.\n\n' "$green$bold" "$off"
@@ -283,13 +440,25 @@ step() {
     return
   fi
   printf '  %s%s %s%s\n' "$red$bold" "$bad" "$doing" "$off"
+  # The log's last line says why, with the home folder's path taken out.
+  reason="exit $rc"
   if [ -n "$tty" ]; then
+    reason=$(grep -v '^ *$' "$log" | tail -n 1 | sed "s|$HOME|~|g" | cut -c 1-120)
     printf '\n'
     grep -v '^ *$' "$log" | tail -n 15 | sed "s/^/    $dim/; s/\$/$off/"
     printf '\n    The full log is in %s\n' "$log"
   fi
+  [ -z "$soft" ] || { printf '\n'; return 1; }
   printf '\n    Fix what it says, then run the install command again.\n\n'
   exit 1
+}
+
+# A step whose failure is handled by the caller instead of ending the install.
+try_step() {
+  soft=1
+  step "$@" && r=0 || r=$?
+  soft=
+  return $r
 }
 
 spin() {
@@ -338,6 +507,7 @@ warn() {
 
 fail() {
   unspin
+  reason=$1
   printf '\n  %s%s %s%s\n' "$red$bold" "$bad" "$1" "$off"
   [ -z "$2" ] || printf '%s\n' "$2" | sed 's/^/    /'
   if [ -n "$3" ]; then
@@ -369,13 +539,20 @@ finish() {
   unspin
   [ -n "$tty" ] && printf '\033[?25h'
   [ -z "$tmp" ] || rm -rf "$tmp"
-  worked=$([ "$status" = 0 ] && echo true || echo false)
+  report end
+}
+
+# What the dashboard (blpr.dev/admin) learns of this install: never a path, file or name of yours.
+report() {
+  [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
+  worked=$([ "$1" = end ] && [ "$status" = 0 ] && echo true || echo false)
   # CI is set by GitHub Actions and most other CI systems, so the dashboard can count people apart.
   ci=$([ -n "$CI" ] && echo true || echo false)
-  [ -z "$BLUEPRINT_NO_TELEMETRY" ] || return 0
+  list=$(for f in $fixed; do printf ',"%s"' "$f"; done)
+  why=$(printf '%s' "$reason" | tr -d '"\\' | tr '\t\r\n' '   ')
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
-    -d "{\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"ci\":$ci,\"version\":\"${version:-source}\"}" 2>/dev/null || true
+    -d "{\"id\":\"$id\",\"phase\":\"$1\",\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"ci\":$ci,\"version\":\"${version:-source}\",\"step\":\"$at\",\"reason\":\"$why\",\"seconds\":$(($(date +%s) - ${began:-$(date +%s)})),\"fixed\":[${list#,}],\"node\":\"$(node -v 2>/dev/null | tr -d v)\"}" 2>/dev/null || true
 }
 
 main "$@"
