@@ -12,6 +12,11 @@ if [ "$(uname)" = Linux ] && ldd "$HOME/.local/bin/blueprint" | grep -i blas; th
   echo "blueprint links a system BLAS (app/scripts/install.sh turns it off)"
   exit 1
 fi
+# --private-node: the app runs on the Node install.sh put in ~/.blueprint/node, not the system's.
+if [ "$1" = --private-node ]; then
+  grep -q '\.blueprint[/\\]*node' "$data/server/env.json" || { echo "env.json doesn't use Blueprint's own Node:"; cat "$data/server/env.json"; exit 1; }
+  exit 0
+fi
 node -e '
 const { spawn } = require("child_process");
 const dir = require("path").join(process.argv[1], "server");

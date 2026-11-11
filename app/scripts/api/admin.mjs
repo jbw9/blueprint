@@ -15,15 +15,35 @@ const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : undefined)
 const fits = (x, n) => (x != null && JSON.stringify(x).length < n ? x : undefined);
 const count = (x) => (Array.isArray(x) ? x.length : undefined);
 
-/** One run of install.sh, with where its IP is (geojs.io, as the landing page asks for its country). */
-export async function trackInstall({ os, arch, ok, version, ci } = {}, ip) {
+const UUID = /^[0-9a-f-]{36}$/i;
+
+/**
+ * One run of install.sh, with where its IP is (geojs.io, as the landing page asks for its country).
+ * It pings as it starts and as it ends, under one id, so a start with no end is an install left
+ * while it ran. The end names the step it stopped at and why, and what it installed for them.
+ * Installs from before this send one ping, with no id and no phase.
+ */
+export async function trackInstall({ id, phase, os, arch, ok, version, ci, step, reason, seconds, fixed, node } = {}, ip) {
   const at = new Date().toISOString();
   const geo = await fetch(`https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`, { signal: AbortSignal.timeout(2000) })
     .then((r) => (r.ok ? r.json() : {}))
     .catch(() => ({}));
   await put({
     pk: "install", sk: `${at}#${randomInt(1e9)}`, at, os: clip(os, 40), arch: clip(arch, 40), ok: ok === true, version: clip(version, 20), ci: ci === true,
+    id: typeof id === "string" && UUID.test(id) ? id : undefined, phase: phase === "start" ? "start" : "end",
+    step: clip(step, 20), reason: clip(reason, 120), seconds: num(seconds), node: clip(node, 20),
+    fixed: Array.isArray(fixed) ? fixed.filter((f) => typeof f === "string").slice(0, 10).map((f) => f.slice(0, 20)) : undefined,
     ip: clip(ip, 45), country: clip(geo.country, 80), region: clip(geo.region, 80), city: clip(geo.city, 80), org: clip(geo.organization_name, 80),
+  });
+}
+
+/** The app opened, at most once a day per install: under the id install.sh gave it, so an install can be followed to its first launch. Kept 400 days. */
+export async function trackOpen({ install_id, version, os, arch, first, ci } = {}, ip) {
+  if (typeof install_id !== "string" || !UUID.test(install_id)) return;
+  const now = new Date().toISOString();
+  await put({
+    pk: `open#${today()}`, sk: install_id, at: now, version: clip(version, 20), os: clip(os, 40), arch: clip(arch, 40),
+    first: first === true, ci: ci === true, net: network(ip), ttl: Math.floor(Date.now() / 1000) + 400 * 86400,
   });
 }
 
@@ -220,6 +240,7 @@ export async function overview({ pw } = {}, ip) {
     query("teamip").then((ts) => new Set(ts.map((t) => t.sk))),
     ...live.map((d) => query(`visit#${d}`)),
   ]);
+  const openDays = await Promise.all(live.map((d) => query(`open#${d}`)));
 
   // A browser here before launch was one of ours, and stays ours.
   const allVisits = visitDays.flatMap((vs, i) =>
@@ -232,8 +253,18 @@ export async function overview({ pw } = {}, ip) {
   const visits = allVisits.filter((v) => !early.has(v.visitor));
 
   const whose = (i) => (i.ci ? "ci" : i.team || (i.ip && nets.has(network(i.ip))) ? "us" : "people");
-  const installs = allInstalls.filter((i) => whose(i) === "people");
+  // An install's start ping only counts as an install when no end came: one left while it ran.
+  const ended = new Set(allInstalls.filter((i) => i.phase !== "start" && i.id).map((i) => i.id));
+  const tries = allInstalls.filter((i) => whose(i) === "people");
+  const left = tries.filter((i) => i.phase === "start" && !ended.has(i.id));
+  const installs = tries.filter((i) => i.phase !== "start");
   const worked = installs.filter((i) => i.ok);
+  const failed = installs.filter((i) => !i.ok);
+
+  // An app is ours when the install that gave it its id was, or it opened on one of our networks.
+  const ourIds = new Set(allInstalls.filter((i) => i.id && whose(i) !== "people").map((i) => i.id));
+  const opens = openDays.flatMap((os, i) => os.map((o) => ({ ...o, day: live[i] }))).filter((o) => !o.ci && !ourIds.has(o.sk) && !(o.net && nets.has(o.net)));
+  const openedIds = new Set(opens.map((o) => o.sk));
 
   // A machine is ours once it made a blueprint before launch, on one of our networks or accounts, or in a run marked `team`.
   const team = teamOf(accounts);
@@ -266,7 +297,13 @@ export async function overview({ pw } = {}, ip) {
     views: sum(visits.map((v) => v.views)),
     copied: unique(visits.filter((v) => v.copied).map((v) => v.visitor)),
     installs: worked.length,
-    installs_failed: installs.length - worked.length,
+    installs_failed: failed.length,
+    installs_left: left.length,
+    // Installs that went on to open the app; only installs since ids were sent can.
+    installs_opened: worked.filter((i) => i.id && openedIds.has(i.id)).length,
+    installs_with_id: worked.filter((i) => i.id).length,
+    opened: openedIds.size,
+    opened_first: unique(opens.filter((o) => o.first).map((o) => o.sk)),
     // Installs before IPs were kept have none, and are not guessed at.
     installers: unique(worked.filter((i) => i.ip).map((i) => i.ip)),
     machines: unique(people.map((r) => r.install_id ?? null)),
@@ -290,7 +327,9 @@ export async function overview({ pw } = {}, ip) {
         copied: v.filter((x) => x.copied).length,
         views: sum(v.map((x) => x.views)),
         installs: worked.filter(on).length,
-        installs_failed: installs.filter((i) => !i.ok && on(i)).length,
+        installs_failed: failed.filter(on).length,
+        installs_left: left.filter(on).length,
+        opened: opens.filter((o) => o.day === day).length,
         runs_ok: fresh.filter((r) => r.status === "ok" && on(r)).length,
         runs_failed: fresh.filter((r) => r.status !== "ok" && on(r)).length,
       };
@@ -303,10 +342,16 @@ export async function overview({ pw } = {}, ip) {
     regions: top(visits.filter((v) => v.region).map((v) => ({ key: place(v), visitor: v.visitor })), "place"),
     install_os: [...osRows.values()].sort((a, b) => b.installs - a.installs),
     install_places: top(worked.map((i) => ({ key: place(i), visitor: i.sk })), "place"),
-    recent_installs: installs
+    // Where installs stop: failures with no step are from before steps were sent.
+    install_stops: top(failed.map((i) => ({ key: [i.step ?? "unknown", i.reason].filter(Boolean).join(": "), visitor: i.sk })), "stop"),
+    install_fixed: top(installs.flatMap((i) => (i.fixed ?? []).map((f) => ({ key: f, visitor: i.sk }))), "fixed"),
+    recent_installs: [...installs, ...left]
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, 100)
-      .map((i) => ({ at: i.at, ok: i.ok, os: i.os, arch: i.arch, version: i.version, ip: i.ip ?? null, org: i.org ?? null, city: i.city ?? null, region: i.region ?? null, country: i.country ?? null })),
+      .map((i) => ({
+        at: i.at, ok: i.ok, left: i.phase === "start", os: i.os, arch: i.arch, version: i.version, ip: i.ip ?? null, org: i.org ?? null, city: i.city ?? null, region: i.region ?? null, country: i.country ?? null,
+        step: i.step ?? null, reason: i.reason ?? null, seconds: i.seconds ?? null, fixed: i.fixed ?? [], node: i.node ?? null, opened: i.id ? openedIds.has(i.id) : null,
+      })),
     apps: appsInUse(people),
     // Every blueprint, ours too: what compares one generator version with the next.
     versions: [...versions]

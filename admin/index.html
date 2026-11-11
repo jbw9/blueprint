@@ -318,6 +318,7 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
       { step: "Visited blpr.dev", n: d.visitors },
       { step: "Copied the install", n: d.copied },
       { step: "Installed", n: d.installs },
+      { step: "Opened Blueprint", n: d.opened },
       { step: "Signed in to credit", n: d.credit ? d.credit.people.accounts : null },
       { step: "Made a blueprint", n: d.machines }
     ].filter(function (r) { return r.n != null; });
@@ -331,10 +332,15 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
 
   function installsTable(rows) {
     if (!rows.length) return '<p class="empty">No installs yet</p>';
-    return '<div class="scroll"><table><thead><tr><th>When</th><th>Status</th><th>Where</th><th>IP</th><th>Network</th><th>System</th><th>Version</th></tr></thead><tbody>' +
+    return '<div class="scroll"><table><thead><tr><th>When</th><th>Status</th><th>Stopped at</th><th>Installed for them</th><th>Took</th><th>Opened</th><th>Where</th><th>IP</th><th>Network</th><th>System</th><th>Version</th></tr></thead><tbody>' +
       rows.map(function (i) {
+        var status = i.left ? ["bad", "left"] : i.ok ? ["ok", "worked"] : ["bad", "failed"];
+        var took = i.seconds == null ? "—" : i.seconds < 60 ? i.seconds + "s" : Math.round(i.seconds / 60) + "m";
         return '<tr><td title="' + esc(new Date(i.at).toLocaleString()) + '">' + when(i.at) + "</td>" +
-          '<td><span class="tag ' + (i.ok ? "ok" : "bad") + '">' + (i.ok ? "worked" : "failed") + "</span></td>" +
+          '<td><span class="tag ' + status[0] + '">' + status[1] + "</span></td>" +
+          "<td>" + esc(i.ok ? "—" : [i.step, i.reason].filter(Boolean).join(": ") || "—") + "</td>" +
+          "<td>" + esc(i.fixed && i.fixed.length ? i.fixed.join(", ") : "—") + "</td><td>" + took + "</td>" +
+          "<td>" + (i.opened == null ? "—" : i.opened ? "yes" : "not yet") + "</td>" +
           "<td>" + esc([i.city, i.region, i.country].filter(Boolean).join(", ") || "—") + "</td><td>" + esc(i.ip || "—") + "</td><td>" + esc(i.org || "—") + "</td>" +
           "<td>" + esc(system(i.os, i.arch)) + "</td><td>" + esc(i.version || "—") + "</td></tr>";
       }).join("") + "</tbody></table></div>";
@@ -475,7 +481,7 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
       '<dl class="tiles">' +
       tile("Unique visitors", n(d.visitors), n(d.visits) + " visits · " + n(d.views) + " page views") +
       tile("Copied install", n(d.copied), pct(d.copied, d.visitors) + " of visitors") +
-      tile("Installs", n(d.installs), n(d.installers) + " IPs · " + n(d.installs_failed) + " failed") +
+      tile("Installs", n(d.installs), n(d.installers) + " IPs · " + n(d.installs_failed) + " failed · " + n(d.opened) + " opened the app") +
       tile("Signed in", c ? n(c.people.accounts) : "—", c ? n(c.people.active_7) + " active in the last 7 days" : "") +
       tile("Blueprints", n(d.blueprints), n(d.machines) + " machines · " + n(d.updates) + " updates") +
       tile("Credit spend", c ? usd(c.people.tab_usd + c.people.gen_usd) : "—", c ? big(c.people.tab_tokens + c.people.gen_tokens) + " tokens" : "") +
@@ -510,18 +516,25 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
 
   function installsSection(d) {
     var lo = d.left_out;
-    var os = d.install_os.map(function (o) { return { os: system.apply(null, o.os.split(" ")), installs: o.installs }; });
+    var os = d.install_os.map(function (o) { return { os: system.apply(null, o.os.split(" ")), installs: o.installs, failed: o.failed }; });
     return section("installs", "Installs", "The one-line install",
-      "Each run of <code>curl -fsSL https://blpr.dev/install.sh | sh</code> that reached its end, as install.sh reports it, placed by its IP. " +
+      "Each run of <code>curl -fsSL https://blpr.dev/install.sh | sh</code>, as install.sh reports it, placed by its IP. It reports as it starts and as it ends, " +
+      "so one that started and never ended was left while it ran. An install opens the app under the same id, so Opened follows it to its first launch (installs from before ids can't be followed). " +
       n(lo.installs_ci) + " run by CI and " + n(lo.installs_ours) + " from our networks are left out.",
       '<dl class="tiles">' +
       tile("Installs", n(d.installs), "that worked") +
       tile("Installers", n(d.installers), "different IPs, of installs that kept one") +
       tile("Failed", n(d.installs_failed), pct(d.installs_failed, d.installs + d.installs_failed) + " of tries") +
+      tile("Left", n(d.installs_left), "started and never ended") +
+      tile("Opened", n(d.installs_opened), "of " + n(d.installs_with_id) + " installs that can be followed") +
       "</dl>" +
       '<div class="grid3">' +
       card("Installs per day", bars(d.daily, "installs", "installs_failed", ["worked", "failed"]), n(d.installs)) +
       card("By system", list(os, "os", "installs"), "installs") +
+      card("Failed by system", list(os.filter(function (o) { return o.failed; }), "os", "failed"), "failed") +
+      card("Where they stop", list(d.install_stops, "stop", "visitors"), "failed installs") +
+      card("Installed for them", list(d.install_fixed, "fixed", "visitors"), "installs") +
+      card("Opened per day", bars(d.daily, "opened", null, ["apps opened"]), n(d.opened)) +
       card("By place", list(d.install_places, "place", "visitors"), "installs") +
       "</div>" +
       '<h3 class="sub">Latest installs</h3>' + installsTable(d.recent_installs));

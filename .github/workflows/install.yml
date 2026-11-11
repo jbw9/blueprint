@@ -63,20 +63,31 @@ jobs:
       - name: Pack
         run: echo "PACK=$(sh .github/scripts/pack-release.sh)" >> "$GITHUB_ENV"
 
+      # With the Node install.sh gets for someone whose Node is missing or old, as the app would run on.
       - name: Install from the release
         run: |
           # A file URL as Windows' curl reads one: file:///D:/a/... there, file:///home/... elsewhere.
           file=$(cygpath -m "$PACK" 2>/dev/null || echo "$PACK")
           case $file in /*) url=file://$file ;; *) url=file:///$file ;; esac
-          curl -fsSL "$RAW/install.sh" | BLUEPRINT_RELEASE="$url" sh
+          curl -fsSL "$RAW/install.sh" | BLUEPRINT_RELEASE="$url" BLUEPRINT_PRIVATE_NODE=1 sh
 
       - name: Check the release
-        run: sh .github/scripts/check-install.sh
+        run: |
+          sh .github/scripts/check-install.sh
+          sh .github/scripts/check-install.sh --private-node
 
       # The updater this release ships, run on the release itself: an updater that can't update
       # would leave everyone on this version.
       - name: Update the release
         run: sh .github/scripts/check-update.sh "$PACK"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: bare-linux-release
+          path: ${{ env.PACK }}
+          compression-level: 0
+          retention-days: 1
 
       - name: Keep the release
         if: inputs.version
@@ -89,3 +100,31 @@ jobs:
           name: release-${{ matrix.os }}
           path: ${{ steps.keep.outputs.path }}
           compression-level: 0
+
+  # A Linux with nothing on it, not even Node or WebKit, as a fresh server or container has: install.sh
+  # installs what's missing itself. Root here, so it needs no sudo.
+  bare-linux:
+    needs: install
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    timeout-minutes: 30
+    env:
+      RAW: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
+    steps:
+      - run: apt-get update && apt-get install -y curl ca-certificates
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - uses: actions/download-artifact@v4
+        with:
+          name: bare-linux-release
+          path: release
+      - name: Install with nothing on the system
+        run: |
+          ! command -v node
+          curl -fsSL "$RAW/install.sh" | BLUEPRINT_RELEASE="file://$PWD/$(ls release/*.tar.gz)" sh
+      - name: Check
+        run: |
+          export PATH="$HOME/.blueprint/node/bin:$PATH"
+          sh .github/scripts/check-install.sh
+          sh .github/scripts/check-install.sh --private-node

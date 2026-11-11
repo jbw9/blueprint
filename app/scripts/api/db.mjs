@@ -1,5 +1,6 @@
 // The one DynamoDB table every route here keeps its state in (TABLE): pk/sk strings, `ttl` for what expires.
-//   install / <at>#<rand>        one run of install.sh, with its IP and where that is, and whether CI ran it
+//   install / <at>#<rand>        one run of install.sh, as it starts and as it ends, with its IP and where that is, and whether CI ran it
+//   open#<day> / <install_id>    an installed app that opened that day (admin.mjs trackOpen)
 //   visit#<day> / <visitor>      one browser's views on blpr.dev that day
 //   teamip / <network>           a network the admin dashboard was opened from: its installs and machines are ours (admin.mjs)
 //   run / <at>#<id>              one finished run, without its report; runbody#<id> / body holds that
