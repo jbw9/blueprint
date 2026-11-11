@@ -47,9 +47,15 @@ main() {
   else release=$RELEASES/latest/$file mirror=https://github.com/jbw9/blueprint/releases/latest/download/$file
   fi
   tmp=$(mktemp -d)
+  at=release
+  source=
+  if [ -n "$BLUEPRINT_FROM_SOURCE" ] || ! find_release; then source=1; fi
+  at=check
+  survey
+  done_line "Checked your system" "$name $arch"
+  [ -z "$wants" ] || agree
   xcode_tools
   ensure_node
-  done_line "Checked your system" "$name $arch · Node $(node -v | tr -d v)"
 
   case $os in
   Darwin) app=/Applications/Blueprint.app ;;
@@ -58,8 +64,7 @@ main() {
   esac
   updating=$([ -e "$app" ] && echo 1 || true)
 
-  at=release
-  if [ -z "$BLUEPRINT_FROM_SOURCE" ] && find_release; then
+  if [ -z "$source" ]; then
     watch="$tmp/blueprint.tar.gz"
     note=${total:+$((total / 1048576)) MB}
     at=download
@@ -125,21 +130,88 @@ install_release() {
   BLUEPRINT_PREBUILT="$tmp" sh "$place"
 }
 
+# Everything missing, found before anything is installed, so they're asked once.
+survey() {
+  wants=
+  if [ "$os" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
+    want "Apple's command line tools, which have git (asks for your password)" "xcode-select --install"
+  fi
+  if command -v brew >/dev/null; then nodefix="brew install node@22"
+  elif [ "$os" = Windows ]; then nodefix="winget install OpenJS.NodeJS.LTS"
+  else nodefix="Install Node 22 from https://nodejs.org"
+  fi
+  needs_node && want "Node 22, just for Blueprint, in ~/.blueprint (your own Node isn't touched)" "$nodefix"
+  if [ -n "$source" ]; then
+    check_tools
+    [ -z "$missing" ] || want "What building Blueprint needs:
+$(printf '%s\n' "$missing" | sed 's/^/  /')" "$fixes"
+    command -v cargo >/dev/null || [ -x "$HOME/.cargo/bin/cargo" ] || want "Rust, to build Blueprint" "curl https://sh.rustup.rs -sSf | sh"
+  elif [ "$os" = Linux ]; then
+    l=
+    command -v git >/dev/null || l="$l git"
+    ldconfig -p 2>/dev/null | grep -q libwebkit2gtk-4.1 || l="$l WebKitGTK"
+    ldconfig -p 2>/dev/null | grep -q libgtk-3 || l="$l GTK"
+    if command -v apt-get >/dev/null; then libfix="sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 git"
+    elif command -v dnf >/dev/null; then libfix="sudo dnf install webkit2gtk4.1 gtk3 git"
+    elif command -v pacman >/dev/null; then libfix="sudo pacman -S webkit2gtk-4.1 gtk3 git"
+    else libfix="Install WebKitGTK 4.1, GTK 3 and git with your package manager."
+    fi
+    [ -z "$l" ] || want "System libraries Blueprint opens with:$l (asks for your password)" "$libfix"
+  fi
+  has_claude || want "Claude Code, which Blueprint makes blueprints with" "curl -fsSL https://claude.ai/install.sh | bash"
+}
+
+want() {
+  wants="${wants:+$wants
+}$1"
+  todo="${todo:+$todo
+}$2"
+}
+
+# Yes unless they say no. Without a terminal to ask (CI, a script) it goes ahead; BLUEPRINT_YES=1 skips asking.
+agree() {
+  printf '\n  Blueprint needs a few things this computer doesn'"'"'t have:\n\n'
+  printf '%s\n' "$wants" | sed "s/^  /      /; s/^\([^ ]\)/    - \1/"
+  [ -z "$BLUEPRINT_YES" ] && (: </dev/tty) 2>/dev/null || { printf '\n'; return 0; }
+  printf '\n  Install them? %s[Y/n]%s ' "$bold" "$off"
+  read -r answer </dev/tty || answer=
+  printf '\n'
+  case $answer in [nN]*)
+    declined=1
+    fail "Blueprint didn't install anything" "" "$todo"
+    ;;
+  esac
+}
+
+needs_node() {
+  v=$(node -p 'process.versions.node' 2>/dev/null || true)
+  [ -n "$BLUEPRINT_PRIVATE_NODE" ] || [ -z "$v" ] || [ "${v%%.*}" -lt 22 ] || return 1
+  v=$("$(node_bin)/node" -p 'process.versions.node' 2>/dev/null || true)
+  [ -z "$v" ] || [ "${v%%.*}" -lt 22 ]
+}
+
+node_bin() { if [ "$os" = Windows ]; then echo "$home/node"; else echo "$home/node/bin"; fi; }
+
+has_claude() {
+  for c in "$(command -v claude 2>/dev/null)" "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" "$HOME/.local/bin/claude.exe"; do
+    [ -n "$c" ] && [ -x "$c" ] && return 0
+  done
+  return 1
+}
+
 # Blueprint's own Node, in $home/node, when the computer's is missing or older than 22 (the
 # generator uses Promise.withResolvers). The computer's Node is left as it is.
 ensure_node() {
   at=node
   v=$(node -p 'process.versions.node' 2>/dev/null || true)
   [ -n "$BLUEPRINT_PRIVATE_NODE" ] || [ -z "$v" ] || [ "${v%%.*}" -lt 22 ] || return 0
-  bin=$home/node/bin
-  [ "$os" != Windows ] || bin=$home/node
-  v=$("$bin/node" -p 'process.versions.node' 2>/dev/null || true)
-  if [ -z "$v" ] || [ "${v%%.*}" -lt 22 ]; then
+  if needs_node; then
+    [ -z "$declined" ] || fail "Blueprint needs Node 22 or newer" "${v:+You have Node $v.}" "Install it from https://nodejs.org"
     try_step "Installing Node 22 for Blueprint" "Installed Node 22 for Blueprint" install_node ||
       fail "Blueprint needs Node 22 or newer, and couldn't install it" "" "Install it from https://nodejs.org"
     fixed="$fixed node"
   fi
-  PATH="$bin:$PATH"
+  PATH="$(node_bin):$PATH"
 }
 
 install_node() {
@@ -162,16 +234,31 @@ install_node() {
   mv "$tmp/node/${pkg%.$ext}" "$home/node"
 }
 
-# git, and the compiler a build from source needs. Apple's installer asks for a click, then this waits for it.
+# git, and the compiler a build from source needs: from Apple's software update in the terminal, as
+# Homebrew gets them, or from Apple's own window when software update doesn't list them.
 xcode_tools() {
   [ "$os" = Darwin ] || return 0
   xcode-select -p >/dev/null 2>&1 && return 0
   at=xcode-tools
-  xcode-select --install >/dev/null 2>&1 || true
-  warn "Blueprint needs Apple's command line tools, which have git" "A window asks to install them: click Install, and this goes on once they're in."
-  try_step "Waiting for Apple's command line tools" "Installed Apple's command line tools" wait_xcode ||
-    fail "Apple's command line tools aren't installed" "" "xcode-select --install"
+  [ -z "$declined" ] || fail "Blueprint needs Apple's command line tools, which have git" "" "xcode-select --install"
+  if ! { can_root && try_step "Installing Apple's command line tools (a few minutes)" "Installed Apple's command line tools" install_xcode; }; then
+    xcode-select --install >/dev/null 2>&1 || true
+    warn "A window asks to install Apple's command line tools: click Install" "This goes on once they're in."
+    try_step "Waiting for Apple's command line tools" "Installed Apple's command line tools" wait_xcode ||
+      fail "Apple's command line tools aren't installed" "" "xcode-select --install"
+  fi
   fixed="$fixed xcode-tools"
+}
+
+install_xcode() {
+  # This file makes software update list the command line tools.
+  flag=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+  touch "$flag"
+  label=$(softwareupdate -l 2>/dev/null | sed -n 's/^[* ]*Label: \(Command Line Tools.*\)$/\1/p' | tail -n 1)
+  [ -n "$label" ] || { rm -f "$flag"; echo "Software update doesn't list Apple's command line tools" >&2; exit 1; }
+  sudo -n softwareupdate -i "$label"
+  rm -f "$flag"
+  xcode-select -p >/dev/null 2>&1
 }
 
 wait_xcode() {
@@ -184,10 +271,10 @@ wait_xcode() {
 }
 
 ensure_claude() {
-  for c in "$(command -v claude 2>/dev/null)" "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" "$HOME/.local/bin/claude.exe"; do
-    [ -n "$c" ] && [ -x "$c" ] && return 0
-  done
-  if try_step "Installing Claude Code" "Installed Claude Code" install_claude; then
+  has_claude && return 0
+  if [ -n "$declined" ]; then
+    warn "Claude Code isn't installed. Blueprint makes blueprints with it" "https://claude.com/claude-code"
+  elif try_step "Installing Claude Code" "Installed Claude Code" install_claude; then
     fixed="$fixed claude"
   else
     reason="claude didn't install"
@@ -210,7 +297,7 @@ can_root() {
   sudo -n true 2>/dev/null && return 0
   (: </dev/tty) 2>/dev/null || return 1
   printf '    Installing them needs your password.\n'
-  sudo -v </dev/tty
+  sudo -v -p '    Password: ' </dev/tty
 }
 
 root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
@@ -240,7 +327,7 @@ check_libs() {
   elif command -v apt-get >/dev/null; then pkgs="libwebkit2gtk-4.1-0 libgtk-3-0 git"
   elif command -v pacman >/dev/null; then pkgs="webkit2gtk-4.1 gtk3 git"
   fi
-  if [ -n "$pkgs" ] && can_root && try_step "Installing the system libraries Blueprint needs" "Installed the system libraries" linux_install $pkgs; then
+  if [ -z "$declined" ] && [ -n "$pkgs" ] && can_root && try_step "Installing the system libraries Blueprint needs" "Installed the system libraries" linux_install $pkgs; then
     missing_libs
     fixed="$fixed libs"
   fi
@@ -264,7 +351,7 @@ from_source() {
 
   at=tools
   check_tools
-  if [ -n "$missing" ] && get_tools; then
+  if [ -n "$missing" ] && [ -z "$declined" ] && get_tools; then
     check_tools
     fixed="$fixed build-tools"
   fi
@@ -273,6 +360,7 @@ from_source() {
 
   if ! command -v cargo >/dev/null; then
     at=rust
+    [ -z "$declined" ] || fail "Building Blueprint needs Rust" "" "curl https://sh.rustup.rs -sSf | sh"
     step "Installing Rust" "Installed Rust" install_rust
     PATH="$HOME/.cargo/bin:$PATH"
     fixed="$fixed rust"
@@ -507,7 +595,7 @@ warn() {
 
 fail() {
   unspin
-  reason=$1
+  reason=${declined:+declined: }$1
   printf '\n  %s%s %s%s\n' "$red$bold" "$bad" "$1" "$off"
   [ -z "$2" ] || printf '%s\n' "$2" | sed 's/^/    /'
   if [ -n "$3" ]; then
