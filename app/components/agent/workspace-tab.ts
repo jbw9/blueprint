@@ -58,6 +58,8 @@ export interface Tab {
   outOfCredit?: boolean;
   /** The reader chose their own Claude Code in Settings, so this credit tab asks to move. */
   offerOwn?: boolean;
+  /** The reader chose Blueprint credit in Settings, so this tab, started on their own Claude Code, asks to move. */
+  offerCredit?: boolean;
 }
 
 /** The title an agent set for its terminal as a tab name: without the spinner or status glyph in front,

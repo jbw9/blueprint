@@ -607,11 +607,11 @@ export function Shell({
     // Chrome wherever it is, the window or the main view.
     <div ref={pane} data-chrome className={cn("absolute inset-0 bg-surface-container-low px-3 pb-1", !visible && "hidden")}>
       {error ? (
-        <p className="font-mono text-[11.5px] text-clay-ink">{error}</p>
+        <p className="text-[12.5px] text-clay-ink">{error}</p>
       ) : (
         <div ref={el} className="h-full w-full" />
       )}
-      {dropping ? <div className="pointer-events-none absolute inset-1 border border-dashed border-accent-line bg-accent/5" /> : null}
+      {dropping ? <div className="pointer-events-none absolute inset-1 rounded border border-dashed border-accent-line bg-accent/5" /> : null}
     </div>
   );
 }

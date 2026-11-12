@@ -5,6 +5,7 @@ import { goTo } from "@/components/chrome/crumbs";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openFile, useOpenFile } from "@/components/blueprint/code";
 import { closeTab, follow, insertTab, justOpened, openTab, readTabs, replaceTab, selectTab, useTabs, type Tab } from "@/lib/client/tabs";
+import { GlobeIcon } from "@/components/agent/tab-icons";
 import { Menu } from "@/components/ui/menu";
 import { InTabSlot, useMainStrip } from "@/components/chrome/tab-slot";
 import { cn } from "@/lib/client/utils";
@@ -21,6 +22,15 @@ export function BlueprintIcon() {
       <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
       <path d="M7.5 2.5v6h6" />
       <path d="M2.5 10.5h3" />
+    </svg>
+  );
+}
+
+function BlankIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden className="size-3 shrink-0">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+      <path d="M8 5.5v5M5.5 8h5" />
     </svg>
   );
 }
@@ -135,7 +145,7 @@ export const OPEN_PREVIEW = "blueprint:new-preview";
 export const OPEN_BLANK = "blueprint:new-blank";
 
 /** The main view's `+`: another tab of the blueprint, a Preview, or an empty tab. */
-export function NewTab({ onBlueprint }: { onBlueprint: () => void }) {
+export function NewTab({ onBlueprint, hidePreview }: { onBlueprint: () => void; hidePreview?: boolean }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   return (
     <>
@@ -160,9 +170,9 @@ export function NewTab({ onBlueprint }: { onBlueprint: () => void }) {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Blueprint", onClick: onBlueprint },
-            { label: "Preview", onClick: () => window.dispatchEvent(new Event(OPEN_PREVIEW)) },
-            { label: "Empty tab", onClick: () => window.dispatchEvent(new Event(OPEN_BLANK)) },
+            { label: "Blueprint", icon: <BlueprintIcon />, onClick: onBlueprint },
+            ...(hidePreview ? [] : [{ label: "Preview", icon: <GlobeIcon />, onClick: () => window.dispatchEvent(new Event(OPEN_PREVIEW)) }]),
+            { label: "Empty tab", icon: <BlankIcon />, separated: true, onClick: () => window.dispatchEvent(new Event(OPEN_BLANK)) },
           ]}
         />
       ) : null}

@@ -660,8 +660,8 @@ export function Workspace() {
   // Claude tabs on Blueprint credit started again in place on the reader's own Claude Code, resuming
   // their conversations. A key changes, so its Shell remounts: the old Claude is stopped and the new
   // one launched. One whose call was refused is told to carry on, as its last prompt went unanswered.
-  const toOwnClaude = (keys: number[]) => {
-    const all = tabsNow.current.filter((x) => keys.includes(x.key) && x.credit && x.session);
+  const toOwnClaude = (keys: number[], toCredit = false) => {
+    const all = tabsNow.current.filter((x) => keys.includes(x.key) && !!x.credit !== toCredit && x.session);
     if (!all.length) return;
     const moved = new Map(all.map((x) => [x.key, nextKey++]));
     setTabs((tabs) =>
@@ -672,7 +672,7 @@ export function Workspace() {
         if (key === undefined) return x;
         if (x.pty !== undefined) tabEnded(x.pty);
         // Started in Claude even if it was run from the strip of a plain terminal: only a start resumes.
-        return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, outOfCredit: false, offerOwn: false, start: CLAUDE.id, run: undefined, resume: x.session };
+        return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, outOfCredit: false, offerOwn: false, offerCredit: false, start: CLAUDE.id, run: undefined, resume: x.session };
       }),
     );
     const refused = all.filter((x) => x.outOfCredit);
@@ -696,7 +696,13 @@ export function Workspace() {
         void readCredit().then((c) => {
           if (!c) return;
           const offer = !(c.on && c.login);
-          setTabs((all) => all.map((t) => (t.credit && !!t.offerOwn !== offer ? { ...t, offerOwn: offer } : t)));
+          setTabs((all) =>
+            all.map((t) => {
+              if (t.credit) return !!t.offerOwn !== offer ? { ...t, offerOwn: offer } : t;
+              const back = !offer && !!c.available && !!t.session;
+              return !!t.offerCredit !== back ? { ...t, offerCredit: back } : t;
+            }),
+          );
         });
       }),
     [],
@@ -1273,7 +1279,7 @@ export function Workspace() {
       data-chrome
       // Over the history popup's veil while it has a file open here, so the two read together.
       className={cn(
-        "fixed flex flex-col border border-border-gray bg-surface-container-low shadow-lift",
+        "fixed flex flex-col rounded-lg border border-border-gray bg-surface-container-low shadow-lift",
         readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
         // A staged Preview lies past the window's edge, and would be clipped.
         !stagedAt?.main && stagedAt ? "overflow-visible" : "overflow-hidden",
@@ -1405,6 +1411,7 @@ export function Workspace() {
         })}
         {docked.map((t) => tabView(t, t.key === upFront?.key, true))}
         <NewTab
+          hidePreview={mine.some((x) => x.kind === "preview")}
           onBlueprint={() => {
             setFront((f) => ({ ...f, [here]: null }));
             openInTab(blueprint.name, []);
@@ -1471,7 +1478,7 @@ export function Workspace() {
         style={{ x: dotsX, y: dotsY, right: GAP, top: (desktop ? TITLEBAR : 0) + GAP }}
         title="Drag to move"
         data-chrome
-        className="fixed z-40 flex cursor-grab flex-col items-center gap-0.5 border border-border-gray bg-card p-0.5 shadow-lift active:cursor-grabbing"
+        className="fixed z-40 flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-border-gray bg-card p-0.5 shadow-lift active:cursor-grabbing"
       >
         {panel
           .filter((t) => t.status)
@@ -1639,10 +1646,18 @@ export function Workspace() {
             ) : (
               shell
             )}
+            {!t.credit && t.session && t.offerCredit && visible ? (
+              <div data-chrome className="absolute inset-x-3 bottom-3 z-10 flex animate-[dialog-in_.18s_ease-out] items-center gap-4 rounded-lg border border-border-gray bg-card px-4 py-3 text-[13.5px] font-medium text-ink shadow-lift">
+                <span className="min-w-0 flex-1">You chose Blueprint credit.</span>
+                <button type="button" onClick={() => toOwnClaude(tabsNow.current.filter((x) => x.offerCredit).map((x) => x.key), true)} className="h-8 shrink-0 cursor-pointer rounded bg-accent px-3.5 text-[13px] font-medium text-on-accent transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.97]">
+                  Switch to Blueprint credit
+                </button>
+              </div>
+            ) : null}
             {t.credit && t.session && (t.outOfCredit || t.offerOwn) && visible ? (
-              <div data-chrome className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 border border-accent-line bg-accent-surface px-3 py-2 font-mono text-[12px] text-ink shadow-sm">
-                <span className="min-w-0 flex-1">{t.outOfCredit ? "Your Blueprint credit for Claude Code is used up. Claude picks this conversation up on your own Claude Code and carries on." : "You chose your own Claude Code. This tab still runs on Blueprint credit until it moves; the conversation carries on."}</span>
-                <button type="button" onClick={() => toOwnClaude([t.key])} className="shrink-0 bg-accent px-3 py-1 font-medium text-on-accent hover:bg-accent-strong">
+              <div data-chrome className="absolute inset-x-3 bottom-3 z-10 flex animate-[dialog-in_.18s_ease-out] items-center gap-4 rounded-lg border border-border-gray bg-card px-4 py-3 text-[13.5px] font-medium text-ink shadow-lift">
+                <span className="min-w-0 flex-1">{t.outOfCredit ? "Your Blueprint credit is used up." : "You chose your own Claude Code."}</span>
+                <button type="button" onClick={() => toOwnClaude(tabsNow.current.filter((x) => x.credit).map((x) => x.key))} className="h-8 shrink-0 cursor-pointer rounded bg-accent px-3.5 text-[13px] font-medium text-on-accent transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.97]">
                   Switch to my Claude Code
                 </button>
               </div>
