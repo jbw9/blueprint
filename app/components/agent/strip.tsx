@@ -37,7 +37,7 @@ export function Strip({
     void invoke("pty_write", { id: pty, data: `${a.command}\r` });
   };
   return (
-    <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-torder-gray px-3 py-1.5 font-mono text-[11px] [scrollbar-width:none]">
+    <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border-gray px-3 py-1.5 text-[12px] [scrollbar-width:none]">
       {agents.map((a) => (
         <button
           key={a.id}
@@ -48,7 +48,7 @@ export function Strip({
               ? "Runs blueprint-claude in this shell: your Claude Code, able to take blueprint context"
               : `Runs ${a.command} in this shell: your ${a.label}, able to take blueprint context`
           }
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 border border-border-strong px-2 py-px text-ink hover:bg-surface-container"
+          className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded bg-surface-container px-2.5 font-medium text-ink transition-[background-color,transform] duration-150 hover:bg-surface-dim active:scale-[0.97]"
         >
           <AgentIcon id={a.id} />
           {a.id === CLAUDE.id ? "Claude" : a.label}

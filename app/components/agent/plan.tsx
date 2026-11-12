@@ -442,7 +442,7 @@ function marked(text: string, marks: StepMark[]): Components {
       return (
         <li data-state={m?.state}>
           {children}
-          {m?.state === "doing" ? <span className="ml-2 inline-block font-mono text-[10.5px] uppercase tracking-[0.08em] text-amber-ink">in progress</span> : null}
+          {m?.state === "doing" ? <span className="ml-2 inline-block text-[11px] font-medium text-amber-ink">In progress</span> : null}
           {m?.state === "skipped" ? <span className="ml-2 inline-block text-[13px] text-faint">skipped{m.note ? ` — ${m.note}` : ""}</span> : null}
         </li>
       );

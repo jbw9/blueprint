@@ -529,7 +529,7 @@ export function Preview({
               if (e.key === "Escape") (e.target as HTMLElement).blur();
             }}
             spellCheck={false}
-            className="h-6 w-full border border-border-gray bg-card px-2 font-mono text-[11.5px] text-ink outline-none placeholder:text-faint focus:border-accent/60"
+            className="h-7 w-full rounded-md border border-border-gray bg-card px-2.5 font-mono text-[11.5px] text-ink outline-none placeholder:text-faint focus:border-accent/60"
           />
         </form>
         <Devices size={size} fill={fill} resize={resize} />
@@ -540,12 +540,12 @@ export function Preview({
             setMenu({ x: r.left, y: r.bottom + 4 });
           }}
           title="Viewport size: drag the page's right or bottom edge, or pick one"
-          className="flex h-6 shrink-0 cursor-pointer items-center px-2 font-mono text-[11px] text-muted-slate tabular-nums hover:bg-surface-container hover:text-ink"
+          className="flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 font-mono text-[11px] text-muted-slate tabular-nums hover:bg-surface-container hover:text-ink"
         >
           {vw && vh ? dims : "—"}
         </button>
         {claude ? (
-          <span className="mr-1 flex shrink-0 items-center gap-1.5 bg-claude/12 px-2 py-0.5 text-[11px] text-claude-ink">
+          <span className="mr-1 flex shrink-0 items-center gap-1.5 rounded-md bg-claude/12 px-2 py-1 text-[11px] text-claude-ink">
             <span className="size-1.5 animate-pulse rounded-full bg-claude" />
             Claude
           </span>

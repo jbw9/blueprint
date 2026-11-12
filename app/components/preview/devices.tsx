@@ -15,7 +15,7 @@ const DEVICES = [
 /** The sizes a page is most often checked at, a click apart, as in Chrome's device toolbar. */
 export function Devices({ size, fill, resize }: { size: Size | null; fill: boolean; resize: (next: Size | null) => void }) {
   return (
-    <div role="group" aria-label="Device" className="mr-1 flex shrink-0 items-center bg-surface-container p-0.5">
+    <div role="group" aria-label="Device" className="mr-1 flex shrink-0 items-center rounded-md bg-surface-container p-0.5">
       {DEVICES.map((d) => {
         const p = PRESETS.find((x) => x.id === d.id);
         const on = p ? !!size && ((size.w === p.w && size.h === p.h) || (size.w === p.h && size.h === p.w)) : fill;
@@ -27,7 +27,7 @@ export function Devices({ size, fill, resize }: { size: Size | null; fill: boole
             title={p ? `${d.label} · ${p.w} × ${p.h}` : d.label}
             onClick={() => resize(p ? { w: p.w, h: p.h } : null)}
             className={cn(
-              "flex h-5 w-6 cursor-pointer items-center justify-center",
+              "flex h-6 w-7 cursor-pointer items-center justify-center rounded transition-[background-color,color,box-shadow] duration-150",
               on ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-border-gray)]" : "text-muted-slate hover:text-ink",
             )}
           >

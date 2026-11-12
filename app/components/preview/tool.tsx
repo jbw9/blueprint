@@ -12,7 +12,7 @@ export function Tool({ label, onClick, disabled, on, children }: { label: string
       aria-pressed={on}
       title={label}
       className={cn(
-        "flex size-7 shrink-0 cursor-pointer items-center justify-center hover:bg-surface-container hover:text-ink disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent",
+        "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent",
         on ? "bg-claude/12 text-claude-ink" : "text-muted-slate",
       )}
     >
