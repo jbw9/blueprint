@@ -134,13 +134,20 @@ install_release() {
 survey() {
   wants=
   if [ "$os" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
-    want "Apple's command line tools, which have git (asks for your password)" "xcode-select --install"
+    xcode="Apple's command line tools (asks for your password), for git, which Blueprint uses to:
+  read your repository's files and history when it makes a blueprint
+  clone a repository when you paste a link"
+    [ -z "$source" ] || xcode="$xcode
+  and for the C++ compiler, which builds Blueprint"
+    want "$xcode" "xcode-select --install"
   fi
   if command -v brew >/dev/null; then nodefix="brew install node@22"
   elif [ "$os" = Windows ]; then nodefix="winget install OpenJS.NodeJS.LTS"
   else nodefix="Install Node 22 from https://nodejs.org"
   fi
-  needs_node && want "Node 22, just for Blueprint, in ~/.blueprint (your own Node isn't touched)" "$nodefix"
+  needs_node && want "Node 22, just for Blueprint, in ~/.blueprint (your own Node isn't touched), which runs:
+  the app itself
+  the generator that makes your blueprints" "$nodefix"
   if [ -n "$source" ]; then
     check_tools
     [ -z "$missing" ] || want "What building Blueprint needs:
@@ -158,7 +165,9 @@ $(printf '%s\n' "$missing" | sed 's/^/  /')" "$fixes"
     fi
     [ -z "$l" ] || want "System libraries Blueprint opens with:$l (asks for your password)" "$libfix"
   fi
-  has_claude || want "Claude Code, which Blueprint makes blueprints with" "curl -fsSL https://claude.ai/install.sh | bash"
+  has_claude || want "Claude Code, which Blueprint uses to:
+  write your blueprints
+  run the Claude tabs beside them" "curl -fsSL https://claude.ai/install.sh | bash"
 }
 
 want() {
@@ -171,7 +180,7 @@ want() {
 # Yes unless they say no. Without a terminal to ask (CI, a script) it goes ahead; BLUEPRINT_YES=1 skips asking.
 agree() {
   printf '\n  Blueprint needs a few things this computer doesn'"'"'t have:\n\n'
-  printf '%s\n' "$wants" | sed "s/^  /      /; s/^\([^ ]\)/    - \1/"
+  printf '%s\n' "$wants" | sed "s/^  /        · /; s/^\([^ ]\)/    - \1/"
   [ -z "$BLUEPRINT_YES" ] && (: </dev/tty) 2>/dev/null || { printf '\n'; return 0; }
   printf '\n  Install them? %s[Y/n]%s ' "$bold" "$off"
   read -r answer </dev/tty || answer=
