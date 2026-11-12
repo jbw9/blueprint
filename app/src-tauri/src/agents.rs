@@ -19,10 +19,11 @@
 use portable_pty::CommandBuilder;
 use std::path::Path;
 
-/// Finds an agent's own binary on PATH, past the shims beside the launchers.
+/// Finds an agent's own binary on PATH, past the shims beside the launchers. The
+/// same directory, not the same text: Git Bash's PATH names it `/tmp/...`, `$BLUEPRINT_BIN` `C:\...`.
 macro_rules! real {
     () => {
-        r#"real() { ( IFS=:; for d in $PATH; do [ "$d" = "$BLUEPRINT_BIN" ] && continue; [ -f "$d/$1" ] && [ -x "$d/$1" ] && { printf '%s\n' "$d/$1"; exit 0; }; done; exit 1 ); }
+        r#"real() { ( IFS=:; for d in $PATH; do [ "$d" -ef "$BLUEPRINT_BIN" ] && continue; [ -f "$d/$1" ] && [ -x "$d/$1" ] && { printf '%s\n' "$d/$1"; exit 0; }; done; exit 1 ); }
 "#
     };
 }
@@ -110,9 +111,11 @@ const PI: &str = launcher!(
     r#""$r" -e "$BLUEPRINT_BIN/blueprint-pi.cjs" --append-system-prompt "$BLUEPRINT_BIN/blueprint-agents.md" "$@""#
 );
 
+/// The agents a tab has launchers for, and shims that run them.
+pub const AGENTS: [&str; 3] = ["codex", "opencode", "pi"];
+
 /// `codex` typed in a tab: the launcher, as `claude` is (claude.rs's CLAUDE_SHIM).
 /// Not from inside an agent, nor from a script with no terminal.
-#[cfg(unix)]
 macro_rules! shim {
     ($name:literal) => {
         concat!(
@@ -275,15 +278,13 @@ pub fn install(dir: &Path) -> std::io::Result<()> {
     install(&dir.join("blueprint-codex"), CODEX)?;
     install(&dir.join("blueprint-opencode"), OPENCODE)?;
     install(&dir.join("blueprint-pi"), PI)?;
-    #[cfg(unix)]
-    {
-        install(&dir.join("codex"), shim!("codex"))?;
-        install(&dir.join("opencode"), shim!("opencode"))?;
-        install(&dir.join("pi"), shim!("pi"))?;
-    }
+    install(&dir.join("codex"), shim!("codex"))?;
+    install(&dir.join("opencode"), shim!("opencode"))?;
+    install(&dir.join("pi"), shim!("pi"))?;
     #[cfg(windows)]
-    for name in ["codex", "opencode", "pi"] {
+    for name in AGENTS {
         install(&dir.join(format!("blueprint-{name}.cmd")), &launcher_cmd(&format!("blueprint-{name}")))?;
+        install(&dir.join(format!("{name}.cmd")), &shim_cmd(name))?;
     }
     Ok(())
 }
@@ -294,6 +295,25 @@ pub fn install(dir: &Path) -> std::io::Result<()> {
 fn launcher_cmd(script: &str) -> String {
     format!(
         "@echo off\r\nif not defined BLUEPRINT_BASH (\r\n  echo {script} in Blueprint needs Git for Windows: https://git-scm.com/download/win 1>&2\r\n  exit /b 1\r\n)\r\n\"%BLUEPRINT_BASH%\" \"%~dp0{script}\" %*\r\n"
+    )
+}
+
+/// `codex` typed in cmd or PowerShell: the shim, run by Git for Windows' bash.
+/// Without it, the agent's own `.cmd` or `.exe` further along PATH.
+#[cfg(windows)]
+fn shim_cmd(name: &str) -> String {
+    format!(
+        "@echo off\r\n\
+if defined BLUEPRINT_BASH (\r\n\
+  \"%BLUEPRINT_BASH%\" \"%~dp0{name}\" %*\r\n\
+  exit /b\r\n\
+)\r\n\
+for /f \"delims=\" %%p in ('where {name} 2^>nul') do if /i not \"%%~dpp\"==\"%~dp0\" if not \"%%~xp\"==\"\" (\r\n\
+  \"%%p\" %*\r\n\
+  exit /b\r\n\
+)\r\n\
+echo {name}: command not found 1>&2\r\n\
+exit /b 1\r\n"
     )
 }
 

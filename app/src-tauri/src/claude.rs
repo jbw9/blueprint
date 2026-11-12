@@ -863,11 +863,7 @@ pub fn prepare_tab(cmd: &mut CommandBuilder, queue: &Path, outline: Option<&str>
     }
     if let Some(dir) = path.parent() {
         crate::agents::prepare(cmd, dir, tab);
-        cmd.env("BLUEPRINT_BIN", dir);
-        let rest = std::env::var_os("PATH").unwrap_or_default();
-        let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
-            .map_err(std::io::Error::other)?;
-        cmd.env("PATH", joined);
+        shims_first(cmd, dir)?;
     }
     // Other shells ignore it.
     #[cfg(unix)]
@@ -880,6 +876,22 @@ pub fn prepare_tab(cmd: &mut CommandBuilder, queue: &Path, outline: Option<&str>
         cmd.env("ZDOTDIR", zdotdir());
     }
     Ok(path)
+}
+
+/// The launchers and the shims in `dir` first on the tab's PATH, so a `claude` typed
+/// in the tab is Blueprint's. bash takes functions from its environment, and a function
+/// comes before PATH: a .bashrc that puts the user's own bin first still runs the
+/// shims, as ZSHRC does for zsh.
+fn shims_first(cmd: &mut CommandBuilder, dir: &Path) -> std::io::Result<()> {
+    cmd.env("BLUEPRINT_BIN", dir);
+    for name in std::iter::once("claude").chain(crate::agents::AGENTS) {
+        cmd.env(format!("BASH_FUNC_{name}%%"), format!(r#"() {{ "$BLUEPRINT_BIN/{name}" "$@"; }}"#));
+    }
+    let rest = std::env::var_os("PATH").unwrap_or_default();
+    let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
+        .map_err(std::io::Error::other)?;
+    cmd.env("PATH", joined);
+    Ok(())
 }
 
 /// What a tab's shell needs so that Claude's launcher works in it, besides
@@ -1065,57 +1077,83 @@ mod tests {
         assert_eq!(find(Some("  "), Some(dir.path())), Some(installed));
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn claude_typed_in_a_windows_tab_runs_the_launcher_in_every_shell() {
+    /// What `line` typed in `shell` in a tab ran: a launcher, or `theirs`, the user's own
+    /// one, first on PATH after their .bashrc. Run in a terminal, as the shims want.
+    fn typed(shell: &Path, args: &[&str], line: &str, functions: bool) -> String {
         use portable_pty::{native_pty_system, PtySize};
         use std::io::Read;
-        let bash = git_bash().expect("Git for Windows");
         let dir = tempfile::tempdir().unwrap();
-        let bin = dir.path();
+        let bin = dir.path().join("bin");
+        let theirs = dir.path().join("theirs");
+        crate::agents::install(&bin).unwrap();
         install(&bin.join("claude"), CLAUDE_SHIM).unwrap();
+        #[cfg(windows)]
         install(&bin.join("claude.cmd"), CLAUDE_CMD).unwrap();
-        install(&bin.join("blueprint-claude"), "#!/bin/sh\necho \"$*\" > \"$BLUEPRINT_CONTEXT\"\n").unwrap();
-        let path = std::env::join_paths(std::iter::once(bin.to_path_buf()).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()))).unwrap();
-        let shells: [(&str, &[&str]); 3] = [
-            ("cmd", &["/c", "claude --from cmd"]),
-            ("powershell", &["-NoProfile", "-Command", "claude --from powershell"]),
-            (bash.to_str().unwrap(), &["--login", "-i", "-c", "claude --from bash"]),
-        ];
-        for (shell, args) in shells {
-            let out = bin.join(format!("out-{}", args[args.len() - 1].rsplit(' ').next().unwrap()));
-            let pair = native_pty_system().openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 }).unwrap();
-            let mut cmd = CommandBuilder::new(shell);
-            cmd.args(args);
-            cmd.cwd(bin);
-            cmd.env("PATH", &path);
-            cmd.env("BLUEPRINT_BIN", bin);
-            cmd.env("BLUEPRINT_LAUNCHER", bin.join("blueprint-claude.cmd"));
-            cmd.env("BLUEPRINT_BASH", &bash);
-            cmd.env("BLUEPRINT_CLAUDE_BIN", bin.join("no-such-claude.exe"));
-            cmd.env("BLUEPRINT_CONTEXT", &out);
-            cmd.env_remove("CLAUDECODE");
-            let mut child = pair.slave.spawn_command(cmd).unwrap();
-            drop(pair.slave);
-            let mut reader = pair.master.try_clone_reader().unwrap();
-            let mut writer = pair.master.take_writer().unwrap();
-            std::thread::spawn(move || {
-                let mut buf = [0u8; 4096];
-                while let Ok(n) = reader.read(&mut buf) {
-                    if n == 0 {
-                        break;
-                    }
-                    if buf[..n].windows(4).any(|w| w == b"\x1b[6n") {
-                        let _ = writer.write_all(b"\x1b[1;1R");
-                    }
-                }
-            });
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while !out.exists() && std::time::Instant::now() < deadline {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+        for name in std::iter::once("claude").chain(crate::agents::AGENTS) {
+            install(&bin.join(format!("blueprint-{name}")), "#!/bin/sh\necho \"launcher $*\" > \"$BLUEPRINT_CONTEXT\"\n").unwrap();
+            install(&theirs.join(name), "#!/bin/sh\necho \"theirs $*\" > \"$BLUEPRINT_CONTEXT\"\n").unwrap();
+        }
+        std::fs::write(dir.path().join(".bashrc"), "PATH=\"$HOME/theirs:$PATH\"\n").unwrap();
+        let out = dir.path().join("out");
+        let pair = native_pty_system().openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 }).unwrap();
+        let mut cmd = CommandBuilder::new(shell);
+        cmd.args(args);
+        cmd.arg(line);
+        cmd.cwd(dir.path());
+        shims_first(&mut cmd, &bin).unwrap();
+        if !functions {
+            for name in std::iter::once("claude").chain(crate::agents::AGENTS) {
+                cmd.env_remove(format!("BASH_FUNC_{name}%%"));
             }
-            let _ = child.kill();
-            assert!(std::fs::read_to_string(&out).is_ok_and(|s| s.contains("--from")), "{shell} ran the user's own claude");
+        }
+        cmd.env("HOME", dir.path());
+        cmd.env("BLUEPRINT_LAUNCHER", bin.join(if cfg!(windows) { "blueprint-claude.cmd" } else { "blueprint-claude" }));
+        #[cfg(windows)]
+        cmd.env("BLUEPRINT_BASH", git_bash().expect("Git for Windows"));
+        cmd.env("BLUEPRINT_CLAUDE_BIN", theirs.join("claude"));
+        cmd.env("BLUEPRINT_CONTEXT", &out);
+        for gone in ["CLAUDECODE", "BLUEPRINT_AGENT", "ZDOTDIR"] {
+            cmd.env_remove(gone);
+        }
+        let mut child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let mut writer = pair.master.take_writer().unwrap();
+        // ConPTY asks where the cursor is, and waits for the answer before it runs anything.
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = reader.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+                if buf[..n].windows(4).any(|w| w == b"\x1b[6n") {
+                    let _ = writer.write_all(b"\x1b[1;1R");
+                }
+            }
+        });
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while !std::fs::metadata(&out).is_ok_and(|m| m.len() > 0) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        let _ = child.kill();
+        std::fs::read_to_string(&out).unwrap_or_default().trim().to_string()
+    }
+
+    #[test]
+    fn claude_or_an_agent_typed_in_a_tab_runs_its_launcher_past_a_bashrc_that_puts_its_own_bin_first() {
+        #[cfg(windows)]
+        let bash = git_bash().expect("Git for Windows");
+        #[cfg(unix)]
+        let bash = PathBuf::from("/bin/bash");
+        for name in ["claude", "codex"] {
+            assert_eq!(typed(&bash, &["-i", "-c"], &format!("{name} --go"), true), "launcher --go", "{name} in bash");
+        }
+        // Without the functions the .bashrc wins: what this test is for.
+        assert_eq!(typed(&bash, &["-i", "-c"], "claude --go", false), "theirs --go");
+        #[cfg(windows)]
+        for name in ["claude", "codex"] {
+            assert_eq!(typed(Path::new("cmd"), &["/c"], &format!("{name} --go"), true), "launcher --go", "{name} in cmd");
+            assert_eq!(typed(Path::new("powershell"), &["-NoProfile", "-Command"], &format!("{name} --go"), true), "launcher --go", "{name} in PowerShell");
         }
     }
 
