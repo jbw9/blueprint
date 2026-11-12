@@ -70,11 +70,10 @@ export function GitHubCode({ code, url, onCancel }: { code: string; url: string;
   );
 }
 
-/** A group of settings under its name; only the one picked in the list shows. */
+/** A group of settings under its name; only the one picked in the list shows, but all stay mounted so none redraws as it loads. */
 function Group({ title, shown, children }: { title: Section; shown: Section; children: React.ReactNode }) {
-  if (title !== shown) return null;
   return (
-    <section aria-label={title} className="flex flex-col gap-6">
+    <section aria-label={title} hidden={title !== shown} className="flex flex-col gap-6">
       <h3 className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">{title}</h3>
       {children}
     </section>
