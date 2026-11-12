@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Kbd, keys } from "@/components/ui/button";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openReview } from "@/components/review/diff";
 import { openFiles, useFiles } from "@/components/blueprint/files";
@@ -12,13 +11,12 @@ import { projectAction } from "@/lib/client/api";
 import { claudePath } from "@/lib/client/claude";
 import type { Explain } from "@/lib/server/vault";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
-import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import type { Node } from "@/lib/blueprint/schema";
 import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
 import { onCreditChanged, percent, readCredit, resetsAt, type Credit } from "@/lib/client/credit";
 import { openSettings } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
-import { isDesktop, useMac } from "@/lib/client/platform";
+import { isDesktop } from "@/lib/client/platform";
 import { invoke } from "@tauri-apps/api/core";
 
 /**
@@ -46,7 +44,6 @@ export function StatusBar() {
     return problems;
   }, [L0, TOP]);
   const files = useFiles();
-  const mac = useMac();
 
   return (
     <footer data-chrome="bar" className="flex h-6 shrink-0 select-none items-center gap-0.5 border-t border-border-gray bg-surface-container-low px-2 text-[11.5px] text-muted-slate">
@@ -73,18 +70,6 @@ export function StatusBar() {
       <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
       {STATIC_BLUEPRINT ? null : <UpdateReady />}
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
-      <Item title="Go to a level, or run an action" onClick={() => openPalette()}>
-        Go to <Kbd className={KEY}>{keys(mac, "P")}</Kbd>
-      </Item>
-      {STATIC_BLUEPRINT ? null : (
-        <Item title="Claude Code & terminal" onClick={toggleWorkspace}>
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-            <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
-          </svg>
-          Workspace <Kbd className={KEY}>{keys(mac, "`")}</Kbd>
-        </Item>
-      )}
     </footer>
   );
 }
@@ -250,9 +235,6 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
 /** The one thing to do about what the bar says, filled so it reads as a button and not a note. */
 const BAR_ACTION =
   "flex h-[18px] shrink-0 cursor-pointer items-center bg-accent px-2 font-sans text-[11px] font-medium text-on-accent hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
-
-/** A key, sized to the bar. */
-const KEY = "h-[15px] min-w-[15px] text-[10px]";
 
 function Item({
   children,
