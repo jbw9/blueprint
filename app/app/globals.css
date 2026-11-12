@@ -497,9 +497,12 @@
   }
   /* The same 24px pitch as the dots, drawn as hairlines. */
   .gridfield {
+    /* Unbroken lines read stronger than dots of the same colour, so they are
+       drawn at half strength to sit as quietly as the dots. */
+    --grid-line: color-mix(in srgb, var(--color-border-gray) 50%, transparent);
     background-image:
-      linear-gradient(var(--color-border-gray) 1px, transparent 1px),
-      linear-gradient(90deg, var(--color-border-gray) 1px, transparent 1px);
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 24px 24px;
     background-position: -1px -1px;
   }
