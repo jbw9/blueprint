@@ -1,4 +1,4 @@
-:HL["/_next/static/chunks/40by2z5gkuqii.css","style"]
+:HL["/_next/static/chunks/3rfusv6v-h4a0.css","style"]
 :HL["/_next/static/media/03fc1b4a8d284b5e-s.p.0wiir8udbzjvx.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/1290964ae90bfd6c-s.p.36k48kd_fl9x6.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/23b7a97ae3b5c134-s.p.17c61zbdzi3u-.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
@@ -13,4 +13,4 @@
 :HL["/images/night-hand-edge.png","image"]
 :HL["/images/night-eniac.png","image"]
 :HL["/images/night-uncle-sam-cutout.png","image"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"_tsP4BrHHTekWVQ3noRQ3"}
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"lZZjBi2iHyn_i8a4BzP1i"}
