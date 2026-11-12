@@ -65,14 +65,14 @@ export function DiffTab({ visible, inset }: { visible: boolean; inset?: string }
         of={d.files.length}
         onStep={(k) => setDiffFile({ ...d, path: d.files[at + k]?.path ?? d.path })}
         layout={
-          <div role="group" aria-label="Diff layout" className="flex shrink-0 border border-border-gray p-0.5">
+          <div role="group" aria-label="Diff layout" className="flex shrink-0 rounded-md border border-border-gray p-0.5">
             {(["inline", "split"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={view === v}
                 onClick={() => keep(v)}
-                className={cn("cursor-pointer px-2 py-0.5 text-[11.5px]", view === v ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
+                className={cn("cursor-pointer rounded px-2 py-0.5 text-[11.5px]", view === v ? "bg-accent text-on-accent" : "text-muted-slate hover:text-ink")}
               >
                 {v === "split" ? "Side by side" : "Inline"}
               </button>

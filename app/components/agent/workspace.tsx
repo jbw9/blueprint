@@ -17,7 +17,7 @@ import { Held } from "@/components/agent/held";
 import { Offer } from "@/components/agent/phone-offer";
 import { StatusDot, DOT } from "@/components/agent/status-dot";
 import { Strip, inFront } from "@/components/agent/strip";
-import { GlobeIcon, PhoneIcon, iconOf } from "@/components/agent/tab-icons";
+import { PhoneIcon, iconOf } from "@/components/agent/tab-icons";
 import { useTabStatus } from "@/components/agent/tab-status";
 import { useTurnFollowing } from "@/components/agent/turn-following";
 import { OFFER_KEY, PARKED_KEY, SITE_KEY, firstOpening, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
@@ -1334,7 +1334,6 @@ export function Workspace() {
             ...[...agents]
               .sort((a, b) => Number(b.id === main) - Number(a.id === main))
               .map((a) => ({ label: a.label, icon: <AgentIcon id={a.id} />, onClick: () => add(a.id) })),
-            { label: "Preview", icon: <GlobeIcon />, onClick: () => add(null, { kind: "preview", title: "Preview", cwd: here }) },
             ...phones.map((p) => ({ label: PLATFORM[p].label === "iOS" ? "iOS Simulator" : "Android emulator", icon: <PhoneIcon />, onClick: () => phone(p) })),
           ]}
         />

@@ -11,7 +11,7 @@ import { ago } from "@/components/review/ago";
 /* ── reviews ─────────────────────────────────────────────────── */
 
 const SELECT =
-  "w-full border border-border-gray bg-card px-2 py-1.5 text-[12px] text-ink focus:border-accent focus:outline-none";
+  "w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink focus:border-accent focus:outline-none";
 
 /**
  * Something to review as one change: a pull request or a branch, from where

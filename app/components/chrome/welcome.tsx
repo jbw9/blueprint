@@ -103,7 +103,7 @@ function Tour() {
         <div className="mt-10 flex items-center gap-2">
           <div className="mr-auto flex gap-1.5" aria-hidden>
             {steps.map((_, i) => (
-              <span key={i} className={cn("h-1.5 w-6 transition-colors", i <= step ? "bg-accent" : "bg-border-gray")} />
+              <span key={i} className={cn("h-1.5 w-6 rounded-full transition-colors", i <= step ? "bg-accent" : "bg-border-gray")} />
             ))}
           </div>
           <Button variant="ghost" onClick={finish}>
@@ -143,7 +143,7 @@ function Themes() {
             aria-checked={on}
             onClick={() => saveSettings({ ...readSettings(), theme: l.value })}
             className={cn(
-              "cursor-pointer border p-2 text-left transition-[border-color,box-shadow] duration-100",
+              "cursor-pointer rounded-lg border p-2 text-left transition-[border-color,box-shadow] duration-150",
               on ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-border-gray hover:border-border-strong",
             )}
           >
@@ -163,7 +163,7 @@ function Themes() {
 /** The app in miniature: a title bar, a heading, three boxes, a line of code. */
 function Mini({ look: l }: { look: (typeof LOOKS)[number] }) {
   return (
-    <span className="block aspect-[4/3] overflow-hidden border" style={{ background: l.paper, borderColor: l.line }} aria-hidden>
+    <span className="block aspect-[4/3] overflow-hidden rounded-md border" style={{ background: l.paper, borderColor: l.line }} aria-hidden>
       <span className="flex h-[12%] items-center gap-[3px] px-1.5" style={{ background: l.bar }}>
         {[0, 1, 2].map((i) => (
           <span key={i} className="size-[5px] rounded-full" style={{ background: l.line }} />
@@ -176,7 +176,7 @@ function Mini({ look: l }: { look: (typeof LOOKS)[number] }) {
         <span className="mt-1.5 block h-[3px] w-1/2" style={{ background: l.line }} />
         <span className="mt-2.5 grid grid-cols-3 gap-1.5">
           {[0, 1, 2].map((i) => (
-            <span key={i} className="block h-7 border p-1" style={{ background: l.box, borderColor: l.line }}>
+            <span key={i} className="block h-7 rounded-sm border p-1" style={{ background: l.box, borderColor: l.line }}>
               <span className="block h-[3px] w-3/4" style={{ background: l.ink }} />
             </span>
           ))}
@@ -253,7 +253,7 @@ function Promo() {
     if ("code" in r) external(r.url);
   };
   return (
-    <div className="border border-accent bg-accent-surface p-4 sm:col-span-2">
+    <div className="rounded-lg border border-accent bg-accent-surface p-4 sm:col-span-2">
       <span className="block text-[14px] font-semibold text-ink">Claude Code is free for a limited time</span>
       <span className="mt-1 block text-[12.5px] text-muted-slate">
         Sign in with GitHub and Blueprint pays for the Claude behind it. Making blueprints is unlimited, within fair use. Claude tabs get about half of a Claude Pro plan,
@@ -279,6 +279,6 @@ function Promo() {
 }
 
 const CARD =
-  "cursor-pointer border border-border-strong bg-card p-4 text-left transition-[border-color,transform] duration-100 hover:-translate-y-px hover:border-accent focus-visible:outline-2 focus-visible:outline-accent";
+  "cursor-pointer rounded-lg border border-border-strong bg-card p-4 text-left transition-[border-color,transform,box-shadow] duration-150 hover:-translate-y-px hover:border-accent focus-visible:outline-2 focus-visible:outline-accent";
 
 const LINK = "cursor-pointer text-left text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent";

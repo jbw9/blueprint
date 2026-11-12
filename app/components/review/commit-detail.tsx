@@ -49,7 +49,7 @@ export function Refs({ refs, max }: { refs?: string[]; max?: number }) {
           key={c.name}
           title={"head" in c ? `${c.name}, checked out` : "tag" in c ? `tag ${c.name}` : c.name}
           className={cn(
-            "max-w-[110px] shrink-0 truncate border px-1 font-mono text-[9.5px] leading-[15px]",
+            "max-w-[110px] shrink-0 truncate rounded border px-1.5 font-mono text-[9.5px] leading-[15px]",
             "head" in c ? "border-accent bg-accent/15 text-ink" : "tag" in c ? "border-amber-line text-amber-ink" : "border-border-strong text-muted-slate",
           )}
         >
@@ -65,7 +65,7 @@ export function Refs({ refs, max }: { refs?: string[]; max?: number }) {
 /** Which end of a comparison a row is. */
 export function EndTag({ end }: { end: "base" | "compare" }) {
   return (
-    <span className="shrink-0 bg-accent px-1 font-mono text-[9.5px] uppercase leading-[15px] tracking-[0.04em] text-on-accent">
+    <span className="shrink-0 rounded bg-accent px-1.5 font-mono text-[9.5px] uppercase leading-[15px] tracking-[0.04em] text-on-accent">
       {end}
     </span>
   );
@@ -204,7 +204,7 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
   if (!got) return null;
   if (got.summary) {
     return (
-      <div className="mt-3 border-l-2 border-accent bg-accent/[0.07] px-3 py-2">
+      <div className="mt-3 rounded-md border-l-2 border-accent bg-accent/[0.07] px-3 py-2">
         <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-accent">In short</p>
         <p className="mt-1 text-[13px] leading-relaxed text-ink">{got.summary.text}</p>
       </div>
@@ -216,7 +216,7 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
         type="button"
         disabled={got.asking}
         onClick={() => void ask()}
-        className="cursor-pointer border border-accent px-2.5 py-1 text-[12px] text-accent hover:bg-accent/10 disabled:cursor-default disabled:opacity-60"
+        className="cursor-pointer rounded-md border border-accent px-3 py-1.5 text-[12px] font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:cursor-default disabled:opacity-60"
       >
         {got.asking ? "Claude is reading the diff…" : "✦ Summarize this commit"}
       </button>
@@ -233,7 +233,7 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
 /** Two commits side by side, the base on the left, and the way to swap them. */
 export function Comparing({ base, other, between, onSwap, onDone }: { base: Commit; other: Commit; between: number; onSwap: () => void; onDone: () => void }) {
   const card = (c: Commit, end: "base" | "compare") => (
-    <div className="min-w-0 flex-1 border border-border-gray px-3 py-2.5">
+    <div className="min-w-0 flex-1 rounded-md border border-border-gray px-3 py-2.5">
       <div className="flex items-center gap-1.5">
         <EndTag end={end} />
         <Sha sha={c.sha} />
@@ -256,7 +256,7 @@ export function Comparing({ base, other, between, onSwap, onDone }: { base: Comm
           type="button"
           onClick={onSwap}
           title="Swap the two ends"
-          className="shrink-0 cursor-pointer self-center border border-border-strong px-2 py-1.5 text-[14px] text-ink hover:border-accent"
+          className="shrink-0 cursor-pointer self-center rounded-md border border-border-strong px-2 py-1.5 text-[14px] text-ink hover:border-accent"
         >
           ⇄
         </button>

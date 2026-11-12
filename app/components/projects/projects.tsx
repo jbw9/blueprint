@@ -360,8 +360,8 @@ function Understanding({ value, onChange }: { value: number; onChange: (v: numbe
           }}
           className="group relative h-7 cursor-pointer touch-none select-none outline-none"
         >
-          <div ref={track} className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 bg-border-gray">
-            <div className="h-full bg-accent transition-[width] duration-200 ease-out" style={{ width: left(value) }} />
+          <div ref={track} className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border-gray">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-200 ease-out" style={{ width: left(value) }} />
           </div>
           {UNDERSTAND.map((u, i) => (
             <span
@@ -394,7 +394,7 @@ function Understanding({ value, onChange }: { value: number; onChange: (v: numbe
           ))}
         </div>
       </div>
-      <div className="border border-border-gray bg-card px-3 py-2.5">
+      <div className="rounded-md border border-border-gray bg-card px-3 py-2.5">
         <span className="block text-[12px] font-semibold text-accent">{EXPLAINS[explain].label}</span>
         <span className="mt-1 block text-[12px] text-muted-slate">{EXPLAINS[explain].note}</span>
       </div>
@@ -463,7 +463,7 @@ function StartProject({
           type="button"
           onClick={onCancel}
           aria-label="Back to projects"
-          className="flex size-7 cursor-pointer items-center justify-center text-[15px] text-muted-slate hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-[15px] text-muted-slate hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
         >
           ←
         </button>
@@ -726,7 +726,7 @@ function ProjectRow({
 
   return (
     <li className="flex flex-col">
-      <div className="group flex items-center gap-3 px-3 py-2 hover:bg-surface-container">
+      <div className="group flex items-center gap-3 rounded-md px-3 py-2 transition-colors duration-150 hover:bg-surface-container">
         <button
           type="button"
           onClick={() => openable && onOpen()}
@@ -735,7 +735,7 @@ function ProjectRow({
         >
           <span className="flex max-w-full items-center gap-2">
             <span className="truncate text-[13.5px] font-medium text-ink">{p.name}</span>
-            {current ? <span className="shrink-0 bg-accent-surface px-1.5 text-[10.5px] font-medium text-accent">Open</span> : null}
+            {current ? <span className="shrink-0 rounded bg-accent-surface px-1.5 text-[10.5px] font-medium text-accent">Open</span> : null}
           </span>
           <span className="max-w-full truncate font-mono text-[11.5px] text-faint" title={p.root}>
             {tilde(p.root, home)}
@@ -776,13 +776,13 @@ function ProjectRow({
       ) : null}
 
       {status === "failed" && !p.paused && p.blueprint.error ? (
-        <pre className="mx-3 mb-2 max-h-28 overflow-auto whitespace-pre-wrap bg-clay-surface/60 px-2.5 py-2 font-mono text-[11px] text-clay-ink">
+        <pre className="mx-3 mb-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-clay-surface/60 px-2.5 py-2 font-mono text-[11px] text-clay-ink">
           {p.blueprint.error}
         </pre>
       ) : null}
 
       {panel === "make" ? (
-        <div className="mx-3 mb-2 mt-1 flex flex-col gap-4 border border-border-gray bg-surface px-4 py-4">
+        <div className="mx-3 mb-2 mt-1 flex flex-col gap-4 rounded-md border border-border-gray bg-surface px-4 py-4">
           <Understanding value={understand} onChange={setUnderstand} />
           <div className="flex items-center justify-end gap-2">
             <p className="mr-auto text-[12px] text-muted-slate">About 20 min with your Claude Code, on your plan.</p>

@@ -207,7 +207,7 @@ function Pill({ verdict, children }: { verdict: Exclude<Verdict, "untouched">; c
   const t = TINT[verdict];
   return (
     <span
-      className=" border px-2 py-[3px] font-mono text-[10.5px] leading-none"
+      className="rounded border px-2 py-[3px] font-mono text-[10.5px] leading-none"
       style={{ color: t.ink, background: t.surface, borderColor: t.line }}
     >
       {children}
@@ -228,7 +228,7 @@ export function Hunks({ file, only }: { file: FileChange; only?: (h: HunkLines) 
   if (!hunks.length) return <p className="px-1 py-1 text-[12px] text-muted-slate">No lines to show: the file is binary, or only its mode changed.</p>;
   const BG = { "+": TINT.added.surface, "-": TINT.removed.surface, " ": undefined };
   return (
-    <div className="mt-1 overflow-x-auto border border-border-gray bg-code">
+    <div className="mt-1 overflow-x-auto rounded-md border border-border-gray bg-code">
       <pre className="min-w-full font-mono text-[12px] leading-[1.6]">
         {hunks.map((h, i) => (
           <div key={i} className={cn(i > 0 && "border-t border-border-gray")}>
@@ -304,7 +304,7 @@ export function RemovedSections({ path }: { path: string[] }) {
       {here.map((s) => (
         <div
           key={s.id}
-          className=" border px-4 py-3"
+          className="rounded-md border px-4 py-3"
           style={{ background: t.surface, borderColor: t.line }}
         >
           <span className="flex items-center gap-2">
@@ -362,7 +362,7 @@ function RowsDiff({ kind, rows, block }: { kind: Anatomy["kind"]; rows: RowDiff[
   return (
     <div className="min-w-0">
       {title ? <p className="mb-2.5 font-mono text-[12.5px] font-semibold text-ink">{title}</p> : null}
-      <div className="overflow-x-auto border border-border-gray bg-card">
+      <div className="overflow-x-auto rounded-md border border-border-gray bg-card">
         <table className="w-full border-collapse text-left text-[13px]">
           {columns ? (
             <thead>

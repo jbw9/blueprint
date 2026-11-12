@@ -6,7 +6,7 @@ import { cn } from "@/lib/client/utils";
 import { dictateKeys } from "@/components/ui/button";
 import { useMac } from "@/lib/client/platform";
 
-const BUTTON = "cursor-pointer px-3 py-1 text-[13px]";
+const BUTTON = "rounded-md cursor-pointer px-3 py-1 text-[13px]";
 
 /**
  * On-device dictation's only chrome (lib/agent/dictate.ts): a pill over the bottom
@@ -31,7 +31,7 @@ export function Dictation() {
       role="status"
       className="pointer-events-none fixed inset-x-0 bottom-10 z-50 flex justify-center px-4"
     >
-      <div className="pointer-events-auto flex items-center gap-3 border border-border-gray bg-card px-5 py-3 font-mono text-[14px] text-ink shadow-lift">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border-gray bg-card px-5 py-3 font-mono text-[14px] text-ink shadow-lift">
         <span
           aria-hidden
           className={cn("h-2.5 w-2.5 shrink-0 rounded-full", listening ? "animate-pulse bg-clay-ink" : d.phase === "working" ? "bg-accent" : "bg-faint")}

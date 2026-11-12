@@ -154,7 +154,7 @@ export function Crumbs({
             <BlueprintSwitcher
               blueprint={blueprint}
               blueprints={blueprints}
-              className="cursor-pointer border border-border-strong bg-card px-2 py-1 text-[12.5px] text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              className="cursor-pointer rounded-md border border-border-strong bg-card px-2.5 py-1 text-[12.5px] text-ink focus-visible:outline-2 focus-visible:outline-accent"
             />
           </label>
         ) : null}

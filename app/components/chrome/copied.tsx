@@ -24,7 +24,7 @@ export function Copied() {
   return (
     <div role="status" className="pointer-events-none fixed inset-x-0 bottom-10 z-50 flex justify-center px-4">
       {/* Keyed by the copy, so a second copy while it shows pops it again. */}
-      <div key={n} className="pop flex items-center gap-2.5 bg-accent px-5 py-3 font-mono text-[14px] font-medium text-on-accent">
+      <div key={n} className="pop flex items-center gap-2.5 rounded-lg bg-accent px-5 py-3 font-mono text-[14px] font-medium text-on-accent">
         <span aria-hidden>✓</span>
         Copied to clipboard
       </div>

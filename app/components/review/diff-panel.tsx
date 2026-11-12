@@ -149,7 +149,7 @@ export function DiffPanel() {
     >
       {/* With a file open beside it, only the list stays: the commit's details would be crushed, and the file is what is being read. */}
       <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
-        <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface px-5 py-3">
+        <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
           <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-slate">{reading?.open ? null : caption}</span>
           <Button
@@ -197,7 +197,7 @@ export function DiffPanel() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter commits by message, author or sha"
                 aria-label="Filter commits"
-                className="mt-2 w-full border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                className="mt-2 w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
               />
             </div>
             <div
@@ -258,7 +258,7 @@ export function DiffPanel() {
                             compare(c);
                           }}
                           title={`Compare ${c.short} with ${anchor.short}`}
-                          className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-panel hover:border-accent group-hover:block"
+                          className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer rounded border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-panel hover:border-accent group-hover:block"
                         >
                           ⇄ Compare with {anchor.short}
                         </button>
@@ -315,7 +315,7 @@ export function DiffPanel() {
                     {/* A file-level answer never pretends to be a section-level one. */}
                     <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files — pick one to read its lines</h3>
                     {diff.files.length ? (
-                      <div className="mt-1.5 overflow-hidden border border-border-gray">
+                      <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
                         {diff.files.map((f) => (
                           <FileRow key={f.path} file={f} flat onPick={() => setFile(f.path)} />
                         ))}
