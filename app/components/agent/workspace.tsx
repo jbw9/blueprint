@@ -36,6 +36,8 @@ import { onClosed } from "@/lib/client/open-projects";
 import { cn, sleep } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
 import { GAP, STATUSBAR, TITLEBAR } from "@/lib/client/layout";
+import { useRailWidth } from "@/lib/client/rail";
+import { InTabSlot, inTabSlot, setMainStrip } from "@/components/chrome/tab-slot";
 
 /**
  * The workspace: one window, floating over the blueprint's right edge, with a row
@@ -136,6 +138,12 @@ export function Workspace() {
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
   const [mainSlot, setMainSlot] = useState<HTMLElement | null>(null);
   const mainPane = useRef<HTMLElement>(null);
+  const rail = useRailWidth();
+  const hasDocked = docked.length > 0;
+  useEffect(() => {
+    setMainStrip(hasDocked);
+    return () => setMainStrip(false);
+  }, [hasDocked]);
   /** The tab whose name is being typed over. */
   const [naming, setNaming] = useState<number | null>(null);
   const nameKept = useRef(true);
@@ -905,7 +913,7 @@ export function Workspace() {
       const mac = /Mac|iPhone|iPad/.test(navigator.platform);
       if (mac && e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && (e.code === "KeyT" || e.code === "KeyW")) {
         const into = e.target as globalThis.Node;
-        const tab = aside.current?.contains(into) ? current : mainPane.current?.contains(into) ? upFront : undefined;
+        const tab = aside.current?.contains(into) ? current : (mainPane.current?.contains(into) || inTabSlot(into)) ? upFront : undefined;
         // Cmd+T anywhere; Cmd+W only from inside the window, leaving the blueprint's own tabs theirs.
         if (e.code === "KeyW" && !tab) return;
         e.preventDefault();
@@ -926,7 +934,7 @@ export function Workspace() {
       if (by) {
         const into = e.target as globalThis.Node;
         // With nothing focused, the main view, which is what is in view.
-        const where = aside.current?.contains(into) ? "window" : mainPane.current?.contains(into) || into === document.body ? "main" : null;
+        const where = aside.current?.contains(into) ? "window" : mainPane.current?.contains(into) || inTabSlot(into) || into === document.body ? "main" : null;
         if (!where) return;
         e.preventDefault();
         e.stopPropagation();
@@ -945,7 +953,7 @@ export function Workspace() {
       // window, so the blueprint never loses a tab to a stray key.
       if (e.code === "KeyW" && !e.shiftKey && !mac) {
         const into = e.target as globalThis.Node;
-        const tab = aside.current?.contains(into) ? current : mainPane.current?.contains(into) ? upFront : undefined;
+        const tab = aside.current?.contains(into) ? current : (mainPane.current?.contains(into) || inTabSlot(into)) ? upFront : undefined;
         if (!tab) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1343,13 +1351,14 @@ export function Workspace() {
       // Preview kept in here would be laid out at 0×0 and back on every
       // project switch, a whole page's layout on the app's own thread.
       aria-hidden={!docked.length}
-      style={{ top: desktop ? TITLEBAR : 0, bottom: STATUSBAR }}
-      className={cn("pointer-events-none fixed inset-x-0 z-30 flex flex-col", !docked.length && "invisible")}
+      style={{ top: desktop ? TITLEBAR : 0, bottom: STATUSBAR, left: rail }}
+      className={cn("pointer-events-none fixed right-0 z-30 flex flex-col", !docked.length && "invisible")}
     >
       {/* The blueprint's own tabs, as its strip draws them (components/chrome/tabs.tsx),
           then the tabs dragged here, drawn the same way: with a tab here the
           strip reads as it does without one, just longer. */}
-      <header role="tablist" data-chrome="bar" data-section-tabs="main" className={cn(TAB_STRIP, "pointer-events-auto relative")}>
+      <InTabSlot>
+      <header role="tablist" data-chrome="bar" data-section-tabs="main" className={cn(TAB_STRIP, "pointer-events-auto relative min-w-0 shrink", !docked.length && "hidden")}>
         {blueprintTabs.map((m) => {
           const label = titleOf(m.path, m.file);
           const selected = !upFront && m.id === blueprintActive;
@@ -1401,6 +1410,7 @@ export function Workspace() {
         />
         <DropMarker drop={drop} />
       </header>
+      </InTabSlot>
       <div
         ref={setMainSlot}
         className={cn("relative min-h-0 flex-1 bg-paper", upFront ? "pointer-events-auto" : "invisible")}
@@ -1424,7 +1434,7 @@ export function Workspace() {
           style={
             dragging.to === "panel"
               ? { top: (desktop ? TITLEBAR : 0) + GAP, bottom: STATUSBAR + GAP, right: GAP, left: panelLeft() }
-              : { top: desktop ? TITLEBAR : 0, bottom: STATUSBAR, left: 0, right: shown ? window.innerWidth - panelLeft() + GAP : 0 }
+              : { top: desktop ? TITLEBAR : 0, bottom: STATUSBAR, left: rail, right: shown ? window.innerWidth - panelLeft() + GAP : 0 }
           }
           className="pointer-events-none fixed z-50 border-2 border-dashed border-accent/60 bg-accent/8"
         />

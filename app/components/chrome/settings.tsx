@@ -70,18 +70,23 @@ export function GitHubCode({ code, url, onCancel }: { code: string; url: string;
   );
 }
 
-/** A group of settings under its name. */
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+/** A group of settings under its name; only the one picked in the list shows. */
+function Group({ title, shown, children }: { title: Section; shown: Section; children: React.ReactNode }) {
+  if (title !== shown) return null;
   return (
-    <section className="flex flex-col gap-5 border-t border-border-gray pt-4 first:border-t-0 first:pt-0">
-      <h3 className="-mb-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">{title}</h3>
+    <section aria-label={title} className="flex flex-col gap-6">
+      <h3 className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">{title}</h3>
       {children}
     </section>
   );
 }
 
+const SECTIONS = ["Appearance", "Claude Code", "Dictation", "Preview", "Privacy", "About"] as const;
+type Section = (typeof SECTIONS)[number];
+
 export function SettingsDialog() {
   const [open, setOpen] = useState(false);
+  const [section, setSection] = useState<Section>("Appearance");
   // What is on screen is what is saved: there is no draft to keep in step.
   const draft = useSettings();
   // undefined while looking.
@@ -102,6 +107,7 @@ export function SettingsDialog() {
     () =>
       onOpenSettings(() => {
         setOpen(true);
+        setSection("Appearance");
         if (desktop) detect(readSettings().claudePath);
       }),
     [detect, desktop],
@@ -131,11 +137,29 @@ export function SettingsDialog() {
           e.preventDefault();
           close();
         }}
-        className={`${DIALOG} max-w-[520px]`}
+        className={`${DIALOG} ${desktop ? "h-[560px] max-w-[780px]" : "max-w-[520px]"}`}
       >
         <PanelHead title="Settings" right={<PanelClose type="submit" />} />
-        <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-5 py-5">
-          <Group title="Appearance">
+        <div className="flex min-h-0 flex-1">
+          {desktop ? (
+            <nav aria-label="Settings sections" className="flex w-44 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-gray bg-surface-container-low p-3">
+              {SECTIONS.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-current={name === section}
+                  onClick={() => setSection(name)}
+                  className={`cursor-pointer px-3 py-2.5 text-left text-[13px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+                    name === section ? "bg-surface-container font-semibold text-ink shadow-[inset_3px_0_0_var(--color-accent)]" : "text-muted-slate hover:bg-surface-container hover:text-ink"
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </nav>
+          ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
+          <Group title="Appearance" shown={section}>
             <Field group label="Theme" hint="Light or Dark.">
               <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
             </Field>
@@ -145,7 +169,7 @@ export function SettingsDialog() {
           </Group>
           {desktop ? (
             <>
-              <Group title="Claude Code">
+              <Group title="Claude Code" shown={section}>
                 <BlueprintCredit />
                 <Field label="Claude Code" hint="Leave blank to find it automatically.">
                   <input
@@ -230,7 +254,7 @@ export function SettingsDialog() {
                 ) : null}
                 <p className="text-[12px] text-faint">These apply to Claude tabs opened from now on.</p>
               </Group>
-              <Group title="Dictation">
+              <Group title="Dictation" shown={section}>
                 <Field
                   group
                   label="Claude Code dictation"
@@ -266,7 +290,7 @@ export function SettingsDialog() {
                   />
                 </Field>
               </Group>
-              <Group title="Preview">
+              <Group title="Preview" shown={section}>
                 <Field group label="Dev server" hint="Start a project's dev server when it opens, and show the running app in a Preview tab.">
                   <Segmented
                     label="Dev server"
@@ -286,7 +310,7 @@ export function SettingsDialog() {
                   <SignIns />
                 </Field>
               </Group>
-              <Group title="Privacy">
+              <Group title="Privacy" shown={section}>
                 <Field
                   group
                   label="Usage reports"
@@ -295,13 +319,14 @@ export function SettingsDialog() {
                   <RunReports />
                 </Field>
               </Group>
-              <Group title="About">
+              <Group title="About" shown={section}>
                 <Field group label="Version" hint="Blueprint updates itself; a newer version is used once Blueprint restarts.">
                   <Version />
                 </Field>
               </Group>
             </>
           ) : null}
+        </div>
         </div>
       </form>
     </Overlay>

@@ -8,6 +8,7 @@ import { PRIMARY, QUIET } from "@/components/ui/dialog";
 import { cn } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
 import { GAP, STATUSBAR } from "@/lib/client/layout";
+import { useRailWidth } from "@/lib/client/rail";
 
 /**
  * The review: notes left on the blueprint, in a diff or in the code (lib/agent/notes.ts),
@@ -36,6 +37,7 @@ export function ReviewTray() {
 }
 
 function Tray({ notes }: { notes: Note[] }) {
+  const rail = useRailWidth();
   const [extra, setExtra] = useState("");
   const [folded, setFolded] = useState(false);
   const drafts = notes.filter((n) => n.status === "draft");
@@ -45,7 +47,7 @@ function Tray({ notes }: { notes: Note[] }) {
     <section
       aria-label="Review"
       data-chrome
-      style={{ bottom: STATUSBAR + GAP, left: GAP }}
+      style={{ bottom: STATUSBAR + GAP, left: rail + GAP }}
       className="fixed z-[60] flex max-h-[min(460px,60vh)] w-[340px] flex-col overflow-hidden border border-border-gray bg-card shadow-lift"
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-border-gray px-3 py-2">

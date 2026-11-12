@@ -6,6 +6,7 @@ import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openFile, useOpenFile } from "@/components/blueprint/code";
 import { closeTab, follow, insertTab, justOpened, openTab, readTabs, replaceTab, selectTab, useTabs, type Tab } from "@/lib/client/tabs";
 import { Menu } from "@/components/ui/menu";
+import { InTabSlot, useMainStrip } from "@/components/chrome/tab-slot";
 import { cn } from "@/lib/client/utils";
 
 /** What a tab holds, opened: its level, and its file over it. */
@@ -193,6 +194,8 @@ export function SectionTabs({ path }: { path: string[] }) {
   const many = tabs.length > 1;
   const drop = useDropOn("blueprint");
   const titleOf = (t: Tab) => tabTitle(nodeAt, t.path, t.file);
+  // The main view's strip, when it is showing, is the one in the top row.
+  const covered = useMainStrip();
 
   const select = (id: number) => {
     const p = selectTab(name, id);
@@ -236,12 +239,13 @@ export function SectionTabs({ path }: { path: string[] }) {
   }, [name]);
 
   return (
+    <InTabSlot>
     <div
       role="tablist"
       data-chrome="bar"
       data-section-tabs="blueprint"
       aria-label={`Open sections of ${name}`}
-      className={cn(TAB_STRIP, "relative")}
+      className={cn(TAB_STRIP, "relative min-w-0 shrink", covered && "hidden")}
     >
       {tabs.map((t) => (
         <SectionTab
@@ -258,6 +262,7 @@ export function SectionTabs({ path }: { path: string[] }) {
       <NewTab onBlueprint={() => openInTab(name, [])} />
       <DropMarker drop={drop} />
     </div>
+    </InTabSlot>
   );
 }
 
@@ -336,7 +341,7 @@ export function tabLook(active: boolean, closable: boolean) {
     "group flex h-[29px] min-w-0 max-w-[200px] shrink-0 items-center gap-1 border border-b-0 pl-2.5 text-[12px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
     closable ? "pr-1" : "pr-2.5",
     active
-      ? "border-border-gray bg-paper font-semibold text-ink"
+      ? "border-border-gray bg-paper font-semibold text-ink shadow-[inset_0_2px_0_var(--color-accent)]"
       : "border-transparent text-muted-slate hover:bg-surface-container hover:text-ink",
   );
 }
