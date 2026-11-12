@@ -367,12 +367,22 @@ r=$(cat "$BLUEPRINT_CONTEXT.resume" 2>/dev/null); rm -f "$BLUEPRINT_CONTEXT.resu
 /// like one the app started. Not from Claude's own Bash tool, nor from a script
 /// with no terminal (the generator's `claude -p`, which clears `CLAUDECODE`),
 /// where the launcher's exit would take the tab's live marker from the Claude still running.
-#[cfg(unix)]
+/// On Windows it is Git Bash's `claude`, and runs the launcher's script, not the .cmd beside it.
 const CLAUDE_SHIM: &str = r#"#!/bin/sh
 [ -n "$CLAUDECODE" ] && exec "$BLUEPRINT_CLAUDE_BIN" "$@"
 [ -t 0 ] || exec "$BLUEPRINT_CLAUDE_BIN" "$@"
-exec "$BLUEPRINT_LAUNCHER" "$@"
+exec "${BLUEPRINT_LAUNCHER%.cmd}" "$@"
 "#;
+
+/// `claude` typed in cmd or PowerShell: CLAUDE_SHIM, run by Git for Windows' bash.
+/// Without it, the user's own `claude`, as Blueprint's launcher cannot run either.
+#[cfg(windows)]
+const CLAUDE_CMD: &str = "@echo off\r\n\
+if not defined BLUEPRINT_BASH (\r\n\
+  \"%BLUEPRINT_CLAUDE_BIN%\" %*\r\n\
+  exit /b\r\n\
+)\r\n\
+\"%BLUEPRINT_BASH%\" \"%~dp0claude\" %*\r\n";
 
 /// zsh in a tab starts from here (`ZDOTDIR`), so the shim stays first on PATH
 /// after the user's own startup files: a `.zshrc` that puts `~/.local/bin`
@@ -782,9 +792,11 @@ fn launcher() -> std::io::Result<PathBuf> {
     crate::agents::install(&dir)?;
     let path = dir.join("blueprint-claude");
     install(&path, LAUNCHER)?;
+    install(&dir.join("claude"), CLAUDE_SHIM)?;
+    #[cfg(windows)]
+    install(&dir.join("claude.cmd"), CLAUDE_CMD)?;
     #[cfg(unix)]
     {
-        install(&dir.join("claude"), CLAUDE_SHIM)?;
         install(&zdotdir().join(".zshenv"), ZSHENV)?;
         install(&zdotdir().join(".zprofile"), ZPROFILE)?;
         install(&zdotdir().join(".zshrc"), ZSHRC)?;
@@ -1051,6 +1063,60 @@ mod tests {
         assert_eq!(find(Some("/nope/claude"), Some(dir.path())), None);
         // Blank means auto-detect, and the installer's spot comes first.
         assert_eq!(find(Some("  "), Some(dir.path())), Some(installed));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn claude_typed_in_a_windows_tab_runs_the_launcher_in_every_shell() {
+        use portable_pty::{native_pty_system, PtySize};
+        use std::io::Read;
+        let bash = git_bash().expect("Git for Windows");
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path();
+        install(&bin.join("claude"), CLAUDE_SHIM).unwrap();
+        install(&bin.join("claude.cmd"), CLAUDE_CMD).unwrap();
+        install(&bin.join("blueprint-claude"), "#!/bin/sh\necho \"$*\" > \"$BLUEPRINT_CONTEXT\"\n").unwrap();
+        let path = std::env::join_paths(std::iter::once(bin.to_path_buf()).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()))).unwrap();
+        let shells: [(&str, &[&str]); 3] = [
+            ("cmd", &["/c", "claude --from cmd"]),
+            ("powershell", &["-NoProfile", "-Command", "claude --from powershell"]),
+            (bash.to_str().unwrap(), &["--login", "-i", "-c", "claude --from bash"]),
+        ];
+        for (shell, args) in shells {
+            let out = bin.join(format!("out-{}", args[args.len() - 1].rsplit(' ').next().unwrap()));
+            let pair = native_pty_system().openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 }).unwrap();
+            let mut cmd = CommandBuilder::new(shell);
+            cmd.args(args);
+            cmd.cwd(bin);
+            cmd.env("PATH", &path);
+            cmd.env("BLUEPRINT_BIN", bin);
+            cmd.env("BLUEPRINT_LAUNCHER", bin.join("blueprint-claude.cmd"));
+            cmd.env("BLUEPRINT_BASH", &bash);
+            cmd.env("BLUEPRINT_CLAUDE_BIN", bin.join("no-such-claude.exe"));
+            cmd.env("BLUEPRINT_CONTEXT", &out);
+            cmd.env_remove("CLAUDECODE");
+            let mut child = pair.slave.spawn_command(cmd).unwrap();
+            drop(pair.slave);
+            let mut reader = pair.master.try_clone_reader().unwrap();
+            let mut writer = pair.master.take_writer().unwrap();
+            std::thread::spawn(move || {
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = reader.read(&mut buf) {
+                    if n == 0 {
+                        break;
+                    }
+                    if buf[..n].windows(4).any(|w| w == b"\x1b[6n") {
+                        let _ = writer.write_all(b"\x1b[1;1R");
+                    }
+                }
+            });
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            while !out.exists() && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            let _ = child.kill();
+            assert!(std::fs::read_to_string(&out).is_ok_and(|s| s.contains("--from")), "{shell} ran the user's own claude");
+        }
     }
 
     /// Runs the hook the way Claude Code does, against `queue`.
