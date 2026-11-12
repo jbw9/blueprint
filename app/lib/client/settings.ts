@@ -5,7 +5,7 @@ import { SETTINGS_KEY, themeOf, type Theme } from "@/lib/client/theme";
  * What the user can change, kept per machine in localStorage like the
  * terminal's height. Blank means "work it out": the `claude` binary is found
  * by the app (src-tauri/src/claude.rs), the model is Claude Code's own
- * default, the theme is Light, and new tabs open in Claude Code.
+ * default, the theme is Dark, and new tabs open in Claude Code.
  */
 export type { Theme };
 export type Ground = "dots" | "plain" | "squares";
@@ -33,7 +33,7 @@ export interface Settings {
 const KEY = SETTINGS_KEY;
 const CHANGED = "blueprint:settings-changed";
 const OPEN = "blueprint:settings";
-const DEFAULTS: Settings = { claudePath: "", model: "", theme: "light", agent: "claude", ground: "dots", devServer: true, voice: true, research: false, quietMedia: null, onboarded: false };
+const DEFAULTS: Settings = { claudePath: "", model: "", theme: "dark", agent: "claude", ground: "dots", devServer: true, voice: true, research: false, quietMedia: null, onboarded: false };
 
 /** Anything can ask for the settings dialog: the chrome's gear dispatches this. */
 export const openSettings = () => window.dispatchEvent(new Event(OPEN));

@@ -18,8 +18,8 @@ import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, 
  */
 
 const THEMES: { value: Theme; label: string }[] = [
-  { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
 ];
 
 const GROUNDS: { value: Ground; label: string }[] = [
@@ -160,7 +160,7 @@ export function SettingsDialog() {
           ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
           <Group title="Appearance" shown={section}>
-            <Field group label="Theme" hint="Light or Dark.">
+            <Field group label="Theme" hint="Dark or Light.">
               <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
             </Field>
             <Field group label="Background" hint="What the blueprint is drawn on.">

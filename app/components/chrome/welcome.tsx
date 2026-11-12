@@ -125,8 +125,8 @@ function Tour() {
 
 /** Each theme's own colours, so a card shows its theme whatever the page is in. */
 const LOOKS: { value: Theme; label: string; note: string; bar: string; paper: string; ink: string; line: string; box: string; tint: string }[] = [
-  { value: "light", label: "Light", note: "Soft grey, slate ink", bar: "#eceef1", paper: "#f5f6f8", ink: "#1f2328", line: "#d8dce2", box: "#ffffff", tint: "#e6edf5" },
   { value: "dark", label: "Dark", note: "Easy at night", bar: "#000000", paper: "#0f0f11", ink: "#fafafa", line: "#3a3a40", box: "#18181b", tint: "#222226" },
+  { value: "light", label: "Light", note: "Soft grey, slate ink", bar: "#eceef1", paper: "#f5f6f8", ink: "#1f2328", line: "#d8dce2", box: "#ffffff", tint: "#e6edf5" },
 ];
 
 function Themes() {

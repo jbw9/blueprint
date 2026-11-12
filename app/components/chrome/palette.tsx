@@ -265,8 +265,8 @@ export function Palette() {
       ...(desktop
         ? [{ key: "a:dictate", label: "Dictate on this machine", hint: "Speak, then done; or hold the keys", kind: "action" as const, kbd: `Hold ${dictateKeys(mac)}`, run: () => setTimeout(startDictation) }]
         : []),
-      { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
       { key: "a:dark", label: "Theme: dark", kind: "action", run: theme("dark") },
+      { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
     ];
   }, [blueprint.name, path, mac, desktop]);
 
