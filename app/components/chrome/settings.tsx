@@ -403,14 +403,13 @@ function BlueprintCredit() {
                 {meters.map(([label, m]) => {
                   const used = percent(m);
                   const at = resetsAt(m);
-                  const high = used != null && used >= 90;
                   return (
                     <Fragment key={label}>
                       <span className="text-ink">{label}</span>
                       <span className="block h-1.5 min-w-16 bg-surface-container">
-                        <span className={`block h-full ${high ? "bg-clay-ink" : "bg-accent"}`} style={{ width: `${used ?? 0}%` }} />
+                        <span className="block h-full bg-accent" style={{ width: `${used ?? 0}%` }} />
                       </span>
-                      <span className={`text-right tabular-nums ${high ? "text-clay-ink" : "text-ink"}`}>{used == null ? "No limit" : `${used}%`}</span>
+                      <span className="text-right tabular-nums text-ink">{used == null ? "No limit" : `${used}%`}</span>
                       <span className="text-faint">{at ? `resets ${at}` : ""}</span>
                     </Fragment>
                   );
@@ -419,7 +418,7 @@ function BlueprintCredit() {
             </div>
           )}
           {c.available && c.on && (
-            <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[12px] leading-[1.5] text-muted-slate">
+            <label className="mt-3 flex w-fit cursor-pointer items-center gap-2.5">
               <input
                 type="checkbox"
                 checked={c.fallback}
@@ -427,12 +426,9 @@ function BlueprintCredit() {
                   setC({ ...c, fallback: e.target.checked });
                   void setFallback(e.target.checked);
                 }}
-                className="mt-[3px] accent-accent"
+                className="accent-accent"
               />
-              <span>
-                <span className="block text-[12.5px] text-ink">Switch to my Claude Code when it runs out</span>
-                The tab carries on in the same conversation on your own Claude Code. New tabs use Blueprint credit again once it resets.
-              </span>
+              <span className="text-[12.5px] text-ink">Switch to my Claude Code when it runs out</span>
             </label>
           )}
           {c.reason && <p className="mt-2 text-[12px] text-clay-ink">{c.reason}</p>}
