@@ -21,5 +21,5 @@ Blueprint ships on all three, so every change to the app (`app/`, `install.sh`) 
 - Write the platform code for all three. Code under `#[cfg(...)]` covers macOS, Linux and Windows, each with its own native call where one exists; a fallback is only for a system none of them names.
 - Build and run it here on the system you are on, and see it working.
 - Commit it to a branch, not `main`, and push the branch: `.github/workflows/install.yml` builds and installs it from source on macOS (Apple silicon and Intel), Ubuntu and Windows.
-- Open a PR and turn on auto-merge (`gh pr merge <n> --auto --rebase`). The ruleset on `main` holds it until every install job passes, then GitHub merges it, which deploys. Don't merge it by hand. A failure on any system is fixed on the branch first.
+- Open a PR and turn on auto-merge (`gh pr merge <n> --auto --rebase`). The ruleset on `main` holds it until every install job passes, then GitHub merges it, which deploys. Don't merge it by hand. A failure on any system is fixed on the branch first. Only a push runs the checks a PR counts (a run started with `gh workflow run` isn't), so a PR whose last commit touches none of `install.yml`'s paths never merges itself: the user merges that one.
 - Tell the user what was seen working by hand and on which system, and what only CI built.
