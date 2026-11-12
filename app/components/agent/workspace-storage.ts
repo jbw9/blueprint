@@ -18,6 +18,42 @@ export function storedSite(root: string): string | null {
     return null;
   }
 }
+/** The port a web app's dev server was given, by its project folder and site. */
+export const PORT_KEY = "blueprint.ports:";
+const FIRST_PORT = 3000;
+
+/**
+ * The port for a web app's dev server: the one it was given before, else the
+ * next from 3000 that no other web app holds. Whichever it is must be free now,
+ * or the next free one is taken and kept instead.
+ */
+export async function claimPort(root: string, site: string, free: (port: number) => Promise<boolean>): Promise<number | undefined> {
+  const key = `${PORT_KEY}${root}|${site}`;
+  const held = new Set<number>();
+  let mine: number | undefined;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith(PORT_KEY)) continue;
+      const port = Number(localStorage.getItem(k));
+      if (k === key) mine = port;
+      else held.add(port);
+    }
+  } catch {
+    return undefined;
+  }
+  if (mine !== undefined && !held.has(mine) && (await free(mine))) return mine;
+  for (let port = FIRST_PORT; port < FIRST_PORT + 1000; port++) {
+    if (held.has(port) || port === mine || !(await free(port))) continue;
+    try {
+      localStorage.setItem(key, String(port));
+    } catch {
+      /* not kept: it is still the port used now */
+    }
+    return port;
+  }
+  return undefined;
+}
 /** The conversations Claude was having in the tabs, per project, so the app reopens them. */
 export const SESSIONS_KEY = "blueprint.workspace.sessions";
 /** The conversations of a closed project's Claudes, by its root, resumed when it is opened again. */

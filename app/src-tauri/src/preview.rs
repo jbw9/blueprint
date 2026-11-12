@@ -187,6 +187,17 @@ pub fn port_owner(port: u16) -> Option<String> {
     Some(cwd.lines().find_map(|l| l.strip_prefix('n').map(str::to_string)).unwrap_or_else(|| UNKNOWN.into()))
 }
 
+/// Whether nothing on this machine serves `port`, on either loopback address
+/// (a machine without IPv6 has no second address to be taken).
+#[tauri::command]
+pub fn port_free(port: u16) -> bool {
+    let free = |host: &str| match TcpListener::bind((host, port)) {
+        Ok(_) => true,
+        Err(e) => e.kind() != std::io::ErrorKind::AddrInUse && e.kind() != std::io::ErrorKind::PermissionDenied,
+    };
+    free("127.0.0.1") && free("::1")
+}
+
 /// A port nothing on this machine is serving, for a dev server whose own is taken.
 #[tauri::command]
 pub fn free_port() -> Result<u16, String> {

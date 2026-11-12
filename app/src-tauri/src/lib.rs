@@ -116,6 +116,7 @@ pub fn run() {
             preview::preview_external,
             preview::port_owner,
             preview::free_port,
+            preview::port_free,
             mcp::preview_reply,
             browser::browser_open,
             browser::browser_place,

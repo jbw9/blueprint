@@ -20,7 +20,7 @@ import { Strip, inFront } from "@/components/agent/strip";
 import { PhoneIcon, iconOf } from "@/components/agent/tab-icons";
 import { useTabStatus } from "@/components/agent/tab-status";
 import { useTurnFollowing } from "@/components/agent/turn-following";
-import { OFFER_KEY, PARKED_KEY, SITE_KEY, firstOpening, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
+import { OFFER_KEY, PARKED_KEY, SITE_KEY, claimPort, firstOpening, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
 import { agentHeading, type Project, type Tab } from "@/components/agent/workspace-tab";
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
@@ -264,6 +264,7 @@ export function Workspace() {
    * one asked for, else the one last switched to, else the one it opens first.
    * Not over an address something else pointed the Preview at.
    */
+  const starting = useRef(new Set<string>());
   const startDev = useCallback(
     (root: string, dir?: string, force?: boolean, port?: number) => {
       const sites = projectsNow.current[root]?.web ?? [];
@@ -275,8 +276,14 @@ export function Workspace() {
       // On a port of its own, for a server whose usual one another project holds:
       // PORT is what most dev servers listen on when it is set.
       const open = (run: string) => add(null, { run, dev: true, site: site.dir, label: "dev server", cwd: root });
-      if (port === undefined) open(site.run);
-      else void invoke<string>("pty_with_env", { name: "PORT", value: String(port), command: site.run }).then(open);
+      const withPort = (n: number) => invoke<string>("pty_with_env", { name: "PORT", value: String(n), command: site.run }).then(open);
+      if (port !== undefined) return void withPort(port);
+      const slot = `${root}|${site.dir}`;
+      if (starting.current.has(slot)) return;
+      starting.current.add(slot);
+      void claimPort(root, site.dir, (n) => invoke<boolean>("port_free", { port: n }).catch(() => true))
+        .then((n) => (n === undefined ? open(site.run) : withPort(n)))
+        .finally(() => starting.current.delete(slot));
     },
     [add],
   );
