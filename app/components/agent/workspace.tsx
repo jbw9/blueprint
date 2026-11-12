@@ -1214,20 +1214,20 @@ export function Workspace() {
       onPointerDown={grab(t)}
       title="Drag onto the blueprint to open it in the main view, or back onto the window"
       className={cn(
-        "group flex shrink-0 cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
+        "group flex min-w-[76px] max-w-[200px] shrink cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
         selected ? "bg-surface-container-low text-ink" : "border-b text-muted-slate hover:text-ink",
         dragging?.key === t.key && "opacity-40",
       )}
     >
       {naming === t.key ? (
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           {iconOf(t)}
           {nameField(t)}
         </span>
       ) : (
-        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onContextMenu={rename(t)} className="flex cursor-pointer items-center gap-1.5">
+        <button type="button" onClick={(c) => c.detail === 0 && select(t.key)} onContextMenu={rename(t)} title={nameOf(t)} className="flex min-w-0 cursor-pointer items-center gap-1.5">
           {iconOf(t)}
-          {nameOf(t)}
+          <span className="truncate">{nameOf(t)}</span>
           {t.status ? <StatusDot status={t.status} /> : driven[t.key] && !selected ? <StatusDot status="working" /> : null}
         </button>
       )}
@@ -1236,7 +1236,7 @@ export function Workspace() {
         data-close
         onClick={() => close(t.key)}
         aria-label={`Close ${nameOf(t)}`}
-        className="flex size-[18px] cursor-pointer items-center justify-center text-faint opacity-0 hover:bg-surface-container hover:text-ink group-hover:opacity-100 group-aria-selected:opacity-100"
+        className="flex size-[18px] shrink-0 cursor-pointer items-center justify-center text-faint opacity-0 hover:bg-surface-container hover:text-ink group-hover:opacity-100 group-aria-selected:opacity-100"
       >
         ×
       </button>
