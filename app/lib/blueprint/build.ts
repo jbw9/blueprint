@@ -121,6 +121,20 @@ function withRowChildren(nodes: Node[]): Node[] {
   });
 }
 
+/** The overview's boxes that open a root and say nothing under their label say what that root's own subtitle says. */
+function withRootSubs(o: Overview, roots: Node[]): Overview {
+  if (!o.anatomy) return o;
+  const subOf = new Map(roots.map((r) => [r.id, r.sub]));
+  return {
+    ...o,
+    anatomy: o.anatomy.map((b) =>
+      b.kind === "diagram"
+        ? { ...b, boxes: b.boxes.map((x) => (x.sub || !x.opens || !subOf.get(x.opens) ? x : { ...x, sub: subOf.get(x.opens) })) }
+        : b,
+    ),
+  };
+}
+
 /**
  * Everything the screen reads, derived once from one blueprint file. Given the blueprint
  * it replaces, every part the new file left alone keeps its old identity
@@ -128,7 +142,8 @@ function withRowChildren(nodes: Node[]): Node[] {
  */
 export function buildBlueprint(file: BlueprintFile, name: string, prev?: { RUN: Run; OVERVIEW?: Overview; TOP: Node }) {
   const RUN = prev ? share(prev.RUN, file.RUN) : file.RUN;
-  const OVERVIEW = prev ? share(prev.OVERVIEW, file.OVERVIEW) : file.OVERVIEW;
+  const own = file.OVERVIEW && withRootSubs(file.OVERVIEW, file.AUTHORED);
+  const OVERVIEW = prev ? share(prev.OVERVIEW, own) : own;
 
   /** The repository as a node: the level the empty path opens, its parts the roots. */
   const built: Node = {
