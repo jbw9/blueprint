@@ -11,6 +11,7 @@ mod proc;
 mod pty;
 mod rename;
 mod server;
+mod shell;
 mod signins;
 mod update;
 
@@ -103,6 +104,7 @@ pub fn run() {
             pty::pty_kill,
             pty::pty_state,
             pty::pty_which,
+            pty::pty_with_env,
             pty::context_add,
             pty::context_set,
             pty::context_pending,

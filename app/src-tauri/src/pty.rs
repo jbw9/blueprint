@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 use crate::claude;
+use crate::shell::{self, Shell, Syntax};
 
 struct Pty {
     master: Box<dyn MasterPty + Send>,
@@ -123,25 +124,29 @@ fn size(cols: u16, rows: u16) -> PtySize {
     PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 }
 }
 
-fn shell() -> String {
-    #[cfg(windows)]
-    return std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".into());
-    #[cfg(not(windows))]
-    return std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into());
-}
-
 /// Claude first in the tab, resuming `resume` when the tab reopens a conversation.
-fn start(cmd: &mut CommandBuilder, program: &str, name: &str, login: bool, context: &std::path::Path, resume: Option<&str>) -> std::io::Result<()> {
+fn start(cmd: &mut CommandBuilder, shell: &Shell, login: bool, context: &std::path::Path, resume: Option<&str>) -> std::io::Result<()> {
     if let Some(id) = resume {
         claude::resuming(context, id)?;
     }
-    if cfg!(unix) {
-        cmd.args(["-c", if login { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL""# }]);
-        cmd.env("SHELL", program);
-    } else if name.eq_ignore_ascii_case("cmd") {
-        cmd.args(["/k", "blueprint-claude"]);
-    } else {
-        cmd.args(["-NoExit", "-Command", "blueprint-claude"]);
+    match shell.syntax() {
+        Syntax::Posix if cfg!(unix) => {
+            cmd.args(["-c", if login { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL" -l"# } else { r#""$BLUEPRINT_LAUNCHER"; exec "$SHELL""# }]);
+            cmd.env("SHELL", &shell.program);
+        }
+        // Git for Windows' bash runs the launcher's script itself, not the .cmd beside it,
+        // then becomes the shell the user's terminal starts.
+        Syntax::Posix => {
+            cmd.args(["-c", r#""${BLUEPRINT_LAUNCHER%.cmd}"; exec "$0" "$@""#, &shell.program]);
+            cmd.args(&shell.args);
+        }
+        Syntax::Cmd => {
+            cmd.args(["/k", "blueprint-claude"]);
+        }
+        Syntax::PowerShell => {
+            cmd.args(&shell.args);
+            cmd.args(["-NoExit", "-Command", "blueprint-claude"]);
+        }
     }
     Ok(())
 }
@@ -170,11 +175,8 @@ pub fn pty_spawn(
     let pair = native_pty_system().openpty(size(cols, rows)).map_err(|e| e.to_string())?;
     let id = ptys.next.fetch_add(1, Ordering::Relaxed) + 1;
     let context = claude::queue(id);
-    let program = shell();
-    let name = std::path::Path::new(&program)
-        .file_stem()
-        .map_or_else(|| program.clone(), |s| s.to_string_lossy().into_owned());
-    let mut cmd = CommandBuilder::new(&program);
+    let shell = shell::default();
+    let mut cmd = CommandBuilder::new(&shell.program);
     // A Mac app opened from Finder gets a bare PATH; Terminal.app's shells are
     // login shells, and only those read /etc/zprofile (path_helper, which adds
     // /usr/local/bin) and ~/.zprofile (Homebrew's shellenv).
@@ -190,9 +192,10 @@ pub fn pty_spawn(
     }
     if let Some(launch) = &launch {
         claude::prepare(&mut cmd, launch, &context, outline.as_deref(), id).map_err(|e| e.to_string())?;
-        if start_claude {
-            start(&mut cmd, &program, &name, login, &context, resume.as_deref()).map_err(|e| e.to_string())?;
-        }
+    }
+    match &launch {
+        Some(_) if start_claude => start(&mut cmd, &shell, login, &context, resume.as_deref()).map_err(|e| e.to_string())?,
+        _ => cmd.args(&shell.args),
     }
     // The checkout the page named, if it is really there; home otherwise.
     let dir = cwd.map(PathBuf::from).filter(|d| d.is_dir());
@@ -255,7 +258,7 @@ pub fn pty_spawn(
             .map_or(0, |s| s.exit_code());
         let _ = on_data.send(InvokeResponseBody::Json(format!(r#"{{"exit":{code}}}"#)));
     });
-    Ok(Spawned { id, shell: name })
+    Ok(Spawned { id, shell: shell.name() })
 }
 
 fn with<T>(ptys: &Ptys, id: u32, f: impl FnOnce(&mut Pty) -> std::io::Result<T>) -> Result<T, String> {
@@ -311,7 +314,7 @@ fn runnable(names: Vec<String>) -> Vec<String> {
         .map(|n| format!("command -v {n} >/dev/null 2>&1 && echo {n}"))
         .collect::<Vec<_>>()
         .join("; ");
-    let out = std::process::Command::new(shell())
+    let out = std::process::Command::new(shell::default().program)
         .args(["-ic", &script])
         .stdin(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -326,6 +329,13 @@ fn runnable(names: Vec<String>) -> Vec<String> {
 #[tauri::command]
 pub async fn pty_which(names: Vec<String>) -> Vec<String> {
     which(names)
+}
+
+/// `command` with `name` set to `value` for it, in a new tab's shell's own words.
+#[tauri::command]
+pub fn pty_with_env(name: String, value: String, command: String) -> String {
+    let syntax = Syntax::of_tabs();
+    syntax.all(&[syntax.set(&name, &value), command])
 }
 
 /// A tab's queue.
@@ -418,7 +428,7 @@ mod tests {
     #[test]
     fn a_tab_ended_while_a_program_runs_in_it_lets_go_at_once() {
         let pair = native_pty_system().openpty(size(80, 24)).unwrap();
-        let mut cmd = CommandBuilder::new(shell());
+        let mut cmd = CommandBuilder::new(if cfg!(windows) { "cmd" } else { "sh" });
         #[cfg(windows)]
         cmd.args(["/k", "ping", "-t", "127.0.0.1"]);
         #[cfg(unix)]
@@ -447,7 +457,7 @@ mod tests {
             let context = std::env::temp_dir().join("blueprint").join(format!("context-test-resume-{name}.md"));
             let _ = std::fs::remove_file(context.with_extension("md.resume"));
             let mut cmd = CommandBuilder::new(name);
-            start(&mut cmd, name, name, false, &context, Some("abc-1")).unwrap();
+            start(&mut cmd, &Shell { program: name.into(), args: Vec::new() }, false, &context, Some("abc-1")).unwrap();
             assert_eq!(std::fs::read_to_string(context.with_extension("md.resume")).ok().as_deref(), Some("abc-1"), "{name}");
             assert_eq!(claude::session_of(&context).as_deref(), Some("abc-1"), "{name}");
             claude::forget(&context);

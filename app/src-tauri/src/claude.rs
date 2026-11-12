@@ -479,7 +479,7 @@ fn on_path() -> Option<PathBuf> {
 /// Claude Code is told it is, else beside the `git` on PATH, else where its
 /// installer puts it.
 #[cfg(windows)]
-fn git_bash() -> Option<PathBuf> {
+pub fn git_bash() -> Option<PathBuf> {
     let told = std::env::var_os("CLAUDE_CODE_GIT_BASH_PATH").map(PathBuf::from);
     let beside_git = crate::proc::where_is("git")
         .into_iter()

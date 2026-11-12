@@ -274,8 +274,9 @@ export function Workspace() {
       const site = sites.find((x) => x.dir === want) ?? sites[0];
       // On a port of its own, for a server whose usual one another project holds:
       // PORT is what most dev servers listen on when it is set.
-      const env = port === undefined ? "" : /Windows/.test(navigator.userAgent) ? `$env:PORT=${port}; ` : `export PORT=${port}; `;
-      add(null, { run: env + site.run, dev: true, site: site.dir, label: "dev server", cwd: root });
+      const open = (run: string) => add(null, { run, dev: true, site: site.dir, label: "dev server", cwd: root });
+      if (port === undefined) open(site.run);
+      else void invoke<string>("pty_with_env", { name: "PORT", value: String(port), command: site.run }).then(open);
     },
     [add],
   );

@@ -21,6 +21,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use crate::shell::Syntax;
+
 /* ── what a project runs as ───────────────────────────────────── */
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -71,8 +73,8 @@ fn manager(root: &Path) -> (&'static str, &'static str) {
 ///
 /// A folder with no such script but an `index.html` is a plain site, served
 /// as files on a free port by the Python every Mac and most machines have.
-fn site(dir: &Path, root: &Path) -> Option<(u8, String)> {
-    if let Some((script, start)) = served(dir, root) {
+fn site(dir: &Path, root: &Path, syntax: Syntax) -> Option<(u8, String)> {
+    if let Some((script, start)) = served(dir, root, syntax) {
         return Some((if script == "start" { 1 } else { 0 }, start));
     }
     if !dir.join("index.html").is_file() {
@@ -95,8 +97,8 @@ pub struct Site {
 /// own (an app beside its landing page, a monorepo) has each folder a level
 /// or two down that is one: a `dev` script first, then a `start`, then plain
 /// files, and among those the order of `NESTED`, then the alphabet's.
-fn sites(root: &Path) -> Vec<Site> {
-    if let Some((_, run)) = site(root, root) {
+fn sites(root: &Path, syntax: Syntax) -> Vec<Site> {
+    if let Some((_, run)) = site(root, root, syntax) {
         return vec![Site { dir: String::new(), run }];
     }
     let inside = |d: &Path| -> Vec<PathBuf> {
@@ -117,10 +119,10 @@ fn sites(root: &Path) -> Vec<Site> {
     let mut found: Vec<(u8, usize, Site)> = dirs
         .into_iter()
         .filter_map(|d| {
-            let (rank, start) = site(&d, root)?;
+            let (rank, start) = site(&d, root, syntax)?;
             let dir = d.strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/");
             let named = NESTED.iter().position(|n| *n == dir).unwrap_or(NESTED.len());
-            Some((rank, named, Site { run: format!("cd {} && {start}", q(Path::new(&dir))), dir }))
+            Some((rank, named, Site { run: syntax.all(&[format!("cd {}", syntax.quote(&dir)), start]), dir }))
         })
         .collect();
     found.sort_by_key(|(rank, named, _)| (*rank, *named));
@@ -134,7 +136,7 @@ const SKIP: [&str; 7] = ["node_modules", "dist", "build", "out", "coverage", "ta
 
 /// The script `dir` is served by and the command that runs it there; `root`
 /// is the repository, whose lockfile and dependencies a workspace shares.
-fn served(dir: &Path, root: &Path) -> Option<(&'static str, String)> {
+fn served(dir: &Path, root: &Path, syntax: Syntax) -> Option<(&'static str, String)> {
     let pkg = package(dir)?;
     let scripts = pkg.get("scripts")?;
     let has = |s: &str| scripts.get(s).and_then(|v| v.as_str()).is_some();
@@ -150,9 +152,9 @@ fn served(dir: &Path, root: &Path) -> Option<(&'static str, String)> {
     };
     let locked = |d: &Path| ["pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock", "package-lock.json"].iter().any(|f| d.join(f).is_file());
     let (install, run) = manager(if locked(dir) { dir } else { root });
-    let start = if cfg!(windows) { format!("{run} {script}") } else { format!("BROWSER=none {run} {script}") };
+    let start = if syntax == Syntax::Posix { format!("BROWSER=none {run} {script}") } else { format!("{run} {script}") };
     let installed = dir.join("node_modules").is_dir() || root.join("node_modules").is_dir();
-    Some((script, if installed { start } else { format!("{install} && {start}") }))
+    Some((script, if installed { start } else { syntax.all(&[install.to_string(), start]) }))
 }
 
 fn has_child(dir: &Path, ext: &str) -> bool {
@@ -184,11 +186,14 @@ pub struct Project {
 
 #[tauri::command]
 pub fn project_detect(root: String) -> Project {
-    let root = PathBuf::from(root);
+    detect_in(PathBuf::from(root), Syntax::of_tabs())
+}
+
+fn detect_in(root: PathBuf, syntax: Syntax) -> Project {
     // An Expo app can make either native project when asked, so it has both.
     let expo = kind(&root) == Kind::Expo;
     Project {
-        web: sites(&root),
+        web: sites(&root, syntax),
         android: expo || android_dir(&root).is_some(),
         ios: expo || ios_dir(&root).is_some(),
     }
@@ -217,14 +222,9 @@ fn data() -> PathBuf {
     }
 }
 
-/// A path as one word of the tab's shell: cmd on Windows, where a path cannot
-/// hold a double quote; sh elsewhere.
+/// A path as one word of sh, which the setup scripts and the iOS build are written in.
 fn q(s: &Path) -> String {
-    if cfg!(windows) {
-        format!("\"{}\"", s.to_string_lossy())
-    } else {
-        format!("'{}'", s.to_string_lossy().replace('\'', r"'\''"))
-    }
+    Syntax::Posix.path(s)
 }
 
 fn ok(cmd: &mut Command) -> Option<String> {
@@ -1105,20 +1105,20 @@ pub struct Run {
 }
 
 /// The shell command that builds the project's app and opens it on the
-/// running phone, typed into a terminal tab beside it. One that ends writes 0
-/// or 1 to `run_result`, which `device_run_result` reads; the same `&& ||`
-/// works in sh and in cmd.
+/// running phone, typed into a terminal tab beside it, in its shell's words. One
+/// that ends writes 0 or 1 to `run_result`, which `device_run_result` reads.
 #[tauri::command]
 pub fn device_run(platform: String, root: String) -> Result<Run, String> {
     let root = PathBuf::from(root);
-    let command = run_command(&platform, &root)?;
+    let syntax = Syntax::of_tabs();
+    let steps = run_steps(&platform, &root, syntax)?;
     if matches!(kind(&root), Kind::Expo | Kind::Flutter) {
-        return Ok(Run { command, ends: false });
+        return Ok(Run { command: syntax.all(&steps), ends: false });
     }
     let done = run_result(&root, &platform);
     std::fs::create_dir_all(done.parent().unwrap()).map_err(|e| e.to_string())?;
     let _ = std::fs::remove_file(&done);
-    Ok(Run { command: format!("{command} && echo 0 > {done} || echo 1 > {done}", done = q(&done)), ends: true })
+    Ok(Run { command: syntax.all_then_write(&steps, &done), ends: true })
 }
 
 /// How the last run of the project's app ended, once it has: whether it built
@@ -1131,51 +1131,38 @@ pub fn device_run_result(platform: String, root: String) -> Option<bool> {
     Some(text.trim() == "0")
 }
 
-fn run_command(platform: &str, root: &Path) -> Result<String, String> {
+fn run_steps(platform: &str, root: &Path, syntax: Syntax) -> Result<Vec<String>, String> {
     let id = running_id(platform)?;
     let root = root.to_path_buf();
     let kind = kind(&root);
     if platform == "android" {
         let sdk = sdk();
         let java = java_home().ok_or("Building the app needs Java 17 or 21, which Android Studio comes with: install either, or set JAVA_HOME.")?;
-        let env = if cfg!(windows) {
-            format!(
-                "set \"ANDROID_HOME={sdk}\" && set \"ANDROID_SDK_ROOT={sdk}\" && set \"JAVA_HOME={java}\" && set \"PATH={tools};{emu};{bin};%PATH%\" && ",
-                sdk = sdk.display(),
-                java = java.display(),
-                tools = sdk.join("platform-tools").display(),
-                emu = sdk.join("emulator").display(),
-                bin = java.join("bin").display(),
-            )
-        } else {
-            format!(
-                "export ANDROID_HOME={sdk} ANDROID_SDK_ROOT={sdk} JAVA_HOME={java} PATH={tools}:{emu}:{bin}:\"$PATH\"; ",
-                sdk = q(&sdk),
-                java = q(&java),
-                tools = q(&sdk.join("platform-tools")),
-                emu = q(&sdk.join("emulator")),
-                bin = q(&java.join("bin")),
-            )
-        };
-        let run = match kind {
-            Kind::Expo => "npx expo run:android".to_string(),
-            Kind::ReactNative => "npx react-native run-android".to_string(),
-            Kind::Flutter => format!("flutter run -d {id}"),
+        let mut steps = vec![
+            syntax.set("ANDROID_HOME", &sdk.to_string_lossy()),
+            syntax.set("ANDROID_SDK_ROOT", &sdk.to_string_lossy()),
+            syntax.set("JAVA_HOME", &java.to_string_lossy()),
+            syntax.prepend_path(&[sdk.join("platform-tools"), sdk.join("emulator"), java.join("bin")]),
+        ];
+        match kind {
+            Kind::Expo => steps.push("npx expo run:android".into()),
+            Kind::ReactNative => steps.push("npx react-native run-android".into()),
+            Kind::Flutter => steps.push(format!("flutter run -d {id}")),
             Kind::Native => {
                 let dir = android_dir(&root).ok_or("This project has no Android app to build.")?;
-                let launch = application_id(&dir)
-                    .map(|app| format!(" && adb -s {id} shell monkey -p {app} -c android.intent.category.LAUNCHER 1"))
-                    .unwrap_or_default();
-                if cfg!(windows) {
-                    format!("{} -p {} installDebug{launch}", q(&dir.join("gradlew.bat")), q(&dir))
+                steps.push(if cfg!(windows) {
+                    format!("{} -p {} installDebug", syntax.call(&dir.join("gradlew.bat")), syntax.path(&dir))
                 } else {
-                    format!("(cd {} && ./gradlew installDebug){launch}", q(&dir))
+                    format!("(cd {} && ./gradlew installDebug)", syntax.path(&dir))
+                });
+                if let Some(app) = application_id(&dir) {
+                    steps.push(format!("adb -s {id} shell monkey -p {app} -c android.intent.category.LAUNCHER 1"));
                 }
             }
-        };
-        return Ok(format!("{env}({run})"));
+        }
+        return Ok(steps);
     }
-    Ok(match kind {
+    Ok(vec![match kind {
         Kind::Expo => format!("npx expo run:ios --device {id}"),
         Kind::ReactNative => format!("npx react-native run-ios --udid {id}"),
         Kind::Flutter => format!("flutter run -d {id}"),
@@ -1204,7 +1191,7 @@ fn run_command(platform: &str, root: &Path) -> Result<String, String> {
                 products = q(&build.join("Build/Products")),
             )
         }
-    })
+    }])
 }
 
 fn application_id(dir: &Path) -> Option<String> {
@@ -1342,13 +1329,9 @@ mod tests {
         dir
     }
 
-    /// Not on Windows, whose cmd has no `VAR=value command`.
-    fn browser_none() -> &'static str {
-        if cfg!(windows) { "" } else { "BROWSER=none " }
-    }
 
     fn detect(dir: &tempfile::TempDir) -> Project {
-        project_detect(dir.path().to_string_lossy().into_owned())
+        detect_in(dir.path().to_path_buf(), Syntax::Posix)
     }
 
     /// How the site opened first is started.
@@ -1360,14 +1343,14 @@ mod tests {
     fn a_vite_app_is_served_with_its_own_manager() {
         let d = project(&[("package.json", r#"{"scripts":{"dev":"vite"}}"#), ("pnpm-lock.yaml", ""), ("node_modules/.keep", "")]);
         let p = detect(&d);
-        assert_eq!(first(&p), Some(format!("{}pnpm run dev", browser_none()).as_str()));
+        assert_eq!(first(&p), Some("BROWSER=none pnpm run dev"));
         assert!(!p.android && !p.ios);
     }
 
     #[test]
     fn dependencies_are_installed_first_when_missing() {
         let d = project(&[("package.json", r#"{"scripts":{"start":"react-scripts start"}}"#)]);
-        assert_eq!(first(&detect(&d)), Some(format!("npm install && {}npm run start", browser_none()).as_str()));
+        assert_eq!(first(&detect(&d)), Some("npm install && BROWSER=none npm run start"));
     }
 
     #[test]
@@ -1378,7 +1361,7 @@ mod tests {
         assert!(p.web.is_empty() && p.android && p.ios);
         let webby = r#"{"scripts":{"start":"expo start","web":"expo start --web"},"dependencies":{"expo":"~51.0.0","react-native-web":"~0.19.10"}}"#;
         let d = project(&[("package.json", webby), ("node_modules/.keep", "")]);
-        assert_eq!(first(&detect(&d)), Some(format!("{}npm run web", browser_none()).as_str()));
+        assert_eq!(first(&detect(&d)), Some("BROWSER=none npm run web"));
     }
 
     #[test]
@@ -1393,10 +1376,10 @@ mod tests {
         let p = detect(&d);
         let dirs: Vec<&str> = p.web.iter().map(|s| s.dir.as_str()).collect();
         assert_eq!(dirs, ["app", "landing"]);
-        assert_eq!(first(&p), Some(format!("cd {} && {}npm run dev", q(Path::new("app")), browser_none()).as_str()));
+        assert_eq!(first(&p), Some("cd 'app' && BROWSER=none npm run dev"));
         let d = project(&[("apps/site/package.json", r#"{"scripts":{"start":"serve"}}"#), ("apps/web/package.json", r#"{"scripts":{"dev":"vite"}}"#), ("pnpm-lock.yaml", ""), ("node_modules/.keep", "")]);
         let p = detect(&d);
-        assert_eq!(first(&p), Some(format!("cd {} && {}pnpm run dev", q(Path::new("apps/web")), browser_none()).as_str()));
+        assert_eq!(first(&p), Some("cd 'apps/web' && BROWSER=none pnpm run dev"));
         assert_eq!(p.web[1].dir, "apps/site");
     }
 
