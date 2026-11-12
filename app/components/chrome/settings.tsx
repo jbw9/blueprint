@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
 import { Button, dictateKeys, keys } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
@@ -373,12 +373,12 @@ function BlueprintCredit() {
     setSignin(r);
     if ("code" in r) external(r.url);
   };
-  const meters = c.available && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week], ["Blueprints", c.meters.maps]] as const) : [];
+  const meters = c.available && c.on && c.meters ? ([["Session", c.meters.session], ["Week", c.meters.week], ["Blueprints", c.meters.maps]] as const) : [];
   return (
     <Field
       group
       label="Blueprint credit"
-      hint={`${c.promo ? "Claude Code included, free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude instead of your own Claude Code, only inside Blueprint. Making blueprints is unlimited, within fair use. Claude tabs get about half of a Claude Pro plan, in a 5-hour Session and a Week.`}
+      hint={`${c.promo ? "Free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude, not your own Claude Code. It works only inside Blueprint.`}
     >
       {c.login ? (
         <>
@@ -396,28 +396,32 @@ function BlueprintCredit() {
               }}
             />
           )}
+          {c.available && !c.on && <p className="mt-2 text-[12px] text-muted-slate">Claude tabs and new blueprints use your own Claude Code, signed in as it is.</p>}
           {meters.length > 0 && (
-            <div className="mt-3 flex flex-col gap-2.5 font-mono text-[11.5px]">
-              {meters.map(([label, m]) => {
-                const used = percent(m);
-                const at = resetsAt(m);
-                return (
-                  <div key={label} className="flex flex-col gap-1">
-                    <div className="flex items-baseline gap-3">
+            <div className="mt-3 max-w-[460px] border border-border-gray bg-card px-3.5 py-3">
+              <p className="mb-1 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Usage</p>
+              <p className="mb-3 text-[11.5px] text-faint">Claude tabs get about half of a Claude Pro plan. Blueprints are fair use.</p>
+              <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2.5 font-mono text-[11.5px]">
+                {meters.map(([label, m]) => {
+                  const used = percent(m);
+                  const at = resetsAt(m);
+                  const high = used != null && used >= 90;
+                  return (
+                    <Fragment key={label}>
                       <span className="text-ink">{label}</span>
-                      <span className="ml-auto text-ink">{used == null ? "no limit" : `${used}% used`}</span>
-                      {at && <span className="text-faint">resets {at}</span>}
-                    </div>
-                    <span className="h-1 w-full bg-border-gray">
-                      <span className="block h-full bg-accent" style={{ width: `${used ?? 0}%` }} />
-                    </span>
-                  </div>
-                );
-              })}
+                      <span className="block h-1.5 min-w-16 bg-surface-container">
+                        <span className={`block h-full ${high ? "bg-clay-ink" : "bg-accent"}`} style={{ width: `${used ?? 0}%` }} />
+                      </span>
+                      <span className={`text-right tabular-nums ${high ? "text-clay-ink" : "text-ink"}`}>{used == null ? "No limit" : `${used}%`}</span>
+                      <span className="text-faint">{at ? `resets ${at}` : ""}</span>
+                    </Fragment>
+                  );
+                })}
+              </div>
             </div>
           )}
-          {c.available && (
-            <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-[12px] text-muted-slate">
+          {c.available && c.on && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[12px] leading-[1.5] text-muted-slate">
               <input
                 type="checkbox"
                 checked={c.fallback}
@@ -425,23 +429,31 @@ function BlueprintCredit() {
                   setC({ ...c, fallback: e.target.checked });
                   void setFallback(e.target.checked);
                 }}
-                className="mt-0.5 accent-accent"
+                className="mt-[3px] accent-accent"
               />
               <span>
-                <span className="text-ink">Switch to my Claude Code when it runs out.</span> A Claude tab on Blueprint credit picks its conversation up on your own Claude Code, signed in as it is, and carries on. New tabs are on Blueprint credit again once it resets.
+                <span className="block text-[12.5px] text-ink">Switch to my Claude Code when it runs out</span>
+                The tab carries on in the same conversation on your own Claude Code. New tabs use Blueprint credit again once it resets.
               </span>
             </label>
           )}
-          {c.reason && <p className="mt-1.5 text-[12px] text-clay-ink">{c.reason}</p>}
-          <p className="mt-2 font-mono text-[11.5px] text-faint">
-            <a href="https://blpr.dev/promotion" onClick={(e) => (e.preventDefault(), external("https://blpr.dev/promotion"))} className="text-accent hover:underline">
-              Promotion terms
-            </a>{" "}
-            · Signed in as @{c.login} ·{" "}
+          {c.reason && <p className="mt-2 text-[12px] text-clay-ink">{c.reason}</p>}
+          <div className="mt-4 flex items-baseline gap-2 border-t border-border-gray pt-3 font-mono text-[11.5px] text-faint">
+            <span>
+              Signed in as <span className="text-ink">@{c.login}</span>
+            </span>
+            <span aria-hidden>·</span>
             <button type="button" onClick={() => void signOut()} className="cursor-pointer text-accent hover:underline">
               Sign out
             </button>
-          </p>
+            <a
+              href="https://blpr.dev/promotion"
+              onClick={(e) => (e.preventDefault(), external("https://blpr.dev/promotion"))}
+              className="ml-auto text-accent hover:underline"
+            >
+              Promotion terms
+            </a>
+          </div>
         </>
       ) : signin && "code" in signin ? (
         <GitHubCode code={signin.code} url={signin.url} onCancel={() => setSignin(null)} />
