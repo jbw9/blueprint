@@ -9,28 +9,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=Zilla+Slab:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-/* The landing page's sheet (landing/components/landing.module.css): one ink, cobalt, on white paper
-   lying on a blueprint desk. Always light. */
+/* The landing page's sheet (landing/components/landing.module.css): one pale ink on a night-blue sheet
+   lying on a darker blueprint desk. Always dark. */
 :root {
-  --desk: #1a2fa0;
-  --desk-line: rgba(255, 255, 255, 0.1);
-  --paper: #fcfdff;
-  --low: #eef1fd;
-  --ink: #2438c8;
-  --muted: #4a5bd2;
-  --faint: #8995e2;
-  --line: rgba(36, 56, 200, 0.18);
-  --strong: rgba(36, 56, 200, 0.5);
-  --on-ink: #fcfdff;
+  --desk: #080e2f;
+  --desk-line: rgba(255, 255, 255, 0.06);
+  --paper: #111e4f;
+  --bar: #0b153f;
+  --low: #212e5d;
+  --ink: #dbe1f8;
+  --muted: #afb6d3;
+  --faint: #7680a4;
+  --line: rgba(219, 225, 248, 0.18);
+  --strong: rgba(219, 225, 248, 0.5);
+  --on-ink: #111e4f;
   --blush: #f4a3b4;
-  --code-bg: #2438c8;
-  --code-ink: #d5dbff;
+  --code-bg: #0c163f;
+  --code-ink: #c8cfea;
   --display: "Zilla Slab", Georgia, serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   --body: "IBM Plex Sans", system-ui, sans-serif;
   --gutter: clamp(16px, 3.4vw, 44px);
   --edge: clamp(8px, 1.6vw, 22px);
-  color-scheme: light;
+  color-scheme: dark;
+  scrollbar-color: var(--desk-line) transparent;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -52,8 +54,10 @@ button, input { font: inherit; color: inherit; }
 .wrap { max-width: 1480px; margin: 0 auto; padding: 0 var(--gutter) var(--gutter); }
 
 /* the bar across the top */
-.nav { position: sticky; top: 0; z-index: 5; padding: 0 var(--gutter); background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(10px); }
-.navBar { display: flex; align-items: center; gap: 16px; max-width: calc(1480px - 2 * var(--gutter)); height: 56px; margin: 0 auto; border-bottom: 1px solid var(--line); }
+.nav { position: sticky; top: 0; z-index: 5; padding: 10px var(--gutter) 0; pointer-events: none; }
+.navBar { display: flex; align-items: center; gap: 16px; max-width: calc(1480px - 2 * var(--gutter)); height: 52px; margin: 0 auto; padding: 0 10px 0 14px;
+  border: 1px solid var(--line); background: color-mix(in srgb, var(--bar) 94%, transparent); backdrop-filter: blur(10px); pointer-events: auto; transition: border-color .3s ease-out; }
+.nav[data-float="true"] .navBar { border-color: var(--strong); }
 .mark { display: flex; align-items: center; gap: 10px; font: 500 15px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
 .mark svg { width: 42px; height: 30px; fill: currentColor; }
 .mark .blush { fill: var(--blush); }
@@ -75,7 +79,7 @@ h2 { margin: 0 0 4px; font: 300 clamp(26px, 2.6vw, 38px)/1.05 var(--display); le
 .btn.big { height: 44px; padding: 0 18px; font-size: 13px; }
 
 /* sign in */
-.gate { display: grid; place-items: center; min-height: calc(100vh - 2 * var(--edge) - 56px); padding: var(--gutter); }
+.gate { display: grid; place-items: center; min-height: calc(100vh - 2 * var(--edge) - 62px); padding: var(--gutter); }
 .gate form { width: min(100%, 420px); padding: 22px; border: 1px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
 .gate h1 { font-size: 52px; margin-bottom: 18px; }
 .gate label { display: block; font: 11px var(--mono); text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
@@ -86,14 +90,14 @@ h2 { margin: 0 0 4px; font: 300 clamp(26px, 2.6vw, 38px)/1.05 var(--display); le
 
 /* the sheet's sections */
 .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 36px 0 26px; }
-section { margin-top: 64px; scroll-margin-top: 112px; }
-#runs { scroll-margin-top: 112px; }
+section { margin-top: 64px; scroll-margin-top: 118px; }
+#runs { scroll-margin-top: 118px; }
 .body { margin-top: 16px; }
 .body > * + * { margin-top: 18px; }
 .body > h3.sub { margin: 36px 0 0; }
 .body > h3.sub + * { margin-top: 10px; }
 .body > h3.sub + .lede + * { margin-top: 12px; }
-.toc { position: sticky; top: 56px; z-index: 4; display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 10px 0; border-bottom: 1px solid var(--line);
+.toc { position: sticky; top: 62px; z-index: 4; display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 10px 0; border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(10px); font: 12px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
 .toc a { color: var(--muted); text-decoration: none; }
 .toc a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
@@ -133,7 +137,7 @@ tbody tr.run { cursor: pointer; }
 tbody tr.run:hover td { background: var(--low); }
 tbody tr.open td { background: var(--low); }
 .tag { display: inline-block; padding: 0 6px; border: 1px solid var(--strong); font-size: 10.5px; text-transform: uppercase; }
-.tag.bad { background: var(--blush); border-color: var(--blush); color: var(--ink); }
+.tag.bad { background: var(--blush); border-color: var(--blush); color: var(--on-ink); }
 .tag.ok { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 td.detail { padding: 0; white-space: normal; }
 .detailIn { padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; background: var(--paper); }
@@ -141,7 +145,7 @@ td.detail { padding: 0; white-space: normal; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font: 12px var(--mono); }
 .kv span:nth-child(odd) { color: var(--muted); }
 .wide { grid-column: 1 / -1; }
-pre.log { margin: 0; max-height: 420px; overflow: auto; padding: 12px 14px; background: var(--code-bg); color: var(--code-ink); font: 11.5px/1.55 var(--mono); white-space: pre; }
+pre.log { margin: 0; border: 1px solid var(--ink); max-height: 420px; overflow: auto; padding: 12px 14px; background: var(--code-bg); color: var(--code-ink); font: 11.5px/1.55 var(--mono); white-space: pre; }
 ul.problems { margin: 0; padding-left: 16px; font: 11.5px/1.5 var(--mono); }
 .list { display: grid; gap: 4px; font: 12px var(--mono); }
 .list div { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; position: relative; padding: 2px 6px; }
@@ -155,7 +159,7 @@ button.repo:hover { text-decoration-color: var(--ink); }
 .repoHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; margin-bottom: 14px; }
 .repoHead h3 { margin: 0; font: 300 30px/1 var(--display); }
 .better { background: var(--ink); color: var(--on-ink); padding: 0 4px; }
-.worse { background: var(--blush); padding: 0 4px; }
+.worse { background: var(--blush); color: var(--on-ink); padding: 0 4px; }
 .delta { font-size: 10.5px; margin-left: 6px; }
 td.msg { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
 select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); background: var(--paper); font: 11px var(--mono); text-transform: uppercase; color: var(--ink); cursor: pointer; }
@@ -170,7 +174,8 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
 .end > div:first-child { border-left: 0; }
 .end dt { font: 10px var(--mono); text-transform: uppercase; color: var(--muted); }
 .end dd { margin: 4px 0 0; font: 12.5px var(--mono); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.end .title dd { font: 400 26px/1 var(--display); }
+.end .title dd { font: 400 26px/1 var(--display); text-transform: uppercase; }
+.end a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--strong); }
 @media (max-width: 760px) {
   .end { grid-template-columns: 1fr 1fr; }
   .end > div:nth-child(3) { border-left: 0; }
@@ -209,6 +214,10 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
 
   var app = document.getElementById("app");
   var bar = document.getElementById("bar");
+  var nav = document.querySelector(".nav");
+  var float = function () { nav.dataset.float = String(window.scrollY > 8); };
+  window.addEventListener("scroll", float, { passive: true });
+  float();
   var data = null;
   var openRun = null;
   var openUpdate = null;
