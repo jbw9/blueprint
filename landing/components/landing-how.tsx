@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Diagram } from "@/lib/blueprints";
-import { BOX_H, fit, layoutDagre, type DagreArrow } from "@/lib/dagre";
+import { BOX_H, layoutDagre, type DagreArrow } from "@/lib/dagre";
 import s from "./landing.module.css";
 
 interface HowProps {
@@ -179,7 +179,7 @@ function Chart({ d, still, target }: { d: Diagram; still?: boolean; target?: str
           </text>
           {b.sub ? (
             <text x={x + w / 2} y={y + 44} textAnchor="middle">
-              {fit(b.sub, w, 7.2)}
+              {b.sub}
             </text>
           ) : null}
         </g>

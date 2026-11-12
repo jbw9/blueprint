@@ -12,7 +12,7 @@ import { LandingStart } from "@/components/landing-start";
 import { LandingVisit } from "@/components/landing-visit";
 import { LandingVoices, type Voice } from "@/components/landing-voices";
 import s from "@/components/landing.module.css";
-import { loadBlueprint, type Diagram } from "@/lib/blueprints";
+import { loadBlueprint, type DemoNode, type Diagram } from "@/lib/blueprints";
 
 const TITLE = "Blueprint: understand the code you didn't write";
 const DESCRIPTION =
@@ -88,8 +88,10 @@ const HOW_BOXES: Record<string, [number, number]> = {
   cr: [1, 2],
 };
 const HOW_ARROWS = ["rb>wa", "wa>cr"];
-const part = (d: Diagram): Diagram => ({
-  boxes: d.boxes.filter((b) => b.id in HOW_BOXES).map((b) => ({ ...b, col: HOW_BOXES[b.id][0], row: HOW_BOXES[b.id][1] })),
+const part = (d: Diagram, roots: DemoNode[]): Diagram => ({
+  boxes: d.boxes
+    .filter((b) => b.id in HOW_BOXES)
+    .map((b) => ({ ...b, sub: b.sub ?? roots.find((r) => r.id === b.opens)?.sub?.replace(/\.$/, ""), col: HOW_BOXES[b.id][0], row: HOW_BOXES[b.id][1] })),
   arrows: d.arrows.filter((a) => HOW_ARROWS.includes(`${a.from}>${a.to}`)),
 });
 
@@ -147,7 +149,7 @@ export default function Landing() {
           <LandingVoices voices={VOICES} />
           <LandingHow
             name="blueprint"
-            roots={part(blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!)}
+            roots={part(blueprint.OVERVIEW.anatomy.find((a) => a.kind === "diagram")!, blueprint.AUTHORED)}
             opened={{
               id: first.id,
               title: first.title,

@@ -23,15 +23,14 @@ export type DagreArrow = { from: string; to: string; d: string; both: boolean; p
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /**
- * `tight`, for a small window: rows closer, and each column only as wide as its
- * titles; a box's second line is then cut to fit (`fit`).
+ * `tight`, for a small window: rows closer.
  */
 export function layoutDagre(block: Diagram, tight = false) {
   const ROW_GAP = tight ? 54 : 76;
   const cols = Math.max(...block.boxes.map((b) => b.col)) + 1;
   const rows = Math.max(...block.boxes.map((b) => b.row)) + 1;
   const colW = Array.from({ length: cols }, (_, c) =>
-    Math.max(150, ...block.boxes.filter((b) => b.col === c).map((b) => Math.max(b.label.length * 8.4, tight ? 0 : (b.sub?.length ?? 0) * CHAR) + 32)),
+    Math.max(150, ...block.boxes.filter((b) => b.col === c).map((b) => Math.max(b.label.length * 8.4, (b.sub?.length ?? 0) * CHAR) + 32)),
   );
   const colX = colW.map((_, c) => PAD + colW.slice(0, c).reduce((a, w) => a + w + COL_GAP, 0));
   const W = colX[cols - 1] + colW[cols - 1] + PAD;
@@ -149,12 +148,6 @@ export function layoutDagre(block: Diagram, tight = false) {
 
   return { W, H, boxes: [...at.values()], arrows };
 }
-
-/** A box's second line, cut with an ellipsis to the box's width. */
-export const fit = (sub: string, w: number, char = CHAR) => {
-  const n = Math.floor((w - 20) / char);
-  return sub.length > n ? `${sub.slice(0, n - 1).trimEnd()}…` : sub;
-};
 
 /** Points along a cubic from a to b with vertical tangents at both ends. */
 function sample([a, b]: [Pt, Pt], n = 16): Pt[] {
