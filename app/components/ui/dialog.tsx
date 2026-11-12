@@ -65,12 +65,12 @@ export const QUIET = `${ACTION} text-muted-slate hover:bg-surface-container hove
  * a <label> passes a click on its words to the first button inside, so
  * clicking "Theme" would pick Light.
  */
-export function Field({ label, hint, group, children }: { label: string; hint: string; group?: boolean; children: React.ReactNode }) {
+export function Field({ label, hint, group, children }: { label: string; hint?: string; group?: boolean; children: React.ReactNode }) {
   const Box = group ? "div" : "label";
   return (
     <Box className="block" {...(group ? { role: "group", "aria-label": label } : {})}>
       <span className="text-[13px] font-semibold text-ink">{label}</span>
-      <span className="mb-2 mt-0.5 block text-[12px] text-muted-slate">{hint}</span>
+      {hint ? <span className="mb-2 mt-0.5 block text-[12px] text-muted-slate">{hint}</span> : <span className="mb-2 block" />}
       {children}
     </Box>
   );

@@ -3,11 +3,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
-import { Button, dictateKeys, keys } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
 import { PanelClose, PanelHead } from "@/components/ui/panel";
 import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
-import { useDesktop, useMac } from "@/lib/client/platform";
+import { useDesktop } from "@/lib/client/platform";
 import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, setFallback, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
 /**
@@ -91,9 +91,7 @@ export function SettingsDialog() {
   // undefined while looking.
   const [found, setFound] = useState<Found | undefined>(undefined);
   const agents = [CLAUDE, ...useInstalled()];
-  const mac = useMac();
   const desktop = useDesktop();
-  const hold = dictateKeys(mac);
 
   const detect = useCallback((claudePath: string) => {
     setFound(undefined);
@@ -159,10 +157,10 @@ export function SettingsDialog() {
           ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
           <Group title="Appearance" shown={section}>
-            <Field group label="Theme" hint="Dark or Light.">
+            <Field group label="Theme">
               <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
             </Field>
-            <Field group label="Background" hint="What the blueprint is drawn on.">
+            <Field group label="Background">
               <Segmented label="Background" value={draft.ground} options={GROUNDS} onChange={(ground) => set({ ground })} />
             </Field>
           </Group>
@@ -170,7 +168,7 @@ export function SettingsDialog() {
             <>
               <Group title="Claude Code" shown={section}>
                 <BlueprintCredit />
-                <Field label="Claude Code" hint="Leave blank to find it automatically.">
+                <Field label="Claude Code">
                   <input
                     value={draft.claudePath}
                     onChange={(e) => set({ claudePath: e.target.value })}
@@ -204,7 +202,7 @@ export function SettingsDialog() {
                     </button>
                   </div>
                 </Field>
-                <Field label="Model" hint="Blank uses Claude Code's default. An alias like sonnet or opus, or a full model id.">
+                <Field label="Model">
                   <input
                     value={draft.model}
                     onChange={(e) => set({ model: e.target.value })}
@@ -217,7 +215,6 @@ export function SettingsDialog() {
                 <Field
                   group
                   label="Skills and web research"
-                  hint="Claude loads skills and searches or reads the web without asking each time. Plan mode always does, and still never edits files."
                 >
                   <Segmented
                     label="Skills and web research"
@@ -233,7 +230,6 @@ export function SettingsDialog() {
                   <Field
                     group
                     label="Default agent"
-                    hint={`What a tab opens into when the app opens one for you: ${keys(mac, "`")}, ${keys(mac, "T", { shift: true })}, the title bar, or the first in the + menu. Blueprint context goes to Claude either way.`}
                   >
                     <Segmented
                       label="Default agent"
@@ -251,13 +247,11 @@ export function SettingsDialog() {
                     />
                   </Field>
                 ) : null}
-                <p className="text-[12px] text-faint">These apply to Claude tabs opened from now on.</p>
               </Group>
               <Group title="Dictation" shown={section}>
                 <Field
                   group
                   label="Claude Code dictation"
-                  hint={`Hold ${hold}, or Space in a Claude tab, and speak into Claude's prompt. Transcribed by Anthropic at no cost to your usage; needs a claude.ai sign-in, not Bedrock or an API key.`}
                 >
                   <Segmented
                     label="Claude Code dictation"
@@ -272,11 +266,10 @@ export function SettingsDialog() {
                 <Field
                   group
                   label="On-device dictation"
-                  hint={`Hold ${hold} in a field in the app, or for Claude's prompt where Claude Code dictation isn't available. Runs on this machine, for any sign-in; nothing is sent anywhere.`}
                 >
                   <OnDevice />
                 </Field>
-                <Field group label="Media while dictating" hint={`Pauses Music and Spotify, and mutes everything else, while you hold ${hold}; all of it comes back when you let go.`}>
+                <Field group label="Media while dictating">
                   <Segmented
                     label="Media while dictating"
                     // Unset until the first dictation asks; until then nothing is quieted.
@@ -290,7 +283,7 @@ export function SettingsDialog() {
                 </Field>
               </Group>
               <Group title="Preview" shown={section}>
-                <Field group label="Dev server" hint="Start a project's dev server when it opens, and show the running app in a Preview tab.">
+                <Field group label="Dev server">
                   <Segmented
                     label="Dev server"
                     value={draft.devServer}
@@ -304,7 +297,6 @@ export function SettingsDialog() {
                 <Field
                   group
                   label="Saved sign-ins"
-                  hint="Sites you signed in to in the Preview when Claude asked. Blueprint keeps their sign-in cookies, never your password. Forget signs you out."
                 >
                   <SignIns />
                 </Field>
@@ -313,13 +305,12 @@ export function SettingsDialog() {
                 <Field
                   group
                   label="Usage reports"
-                  hint="Once a day when it opens, Blueprint tells the Blueprint team its version and your system. When a blueprint finishes, it sends how long it took, what it cost, the repository's name and the end of its log, and the GitHub account you're signed in to Blueprint credit with, so the mapping keeps getting better. Never your code."
                 >
                   <RunReports />
                 </Field>
               </Group>
               <Group title="About" shown={section}>
-                <Field group label="Version" hint="Blueprint updates itself; a newer version is used once Blueprint restarts.">
+                <Field group label="Version">
                   <Version />
                 </Field>
               </Group>
@@ -377,7 +368,6 @@ function BlueprintCredit() {
     <Field
       group
       label="Blueprint credit"
-      hint={`${c.promo ? "Free for a limited time. " : ""}Claude tabs and new blueprints run on Blueprint's Claude, not your own Claude Code. It works only inside Blueprint.`}
     >
       {c.login ? (
         <>
@@ -395,7 +385,6 @@ function BlueprintCredit() {
               }}
             />
           )}
-          {c.available && !c.on && <p className="mt-2 text-[12px] text-muted-slate">Claude tabs and new blueprints use your own Claude Code, signed in as it is.</p>}
           {meters.length > 0 && (
             <div className="mt-3 max-w-[460px] border border-border-gray bg-card px-3.5 py-3">
               <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Usage</p>

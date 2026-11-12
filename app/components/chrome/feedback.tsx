@@ -181,10 +181,10 @@ export function FeedbackDialog() {
       >
         <PanelHead title="Report a bug or send feedback" note="It goes straight to the people who make Blueprint." right={<PanelClose onClick={close} />} />
         <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-5 py-5">
-          <Field group label="What is it" hint="Something broken, or something you'd like.">
+          <Field group label="What is it">
             <Segmented label="What is it" value={kind} options={KINDS} onChange={setKind} />
           </Field>
-          <Field label={kind === "bug" ? "What happened" : "Your feedback"} hint={kind === "bug" ? "What you did, what you expected, and what happened instead." : "What would make Blueprint better for you."}>
+          <Field label={kind === "bug" ? "What happened" : "Your feedback"}>
             <textarea
               autoFocus
               value={message}
@@ -200,7 +200,7 @@ export function FeedbackDialog() {
               className={cn(INPUT, "resize-y font-sans text-[13px]")}
             />
           </Field>
-          <Field group label="Pictures" hint={`Optional, up to ${MAX_IMAGES}. Pick, paste or drop screenshots.`}>
+          <Field group label="Pictures">
             <div className="flex flex-wrap items-center gap-2">
               {images.map((src, i) => (
                 <div key={i} className="group relative h-16 w-24 border border-border-gray bg-surface">
@@ -233,10 +233,9 @@ export function FeedbackDialog() {
               ) : null}
             </div>
           </Field>
-          <Field label="Email" hint="Optional. Leave one if you'd like us to write back.">
+          <Field label="Email">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={INPUT} />
           </Field>
-          <p className="-mt-2 text-[12px] text-muted-slate">Sent with your app version and system{" "}— never your code.</p>
           <div className="flex items-center gap-3">
             <Button variant="primary" type="submit" disabled={!message.trim() || sending}>
               {sending ? "Sending…" : "Send"}
