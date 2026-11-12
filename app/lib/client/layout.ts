@@ -4,3 +4,6 @@ export const GAP = 12;
 export const TITLEBAR = 36;
 /** The status bar's height (components/chrome/statusbar.tsx), which floating windows sit above. */
 export const STATUSBAR = 24;
+/** The project rail's width folded to its icons, and opened to their names (components/chrome/project-rail.tsx). */
+export const RAIL_COLLAPSED = 64;
+export const RAIL_EXPANDED = 208;

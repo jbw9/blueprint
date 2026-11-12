@@ -15,6 +15,7 @@ import { Copied } from "@/components/chrome/copied";
 import { MenuBar } from "@/components/chrome/menubar";
 import { Dictation } from "@/components/chrome/dictation";
 import { Titlebar } from "@/components/chrome/titlebar";
+import { ProjectRail } from "@/components/chrome/project-rail";
 import { Workspace } from "@/components/agent/workspace";
 import { NoProject } from "@/components/chrome/welcome";
 import { Palette } from "@/components/chrome/palette";
@@ -81,16 +82,21 @@ export default async function Home({
           <Suspense>
             <Titlebar />
           </Suspense>
-          <div className="relative min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1">
             <Suspense>
-              <Canvas key={name} />
-              {/* Inside the provider: the panel is the diff's own list, and
-                  what Claude shows needs both the blueprint and the diff's range. */}
-              <DiffPanel />
-              <FilesPanel />
-              <Acts />
-              <ReviewTray />
+              <ProjectRail />
             </Suspense>
+            <div className="relative min-h-0 min-w-0 flex-1">
+              <Suspense>
+                <Canvas key={name} />
+                {/* Inside the provider: the panel is the diff's own list, and
+                    what Claude shows needs both the blueprint and the diff's range. */}
+                <DiffPanel />
+                <FilesPanel />
+                <Acts />
+                <ReviewTray />
+              </Suspense>
+            </div>
           </div>
         </DiffMode>
         <Suspense>

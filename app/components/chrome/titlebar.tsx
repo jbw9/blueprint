@@ -1,27 +1,24 @@
 "use client";
 
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
 import { openFeedback } from "@/components/chrome/feedback";
 import { openPalette } from "@/components/chrome/palette";
-import { useBlueprint } from "@/components/blueprint/blueprint-context";
-import { openProjects } from "@/components/projects/projects";
 import { Kbd, keys } from "@/components/ui/button";
 import { openDiff, useDiff } from "@/components/review/diff";
-import { StatusDot } from "@/components/agent/status-dot";
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
-import { TabClose } from "@/components/chrome/tabs";
-import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/open-projects";
 import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
+import { toggleRail, useRailExpanded, useRailWidth } from "@/lib/client/rail";
+import { setTabSlot } from "@/components/chrome/tab-slot";
+import { FeedbackGlyph, GearGlyph, RailGlyph } from "@/components/chrome/icons";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
- * tauri.conf.json), so this draws the blueprint's name, which switches blueprints, the tools, and the window
- * buttons, in the page's palette rather than the desktop's. The blueprint below has no header of its
+ * tauri.conf.json), so this draws the tools and the window buttons in the
+ * page's palette rather than the desktop's. The projects open are the rail's
+ * (components/chrome/project-rail.tsx). The blueprint below has no header of its
  * own in the desktop app.
  *
  * Everything marked `data-tauri-drag-region` moves the window, and a double
@@ -43,6 +40,8 @@ import { useDesktop } from "@/lib/client/platform";
  */
 export function Titlebar({ bare }: { bare?: boolean }) {
   const desktop = useDesktop();
+  const rail = useRailWidth();
+  const wide = useRailExpanded();
   const [maximized, setMaximized] = useState(false);
   // Only read once `desktop` is true, which is never on the server.
   const mac = desktop && /Mac/.test(navigator.userAgent);
@@ -62,27 +61,37 @@ export function Titlebar({ bare }: { bare?: boolean }) {
 
   if (!desktop) return null;
   const win = getCurrentWindow();
+  // The rail's column: the fold button's cell, as wide as the rail under it. A
+  // Mac's traffic lights are wider than the folded rail, so there it is theirs.
+  const lead = bare ? undefined : mac ? Math.max(rail, 78) : rail;
   return (
-    // Two columns: the right one never gives up its buttons; when the window
-    // is too narrow for both, the blueprint's name truncates first.
+    // Three columns: the rail's, the tabs, and the tools. The tools never give
+    // up their buttons; when the window is too narrow the tabs scroll.
     <header
       data-tauri-drag-region
       data-chrome="bar"
-      className="grid h-9 shrink-0 select-none grid-cols-[minmax(0,1fr)_max-content] items-center border-b border-border-gray bg-surface-container-low"
+      className="grid h-9 shrink-0 select-none grid-cols-[max-content_minmax(0,1fr)_max-content] items-end bg-surface-container-low shadow-[inset_0_-1px_0_var(--color-border-gray)]"
     >
-      {/* The Mac's traffic lights take the left edge. */}
-      <div data-tauri-drag-region className={cn("flex h-full min-w-0 items-center", mac ? "pl-[78px]" : "pl-1.5")}>
+      <div
+        data-tauri-drag-region
+        style={lead ? { width: lead } : undefined}
+        className={cn("flex h-full min-w-0 items-center", bare ? (mac ? "pl-[78px]" : "pl-1.5") : "border-r border-border-gray px-2")}
+      >
         {bare ? (
           <span data-tauri-drag-region className="px-2 font-mono text-[11.5px] font-semibold text-ink">
             Blueprint
           </span>
-        ) : (
-          <Where mac={mac} />
+        ) : mac ? null : (
+          <FoldButton wide={wide} />
         )}
+      </div>
+      {/* The blueprint's tabs are drawn here (components/chrome/tab-slot.tsx); the space after them moves the window. */}
+      <div data-tauri-drag-region className="flex h-full min-w-0 items-end">
+        {bare ? null : <div ref={setTabSlot} className="flex h-full min-w-0 items-end pl-1.5" />}
+        <div data-tauri-drag-region className="h-full min-w-6 flex-1" />
       </div>
       <div data-tauri-drag-region className="flex h-full items-center justify-end">
         {bare ? null : <BlueprintTools mac={mac} />}
-        <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
         {bare ? null : (
           <Control
             label="Claude Code & terminal"
@@ -93,21 +102,17 @@ export function Titlebar({ bare }: { bare?: boolean }) {
             <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
           </Control>
         )}
-        <Control label="Report a bug or send feedback" onClick={openFeedback}>
-          {/* Lucide's message-square-warning, drawn on 24 and scaled to the 16 grid like the gear. */}
-          <g transform="scale(0.6667)" strokeWidth="1.875">
-            <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
-            <path d="M12 7v4M12 15h.01" />
-          </g>
-        </Control>
-        <Control label="Settings" onClick={openSettings}>
-          {/* Lucide's gear, drawn on 24 and scaled to the 16 grid; the stroke
-              is scaled up to match so it reads as heavy as its neighbours. */}
-          <g transform="scale(0.6667)" strokeWidth="1.875">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-          </g>
-        </Control>
+        {bare ? (
+          <>
+            <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
+            <Control label="Report a bug or send feedback" onClick={openFeedback}>
+              <FeedbackGlyph />
+            </Control>
+            <Control label="Settings" onClick={openSettings}>
+              <GearGlyph />
+            </Control>
+          </>
+        ) : null}
         {mac ? null : (
           <>
             <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
@@ -134,98 +139,25 @@ export function Titlebar({ bare }: { bare?: boolean }) {
   );
 }
 
-/**
- * The projects open in the window, a tab each, with the dot of the loudest
- * Claude among its workspace tabs (components/agent/workspace.tsx); + opens another,
- * imports one, or manages them. Switching keeps every terminal running, and
- * the workspace shows the tabs of the project switched to. Cmd+1–9 (Ctrl+1–9
- * off a Mac) picks one, Ctrl+Tab the last. Where you are inside the blueprint is
- * the blueprint tabs' to say (components/chrome/tabs.tsx).
- */
-function Where({ mac }: { mac: boolean }) {
-  const { name, blueprints } = useBlueprint();
-  const router = useRouter();
-  const { open, last, status } = useOpenProjects();
-  const shown = open.flatMap((id) => blueprints.filter((m) => m.id === id));
-  const go = useCallback((id: string | null | undefined) => id && id !== name && router.push(`/?blueprint=${encodeURIComponent(id)}`), [name, router]);
-
-  const was = useRef<string | null>(null);
-  useEffect(() => {
-    arrived(name, was.current);
-    was.current = name;
-  }, [name]);
-  useEffect(() => keepOnly(blueprints.map((m) => m.id)), [blueprints]);
-
-  // Off a Mac here; on one the menu bar takes the keys (src-tauri/src/lib.rs),
-  // so they work from inside a Preview's page too.
-  const ids = shown.map((m) => m.id).join("\n");
-  useEffect(() => {
-    const pick = (n: string) => go(n === "last" ? last : ids.split("\n")[Number(n) - 1]);
-    const onKey = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || e.metaKey || e.altKey) return;
-      // Ctrl+Tab is the tabs' own (components/agent/workspace.tsx, components/chrome/tabs.tsx).
-      const n = !e.shiftKey && /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
-      if (!n) return;
-      e.preventDefault();
-      e.stopPropagation();
-      pick(n);
-    };
-    if (!mac) window.addEventListener("keydown", onKey, true);
-    const fromMenu = mac ? listen<string>("blueprint:project", (e) => pick(e.payload)) : undefined;
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      void fromMenu?.then((f) => f());
-    };
-  }, [mac, go, last, ids]);
-
-  const close = (id: string) => {
-    if (id === name) {
-      const at = shown.findIndex((m) => m.id === id);
-      go((shown[at + 1] ?? shown[at - 1])?.id);
-    }
-    const root = shown.find((m) => m.id === id)?.root;
-    closeProject(id, root && !shown.some((m) => m.id !== id && m.root === root) ? root : undefined);
-  };
-
+/** The rail's fold button, at its top: folds the project list to icons, or opens it to names. */
+export function FoldButton({ wide }: { wide: boolean }) {
   return (
-    <>
-      <div role="tablist" aria-label="Open projects" className="flex min-w-0 items-center gap-0.5">
-        {shown.map((m, i) => {
-          const here = m.id === name;
-          const dot = m.root ? status[m.root] : undefined;
-          return (
-            // Outside the drag region, so a click switches rather than moving the window.
-            <div
-              key={m.id}
-              role="tab"
-              aria-selected={here}
-              title={`${m.label}${i < 9 ? ` (${keys(mac, String(i + 1))})` : ""}`}
-              className={cn(
-                "group flex h-6 min-w-0 max-w-48 items-center gap-1.5 pl-2 pr-1 font-mono text-[11.5px] transition-colors",
-                here ? "bg-surface-container font-semibold text-ink" : "text-muted-slate hover:bg-surface-container hover:text-ink",
-              )}
-            >
-              <button type="button" onClick={() => go(m.id)} className="flex min-w-0 cursor-pointer items-center gap-1.5 focus-visible:outline-2 focus-visible:outline-accent">
-                <span className="truncate">{m.label}</span>
-                {dot && <StatusDot status={dot} />}
-              </button>
-              {shown.length > 1 ? <TabClose label={m.label} active={here} onClose={() => close(m.id)} /> : <span className="w-1" />}
-            </div>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        onClick={() => openProjects()}
-        aria-label="Open another project"
-        title="Open another project"
-        className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center text-faint transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <svg aria-hidden width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-          <path d="M5 1.5v7M1.5 5h7" />
-        </svg>
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={toggleRail}
+      aria-label={wide ? "Fold the project list to icons" : "Show project names"}
+      aria-expanded={wide}
+      title={wide ? "Fold to icons" : "Show names"}
+      className={cn(
+        "flex h-7 cursor-pointer items-center gap-2.5 text-[12px] text-muted-slate transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        wide ? "w-full px-2" : "w-full justify-center",
+      )}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <RailGlyph />
+      </svg>
+      {wide ? <span>Fold</span> : null}
+    </button>
   );
 }
 
