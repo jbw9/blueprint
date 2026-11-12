@@ -160,32 +160,37 @@ try {
   const tab = await find("Blueprint", { above: 70 });
   await send("Input.dispatchMouseEvent", { type: "mousePressed", x: tab.x, y: tab.y, button: "left", clickCount: 1 });
   await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: tab.x, y: tab.y, button: "left", clickCount: 1 });
-  await box("components");
+  await box("working-with-agents");
   for (const end = Date.now() + 600000; await evaluate(`/Updating the blueprint|Blueprint updated/.test(document.body.innerText)`); await sleep(1000))
     if (Date.now() > end) throw new Error("The blueprint was still updating after 10 minutes.");
   await sleep(1500);
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: mouse.x, y: mouse.y });
   await sleep(1500);
 
+  if ((await evaluate(`document.querySelector('[aria-label="Workspace"]')?.getAttribute("aria-hidden") === "false"`))) {
+    await evaluate(`window.dispatchEvent(new Event("blueprint:workspace"))`);
+    await sleep(1500);
+  }
+
   await send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
   const start = Date.now() / 1000;
   await sleep(2200);
 
-  const ui = await box("components");
+  const ui = await box("working-with-agents");
   await move(ui, 900);
   await sleep(1600);
   await click(ui, 200);
-  await box("co-agent-workspace");
+  await box("wa-using-the-workspace");
   await sleep(1800);
 
-  await click(await box("co-agent-workspace"), 900);
-  await box("co-workspace-storage");
+  await click(await box("wa-using-the-workspace"), 900);
+  await box("wa-ws-sessions");
   await sleep(1500);
   await scroll(1300, 1400);
   await sleep(1000);
 
-  await click(await box("co-workspace-storage"), 800);
-  const step = await find("Restore sessions once on launch", { below: 300 });
+  await click(await box("wa-ws-sessions"), 800);
+  const step = await find("Restore once", { below: 300 });
   await sleep(2200);
   const code = await evaluate(`(() => {
     const icons = [...document.querySelectorAll("button, a, [role=button]")].filter((b) => b.textContent.trim() === "</>" || b.getAttribute("aria-label")?.match(/code/i));
@@ -193,7 +198,7 @@ try {
     return near[0] ? { x: near[0].left + near[0].width / 2, y: near[0].top + near[0].height / 2 } : null;
   })()`);
   await click(code ?? step, 1000);
-  await find("Step 5 · Restore sessions once on launch").catch(() => null);
+  await find("Step 3 · Restore once").catch(() => null);
   await sleep(4500);
 
   await send("Page.stopScreencast");
