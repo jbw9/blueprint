@@ -161,15 +161,30 @@ pub fn preview_external(url: String) -> Result<(), String> {
 
 /// The folder the program serving `port` on this machine runs in, by `lsof`:
 /// a dev server whose port is taken shows what holds it only when that is
-/// the same project's (components/agent/workspace.tsx). None where it cannot tell.
+/// the same project's (components/agent/workspace.tsx). None when nothing
+/// serves the port; "?" when something does and its folder cannot be told
+/// (always on Windows), which counts as another project's.
 #[tauri::command]
 pub fn port_owner(port: u16) -> Option<String> {
-    let out = |args: &[&str]| -> Option<String> {
+    const UNKNOWN: &str = "?";
+    if cfg!(windows) {
+        let o = crate::proc::command("netstat").args(["-ano", "-p", "TCP"]).output().ok();
+        let Some(o) = o else { return Some(UNKNOWN.into()) };
+        let suffix = format!(":{port}");
+        let listening = String::from_utf8_lossy(&o.stdout).lines().any(|l| {
+            let c: Vec<&str> = l.split_whitespace().collect();
+            c.len() >= 4 && c[3].eq_ignore_ascii_case("LISTENING") && c[1].ends_with(&suffix)
+        });
+        return listening.then(|| UNKNOWN.into());
+    }
+    let out = |args: &[&str]| -> Option<Option<String>> {
         let o = crate::proc::command("lsof").args(args).output().ok()?;
-        Some(String::from_utf8_lossy(&o.stdout).into_owned())
+        Some(Some(String::from_utf8_lossy(&o.stdout).into_owned()))
     };
-    let pid = out(&["-nP", &format!("-iTCP:{port}"), "-sTCP:LISTEN", "-t"])?.lines().next()?.trim().to_string();
-    out(&["-a", "-p", &pid, "-d", "cwd", "-Fn"])?.lines().find_map(|l| l.strip_prefix('n').map(str::to_string))
+    let Some(listing) = out(&["-nP", &format!("-iTCP:{port}"), "-sTCP:LISTEN", "-t"]) else { return Some(UNKNOWN.into()) };
+    let pid = listing?.lines().next()?.trim().to_string();
+    let cwd = out(&["-a", "-p", &pid, "-d", "cwd", "-Fn"]).flatten()?;
+    Some(cwd.lines().find_map(|l| l.strip_prefix('n').map(str::to_string)).unwrap_or_else(|| UNKNOWN.into()))
 }
 
 /// A port nothing on this machine is serving, for a dev server whose own is taken.
