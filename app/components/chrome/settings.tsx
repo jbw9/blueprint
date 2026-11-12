@@ -399,8 +399,7 @@ function BlueprintCredit() {
           {c.available && !c.on && <p className="mt-2 text-[12px] text-muted-slate">Claude tabs and new blueprints use your own Claude Code, signed in as it is.</p>}
           {meters.length > 0 && (
             <div className="mt-3 max-w-[460px] border border-border-gray bg-card px-3.5 py-3">
-              <p className="mb-1 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Usage</p>
-              <p className="mb-3 text-[11.5px] text-faint">Claude tabs get about half of a Claude Pro plan. Blueprints are fair use.</p>
+              <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Usage</p>
               <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2.5 font-mono text-[11.5px]">
                 {meters.map(([label, m]) => {
                   const used = percent(m);
