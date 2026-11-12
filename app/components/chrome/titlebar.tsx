@@ -70,7 +70,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
     <header
       data-tauri-drag-region
       data-chrome="bar"
-      className="grid h-9 shrink-0 select-none grid-cols-[max-content_minmax(0,1fr)_max-content] items-end bg-surface-container-low shadow-[inset_0_-1px_0_var(--color-border-gray)]"
+      className="grid h-10 shrink-0 select-none grid-cols-[max-content_minmax(0,1fr)_max-content] items-end bg-surface-container-low shadow-[inset_0_-1px_0_var(--color-border-gray)]"
     >
       <div
         data-tauri-drag-region
@@ -221,7 +221,7 @@ function Control({
         "group relative flex cursor-pointer items-center justify-center text-muted-slate transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         // Window buttons fill the bar's height, as native ones do; the tools
         // are small square targets, as in an editor's title bar.
-        win ? "h-full w-11" : "mx-px h-7 w-7",
+        win ? "h-full w-12" : "mx-px h-8 w-8",
         danger ? "hover:bg-clay-ink hover:text-paper" : "hover:bg-surface-container hover:text-ink",
         active && "bg-accent text-on-accent hover:bg-accent-strong hover:text-on-accent",
         className,

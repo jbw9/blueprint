@@ -148,7 +148,7 @@ export function NewTab({ onBlueprint }: { onBlueprint: () => void }) {
         aria-label="New tab"
         aria-haspopup="menu"
         title="New tab"
-        className="flex h-6 w-6 shrink-0 cursor-pointer items-center self-center justify-center text-faint transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        className="flex h-7 w-7 shrink-0 cursor-pointer items-center self-center justify-center text-faint transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       >
         <svg aria-hidden width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
           <path d="M5 1.5v7M1.5 5h7" />
@@ -332,14 +332,14 @@ export const TAB_OPENED = "animate-[tab-opened_1.4s_ease-out]";
 /** The strip. Its bottom line is an inset shadow rather than a border, so the
  * tab in front can paint over it and run on into what is below. */
 export const TAB_STRIP =
-  "flex h-8 shrink-0 items-end gap-0.5 overflow-x-auto bg-surface-container-low px-1.5 shadow-[inset_0_-1px_0_var(--color-border-gray)]";
+  "flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto bg-surface-container-low px-1.5 shadow-[inset_0_-1px_0_var(--color-border-gray)]";
 
 /** A tab. The one in front is the blueprint's own ground, open at the bottom, so it
  * reads as the top of the page beneath rather than a button on the strip. */
 export function tabLook(active: boolean, closable: boolean) {
   return cn(
-    "group flex h-[29px] min-w-0 max-w-[200px] shrink-0 items-center gap-1 border border-b-0 pl-2.5 text-[12px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
-    closable ? "pr-1" : "pr-2.5",
+    "group flex h-[33px] min-w-0 max-w-[200px] shrink-0 items-center gap-1 border border-b-0 pl-3 text-[13px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+    closable ? "pr-1.5" : "pr-3",
     active
       ? "border-border-gray bg-paper font-semibold text-ink shadow-[inset_0_2px_0_var(--color-accent)]"
       : "border-transparent text-muted-slate hover:bg-surface-container hover:text-ink",
