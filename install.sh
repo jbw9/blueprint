@@ -38,7 +38,9 @@ main() {
   esac
   # The app's own id when it has one, so this install and the app it opens are followed as one.
   id=$(sed -n 's/.*"installId":"\([^"]*\)".*/\1/p' "$data/telemetry.json" 2>/dev/null || true)
-  [ -n "$id" ] || id=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n' | sed 's/^\(.\{8\}\)\(.\{4\}\)\(.\{4\}\)\(.\{4\}\)/\1-\2-\3-\4-/')
+  [ -n "$id" ] || id=$(uuid)
+  # This run's own, pairing its start with its end; id stays the machine's across runs.
+  attempt=$(uuid)
   ! grep -q '"off":true' "$data/telemetry.json" 2>/dev/null || BLUEPRINT_NO_TELEMETRY=1
   report start &
   file=blueprint-$(echo "$os" | tr A-Z a-z)-$arch.tar.gz
@@ -74,6 +76,7 @@ main() {
     version=$(sed -n 's/.*"version":"\([^"]*\)".*/\1/p' "$tmp/server/release.json" 2>/dev/null || true)
     at=install
     step "Installing Blueprint" "Installed Blueprint" install_release
+    [ -e "$data/telemetry.json" ] || { mkdir -p "$data" && printf '{"installId":"%s"}\n' "$id" >"$data/telemetry.json"; }
     at=libs
     check_libs
   else
@@ -130,6 +133,8 @@ install_release() {
   BLUEPRINT_PREBUILT="$tmp" sh "$place"
 }
 
+uuid() { od -An -N16 -tx1 /dev/urandom | tr -d ' \n' | sed 's/^\(.\{8\}\)\(.\{4\}\)\(.\{4\}\)\(.\{4\}\)/\1-\2-\3-\4-/'; }
+
 # Everything missing, found before anything is installed, so they're asked once.
 survey() {
   wants=
@@ -156,8 +161,10 @@ $(printf '%s\n' "$missing" | sed 's/^/  /')" "$fixes"
   elif [ "$os" = Linux ]; then
     l=
     command -v git >/dev/null || l="$l git"
-    ldconfig -p 2>/dev/null | grep -q libwebkit2gtk-4.1 || l="$l WebKitGTK"
-    ldconfig -p 2>/dev/null | grep -q libgtk-3 || l="$l GTK"
+    # ldconfig is in /sbin, which a Debian user's PATH leaves out.
+    so=$(PATH="$PATH:/sbin:/usr/sbin" ldconfig -p 2>/dev/null || true)
+    printf '%s\n' "$so" | grep -q libwebkit2gtk-4.1 || l="$l WebKitGTK"
+    printf '%s\n' "$so" | grep -q libgtk-3 || l="$l GTK"
     if command -v apt-get >/dev/null; then libfix="sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 git"
     elif command -v dnf >/dev/null; then libfix="sudo dnf install webkit2gtk4.1 gtk3 git"
     elif command -v pacman >/dev/null; then libfix="sudo pacman -S webkit2gtk-4.1 gtk3 git"
@@ -218,28 +225,29 @@ ensure_node() {
     [ -z "$declined" ] || fail "Blueprint needs Node 22 or newer" "${v:+You have Node $v.}" "Install it from https://nodejs.org"
     try_step "Installing Node 22 for Blueprint" "Installed Node 22 for Blueprint" install_node ||
       fail "Blueprint needs Node 22 or newer, and couldn't install it" "" "Install it from https://nodejs.org"
+    ! needs_node || fail "Node 22 was installed for Blueprint, but doesn't run on this computer" "" "Install Node 22 from https://nodejs.org"
     fixed="$fixed node"
   fi
   PATH="$(node_bin):$PATH"
 }
 
+# Each command is checked: called through try_step, set -e is off for it.
 install_node() {
   case $os in Darwin) p=darwin ext=tar.gz ;; Linux) p=linux ext=tar.gz ;; Windows) p=win ext=zip ;; esac
   case $arch in arm64) p=$p-arm64 ;; *) p=$p-x64 ;; esac
   base=https://nodejs.org/dist/latest-v22.x
-  curl -fsSL "$base/SHASUMS256.txt" -o "$tmp/node.sums"
+  curl -fsSL "$base/SHASUMS256.txt" -o "$tmp/node.sums" || exit 1
   pkg=$(awk -v s="-$p.$ext" '{ if (substr($2, length($2) - length(s) + 1) == s) print $2 }' "$tmp/node.sums")
   [ -n "$pkg" ] || { echo "nodejs.org has no Node 22 for $p" >&2; exit 1; }
-  curl -fsSL "$base/$pkg" -o "$tmp/$pkg"
+  curl -fsSL "$base/$pkg" -o "$tmp/$pkg" || exit 1
   want=$(awk -v f="$pkg" '$2 == f { print $1 }' "$tmp/node.sums")
   got=$( (sha256sum "$tmp/$pkg" 2>/dev/null || shasum -a 256 "$tmp/$pkg") | awk '{ print $1 }')
   [ "$got" = "$want" ] || { echo "The Node download didn't match its checksum" >&2; exit 1; }
-  rm -rf "$tmp/node" "$home/node"
-  mkdir -p "$tmp/node"
+  rm -rf "$tmp/node" "$home/node" && mkdir -p "$tmp/node" || exit 1
   if [ "$ext" = tar.gz ]; then tar -xzf "$tmp/$pkg" -C "$tmp/node"
   elif command -v unzip >/dev/null; then unzip -q "$tmp/$pkg" -d "$tmp/node"
   else powershell -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$tmp/$pkg")' -DestinationPath '$(cygpath -w "$tmp/node")'"
-  fi
+  fi || exit 1
   mv "$tmp/node/${pkg%.$ext}" "$home/node"
 }
 
@@ -267,7 +275,7 @@ install_xcode() {
   [ -n "$label" ] || { rm -f "$flag"; echo "Software update doesn't list Apple's command line tools" >&2; exit 1; }
   sudo -n softwareupdate -i "$label"
   rm -f "$flag"
-  xcode-select -p >/dev/null 2>&1
+  xcode-select -p >/dev/null 2>&1 || { echo "Software update didn't install them" >&2; exit 1; }
 }
 
 wait_xcode() {
@@ -295,7 +303,7 @@ install_claude() {
   if [ "$os" = Windows ]; then
     powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"
   else
-    curl -fsSL https://claude.ai/install.sh | bash
+    curl -fsSL https://claude.ai/install.sh -o "$tmp/claude.sh" && bash "$tmp/claude.sh"
   fi
 }
 
@@ -313,8 +321,7 @@ root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
 
 linux_install() {
   if command -v apt-get >/dev/null; then
-    root apt-get update -q
-    root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+    root apt-get update -q && root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
   elif command -v dnf >/dev/null; then root dnf install -y "$@"
   elif command -v pacman >/dev/null; then root pacman -S --needed --noconfirm "$@"
   else exit 1
@@ -333,8 +340,8 @@ check_libs() {
   [ -n "$(echo $libs)" ] || return 0
   if command -v dnf >/dev/null; then
     pkgs=$(for l in $libs; do [ "$l" = git ] && echo git || printf "%s()(64bit)\n" "$l"; done)
-  elif command -v apt-get >/dev/null; then pkgs="libwebkit2gtk-4.1-0 libgtk-3-0 git"
-  elif command -v pacman >/dev/null; then pkgs="webkit2gtk-4.1 gtk3 git"
+  elif command -v apt-get >/dev/null; then pkgs="libwebkit2gtk-4.1-0 libgtk-3-0 libasound2 libpulse0 git"
+  elif command -v pacman >/dev/null; then pkgs="webkit2gtk-4.1 gtk3 alsa-lib libpulse git"
   fi
   if [ -z "$declined" ] && [ -n "$pkgs" ] && can_root && try_step "Installing the system libraries Blueprint needs" "Installed the system libraries" linux_install $pkgs; then
     missing_libs
@@ -443,7 +450,7 @@ get_tools() {
 
 windows_tools() {
   agree="--silent --accept-package-agreements --accept-source-agreements"
-  command -v cmake >/dev/null || winget install -e --id Kitware.CMake $agree
+  command -v cmake >/dev/null || winget install -e --id Kitware.CMake $agree || exit 1
   has_vc || winget install -e --id Microsoft.VisualStudio.2022.BuildTools $agree \
     --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 }
@@ -646,10 +653,10 @@ report() {
   # CI is set by GitHub Actions and most other CI systems, so the dashboard can count people apart.
   ci=$([ -n "$CI" ] && echo true || echo false)
   list=$(for f in $fixed; do printf ',"%s"' "$f"; done)
-  why=$(printf '%s' "$reason" | tr -d '"\\' | tr '\t\r\n' '   ')
+  why=$(printf '%s' "$reason" | tr -d '"\\' | tr '\t\r\n' '   ' | tr -d '\000-\037\177')
   curl -fsS -m 5 -o /dev/null -X POST "$API_URL/rpc/bp_track_install" \
     -H "Content-Type: application/json" \
-    -d "{\"id\":\"$id\",\"phase\":\"$1\",\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"ci\":$ci,\"version\":\"${version:-source}\",\"step\":\"$at\",\"reason\":\"$why\",\"seconds\":$(($(date +%s) - ${began:-$(date +%s)})),\"fixed\":[${list#,}],\"node\":\"$(node -v 2>/dev/null | tr -d v)\"}" 2>/dev/null || true
+    -d "{\"id\":\"$id\",\"run\":\"$attempt\",\"phase\":\"$1\",\"os\":\"$(uname)\",\"arch\":\"$(uname -m)\",\"ok\":$worked,\"ci\":$ci,\"version\":\"${version:-source}\",\"step\":\"$at\",\"reason\":\"$why\",\"seconds\":$(($(date +%s) - ${began:-$(date +%s)})),\"fixed\":[${list#,}],\"node\":\"$(node -v 2>/dev/null | tr -d v)\"}" 2>/dev/null || true
 }
 
 main "$@"

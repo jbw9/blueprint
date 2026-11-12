@@ -526,7 +526,7 @@ select.status { height: 24px; padding: 0 4px; border: 1px solid var(--strong); b
       tile("Installers", n(d.installers), "different IPs, of installs that kept one") +
       tile("Failed", n(d.installs_failed), pct(d.installs_failed, d.installs + d.installs_failed) + " of tries") +
       tile("Left", n(d.installs_left), "started and never ended") +
-      tile("Opened", n(d.installs_opened), "of " + n(d.installs_with_id) + " installs that can be followed") +
+      tile("Opened", n(d.installs_opened), "of " + n(d.installs_with_id) + " machines whose install can be followed") +
       "</dl>" +
       '<div class="grid3">' +
       card("Installs per day", bars(d.daily, "installs", "installs_failed", ["worked", "failed"]), n(d.installs)) +
