@@ -66,23 +66,28 @@ const VOICES: Voice[] = [
   { quote: "You built it in a weekend. I bet you can’t explain how it works.", by: "Solo developer" },
 ];
 
-// The lines this repo's Visit Tracking part cites, from landing/components/landing-visit.tsx.
+// The lines this repo's Counting Visits And Runs part cites, from landing/components/landing-visit.tsx.
+const VISIT_START = 30;
 const VISIT = [
   'let vid = stored("bp-visitor");',
   'if (!vid) keep("bp-visitor", (vid = crypto.randomUUID()));',
   "const day = new Date().toISOString().slice(0, 10);",
-  'const geo = stored("bp-geo");',
+  "type Place = { day?: string; country?: string; region?: string };",
 ];
 
-// The part of the overview the How it works box draws: the whole of it is too crowded at that size. Landing Site stays, as the step the cursor opens.
+// The step the cursor opens, and the part it follows to its code.
+const OPENED = "website-dashboard";
+const CITED = "ws-visits-and-runs";
+
+// The part of the overview the How it works box draws: the whole of it is too crowded at that size. The Website And Dashboard stays, as the step the cursor opens.
 // Each kept box's place on a grid of its own, [col, row]: the full map's places leave gaps.
 const HOW_BOXES: Record<string, [number, number]> = {
-  "bx-landing": [0, 0],
-  "bx-app-app": [1, 0],
-  "bx-components": [1, 1],
-  "bx-scripts": [1, 2],
+  ws: [0, 0],
+  rb: [1, 0],
+  wa: [1, 1],
+  cr: [1, 2],
 };
-const HOW_ARROWS = ["bx-app-app>bx-components", "bx-components>bx-scripts"];
+const HOW_ARROWS = ["rb>wa", "wa>cr"];
 const part = (d: Diagram): Diagram => ({
   boxes: d.boxes.filter((b) => b.id in HOW_BOXES).map((b) => ({ ...b, col: HOW_BOXES[b.id][0], row: HOW_BOXES[b.id][1] })),
   arrows: d.arrows.filter((a) => HOW_ARROWS.includes(`${a.from}>${a.to}`)),
@@ -98,8 +103,8 @@ export default function Landing() {
   });
 
   const blueprint = loadBlueprint("blueprint");
-  const first = blueprint.AUTHORED[0];
-  const config = first.children!.find((c) => c.id === "la-tracking-visitors")!;
+  const first = blueprint.AUTHORED.find((r) => r.id === OPENED)!;
+  const config = first.children!.find((c) => c.id === CITED)!;
 
   const ctas = (
     <>
@@ -153,7 +158,7 @@ export default function Landing() {
               title: config.title,
               sub: sentence(config.sub ?? ""),
               file: "landing/components/landing-visit.tsx · LandingVisit",
-              start: 27,
+              start: VISIT_START,
               lines: VISIT,
             }}
           />
