@@ -47,6 +47,7 @@ const state = ((
       pending?: { deviceCode: string; interval: number; until: number };
       promo?: { on: boolean; at: number };
       ready?: boolean;
+      good?: Pick<CreditStatus, "available" | "meters" | "endsAt">;
       maps?: Meter;
       origin?: string;
     };
@@ -274,8 +275,12 @@ async function askStatus(): Promise<CreditStatus> {
   // Read after the token, which clears a session the proxy no longer knows.
   const { on = false, fallback = true, session, login } = await saved();
   const away = { available: false, on, fallback, promo, login: session ? (login ?? null) : null };
-  if (!session) return away;
-  if (!token) return { ...away, reason: "Blueprint credit could not be reached." };
+  if (!session) {
+    state.good = undefined;
+    return away;
+  }
+  const unreachable = { ...away, ...state.good, reason: "Blueprint credit could not be reached." };
+  if (!token) return unreachable;
   const r = await api("/status", { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
   const j = (r?.ok ? await r.json().catch(() => null) : null) as {
     available?: boolean;
@@ -284,7 +289,9 @@ async function askStatus(): Promise<CreditStatus> {
     ends_at?: string | null;
     meters?: { tab5h: Meter; tabweek: Meter; genweek: Meter };
   } | null;
-  if (!j) return { ...away, reason: "Blueprint credit could not be reached." };
+  if (!j) return unreachable;
+  const meters = j.meters && { session: j.meters.tab5h, week: j.meters.tabweek, maps: j.meters.genweek };
+  state.good = { available: !!j.available, endsAt: j.ends_at ?? null, meters };
   return {
     available: !!j.available,
     on,
@@ -293,7 +300,7 @@ async function askStatus(): Promise<CreditStatus> {
     login: j.login ?? login ?? null,
     reason: j.reason,
     endsAt: j.ends_at ?? null,
-    meters: j.meters && { session: j.meters.tab5h, week: j.meters.tabweek, maps: j.meters.genweek },
+    meters,
   };
 }
 
