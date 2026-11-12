@@ -121,7 +121,7 @@ jobs:
           path: release
       - name: Install with nothing on the system
         run: |
-          ! command -v node
+          if command -v node; then echo "node is already here"; exit 1; fi
           curl -fsSL "$RAW/install.sh" | BLUEPRINT_RELEASE="file://$PWD/$(ls release/*.tar.gz)" sh
       - name: Check
         run: |
