@@ -395,7 +395,7 @@ function Understanding({ value, onChange }: { value: number; onChange: (v: numbe
         </div>
       </div>
       <div className="border border-border-gray bg-card px-3 py-2.5">
-        <span className="block font-mono text-[10.5px] uppercase tracking-[0.09em] text-accent">{EXPLAINS[explain].label}</span>
+        <span className="block text-[12px] font-semibold text-accent">{EXPLAINS[explain].label}</span>
         <span className="mt-1 block text-[12px] text-muted-slate">{EXPLAINS[explain].note}</span>
       </div>
     </div>

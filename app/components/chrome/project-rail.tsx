@@ -11,8 +11,7 @@ import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/o
 import { useDesktop, useMac } from "@/lib/client/platform";
 import { useRailExpanded, useRailWidth } from "@/lib/client/rail";
 import { openSettings } from "@/lib/client/settings";
-import { openFeedback } from "@/components/chrome/feedback";
-import { FeedbackGlyph, GearGlyph } from "@/components/chrome/icons";
+import { GearGlyph } from "@/components/chrome/icons";
 import { FoldButton } from "@/components/chrome/titlebar";
 import { cn } from "@/lib/client/utils";
 
@@ -88,7 +87,7 @@ export function ProjectRail() {
       aria-label="Projects"
       data-chrome="bar"
       style={{ width }}
-      className="flex shrink-0 select-none flex-col gap-2 overflow-y-auto border-r border-border-gray bg-surface-container-low px-2 py-2"
+      className="flex shrink-0 select-none flex-col gap-2 overflow-y-auto overflow-x-hidden border-r border-border-gray bg-surface-container-low px-2 py-2 transition-[width] duration-[240ms] ease-[cubic-bezier(.2,.7,.2,1)]"
     >
       {mac ? <FoldButton wide={wide} /> : null}
       <div role="tablist" aria-label="Open projects" aria-orientation="vertical" className="flex flex-col gap-2">
@@ -108,22 +107,21 @@ export function ProjectRail() {
                 }
               }}
               className={cn(
-                "group relative flex h-11 min-w-0 items-center border transition-colors",
-                here
-                  ? "border-border-gray bg-surface-container text-ink shadow-[inset_3px_0_0_var(--color-accent)]"
-                  : "border-border-gray text-muted-slate hover:bg-surface-container hover:text-ink",
+                "group relative flex h-11 min-w-0 items-center rounded transition-[background-color,color] duration-150",
+                here ? "bg-surface-container text-ink" : "text-on-surface-variant hover:bg-surface-container hover:text-ink",
               )}
             >
               <button
                 type="button"
                 onClick={() => go(m.id)}
                 className={cn(
-                  "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2.5 font-mono text-[12px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
-                  wide ? "px-3" : "justify-center",
-                  here && "font-semibold",
+                  "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded text-[13px] font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+                  wide ? "px-2.5" : "justify-center",
                 )}
               >
-                <span className="shrink-0">{initials(m.label)}</span>
+                <span className={cn("flex size-7 shrink-0 items-center justify-center rounded font-mono text-[11.5px] transition-colors duration-150", here ? "bg-accent text-on-accent" : "bg-border-gray text-ink")}>
+                  {initials(m.label)}
+                </span>
                 {wide ? <span className="truncate">{m.label}</span> : null}
               </button>
               {dot ? (
@@ -152,8 +150,8 @@ export function ProjectRail() {
           aria-label="Open another project"
           title="Open another project"
           className={cn(
-            "flex h-11 cursor-pointer items-center gap-2.5 border border-border-gray font-mono text-[12px] text-faint transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:outline-accent",
-            wide ? "px-3" : "justify-center",
+            "flex h-11 cursor-pointer items-center gap-2.5 rounded text-[13px] font-medium text-muted-slate transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-accent",
+            wide ? "px-4" : "justify-center",
           )}
         >
           <svg aria-hidden width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
@@ -163,9 +161,6 @@ export function ProjectRail() {
         </button>
       </div>
       <div className="mt-auto flex flex-col gap-1 border-t border-border-gray pt-2">
-        <RailTool label="Report a bug or send feedback" short="Feedback" wide={wide} onClick={openFeedback}>
-          <FeedbackGlyph />
-        </RailTool>
         <RailTool label="Settings" short="Settings" wide={wide} onClick={openSettings}>
           <GearGlyph />
         </RailTool>
@@ -183,8 +178,8 @@ function RailTool({ label, short, wide, onClick, children }: { label: string; sh
       aria-label={label}
       title={label}
       className={cn(
-        "flex h-10 cursor-pointer items-center gap-2.5 text-[12px] text-muted-slate transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
-        wide ? "px-3" : "justify-center",
+        "flex h-10 cursor-pointer items-center gap-2.5 rounded text-[13px] font-medium text-on-surface-variant transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-[0.98] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        wide ? "px-4" : "justify-center",
       )}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

@@ -3,7 +3,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
-import { openFeedback } from "@/components/chrome/feedback";
 import { openPalette } from "@/components/chrome/palette";
 import { Kbd, keys } from "@/components/ui/button";
 import { openDiff, useDiff } from "@/components/review/diff";
@@ -12,7 +11,7 @@ import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 import { toggleRail, useRailExpanded, useRailWidth } from "@/lib/client/rail";
 import { setTabSlot } from "@/components/chrome/tab-slot";
-import { FeedbackGlyph, GearGlyph, RailGlyph } from "@/components/chrome/icons";
+import { GearGlyph, RailGlyph } from "@/components/chrome/icons";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
@@ -75,7 +74,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
       <div
         data-tauri-drag-region
         style={lead ? { width: lead } : undefined}
-        className={cn("flex h-full min-w-0 items-center", bare ? (mac ? "pl-[78px]" : "pl-1.5") : "border-r border-border-gray px-2")}
+        className={cn("flex h-full min-w-0 items-center overflow-hidden transition-[width] duration-[240ms] ease-[cubic-bezier(.2,.7,.2,1)]", bare ? (mac ? "pl-[78px]" : "pl-1.5") : "border-r border-border-gray px-2")}
       >
         {bare ? (
           <span data-tauri-drag-region className="px-2 font-mono text-[11.5px] font-semibold text-ink">
@@ -105,9 +104,6 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         {bare ? (
           <>
             <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
-            <Control label="Report a bug or send feedback" onClick={openFeedback}>
-              <FeedbackGlyph />
-            </Control>
             <Control label="Settings" onClick={openSettings}>
               <GearGlyph />
             </Control>
@@ -149,7 +145,7 @@ export function FoldButton({ wide }: { wide: boolean }) {
       aria-expanded={wide}
       title={wide ? "Fold to icons" : "Show names"}
       className={cn(
-        "flex h-7 cursor-pointer items-center gap-2.5 text-[12px] text-muted-slate transition-colors hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        "flex h-7 cursor-pointer items-center gap-2.5 rounded text-[12.5px] font-medium text-on-surface-variant transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-[0.97] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         wide ? "w-full px-2" : "w-full justify-center",
       )}
     >
@@ -218,10 +214,10 @@ function Control({
       aria-keyshortcuts={kbd}
       title={kbd ? undefined : label}
       className={cn(
-        "group relative flex cursor-pointer items-center justify-center text-muted-slate transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        "group relative flex cursor-pointer items-center justify-center text-muted-slate transition-[background-color,color,transform] duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         // Window buttons fill the bar's height, as native ones do; the tools
         // are small square targets, as in an editor's title bar.
-        win ? "h-full w-12" : "mx-px h-8 w-8",
+        win ? "h-full w-12" : "mx-px h-8 w-8 rounded active:scale-90",
         danger ? "hover:bg-clay-ink hover:text-paper" : "hover:bg-surface-container hover:text-ink",
         active && "bg-accent text-on-accent hover:bg-accent-strong hover:text-on-accent",
         className,

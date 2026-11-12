@@ -4,17 +4,7 @@
  * is scaled up to match so they read as heavy as their neighbours.
  */
 
-/** Lucide's message-square-warning. */
-export function FeedbackGlyph() {
-  return (
-    <g transform="scale(0.6667)" strokeWidth="1.875">
-      <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
-      <path d="M12 7v4M12 15h.01" />
-    </g>
-  );
-}
-
-/** Lucide's gear, drawn a tenth smaller so it reads as large as the feedback bubble beside it. */
+/** Lucide's gear, drawn a tenth smaller so its teeth read no heavier than the glyphs around it. */
 export function GearGlyph() {
   return (
     <g transform="scale(0.6) translate(1.33 1.33)" strokeWidth="2.08">

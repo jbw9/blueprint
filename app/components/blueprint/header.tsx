@@ -88,7 +88,7 @@ export function Header({
         {back?.length ? (
           <>
             <span aria-hidden className="text-muted-slate">›</span>
-            <span aria-current="page" className="inline-flex h-7 items-center whitespace-nowrap px-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.04em] text-ink">
+            <span aria-current="page" className="inline-flex h-7 items-center whitespace-nowrap px-2.5 text-[13px] font-medium text-ink">
               {title}
             </span>
           </>

@@ -28,8 +28,8 @@ export function StateChip({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center px-2 py-[3px]",
-        "font-mono text-[10px] leading-none tracking-wide",
+        "inline-flex shrink-0 items-center rounded-full px-2 py-[3px]",
+        "text-[10.5px] font-medium leading-none",
         state === "partial" && !alarm && "border border-amber-line bg-amber-surface text-amber-ink",
         state === "partial" && alarm && "border border-clay-line bg-clay-surface text-clay-ink",
         state === "inferred" && "border border-dashed border-border-strong bg-surface-container-low text-muted-slate",
@@ -64,7 +64,7 @@ export function Eyebrow({
 /** Monospace code identifier inline in prose. */
 export function Ident({ children }: { children: React.ReactNode }) {
   return (
-    <code className=" bg-surface-container px-[5px] py-[1px] font-mono text-[0.86em] text-on-surface-variant">
+    <code className="rounded-[3px] bg-surface-container px-[5px] py-[1px] font-mono text-[0.86em] text-on-surface-variant">
       {children}
     </code>
   );
@@ -137,7 +137,7 @@ function TermMark({ term, children }: { term: Term; children: string }) {
       {children}
       <span
         role="tooltip"
-        className="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-1.5 w-[280px] border border-border-gray bg-card px-3 py-2 text-[12.5px] font-normal not-italic leading-snug text-on-surface shadow-lift group-hover/term:visible group-focus/term:visible"
+        className="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-1.5 w-[280px] rounded-md border border-border-gray bg-card px-3 py-2 text-[12.5px] font-normal not-italic leading-snug text-on-surface shadow-lift group-hover/term:visible group-focus/term:visible"
       >
         <span className="font-semibold text-ink">{term.term}</span> — {term.meaning}
       </span>

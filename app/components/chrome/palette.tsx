@@ -17,7 +17,7 @@ import { openFiles, useCitations, useFiles, useTrail } from "@/components/bluepr
 import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
 import { DocIcon, openDoc, useDocList } from "@/components/blueprint/docs";
 import { openSettings, readSettings, saveSettings } from "@/lib/client/settings";
-import type { Theme } from "@/lib/client/theme";
+import type { ThemeChoice } from "@/lib/client/theme";
 import { startDictation } from "@/lib/agent/dictate";
 import type { Node } from "@/lib/blueprint/schema";
 import { cn } from "@/lib/client/utils";
@@ -245,7 +245,7 @@ export function Palette() {
   );
 
   const actions = useMemo<Item[]>(() => {
-    const theme = (t: Theme) => () => saveSettings({ ...readSettings(), theme: t });
+    const theme = (t: ThemeChoice) => () => saveSettings({ ...readSettings(), theme: t });
     return [
       { key: "a:back", label: "Go back a level", kind: "action", kbd: "Esc", run: () => path.length && goTo(path.slice(0, -1)) },
       { key: "a:workspace", label: "Toggle Claude Code & terminal", kind: "action", kbd: keys(mac, "`"), run: toggleWorkspace },
@@ -267,6 +267,7 @@ export function Palette() {
         : []),
       { key: "a:dark", label: "Theme: dark", kind: "action", run: theme("dark") },
       { key: "a:light", label: "Theme: light", kind: "action", run: theme("light") },
+      { key: "a:system", label: "Theme: system", kind: "action", run: theme("system") },
     ];
   }, [blueprint.name, path, mac, desktop]);
 
@@ -357,7 +358,7 @@ export function Palette() {
       <div
         role="dialog"
         aria-label="Go to"
-        className="flex h-fit max-h-[60vh] w-full max-w-[600px] flex-col overflow-hidden border border-border-strong bg-card shadow-lift"
+        className="flex h-fit max-h-[60vh] w-full max-w-[600px] animate-[dialog-in_.18s_ease-out] flex-col overflow-hidden rounded-lg border border-border-gray bg-card shadow-lift"
       >
         <input
           ref={input}
@@ -392,7 +393,7 @@ export function Palette() {
           }
           className="h-11 w-full shrink-0 border-b border-border-gray bg-transparent px-4 text-[14px] text-ink placeholder:text-faint focus:outline-none"
         />
-        <ul ref={list} role="listbox" className="min-h-0 overflow-y-auto py-1">
+        <ul ref={list} role="listbox" className="min-h-0 overflow-y-auto p-1.5">
           {shown.length ? (
             shown.map((it, i) => (
               <li key={it.key} data-i={i} role="option" aria-selected={i === sel}>
@@ -401,7 +402,7 @@ export function Palette() {
                   onPointerMove={() => setSel(i)}
                   onClick={() => run(it)}
                   className={cn(
-                    "flex w-full cursor-pointer gap-2.5 px-4 text-left",
+                    "flex w-full cursor-pointer gap-2.5 rounded px-2.5 text-left",
                     it.detail ? "items-start py-2" : "items-center py-[7px]",
                     // Not surface-container-low: in Dark that is the card's own colour, a step too close to show.
                     i === sel && "bg-surface-container",
@@ -410,7 +411,7 @@ export function Palette() {
                   <KindIcon kind={it.kind} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2.5">
-                      <span className={cn("truncate text-[13px] text-ink", it.kind === "symbol" && "shrink-0")}>{it.label}</span>
+                      <span className={cn("truncate text-[13.5px] font-medium text-ink",it.kind === "symbol" && "shrink-0")}>{it.label}</span>
                       {it.node && it.kind === "level" ? <StateChip state={it.node.state} alarm={it.node.alarm} /> : null}
                       {it.hint ? <span className="min-w-0 truncate text-[12px] text-faint">{it.hint}</span> : null}
                       <span className="flex-1" />
@@ -435,7 +436,7 @@ export function Palette() {
             </li>
           )}
         </ul>
-        <footer className="flex shrink-0 items-center gap-3 border-t border-border-gray bg-surface px-4 py-1.5 text-[11.5px] text-faint">
+        <footer className="flex shrink-0 items-center gap-3 border-t border-border-gray bg-surface-container-low px-4 py-2 text-[12px] text-muted-slate">
           <span className="flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> move</span>
           <span className="flex items-center gap-1"><Kbd>Enter</Kbd> open</span>
           {mode === "all" || mode === "actions" ? <span className="flex items-center gap-1"><Kbd>&gt;</Kbd> actions</span> : null}

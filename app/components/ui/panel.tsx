@@ -11,13 +11,13 @@ export function PanelHead({
   right?: React.ReactNode;
 }) {
   return (
-    <header className="flex items-start gap-4 border-b border-border-gray bg-surface px-5 py-4">
+    <header className="flex items-start gap-4 px-6 pb-3 pt-5">
       <div className="min-w-0 flex-1">
-        <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">
+        <h2 className="font-display text-[22px] font-normal leading-tight text-ink">
           {title}
         </h2>
         {note ? (
-          <p className="mt-1 text-[13px] leading-snug text-muted-slate">{note}</p>
+          <p className="mt-1 text-[13.5px] leading-snug text-muted-slate">{note}</p>
         ) : null}
       </div>
       {right}
@@ -34,7 +34,7 @@ export function PanelClose({ onClick, type = "button", className }: { onClick?: 
       aria-label="Close"
       title="Close (Esc)"
       className={cn(
-        "-mr-1.5 -mt-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center text-muted-slate hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+        "-mr-2 -mt-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded text-muted-slate transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         className,
       )}
     >

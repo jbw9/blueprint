@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { SETTINGS_KEY, themeOf, type Theme } from "@/lib/client/theme";
+import { DARK_QUERY, SETTINGS_KEY, choiceOf, lookOf, type Theme, type ThemeChoice } from "@/lib/client/theme";
 
 /**
  * What the user can change, kept per machine in localStorage like the
@@ -7,13 +7,13 @@ import { SETTINGS_KEY, themeOf, type Theme } from "@/lib/client/theme";
  * by the app (src-tauri/src/claude.rs), the model is Claude Code's own
  * default, the theme is Dark, and new tabs open in Claude Code.
  */
-export type { Theme };
+export type { Theme, ThemeChoice };
 export type Ground = "dots" | "plain" | "squares";
 
 export interface Settings {
   claudePath: string;
   model: string;
-  theme: Theme;
+  theme: ThemeChoice;
   /** The agent a tab opens into when the app opens one for you (components/agent/agents.tsx). */
   agent: string;
   /** What the blueprint is drawn on. */
@@ -35,11 +35,13 @@ const CHANGED = "blueprint:settings-changed";
 const OPEN = "blueprint:settings";
 const DEFAULTS: Settings = { claudePath: "", model: "", theme: "dark", agent: "claude", ground: "dots", devServer: true, voice: true, research: false, quietMedia: null, onboarded: false };
 
-/** Anything can ask for the settings dialog: the chrome's gear dispatches this. */
-export const openSettings = () => window.dispatchEvent(new Event(OPEN));
-export const onOpenSettings = (f: () => void) => {
-  window.addEventListener(OPEN, f);
-  return () => window.removeEventListener(OPEN, f);
+/** Anything can ask for the settings dialog, at one of its sections: the rail's gear dispatches this. */
+export const openSettingsAt = (section?: string) => window.dispatchEvent(new CustomEvent<string | undefined>(OPEN, { detail: section }));
+export const openSettings = () => openSettingsAt();
+export const onOpenSettings = (f: (section?: string) => void) => {
+  const on = (e: Event) => f((e as CustomEvent<string | undefined>).detail);
+  window.addEventListener(OPEN, on);
+  return () => window.removeEventListener(OPEN, on);
 };
 
 function raw() {
@@ -60,7 +62,7 @@ export function readSettings(): Settings {
     let value = DEFAULTS;
     try {
       const saved = { ...DEFAULTS, ...JSON.parse(r) };
-      value = { ...saved, theme: themeOf(saved.theme) };
+      value = { ...saved, theme: choiceOf(saved.theme) };
     } catch {
       /* unreadable: the defaults stand */
     }
@@ -106,10 +108,15 @@ function applyTheme(theme: Theme) {
   requestAnimationFrame(() => still.remove());
 }
 
-/** Keeps the page on the saved theme. */
+/** Keeps the page on the saved theme, and on the machine's own while it is System. */
 export function followTheme() {
-  const sync = () => applyTheme(readSettings().theme);
+  const sync = () => applyTheme(lookOf(readSettings().theme));
+  const machine = matchMedia(DARK_QUERY);
   window.addEventListener(CHANGED, sync);
+  machine.addEventListener("change", sync);
   sync();
-  return () => window.removeEventListener(CHANGED, sync);
+  return () => {
+    window.removeEventListener(CHANGED, sync);
+    machine.removeEventListener("change", sync);
+  };
 }

@@ -81,10 +81,10 @@ export function Menu({
       role="menu"
       data-chrome
       style={{ left: at.x, top: at.y }}
-      className="fixed z-50 min-w-[220px] max-w-[320px] overflow-hidden border border-border-gray bg-card py-1 shadow-lift"
+      className="fixed z-50 min-w-[220px] max-w-[320px] animate-[dialog-in_.14s_ease-out] overflow-hidden rounded-md border border-border-gray bg-card p-1 shadow-lift"
     >
       {title ? (
-        <p className="truncate border-b border-border-gray px-3 pb-1.5 pt-1 text-[11.5px] text-faint">{title}</p>
+        <p className="truncate px-2.5 pb-1.5 pt-1 text-[12px] font-medium text-muted-slate">{title}</p>
       ) : null}
       {items.map((item, i) => (
         <button
@@ -97,9 +97,9 @@ export function Menu({
             onClose();
           }}
           className={cn(
-            "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink outline-none",
+            "flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] font-medium text-ink outline-none transition-colors duration-100",
             item.disabled ? "text-faint" : "cursor-pointer hover:bg-surface-container focus-visible:bg-surface-container",
-            item.separated && "mt-1 border-t border-border-gray pt-2",
+            item.separated && "mt-1 border-t border-border-gray pt-2 rounded-t-none",
           )}
         >
           {item.icon}

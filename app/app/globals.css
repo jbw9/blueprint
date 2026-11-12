@@ -3,12 +3,12 @@
 @theme {
   /* ── surfaces ─────────────────────────────────────────────
      These are Light's; Dark overrides them below. */
-  --color-paper: #f5f6f8;
+  --color-paper: #ffffff;
   --color-card: #ffffff;
-  --color-surface: #eef0f3;
-  --color-surface-container-low: #eceef1;
-  --color-surface-container: #e3e6ea;
-  --color-surface-dim: #cdd2d9;
+  --color-surface: #f6f6f6;
+  --color-surface-container-low: #f2f2f2;
+  --color-surface-container: #ebebeb;
+  --color-surface-dim: #d4d4d4;
 
   /* ── ink ───────────────────────────────────────────────── */
   --color-ink: #1f2328;
@@ -25,11 +25,11 @@
      A selected or primary control fills with ink and its text turns
      `on-accent`. `derived` carries no mark, so the accent claims no
      state. */
-  --color-accent: #3d5a80;
-  --color-accent-strong: #2f4866;
+  --color-accent: #1f2328;
+  --color-accent-strong: #0d1117;
   --color-on-accent: #ffffff;
-  --color-accent-surface: #e6edf5;
-  --color-accent-line: #a9bbd2;
+  --color-accent-surface: #ececec;
+  --color-accent-line: #bcbcbc;
 
   /* ── amber family — partial, found but incomplete ──────── */
   --color-amber-ink: #8a5a0b;
@@ -46,8 +46,8 @@
   --color-claude-ink: #b4553a;
 
   /* ── lines ─────────────────────────────────────────────── */
-  --color-border-gray: #d8dce2;
-  --color-border-strong: #b4bcc6;
+  --color-border-gray: #dedede;
+  --color-border-strong: #bcbcbc;
   --color-wire: #959eab;
 
   /* ── elevation ─────────────────────────────────────────── */
@@ -147,8 +147,8 @@
 
 /* Light and Dark: neutral greys and a near-black (or near-white) ink; the
    meaning hues stay, tuned for a grey ground. Light, the default above, is a
-   soft sheet, not a glaring one: the paper sits a shade off white so cards
-   (white) stand on it, and the accent is a muted slate blue rather than black.
+   white sheet: the paper and the cards are both white, cards stand out by
+   their border, the greys carry no tint, and the accent is the ink, as in Dark.
 
    The chrome — title bar, status bar, tab strips, the workspace window, its
    terminals, menus — is marked [data-chrome] and follows the theme.
@@ -158,11 +158,11 @@
    The light chrome sits a step below the paper, so the sheet still reads as
    the thing on top. */
 :root[data-theme="light"] [data-chrome] {
-  --color-paper: #eceef1;
+  --color-paper: #f4f4f4;
   --color-card: #ffffff;
-  --color-surface: #e6e9ed;
-  --color-surface-container-low: #e6e9ed;
-  --color-surface-container: #dce0e5;
+  --color-surface: #efefef;
+  --color-surface-container-low: #efefef;
+  --color-surface-container: #e6e6e6;
 }
 
 :root[data-theme="dark"],
@@ -580,6 +580,34 @@
   from {
     opacity: 0;
     transform: translateY(-4px);
+  }
+}
+
+/* A dialog and the layer behind it easing in (components/ui/dialog.tsx), and a Settings
+   section rising into place when it is picked. */
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+@keyframes section-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[dialog-in"],
+  [class*="animate-[scrim-in"],
+  [class*="animate-[section-in"] {
+    animation: none !important;
   }
 }
 

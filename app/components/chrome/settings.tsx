@@ -1,25 +1,29 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { Fragment, useCallback, useEffect, useState } from "react";
-import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DIALOG, Field, INPUT, Overlay, Segmented, Switch } from "@/components/ui/dialog";
+import { cn } from "@/lib/client/utils";
 import { Button } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
 import { PanelClose, PanelHead } from "@/components/ui/panel";
-import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type Theme } from "@/lib/client/settings";
+import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type ThemeChoice } from "@/lib/client/settings";
 import { useDesktop } from "@/lib/client/platform";
+import { FeedbackForm } from "@/components/chrome/feedback";
 import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, setFallback, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
 /**
  * Settings, as a dialog over the blueprint, in groups: how it looks, Claude Code,
- * dictation, the Preview, and what is sent to Blueprint. Every change is saved as
- * it is made, so there is nothing to confirm and nothing to undo. Outside the
- * desktop app (a page framed in a Preview) only the look applies, so only it shows.
+ * dictation, the Preview, and what is sent to Blueprint, with Feedback last for
+ * reporting a bug. Every change is saved as it is made, so there is nothing to
+ * confirm and nothing to undo. Outside the desktop app (a page framed in a Preview)
+ * only the look applies, so only it and Feedback show.
  */
 
-const THEMES: { value: Theme; label: string }[] = [
+const THEMES: { value: ThemeChoice; label: string }[] = [
   { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
+  { value: "system", label: "System" },
 ];
 
 const GROUNDS: { value: Ground; label: string }[] = [
@@ -73,15 +77,88 @@ export function GitHubCode({ code, url, onCancel }: { code: string; url: string;
 /** A group of settings under its name; only the one picked in the list shows, but all stay mounted so none redraws as it loads. */
 function Group({ title, shown, children }: { title: Section; shown: Section; children: React.ReactNode }) {
   return (
-    <section aria-label={title} hidden={title !== shown} className="flex flex-col gap-6">
-      <h3 className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">{title}</h3>
+    <section aria-label={title} hidden={title !== shown} className="flex animate-[section-in_.26s_cubic-bezier(.2,.7,.2,1)] flex-col">
+      <h3 className="mb-2 font-display text-[24px] leading-tight text-ink">{title}</h3>
       {children}
     </section>
   );
 }
 
-const SECTIONS = ["Appearance", "Claude Code", "Dictation", "Preview", "Privacy", "About"] as const;
+const SECTIONS = ["Appearance", "Interface", "Dictation", "About", "Feedback"] as const;
 type Section = (typeof SECTIONS)[number];
+const BROWSER: readonly Section[] = ["Appearance", "Feedback"];
+const isSection = (s?: string): s is Section => SECTIONS.includes(s as Section);
+
+/** Each section's glyph in the list, drawn on a 16 square as the app's others are. */
+const GLYPHS: Record<Section, React.ReactNode> = {
+  Appearance: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" />
+    </>
+  ),
+  Interface: (
+    <>
+      <rect x="2.5" y="3" width="11" height="10" />
+      <path d="M2.5 6.5h11" />
+    </>
+  ),
+  Dictation: (
+    <>
+      <rect x="6" y="2" width="4" height="7" rx="2" />
+      <path d="M4 8a4 4 0 0 0 8 0M8 12v2" />
+    </>
+  ),
+  About: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 7.5v3.5M8 5.2v.1" />
+    </>
+  ),
+  Feedback: <path d="M2.5 3.5h11v7H8l-3 2.5v-2.5H2.5z" />,
+};
+
+/** The sections down the left. The highlight on the one in front slides to the next one picked. */
+function SectionList({ names, section, onPick }: { names: readonly Section[]; section: Section; onPick: (s: Section) => void }) {
+  const list = useRef<HTMLElement>(null);
+  const [at, setAt] = useState<{ top: number; height: number } | null>(null);
+  const [slides, setSlides] = useState(false);
+  useLayoutEffect(() => {
+    const b = list.current?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!b) return;
+    setAt({ top: b.offsetTop, height: b.offsetHeight });
+    const frame = requestAnimationFrame(() => setSlides(true));
+    return () => cancelAnimationFrame(frame);
+  }, [section]);
+  return (
+    <nav ref={list} aria-label="Settings sections" className="relative flex w-52 shrink-0 flex-col gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
+      {at ? (
+        <span
+          aria-hidden
+          className={cn("absolute inset-x-3 top-0 rounded bg-surface-container", slides && "transition-[transform,height] duration-[260ms] ease-[cubic-bezier(.2,.7,.2,1)]")}
+          style={{ height: at.height, transform: `translateY(${at.top}px)` }}
+        />
+      ) : null}
+      {names.map((name) => (
+        <button
+          key={name}
+          type="button"
+          aria-current={name === section}
+          onClick={() => onPick(name)}
+          className={cn(
+            "relative z-10 flex h-10 cursor-pointer items-center gap-2.5 rounded px-3 text-left text-[14px] font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+            name === section ? "text-ink" : "text-on-surface-variant hover:text-ink",
+          )}
+        >
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            {GLYPHS[name]}
+          </svg>
+          {name}
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 export function SettingsDialog() {
   const [open, setOpen] = useState(false);
@@ -102,9 +179,9 @@ export function SettingsDialog() {
 
   useEffect(
     () =>
-      onOpenSettings(() => {
+      onOpenSettings((at) => {
         setOpen(true);
-        setSection("Appearance");
+        setSection(isSection(at) ? at : "Appearance");
         if (desktop) detect(readSettings().claudePath);
       }),
     [detect, desktop],
@@ -127,198 +204,170 @@ export function SettingsDialog() {
 
   return (
     <Overlay onClose={close}>
-      <form
-        role="dialog"
-        aria-label="Settings"
-        onSubmit={(e) => {
-          e.preventDefault();
-          close();
-        }}
-        className={`${DIALOG} ${desktop ? "h-[560px] max-w-[780px]" : "max-w-[520px]"}`}
-      >
-        <PanelHead title="Settings" right={<PanelClose type="submit" />} />
+      <div role="dialog" aria-label="Settings" className={`${DIALOG} h-[580px] max-w-[800px]`}>
+        <PanelHead title="Settings" right={<PanelClose onClick={close} />} />
         <div className="flex min-h-0 flex-1">
-          {desktop ? (
-            <nav aria-label="Settings sections" className="flex w-44 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-gray bg-surface-container-low p-3">
-              {SECTIONS.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  aria-current={name === section}
-                  onClick={() => setSection(name)}
-                  className={`cursor-pointer px-3 py-2.5 text-left text-[13px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
-                    name === section ? "bg-surface-container font-semibold text-ink shadow-[inset_3px_0_0_var(--color-accent)]" : "text-muted-slate hover:bg-surface-container hover:text-ink"
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </nav>
-          ) : null}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
-          <Group title="Appearance" shown={section}>
-            <Field group label="Theme">
-              <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
-            </Field>
-            <Field group label="Background">
-              <Segmented label="Background" value={draft.ground} options={GROUNDS} onChange={(ground) => set({ ground })} />
-            </Field>
-          </Group>
-          {desktop ? (
-            <>
-              <Group title="Claude Code" shown={section}>
-                <BlueprintCredit />
-                <Field label="Claude Code">
-                  <input
-                    value={draft.claudePath}
-                    onChange={(e) => set({ claudePath: e.target.value })}
-                    onBlur={() => {
-                      tidy();
-                      detect(draft.claudePath);
-                    }}
-                    placeholder={found?.path ?? "~/.local/bin/claude"}
-                    spellCheck={false}
-                    className={INPUT}
-                  />
-                  <div className="mt-1.5 flex items-baseline gap-3 font-mono text-[11.5px]">
-                    {found === undefined ? (
-                      <span className="text-faint">Looking…</span>
-                    ) : found ? (
-                      <span className="truncate text-accent">
-                        ✓ {found.path}
-                        {found.version ? ` (${found.version})` : ""}
-                      </span>
-                    ) : (
-                      <span className="text-clay-ink">
-                        {draft.claudePath.trim() ? "Nothing at that path." : "Not found — install Claude Code, or enter its path."}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => detect(draft.claudePath)}
-                      className="ml-auto shrink-0 cursor-pointer text-accent hover:underline"
-                    >
-                      Detect again
-                    </button>
-                  </div>
-                </Field>
-                <Field label="Model">
-                  <input
-                    value={draft.model}
-                    onChange={(e) => set({ model: e.target.value })}
-                    onBlur={tidy}
-                    placeholder="default"
-                    spellCheck={false}
-                    className={INPUT}
-                  />
-                </Field>
-                <Field
-                  group
-                  label="Skills and web research"
-                >
-                  <Segmented
-                    label="Skills and web research"
-                    value={draft.research}
-                    options={[
-                      { value: true, label: "Without asking" },
-                      { value: false, label: "As in Claude Code" },
-                    ]}
-                    onChange={(research) => set({ research })}
-                  />
-                </Field>
-                {agents.length > 1 ? (
-                  <Field
-                    group
-                    label="Default agent"
-                  >
-                    <Segmented
-                      label="Default agent"
-                      value={draft.agent}
-                      options={agents.map((a) => ({
-                        value: a.id,
-                        label: (
-                          <>
-                            <AgentIcon id={a.id} />
-                            {a.label}
-                          </>
-                        ),
-                      }))}
-                      onChange={(agent) => set({ agent })}
+          <SectionList names={desktop ? SECTIONS : BROWSER} section={section} onPick={setSection} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-9 pb-8 pt-1">
+            <Group title="Appearance" shown={section}>
+              <Field group label="Theme">
+                <Segmented label="Theme" value={draft.theme} options={THEMES} onChange={(theme) => set({ theme })} />
+              </Field>
+              <Field group label="Background">
+                <Segmented label="Background" value={draft.ground} options={GROUNDS} onChange={(ground) => set({ ground })} />
+              </Field>
+            </Group>
+            {desktop ? (
+              <>
+                <Group title="Interface" shown={section}>
+                  <BlueprintCredit />
+                  <Field stack label="Claude Code">
+                    <input
+                      value={draft.claudePath}
+                      onChange={(e) => set({ claudePath: e.target.value })}
+                      onBlur={() => {
+                        tidy();
+                        detect(draft.claudePath);
+                      }}
+                      placeholder={found?.path ?? "~/.local/bin/claude"}
+                      spellCheck={false}
+                      className={INPUT}
+                    />
+                    <div className="mt-2 flex items-baseline gap-3 text-[12.5px]">
+                      {found === undefined ? (
+                        <span className="text-faint">Looking…</span>
+                      ) : found ? (
+                        <span className="truncate text-accent">
+                          ✓ {found.path}
+                          {found.version ? ` (${found.version})` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-clay-ink">
+                          {draft.claudePath.trim() ? "Nothing at that path." : "Not found — install Claude Code, or enter its path."}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => detect(draft.claudePath)}
+                        className="ml-auto shrink-0 cursor-pointer text-accent hover:underline"
+                      >
+                        Detect again
+                      </button>
+                    </div>
+                  </Field>
+                  <Field stack label="Model">
+                    <input
+                      value={draft.model}
+                      onChange={(e) => set({ model: e.target.value })}
+                      onBlur={tidy}
+                      placeholder="default"
+                      spellCheck={false}
+                      className={INPUT}
                     />
                   </Field>
-                ) : null}
-              </Group>
-              <Group title="Dictation" shown={section}>
-                <Field
-                  group
-                  label="Claude Code dictation"
-                >
-                  <Segmented
+                  <Field
+                    group
+                    label="Skills and web research"
+                  >
+                    <Segmented
+                      label="Skills and web research"
+                      value={draft.research}
+                      options={[
+                        { value: true, label: "Without asking" },
+                        { value: false, label: "As in Claude Code" },
+                      ]}
+                      onChange={(research) => set({ research })}
+                    />
+                  </Field>
+                  {agents.length > 1 ? (
+                    <Field
+                      group
+                      label="Default agent"
+                    >
+                      <Segmented
+                        label="Default agent"
+                        value={draft.agent}
+                        options={agents.map((a) => ({
+                          value: a.id,
+                          label: (
+                            <>
+                              <AgentIcon id={a.id} />
+                              {a.label}
+                            </>
+                          ),
+                        }))}
+                        onChange={(agent) => set({ agent })}
+                      />
+                    </Field>
+                  ) : null}
+                  <Field group label="Preview">
+                    <Segmented
+                      label="Preview"
+                      value={draft.devServer}
+                      options={[
+                        { value: true, label: "Start it" },
+                        { value: false, label: "Leave it" },
+                      ]}
+                      onChange={(devServer) => set({ devServer })}
+                    />
+                  </Field>
+                  <Field
+                    group
+                    stack
+                    label="Saved sign-ins"
+                  >
+                    <SignIns />
+                  </Field>
+                </Group>
+                <Group title="Dictation" shown={section}>
+                  <Field
+                    group
                     label="Claude Code dictation"
-                    value={draft.voice}
-                    options={[
-                      { value: true, label: "On" },
-                      { value: false, label: "As in Claude Code" },
-                    ]}
-                    onChange={(voice) => set({ voice })}
-                  />
-                </Field>
-                <Field
-                  group
-                  label="On-device dictation"
-                >
-                  <OnDevice />
-                </Field>
-                <Field group label="Media while dictating">
-                  <Segmented
-                    label="Media while dictating"
-                    // Unset until the first dictation asks; until then nothing is quieted.
-                    value={draft.quietMedia ?? false}
-                    options={[
-                      { value: true, label: "Quiet it" },
-                      { value: false, label: "Leave it" },
-                    ]}
-                    onChange={(quietMedia) => set({ quietMedia })}
-                  />
-                </Field>
-              </Group>
-              <Group title="Preview" shown={section}>
-                <Field group label="Dev server">
-                  <Segmented
-                    label="Dev server"
-                    value={draft.devServer}
-                    options={[
-                      { value: true, label: "Start it" },
-                      { value: false, label: "Leave it" },
-                    ]}
-                    onChange={(devServer) => set({ devServer })}
-                  />
-                </Field>
-                <Field
-                  group
-                  label="Saved sign-ins"
-                >
-                  <SignIns />
-                </Field>
-              </Group>
-              <Group title="Privacy" shown={section}>
-                <Field
-                  group
-                  label="Usage reports"
-                >
-                  <RunReports />
-                </Field>
-              </Group>
-              <Group title="About" shown={section}>
-                <Field group label="Version">
-                  <Version />
-                </Field>
-              </Group>
-            </>
-          ) : null}
+                  >
+                    <Segmented
+                      label="Claude Code dictation"
+                      value={draft.voice}
+                      options={[
+                        { value: true, label: "On" },
+                        { value: false, label: "As in Claude Code" },
+                      ]}
+                      onChange={(voice) => set({ voice })}
+                    />
+                  </Field>
+                  <Field
+                    group
+                    stack
+                    label="On-device dictation"
+                  >
+                    <OnDevice />
+                  </Field>
+                  <Field group label="Media while dictating">
+                    <Segmented
+                      label="Media while dictating"
+                      // Unset until the first dictation asks; until then nothing is quieted.
+                      value={draft.quietMedia ?? false}
+                      options={[
+                        { value: true, label: "Quiet it" },
+                        { value: false, label: "Leave it" },
+                      ]}
+                      onChange={(quietMedia) => set({ quietMedia })}
+                    />
+                  </Field>
+                </Group>
+                <Group title="About" shown={section}>
+                  <Field group label="Version">
+                    <Version />
+                  </Field>
+                  <Field group label="Usage reports">
+                    <RunReports />
+                  </Field>
+                </Group>
+              </>
+            ) : null}
+            <FeedbackForm shown={section === "Feedback"} />
+          </div>
         </div>
-        </div>
-      </form>
+      </div>
     </Overlay>
   );
 }
@@ -367,6 +416,7 @@ function BlueprintCredit() {
   return (
     <Field
       group
+      stack
       label="Blueprint credit"
     >
       {c.login ? (
@@ -386,17 +436,16 @@ function BlueprintCredit() {
             />
           )}
           {meters.length > 0 && (
-            <div className="mt-3 max-w-[460px] border border-border-gray bg-card px-3.5 py-3">
-              <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Usage</p>
-              <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2.5 font-mono text-[11.5px]">
+            <div className="mt-3 max-w-[480px] rounded bg-surface-container px-4 py-3.5">
+              <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-3 text-[12.5px]">
                 {meters.map(([label, m]) => {
                   const used = percent(m);
                   const at = resetsAt(m);
                   return (
                     <Fragment key={label}>
                       <span className="text-ink">{label}</span>
-                      <span className="block h-1.5 min-w-16 bg-surface-container">
-                        <span className="block h-full bg-accent" style={{ width: `${used ?? 0}%` }} />
+                      <span className="block h-1.5 min-w-16 rounded-full bg-border-gray">
+                        <span className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-[cubic-bezier(.2,.7,.2,1)]" style={{ width: `${used ?? 0}%` }} />
                       </span>
                       <span className="text-right tabular-nums text-ink">{used == null ? "No limit" : `${used}%`}</span>
                       <span className="text-faint">{at ? `resets ${at}` : ""}</span>
@@ -407,21 +456,20 @@ function BlueprintCredit() {
             </div>
           )}
           {c.available && c.on && (
-            <label className="mt-3 flex w-fit cursor-pointer items-center gap-2.5">
-              <input
-                type="checkbox"
+            <div className="mt-4 flex items-center gap-3">
+              <Switch
+                label="Switch to my Claude Code when it runs out"
                 checked={c.fallback}
-                onChange={(e) => {
-                  setC({ ...c, fallback: e.target.checked });
-                  void setFallback(e.target.checked);
+                onChange={(on) => {
+                  setC({ ...c, fallback: on });
+                  void setFallback(on);
                 }}
-                className="accent-accent"
               />
-              <span className="text-[12.5px] text-ink">Switch to my Claude Code when it runs out</span>
-            </label>
+              <span className="text-[13px] text-ink">Switch to my Claude Code when it runs out</span>
+            </div>
           )}
           {c.reason && <p className="mt-2 text-[12px] text-clay-ink">{c.reason}</p>}
-          <div className="mt-4 flex items-baseline gap-2 border-t border-border-gray pt-3 font-mono text-[11.5px] text-faint">
+          <div className="mt-4 flex items-baseline gap-2 text-[12.5px] text-muted-slate">
             <span>
               Signed in as <span className="text-ink">@{c.login}</span>
             </span>

@@ -21,7 +21,7 @@ import { GlobeIcon, PhoneIcon, iconOf } from "@/components/agent/tab-icons";
 import { useTabStatus } from "@/components/agent/tab-status";
 import { useTurnFollowing } from "@/components/agent/turn-following";
 import { OFFER_KEY, PARKED_KEY, SITE_KEY, firstOpening, offered, storedSite, useSavedSessions } from "@/components/agent/workspace-storage";
-import type { Project, Tab } from "@/components/agent/workspace-tab";
+import { agentHeading, type Project, type Tab } from "@/components/agent/workspace-tab";
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
 import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
@@ -1127,7 +1127,7 @@ export function Workspace() {
         : t.kind !== "shell"
         ? PLATFORM[t.kind].label
         : front
-          ? `${front.command.replace(/^blueprint-/, "")} ${i + 1}`
+          ? (agentHeading(t.heading) ?? `${front.command.replace(/^blueprint-/, "")} ${i + 1}`)
           : (t.label ?? `${t.title} ${i + 1}`);
   };
 
@@ -1615,6 +1615,7 @@ export function Workspace() {
               if (t.dev) tails.current[t.key] = "";
             }}
             onTitle={(title) => patch(t.key, { title })}
+            onHeading={(heading) => patch(t.key, { heading })}
             onScreen={(read) => (screens.current[t.key] = read)}
             onClaude={(found) => patch(t.key, { found })}
             onCredit={(credit) => patch(t.key, { credit, outOfCredit: false })}

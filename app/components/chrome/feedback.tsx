@@ -1,20 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DIALOG, Field, INPUT, Overlay, Segmented } from "@/components/ui/dialog";
+import { Field, INPUT, Segmented } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PanelClose, PanelHead } from "@/components/ui/panel";
+import { openSettingsAt } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
 
 /**
- * Report a bug or send feedback, as a dialog: what happened, up to three pictures (picked, pasted or
+ * Report a bug or send feedback, as the last section of settings (components/chrome/settings.tsx): what happened, up to three pictures (picked, pasted or
  * dropped), and an email to be answered at if the reader wants one. Sent through the app's server
  * (app/api/feedback/route.ts) to the admin dashboard. Below the form, what this machine has sent
  * before, each with the status it has on the dashboard.
  */
 
-const OPEN = "blueprint:feedback";
-export const openFeedback = () => window.dispatchEvent(new Event(OPEN));
+export const openFeedback = () => openSettingsAt("Feedback");
 
 type Kind = "bug" | "feedback";
 interface Report {
@@ -72,8 +71,8 @@ function Status({ status }: { status: string | null }) {
   );
 }
 
-export function FeedbackDialog() {
-  const [open, setOpen] = useState(false);
+/** Kept mounted while settings is open, so a half-written report survives a look at another section. */
+export function FeedbackForm({ shown }: { shown: boolean }) {
   const [kind, setKind] = useState<Kind>("bug");
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -92,15 +91,8 @@ export function FeedbackDialog() {
   }, []);
 
   useEffect(() => {
-    const on = () => {
-      setOpen(true);
-      setSent(false);
-      setError(null);
-      load();
-    };
-    window.addEventListener(OPEN, on);
-    return () => window.removeEventListener(OPEN, on);
-  }, [load]);
+    if (shown) load();
+  }, [shown, load]);
 
   const add = useCallback(async (files: File[]) => {
     const pics = files.filter((f) => f.type.startsWith("image/"));
@@ -118,9 +110,9 @@ export function FeedbackDialog() {
     }
   }, []);
 
-  // A screenshot pasted anywhere in the dialog joins the pictures.
+  // A screenshot pasted anywhere while this section shows joins the pictures.
   useEffect(() => {
-    if (!open) return;
+    if (!shown) return;
     const onPaste = (e: ClipboardEvent) => {
       const files = [...(e.clipboardData?.files ?? [])];
       if (!files.some((f) => f.type.startsWith("image/"))) return;
@@ -129,10 +121,7 @@ export function FeedbackDialog() {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [open, add]);
-
-  if (!open) return null;
-  const close = () => setOpen(false);
+  }, [shown, add]);
 
   const send = async () => {
     if (!message.trim() || sending) return;
@@ -158,113 +147,108 @@ export function FeedbackDialog() {
   };
 
   return (
-    <Overlay onClose={close}>
-      <form
-        role="dialog"
-        aria-label="Report a bug or send feedback"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send();
-        }}
-        onDragOver={(e) => {
-          if (![...e.dataTransfer.items].some((i) => i.kind === "file")) return;
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          void add([...e.dataTransfer.files]);
-        }}
-        className={cn(DIALOG, "max-w-[520px]", dragging && "outline-2 -outline-offset-2 outline-accent")}
-      >
-        <PanelHead title="Report a bug or send feedback" note="It goes straight to the people who make Blueprint." right={<PanelClose onClick={close} />} />
-        <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-5 py-5">
-          <Field group label="What is it">
-            <Segmented label="What is it" value={kind} options={KINDS} onChange={setKind} />
-          </Field>
-          <Field label={kind === "bug" ? "What happened" : "Your feedback"}>
-            <textarea
-              autoFocus
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-              rows={5}
-              maxLength={8000}
-              className={cn(INPUT, "resize-y font-sans text-[13px]")}
-            />
-          </Field>
-          <Field group label="Pictures">
-            <div className="flex flex-wrap items-center gap-2">
-              {images.map((src, i) => (
-                <div key={i} className="group relative h-16 w-24 border border-border-gray bg-surface">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a data URL, nothing to optimize */}
-                  <img src={src} alt={`Picture ${i + 1}`} className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    aria-label={`Remove picture ${i + 1}`}
-                    onClick={() => setImages((now) => now.filter((_, k) => k !== i))}
-                    className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center bg-card/90 text-[13px] leading-none text-ink hover:bg-accent hover:text-on-accent"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              {images.length < MAX_IMAGES ? (
-                <label className="inline-flex h-7 cursor-pointer items-center border border-border-strong bg-card px-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.04em] text-ink hover:border-accent hover:bg-accent hover:text-on-accent">
-                  Add picture
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="sr-only"
-                    onChange={(e) => {
-                      void add([...(e.target.files ?? [])]);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              ) : null}
+    <form
+      hidden={!shown}
+      aria-label="Report a bug or send feedback"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send();
+      }}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.items].some((i) => i.kind === "file")) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void add([...e.dataTransfer.files]);
+      }}
+      className={cn("flex flex-col", dragging && "outline-2 outline-offset-8 outline-accent")}
+    >
+      <h3 className="mb-2 font-display text-[24px] leading-tight text-ink">Feedback</h3>
+      <Field group label="What is it">
+        <Segmented label="What is it" value={kind} options={KINDS} onChange={setKind} />
+      </Field>
+      <Field stack label={kind === "bug" ? "What happened" : "Your feedback"}>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void send();
+            }
+          }}
+          rows={5}
+          maxLength={8000}
+          className={cn(INPUT, "resize-y font-sans text-[13px]")}
+        />
+      </Field>
+      <Field group stack label="Pictures">
+        <div className="flex flex-wrap items-center gap-2">
+          {images.map((src, i) => (
+            <div key={i} className="group relative h-16 w-24 border border-border-gray bg-surface">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a data URL, nothing to optimize */}
+              <img src={src} alt={`Picture ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                aria-label={`Remove picture ${i + 1}`}
+                onClick={() => setImages((now) => now.filter((_, k) => k !== i))}
+                className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center bg-card/90 text-[13px] leading-none text-ink hover:bg-accent hover:text-on-accent"
+              >
+                ×
+              </button>
             </div>
-          </Field>
-          <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={INPUT} />
-          </Field>
-          <div className="flex items-center gap-3">
-            <Button variant="primary" type="submit" disabled={!message.trim() || sending}>
-              {sending ? "Sending…" : "Send"}
-            </Button>
-            {error ? <span className="text-[12.5px] text-clay-ink">{error}</span> : sent ? <span className="text-[12.5px] text-muted-slate">Sent. Thank you — it shows below as pending.</span> : null}
-          </div>
-
-          {reports?.length ? (
-            <section className="flex flex-col gap-2 border-t border-border-gray pt-4">
-              <h3 className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">Your reports</h3>
-              <ul className="flex flex-col">
-                {reports.map((r) => (
-                  <li key={r.id} className="flex items-start gap-3 border-t border-border-gray py-2 first:border-t-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-[12.5px] text-ink">{r.message}</p>
-                      <p className="mt-0.5 font-mono text-[11px] text-faint">
-                        {r.kind === "bug" ? "Bug" : "Feedback"} · {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        {r.images ? ` · ${r.images} picture${r.images === 1 ? "" : "s"}` : ""}
-                        {r.updated_at ? ` · updated ${new Date(r.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
-                      </p>
-                    </div>
-                    <Status status={r.status} />
-                  </li>
-                ))}
-              </ul>
-            </section>
+          ))}
+          {images.length < MAX_IMAGES ? (
+            <label className="inline-flex h-8 cursor-pointer items-center rounded bg-surface-container px-3.5 text-[13px] font-medium text-ink transition-[background-color,transform] duration-150 hover:bg-surface-dim active:scale-[0.97]">
+              Add picture
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  void add([...(e.target.files ?? [])]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           ) : null}
         </div>
-      </form>
-    </Overlay>
+      </Field>
+      <Field stack label="Email">
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={INPUT} />
+      </Field>
+      <div className="mt-2 flex items-center gap-3">
+        <Button variant="primary" type="submit" disabled={!message.trim() || sending}>
+          {sending ? "Sending…" : "Send"}
+        </Button>
+        {error ? <span className="text-[12.5px] text-clay-ink">{error}</span> : sent ? <span className="text-[12.5px] text-muted-slate">Sent. Thank you — it shows below as pending.</span> : null}
+      </div>
+
+      {reports?.length ? (
+        <section className="mt-4 flex flex-col gap-2 border-t border-border-gray pt-4">
+          <h3 className="font-display text-[18px] leading-tight text-ink">Your reports</h3>
+          <ul className="flex flex-col">
+            {reports.map((r) => (
+              <li key={r.id} className="flex items-start gap-3 border-t border-border-gray py-2 first:border-t-0">
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-[12.5px] text-ink">{r.message}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-faint">
+                    {r.kind === "bug" ? "Bug" : "Feedback"} · {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    {r.images ? ` · ${r.images} picture${r.images === 1 ? "" : "s"}` : ""}
+                    {r.updated_at ? ` · updated ${new Date(r.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                  </p>
+                </div>
+                <Status status={r.status} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </form>
   );
 }

@@ -6,9 +6,8 @@ import { cn } from "@/lib/client/utils";
  * workspace is one of three weights, so a header with three actions reads as
  * a toolbar rather than three components that happened to land together:
  *
- * - `outline` — the default: a paper face and a hairline, for actions on the
- *   page (View the code). On hover it fills with ink, as
- *   the landing page's buttons do.
+ * - `outline` — the default: a quiet filled face, for actions on the
+ *   page (View the code). It deepens on hover and presses in.
  * - `ghost` — no face until hovered, for chrome (tab bars, the status bar).
  * - `primary` — filled with ink, the one thing a dialog is for.
  *
@@ -31,19 +30,19 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono font-medium uppercase tracking-[0.04em] transition-[background-color,border-color,color] duration-100",
+        "inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/70",
-        "disabled:cursor-default disabled:opacity-50",
-        size === "sm" ? "h-6 px-2 text-[11px]" : "h-7 px-2.5 text-[11.5px]",
+        "disabled:cursor-default disabled:opacity-45 disabled:active:scale-100",
+        size === "sm" ? "h-7 px-2.5 text-[12.5px]" : "h-8 px-3.5 text-[13px]",
         variant === "outline" &&
           (tone === "alarm"
-            ? "border border-clay-line bg-card text-clay-ink hover:border-clay-ink hover:bg-clay-ink hover:text-paper"
-            : "border border-border-strong bg-card text-ink hover:border-accent hover:bg-accent hover:text-on-accent"),
+            ? "bg-clay-surface text-clay-ink hover:bg-clay-ink hover:text-paper"
+            : "bg-surface-container text-ink hover:bg-surface-dim"),
         variant === "ghost" &&
           (tone === "alarm"
             ? "text-clay-ink hover:bg-clay-surface"
-            : "text-muted-slate hover:bg-surface-container hover:text-ink"),
-        variant === "primary" && "border border-accent bg-accent text-on-accent hover:border-accent-strong hover:bg-accent-strong",
+            : "text-on-surface-variant hover:bg-surface-container hover:text-ink"),
+        variant === "primary" && "bg-accent text-on-accent hover:bg-accent-strong",
         className,
       )}
       {...rest}
@@ -69,7 +68,7 @@ export function Kbd({ children, className }: { children: React.ReactNode; classN
   return (
     <kbd
       className={cn(
-        "inline-flex h-[18px] min-w-[18px] items-center justify-center border border-border-gray bg-surface px-1 font-sans text-[10.5px] font-medium leading-none text-muted-slate",
+        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[3px] border border-border-gray bg-surface px-1 font-sans text-[10.5px] font-medium leading-none text-muted-slate",
         className,
       )}
     >

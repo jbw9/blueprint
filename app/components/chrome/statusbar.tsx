@@ -212,7 +212,7 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
           const r = e.currentTarget.getBoundingClientRect();
           setAt(at ? null : { x: r.left, y: r.top - 4 });
         }}
-        className="mr-1 border-x border-border-gray text-ink"
+        className="mr-1 text-ink"
       >
         <CommitIcon />
         <span className="font-medium">Blueprint</span>
@@ -234,7 +234,7 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
 
 /** The one thing to do about what the bar says, filled so it reads as a button and not a note. */
 const BAR_ACTION =
-  "flex h-[18px] shrink-0 cursor-pointer items-center bg-accent px-2 font-sans text-[11px] font-medium text-on-accent hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
+  "flex h-[18px] shrink-0 cursor-pointer items-center rounded bg-accent px-2 font-sans text-[11px] font-medium text-on-accent hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
 
 function Item({
   children,
@@ -253,7 +253,7 @@ function Item({
   className?: string;
 }) {
   const cls = cn(
-    "flex h-full shrink-0 items-center gap-1.5 px-1.5",
+    "flex h-full shrink-0 items-center gap-1.5 rounded px-1.5 transition-colors duration-150",
     mono && "font-mono text-[11px]",
     onClick && "cursor-pointer hover:bg-surface-container hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
     menu && "bg-surface-container text-ink",

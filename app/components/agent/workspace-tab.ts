@@ -31,6 +31,8 @@ export interface Tab {
   label?: string;
   /** What the user renamed it to, over any name the app gives it. */
   name?: string;
+  /** The title its agent sets for the terminal, which names the tab until the user renames it. */
+  heading?: string;
   /** It runs the dev server: its output is watched for the server's address,
    * and it is drawn in the project's Preview tab rather than in a tab of its own. */
   dev?: boolean;
@@ -56,6 +58,13 @@ export interface Tab {
   outOfCredit?: boolean;
   /** The reader chose their own Claude Code in Settings, so this credit tab asks to move. */
   offerOwn?: boolean;
+}
+
+/** The title an agent set for its terminal as a tab name: without the spinner or status glyph in front,
+ * and nothing while it is only the agent's own name, so the tab keeps its numbered one until there is a title. */
+export function agentHeading(heading?: string): string | undefined {
+  const name = heading?.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+  return name && !/^(claude( code)?|codex|opencode|pi)$/i.test(name) ? name : undefined;
 }
 
 /** How a project is run, from its files (src-tauri/src/devices.rs). */

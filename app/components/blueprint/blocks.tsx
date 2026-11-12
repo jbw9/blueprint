@@ -510,7 +510,7 @@ function Table({ block }: { block: Extract<Anatomy, { kind: "table" }> }) {
           <thead>
             <tr className="border-b border-border-gray bg-surface">
               {block.columns.map((c) => (
-                <th key={c} className="px-4 py-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.07em] text-faint">
+                <th key={c} className="px-4 py-2 text-[12px] font-medium text-muted-slate">
                   {c}
                 </th>
               ))}
@@ -945,7 +945,7 @@ export function Example({ block, bare }: { block: Extract<Anatomy, { kind: "exam
   return (
     <div className="min-w-0">
       <div className={cn("mb-2.5 flex items-center gap-2", bare && "hidden")}>
-        <span className=" border border-border-strong px-2 py-[2px] font-mono text-[10px] uppercase tracking-[0.07em] text-faint">
+        <span className=" rounded-full bg-surface-container px-2 py-[2px] text-[11px] font-medium text-muted-slate">
           example
         </span>
         <span className="text-[13px] font-medium text-on-surface-variant">{block.caption}</span>

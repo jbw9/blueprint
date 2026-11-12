@@ -35,11 +35,11 @@ import { creditRelay } from "@/lib/client/credit";
  */
 const PALETTES: Record<Theme, ITheme> = {
   light: {
-    background: "#eceef1",
+    background: "#f4f4f4",
     foreground: "#24292f",
     cursor: "#1f2328",
-    cursorAccent: "#eceef1",
-    selectionBackground: "#cdd2d9",
+    cursorAccent: "#f4f4f4",
+    selectionBackground: "#d4d4d4",
     black: "#24292f",
     red: "#b42318",
     green: "#2a7333",
@@ -213,6 +213,7 @@ export function Shell({
   visible,
   claude = false,
   onTitle,
+  onHeading,
   onSpawn,
   onClaude,
   onCredit,
@@ -235,6 +236,8 @@ export function Shell({
   /** Claude Code is in front in it now, not the shell or another program. */
   claude?: boolean;
   onTitle?: (title: string) => void;
+  /** The title the program in it sets for the terminal. */
+  onHeading?: (heading: string) => void;
   onSpawn?: (pty: number) => void;
   /** Whether Claude Code was found, so this tab can run it. */
   onClaude?: (found: boolean) => void;
@@ -263,9 +266,9 @@ export function Shell({
   const show = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Latest callbacks, so the effect below runs once per shell, not per render.
-  const handlers = useRef({ claude, onTitle, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit });
+  const handlers = useRef({ claude, onTitle, onHeading, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit });
   useEffect(() => {
-    handlers.current = { claude, onTitle, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
+    handlers.current = { claude, onTitle, onHeading, onSpawn, onClaude, onCredit, onOutput, onInput, onScreen, onOpenPlan, session, onOpenFile, onExit };
   });
   // The blueprint's sections, for `blueprint-list`. Through a ref for the same
   // reason: a blueprint that updates must not restart the shell.
@@ -390,6 +393,7 @@ export function Shell({
       };
       refit();
 
+      const heading = term.onTitleChange((title) => handlers.current.onHeading?.(title));
       const early: string[] = [];
       const input = term.onData((data) => {
         if (id === null) return void early.push(data);
@@ -574,6 +578,7 @@ export function Shell({
         offFocus();
         seen.disconnect();
         input.dispose();
+        heading.dispose();
         planLinks.dispose();
         fileLinks.dispose();
         term.dispose();

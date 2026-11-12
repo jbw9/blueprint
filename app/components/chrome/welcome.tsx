@@ -92,7 +92,7 @@ function Tour() {
   return (
     <main className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-paper px-6 py-16">
       <div className="w-full max-w-[640px]">
-        <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
+        <p className="text-[12px] font-medium text-muted-slate">
           {step + 1} / {steps.length}
         </p>
         <div key={step} className="animate-[tour-in_220ms_ease-out]">
@@ -126,7 +126,7 @@ function Tour() {
 /** Each theme's own colours, so a card shows its theme whatever the page is in. */
 const LOOKS: { value: Theme; label: string; note: string; bar: string; paper: string; ink: string; line: string; box: string; tint: string }[] = [
   { value: "dark", label: "Dark", note: "Easy at night", bar: "#000000", paper: "#0f0f11", ink: "#fafafa", line: "#3a3a40", box: "#18181b", tint: "#222226" },
-  { value: "light", label: "Light", note: "Soft grey, slate ink", bar: "#eceef1", paper: "#f5f6f8", ink: "#1f2328", line: "#d8dce2", box: "#ffffff", tint: "#e6edf5" },
+  { value: "light", label: "Light", note: "White, black ink", bar: "#f4f4f4", paper: "#ffffff", ink: "#1f2328", line: "#dedede", box: "#ffffff", tint: "#ececec" },
 ];
 
 function Themes() {
@@ -150,7 +150,7 @@ function Themes() {
             <Mini look={l} />
             <span className="mt-2 flex items-center justify-between px-1">
               <span className="text-[13px] font-semibold text-ink">{l.label}</span>
-              {on ? <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-accent">On</span> : null}
+              {on ? <span className="text-[12px] font-medium text-accent">On</span> : null}
             </span>
             <span className="block px-1 text-[12px] text-muted-slate">{l.note}</span>
           </button>
