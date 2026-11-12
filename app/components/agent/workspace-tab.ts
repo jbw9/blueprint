@@ -54,6 +54,8 @@ export interface Tab {
   credit?: boolean;
   /** Its Claude was refused a call because the credit is used up. */
   outOfCredit?: boolean;
+  /** The reader chose their own Claude Code in Settings, so this credit tab asks to move. */
+  offerOwn?: boolean;
 }
 
 /** How a project is run, from its files (src-tauri/src/devices.rs). */

@@ -671,7 +671,7 @@ export function Workspace() {
         if (key === undefined) return x;
         if (x.pty !== undefined) tabEnded(x.pty);
         // Started in Claude even if it was run from the strip of a plain terminal: only a start resumes.
-        return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, outOfCredit: false, start: CLAUDE.id, run: undefined, resume: x.session };
+        return { ...x, key, pty: undefined, live: false, busy: false, status: undefined, credit: false, outOfCredit: false, offerOwn: false, start: CLAUDE.id, run: undefined, resume: x.session };
       }),
     );
     const refused = all.filter((x) => x.outOfCredit);
@@ -686,15 +686,16 @@ export function Workspace() {
   useEffect(() => {
     ownClaude.current = toOwnClaude;
   });
-  // Choosing "Use my Claude Code" in Settings, or signing out, moves the open credit tabs too: a Claude
-  // started on the credit keeps its Bedrock settings for as long as it runs, whatever is chosen later.
+  // Choosing "Use my Claude Code" in Settings, or signing out, makes the open credit tabs ask to move: a Claude
+  // started on the credit keeps its Bedrock settings for as long as it runs, whatever is chosen later, and
+  // moving restarts it, so the reader says when. Choosing the credit again withdraws the ask.
   useEffect(
     () =>
       onCreditChanged(() => {
         void readCredit().then((c) => {
-          if (!c || (c.on && c.login)) return;
-          const keys = tabsNow.current.filter((t) => t.credit && t.session).map((t) => t.key);
-          if (keys.length) ownClaude.current(keys);
+          if (!c) return;
+          const offer = !(c.on && c.login);
+          setTabs((all) => all.map((t) => (t.credit && !!t.offerOwn !== offer ? { ...t, offerOwn: offer } : t)));
         });
       }),
     [],
@@ -1636,9 +1637,9 @@ export function Workspace() {
             ) : (
               shell
             )}
-            {t.credit && t.outOfCredit && visible ? (
+            {t.credit && t.session && (t.outOfCredit || t.offerOwn) && visible ? (
               <div data-chrome className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 border border-accent-line bg-accent-surface px-3 py-2 font-mono text-[12px] text-ink shadow-sm">
-                <span className="min-w-0 flex-1">Your Blueprint credit for Claude Code is used up. Claude picks this conversation up on your own Claude Code and carries on.</span>
+                <span className="min-w-0 flex-1">{t.outOfCredit ? "Your Blueprint credit for Claude Code is used up. Claude picks this conversation up on your own Claude Code and carries on." : "You chose your own Claude Code. This tab still runs on Blueprint credit until it moves; the conversation carries on."}</span>
                 <button type="button" onClick={() => toOwnClaude([t.key])} className="shrink-0 bg-accent px-3 py-1 font-medium text-on-accent hover:bg-accent-strong">
                   Switch to my Claude Code
                 </button>
