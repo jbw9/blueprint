@@ -597,18 +597,18 @@ function SignIns() {
     invoke<Kept>("signin_list").then(setKept, (e) => setFailed(String(e)));
   }, []);
   useEffect(read, [read]);
-  if (!kept) return <span className="font-mono text-[11.5px] text-faint">{failed ?? "Looking…"}</span>;
+  if (!kept) return <span className="text-[12.5px] text-faint">{failed ?? "Looking…"}</span>;
   const rows = [
     ...kept.global.map((site) => ({ site, root: null as string | null, where: "All projects" })),
     ...Object.entries(kept.projects).flatMap(([root, sites]) =>
       sites.map((site) => ({ site, root, where: root.split("/").filter(Boolean).pop() ?? root })),
     ),
   ];
-  if (!rows.length) return <span className="font-mono text-[11.5px] text-faint">None yet.</span>;
+  if (!rows.length) return <span className="text-[12.5px] text-muted-slate">No sites yet. When you sign in to a site in a Preview tab, it is kept here so you stay signed in.</span>;
   return (
-    <ul className="flex flex-col gap-1 font-mono text-[11.5px]">
+    <ul className="flex flex-col gap-1 text-[12.5px]">
       {rows.map((r) => (
-        <li key={`${r.root ?? ""}:${r.site}`} className="flex items-baseline gap-3">
+        <li key={`${r.root ?? ""}:${r.site}`} className="flex items-center gap-3 rounded-md bg-surface-container px-3 py-2">
           <span className="truncate text-ink">{r.site}</span>
           <span className="truncate text-faint" title={r.root ?? undefined}>
             {r.where}
@@ -616,7 +616,7 @@ function SignIns() {
           <button
             type="button"
             onClick={() => invoke("signin_forget", { root: r.root, site: r.site }).then(read, (e) => setFailed(String(e)))}
-            className="ml-auto shrink-0 cursor-pointer text-faint hover:text-ink"
+            className="ml-auto shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-muted-slate transition-colors hover:bg-card hover:text-ink"
           >
             Forget
           </button>
