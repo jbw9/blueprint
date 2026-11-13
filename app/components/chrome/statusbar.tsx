@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openReview } from "@/components/review/diff";
 import { openFiles, useFiles } from "@/components/blueprint/files";
@@ -69,7 +69,7 @@ export function StatusBar() {
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
+      <BlueprintUpdates key={name} id={name} p={project} root={RUN.root} local={local} />
       {STATIC_BLUEPRINT ? null : <UpdateReady />}
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
     </footer>
@@ -323,7 +323,24 @@ function rowOf(roots: Node[], id: string, state: RowState, title?: string): Upda
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
-function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: string; local: boolean }) {
+const putKey = (id: string) => `blueprint:update-seen:${id}`;
+function readPut(id: string): string | undefined {
+  try {
+    return localStorage.getItem(putKey(id)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+function writePut(id: string, at?: string) {
+  try {
+    if (at) localStorage.setItem(putKey(id), at);
+    else localStorage.removeItem(putKey(id));
+  } catch {
+    /* storage off: it is put away until the page reloads */
+  }
+}
+
+function BlueprintUpdates({ id, p, root, local }: { id: string; p: ProjectState | null; root?: string; local: boolean }) {
   const u = p?.update ?? null;
   const desktop = useDesktop();
   const { live, L0 } = useBlueprint();
@@ -335,15 +352,16 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
     return () => window.removeEventListener(UNFOLLOWED, on);
   }, [root]);
 
-  // A finished update already done with: the one on record when the page
-  // opened, or one the reader dismissed or looked at. Only a newer one shows.
-  const [put, setPut] = useState<string | undefined>(undefined);
-  const first = useRef(true);
-  useEffect(() => {
-    if (!p) return;
-    if (first.current && u?.status === "done") setPut(u.finishedAt);
-    first.current = false;
-  }, [p, u]);
+  // A finished update the reader dismissed or looked at, kept with the project
+  // so a restart does not bring it back. Until then it stays.
+  const [put, setPut] = useState<string | undefined>(() => readPut(id));
+  const putAway = useCallback(
+    (at?: string) => {
+      setPut(at);
+      writePut(id, at);
+    },
+    [id],
+  );
 
   const behind = local ? (live?.files ?? []) : [];
   const head = local ? live?.head : undefined;
@@ -362,7 +380,7 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
 
   const view = useMemo((): UpdateView | null => {
     if (!p) return null;
-    const dismiss = () => setPut(u?.finishedAt);
+    const dismiss = () => putAway(u?.finishedAt);
     if (u?.status === "running") {
       const found = p.updating?.found ?? false;
       return {
@@ -386,7 +404,7 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
       paused,
       update: paused ? undefined : follow,
     };
-  }, [p, u, put, L0, live, behind.length, root, paused, follow]);
+  }, [p, u, put, putAway, L0, live, behind.length, root, paused, follow]);
 
   useEffect(() => setUpdateView(view), [view]);
   useEffect(() => () => setUpdateView(null), []);
