@@ -3,10 +3,10 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { openSettings } from "@/lib/client/settings";
-import { openPalette } from "@/components/chrome/palette";
+import { openPalette, usePaletteOpen } from "@/components/chrome/palette";
 import { Kbd, keys } from "@/components/ui/button";
 import { openDiff, useDiff } from "@/components/review/diff";
-import { toggleWorkspace } from "@/lib/agent/workspace-toggle";
+import { toggleWorkspace, useWorkspaceOpen } from "@/lib/agent/workspace-toggle";
 import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 import { toggleRail, useRailExpanded, useRailWidth } from "@/lib/client/rail";
@@ -42,6 +42,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
   const desktop = useDesktop();
   const rail = useRailWidth();
   const wide = useRailExpanded();
+  const workspaceOpen = useWorkspaceOpen();
   const [maximized, setMaximized] = useState(false);
   // Only read once `desktop` is true, which is never on the server.
   const mac = desktop && /Mac/.test(navigator.userAgent);
@@ -98,6 +99,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
             label="Claude Code & terminal"
             kbd={keys(mac, "`")}
             onClick={toggleWorkspace}
+            active={workspaceOpen}
           >
             <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
             <path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3" />
@@ -162,6 +164,7 @@ export function FoldButton({ wide }: { wide: boolean }) {
 /** The tools that act on the open blueprint. */
 function BlueprintTools({ mac }: { mac: boolean }) {
   const diff = useDiff();
+  const palette = usePaletteOpen();
   return (
     <>
       <Control
@@ -177,7 +180,7 @@ function BlueprintTools({ mac }: { mac: boolean }) {
           <path d="M18 9a9 9 0 0 1-9 9" />
         </g>
       </Control>
-      <Control label="Open a file, folder or symbol" kbd={keys(mac, "K")} onClick={() => openPalette("code")}>
+      <Control label="Open a file, folder or symbol" kbd={keys(mac, "K")} onClick={() => openPalette("code")} active={palette}>
         {/* Lucide's search. */}
         <g transform="scale(0.6667)" strokeWidth="1.875">
           <circle cx="11" cy="11" r="7" />

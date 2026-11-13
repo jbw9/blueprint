@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { signal } from "@/lib/client/signal";
 import { openFeedback } from "@/components/chrome/feedback";
 import { goTo, useLocation } from "@/components/chrome/crumbs";
 import { openFileInTab } from "@/components/blueprint/code";
@@ -39,6 +40,10 @@ const OPEN = "blueprint:palette";
 export type PaletteMode = "all" | "code" | "actions" | "blueprints" | "unsure" | "problems" | "docs";
 export const openPalette = (mode: PaletteMode = "all") =>
   window.dispatchEvent(new CustomEvent<PaletteMode>(OPEN, { detail: mode }));
+
+let paletteOpen = false;
+const paletteSignal = signal();
+export const usePaletteOpen = () => useSyncExternalStore(paletteSignal.subscribe, () => paletteOpen, () => false);
 
 interface Item {
   key: string;
@@ -123,6 +128,15 @@ export function Palette() {
 
   useEffect(() => {
     if (mode) input.current?.focus();
+  }, [mode]);
+
+  useEffect(() => {
+    paletteOpen = mode !== null;
+    paletteSignal.emit();
+    return () => {
+      paletteOpen = false;
+      paletteSignal.emit();
+    };
   }, [mode]);
 
   const levels = useMemo<Item[]>(() => {

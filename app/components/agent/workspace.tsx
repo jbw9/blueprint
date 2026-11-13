@@ -25,7 +25,7 @@ import { agentHeading, type Project, type Tab } from "@/components/agent/workspa
 import { dragWidth, storedWidth } from "@/components/agent/workspace-width";
 import { Device, PLATFORM, type Platform } from "@/components/preview/device";
 import { onHand, onOpenClaude, paste, prompt, retarget, section, tabEnded, tabStarted } from "@/lib/agent/context";
-import { SHOW_BLUEPRINT, TOGGLE } from "@/lib/agent/workspace-toggle";
+import { SHOW_BLUEPRINT, TOGGLE, setWorkspaceOpen } from "@/lib/agent/workspace-toggle";
 import { useLocation } from "@/components/chrome/crumbs";
 import { DROP_TARGET, DropMarker, BlueprintIcon, NewTab, OPEN_BLANK, OPEN_PREVIEW, TAB_OPENED, TAB_STRIP, TabClose, TabLabel, openInTab, show as showTab, tabLook, tabTitle, useDropOn } from "@/components/chrome/tabs";
 import { closeTab, justOpened, selectTab, useTabs } from "@/lib/client/tabs";
@@ -163,6 +163,10 @@ export function Workspace() {
     setTabs((all) => all.map((x) => (x.key === key ? { ...x, ...next } : x)));
 
   const show = useCallback((next: boolean) => setOpen(next), []);
+  useEffect(() => {
+    setWorkspaceOpen(open);
+    return () => setWorkspaceOpen(false);
+  }, [open]);
 
   const add = useCallback(
     (start: string | null, extra?: Partial<Tab>, behind?: boolean) => {
