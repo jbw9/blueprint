@@ -165,10 +165,19 @@ export function FoldButton({ wide }: { wide: boolean }) {
 function BlueprintTools({ mac }: { mac: boolean }) {
   const diff = useDiff();
   const palette = usePaletteOpen();
+  const what = diff?.repo?.github ? "Commits and issues" : "Commits";
   return (
     <>
+      {/* A project that is not a git repository has no commits to show. */}
+      {diff?.repo && !diff.repo.git ? null : (
       <Control
-        label={diff?.diff || diff?.loading ? "Commits and issues — showing changes on the blueprint. Open them" : "Commits and issues — what each commit changed, and the open issues"}
+        label={
+          diff?.diff || diff?.loading
+            ? `${what} — showing changes on the blueprint. Open them`
+            : diff?.repo?.github
+              ? "Commits and issues — what each commit changed, and the open issues"
+              : "Commits — what each commit changed"
+        }
         onClick={openDiff}
         active={Boolean(diff?.diff || diff?.loading)}
       >
@@ -180,6 +189,7 @@ function BlueprintTools({ mac }: { mac: boolean }) {
           <path d="M18 9a9 9 0 0 1-9 9" />
         </g>
       </Control>
+      )}
       <Control label="Open a file, folder or symbol" kbd={keys(mac, "K")} onClick={() => openPalette("code")} active={palette}>
         {/* Lucide's search. */}
         <g transform="scale(0.6667)" strokeWidth="1.875">

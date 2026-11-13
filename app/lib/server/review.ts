@@ -64,6 +64,12 @@ export function defaultBase(root: string): string {
 }
 
 /** Local and remote branches, most recently committed first. */
+/** What the checkout is: a git repository at all, which commits need, and one on GitHub, which issues need. */
+export function repoKind(root: string): { git: boolean; github: boolean } {
+  if (git(root, "rev-parse", "--is-inside-work-tree").trim() !== "true") return { git: false, github: false };
+  return { git: true, github: /github\.com[:/]/i.test(git(root, "remote", "-v")) };
+}
+
 export function branches(root: string, n = 60): Branch[] {
   return git(root, "for-each-ref", "--sort=-committerdate", `--count=${n}`, "--format=%(refname:short)%09%(committerdate:iso-strict)%09%(subject)", "refs/heads", "refs/remotes")
     .split("\n")

@@ -5,7 +5,7 @@ import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
 import { apply, readOverlay } from "@/lib/server/overlay";
 import { projectDir, reviewBlueprint } from "@/lib/server/vault";
 import { summariesOf, summarize } from "@/lib/server/history";
-import { branches, defaultBase, pulls, reviewRange, type Review } from "@/lib/server/review";
+import { branches, defaultBase, pulls, repoKind, reviewRange, type Review } from "@/lib/server/review";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
   if (!open) return bad("No such blueprint.", 404);
   const root = rootOf(open.file.RUN);
 
+  if (q.get("repo")) return Response.json(repoKind(root));
   if (q.get("commits")) return Response.json({ commits: commitLog(root, 200), at: open.file.RUN.commit });
   // A commit's summary, if one was asked for before (POST below makes one).
   const sha = q.get("summary");

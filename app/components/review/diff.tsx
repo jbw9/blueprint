@@ -54,6 +54,10 @@ export interface DiffState {
   /** `pr:<n>` or `<base>...<branch>`, where the diff is a review (lib/server/review.ts); it then sets both ends. */
   review?: string;
   commits: Commit[];
+  /** Whether the commit list has been read: until then an empty one is not yet known to be empty. */
+  listed: boolean;
+  /** What the checkout is, once known: commits need git, issues need GitHub. */
+  repo: { git: boolean; github: boolean } | null;
   setRange: (from?: string, to?: string) => void;
   setReview: (spec?: string) => void;
   /** Asks again for the same diff, when something it is drawn from was made since (a review's blueprint after). */
@@ -164,6 +168,19 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
   const [range, setR] = useState<{ from?: string; to?: string; review?: string }>({});
   const [commits, setCommits] = useState<Commit[]>([]);
   const [listed, setListed] = useState(false);
+  // Read with the blueprint, not with the mode, so the title bar knows whether to offer it at all.
+  const [repo, setRepo] = useState<{ blueprint: string; git: boolean; github: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/diff?blueprint=${encodeURIComponent(blueprint)}&repo=1`)
+      .then((r) => r.json())
+      .then((j: { git?: boolean; github?: boolean }) => live && setRepo({ blueprint, git: !!j.git, github: !!j.github }))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [blueprint]);
+  const known = useMemo(() => (repo?.blueprint === blueprint ? { git: repo.git, github: repo.github } : null), [repo, blueprint]);
   // Nothing asked for is the newest commit, as a history opens (D76) — read
   // here, so the panel, the bar and the blueprint all mean the same change.
   const idle = !range.from && !range.to && !range.review;
@@ -241,8 +258,8 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
     return () => window.removeEventListener(OPEN_REVIEW, on);
   }, []);
   const value = useMemo<DiffState>(
-    () => ({ diff: on ? (here?.diff ?? null) : null, loading: on && !here, error: here?.error, ...range, from: shown.from, to: shown.to, commits, setRange, setReview, reload, off: onOff }),
-    [on, here, range, shown.from, shown.to, commits, setRange, setReview, reload, onOff],
+    () => ({ diff: on ? (here?.diff ?? null) : null, loading: on && !here, error: here?.error, ...range, from: shown.from, to: shown.to, commits, listed, repo: known, setRange, setReview, reload, off: onOff }),
+    [on, here, range, shown.from, shown.to, commits, listed, known, setRange, setReview, reload, onOff],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

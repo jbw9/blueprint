@@ -96,6 +96,8 @@ export function DiffPanel() {
   }, [shown]);
 
   if (!shown || !d) return null;
+  // Issues are GitHub's: elsewhere the panel is its commits alone.
+  const view: Tab = d.repo?.github ? tab : "commits";
 
   function pick(c: Commit) {
     if (c !== picked) d!.setRange(`${c.sha}~1`, c.sha);
@@ -173,11 +175,16 @@ export function DiffPanel() {
     >
       <div className={DIALOG + " pop h-[min(620px,100%)] max-w-[940px]"}>
         <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
-          <div className="mr-2">
-            <Segmented label="Commits or issues" value={tab} options={TABS} onChange={setTab} />
-          </div>
+          {/* Issues are GitHub's, so a checkout elsewhere has only its commits. */}
+          {d.repo?.github ? (
+            <div className="mr-2">
+              <Segmented label="Commits or issues" value={view} options={TABS} onChange={setTab} />
+            </div>
+          ) : (
+            <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">Commits</h2>
+          )}
           {/* The commit tools are about commits, so the Issues tab goes without them. */}
-          {tab === "commits" ? (
+          {view === "commits" ? (
             <>
               <div className="flex min-w-0">
                 <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
@@ -222,7 +229,7 @@ export function DiffPanel() {
           <PanelClose onClick={() => setShown(false)} className="my-0 ml-1" />
         </header>
 
-        {tab === "issues" ? (
+        {view === "issues" ? (
           <IssuesTab blueprint={blueprint} onGiven={() => setShown(false)} />
         ) : (
         <div className="flex min-h-0 flex-1">
@@ -286,7 +293,7 @@ export function DiffPanel() {
                   </Row>
                 );
               })}
-              {!all.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">Reading the history…</p> : null}
+              {!all.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">{d.listed ? "No commits yet." : "Reading the history…"}</p> : null}
               {q && !commits.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">No commit matches “{query}”.</p> : null}
             </div>
           </aside>

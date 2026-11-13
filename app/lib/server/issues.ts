@@ -29,7 +29,8 @@ export interface FullIssue extends Issue {
   text: string;
 }
 
-const NO_GH = "Issues need the GitHub CLI (`gh`), installed and signed in, in a checkout with a GitHub remote.";
+// Asked only of a checkout on GitHub (lib/server/review.ts `repoKind`), so what is missing is the CLI.
+const NO_GH = "Issues are read with the GitHub CLI. Install it from cli.github.com, then run `gh auth login`.";
 /** The comments Claude is given: the newest, which say where the issue stands. */
 const KEPT = 10;
 
