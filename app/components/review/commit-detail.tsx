@@ -204,7 +204,7 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
   if (!got) return null;
   if (got.summary) {
     return (
-      <div className="mt-3 rounded-md border-l-2 border-accent bg-accent/[0.07] px-3 py-2">
+      <div className="mt-3 rounded-md bg-accent/[0.07] px-3 py-2">
         <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-accent">In short</p>
         <p className="mt-1 text-[13px] leading-relaxed text-ink">{got.summary.text}</p>
       </div>
