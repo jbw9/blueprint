@@ -10,7 +10,7 @@ import { goTo } from "@/components/chrome/crumbs";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import type { Commit, SectionDiff } from "@/lib/server/diff";
 import { ReviewCard, ReviewPicker, Outside } from "@/components/review/reviews";
-import { FileRow, Rail, Row } from "@/components/review/commits";
+import { FileRow, PendingFileRow, Rail, Row } from "@/components/review/commits";
 import { Comparing, Details, EndTag, OnTheBlueprint, Refs } from "@/components/review/commit-detail";
 import { setDiffFile, useDiffFile } from "@/components/review/diff-file";
 import { showBlueprint } from "@/lib/agent/workspace-toggle";
@@ -50,6 +50,8 @@ export function DiffPanel() {
   const [query, setQuery] = useState("");
   const reading = useDiffFile();
   const list = useRef<HTMLDivElement>(null);
+  // Commits clicked away from keep their files on screen while the pointer stays in the list, so a row below never moves from under it.
+  const [linger, setLinger] = useState<string[]>([]);
 
   useEffect(() => {
     const on = () => setShownRaw(true);
@@ -77,6 +79,7 @@ export function DiffPanel() {
   const setFile = (path: string | null) => setDiffFile(path ? { files, path, open: true } : null);
   const setShown = (on: boolean) => {
     setShownRaw(on);
+    setLinger([]);
     // The file's tab goes with the panel, unless it was moved into the main view to keep.
     if (!on) setDiffFile((was) => was && { ...was, open: false });
   };
@@ -205,9 +208,11 @@ export function DiffPanel() {
               role="listbox"
               aria-label="Commits and their files"
               tabIndex={0}
+              onMouseLeave={() => setLinger([])}
               onKeyDown={(e) => {
                 if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !items.length) return;
                 e.preventDefault();
+                setLinger([]);
                 const at = Math.max(0, Math.min(items.length - 1, (active < 0 ? 0 : active) + (e.key === "ArrowDown" ? 1 : -1)));
                 pick(items[at]);
               }}
@@ -230,7 +235,11 @@ export function DiffPanel() {
                     <Row
                       on={on || !!end}
                       soft={inPair}
-                      onPick={(e) => (e.shiftKey || e.metaKey || e.ctrlKey ? compare(c) : pick(it, true))}
+                      onPick={(e) => {
+                        if (anchor && anchor !== c && folded !== anchor.sha && all.indexOf(anchor) < n) setLinger((l) => [...l, anchor.sha]);
+                        if (e.shiftKey || e.metaKey || e.ctrlKey) compare(c);
+                        else pick(it, true);
+                      }}
                       title={`${c.subject}\n${c.author} <${c.email ?? ""}> · ${new Date(c.at).toLocaleString()}\n${c.sha}`}
                     >
                       <Rail dot={(c.parents?.length ?? 0) > 1 ? "merge" : on || inPair ? "on" : "off"} first={first} last={last} />
@@ -265,13 +274,8 @@ export function DiffPanel() {
                       ) : null}
                     </Row>
                     {/* The commit's own paths, from the log, while its diff is read. */}
-                    {c === picked && d.loading && folded !== c.sha
-                      ? c.files.slice(0, 200).map((p) => (
-                          <div key={p} className="flex items-center gap-1.5 pr-3 text-faint">
-                            <Rail />
-                            <span className="min-w-0 flex-1 truncate pl-3 font-mono text-[11.5px]">{p}</span>
-                          </div>
-                        ))
+                    {(c === picked && d.loading && folded !== c.sha) || (c !== anchor && linger.includes(c.sha))
+                      ? c.files.slice(0, 200).map((p) => <PendingFileRow key={p} path={p} />)
                       : null}
                   </Fragment>
                 );
@@ -299,7 +303,20 @@ export function DiffPanel() {
                   <h3 className="text-[17px] font-semibold leading-snug text-ink">{caption}</h3>
                 )}
                 {diff?.review ? <ReviewCard r={diff.review} blueprint={blueprint} spec={d.review} onMade={d.reload} /> : null}
-                {d.loading ? <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p> : null}
+                {d.loading && picked ? (
+                  <>
+                    <Counts files={picked.files.length} added={picked.added} removed={picked.removed} />
+                    <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files</h3>
+                    <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
+                      {picked.files.slice(0, 200).map((p) => (
+                        <PendingFileRow key={p} path={p} flat />
+                      ))}
+                    </div>
+                    <p className="mt-6 text-[12.5px] text-muted-slate">Reading what it changed on the blueprint…</p>
+                  </>
+                ) : d.loading ? (
+                  <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p>
+                ) : null}
                 {d.error ? (
                   <p className="mt-4 text-[13px]" style={{ color: TINT.removed.ink }}>
                     {d.error}
@@ -307,11 +324,7 @@ export function DiffPanel() {
                 ) : null}
                 {diff && !d.loading ? (
                   <>
-                    <p className="tnum mt-2 font-mono text-[11.5px] text-muted-slate">
-                      {diff.files.length} {diff.files.length === 1 ? "file" : "files"} ·{" "}
-                      <span style={{ color: TINT.added.ink }}>+{diff.files.reduce((n, f) => n + f.added, 0)}</span>{" "}
-                      <span style={{ color: TINT.removed.ink }}>−{diff.files.reduce((n, f) => n + f.removed, 0)}</span>
-                    </p>
+                    <Counts files={diff.files.length} added={diff.files.reduce((n, f) => n + f.added, 0)} removed={diff.files.reduce((n, f) => n + f.removed, 0)} />
                     {/* A file-level answer never pretends to be a section-level one. */}
                     <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files</h3>
                     {diff.files.length ? (
@@ -333,5 +346,14 @@ export function DiffPanel() {
         </div>
       </div>
     </Overlay>
+  );
+}
+
+function Counts({ files, added, removed }: { files: number; added: number; removed: number }) {
+  return (
+    <p className="tnum mt-2 font-mono text-[11.5px] text-muted-slate">
+      {files} {files === 1 ? "file" : "files"} · <span style={{ color: TINT.added.ink }}>+{added}</span>{" "}
+      <span style={{ color: TINT.removed.ink }}>−{removed}</span>
+    </p>
   );
 }

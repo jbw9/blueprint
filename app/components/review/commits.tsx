@@ -59,18 +59,37 @@ export function Rail({ dot, first, last }: { dot?: "on" | "off" | "merge"; first
   );
 }
 
+function Name({ path, flat, gone }: { path: string; flat?: boolean; gone?: boolean }) {
+  const cut = path.lastIndexOf("/");
+  const dir = cut > 0 ? path.slice(0, cut) : "";
+  return (
+    <span className={cn("min-w-0 flex-1 truncate py-[3px] text-[12px]", !flat && "pl-3")}>
+      <span className={cn("text-ink", gone && "line-through")}>{path.slice(cut + 1)}</span>
+      {dir ? <span className="ml-1.5 text-[11px] text-faint">{dir}</span> : null}
+    </span>
+  );
+}
+
+/** A file the commit names while its diff is still being read: the same row, dimmed, so nothing moves when it arrives. */
+export function PendingFileRow({ path, last, flat }: { path: string; last?: boolean; flat?: boolean }) {
+  return flat ? (
+    <div className="flex items-center gap-2 border-b border-border-gray px-3 py-1 opacity-50 last:border-b-0">
+      <Name path={path} flat />
+    </div>
+  ) : (
+    <div className="flex items-stretch gap-2 pr-3 opacity-50">
+      <Rail last={last} />
+      <Name path={path} />
+    </div>
+  );
+}
+
 /** A changed file as a row: name, folder, line counts and its M/A/D letter. */
 export function FileRow({ file, on, last, flat, onPick }: { file: FileChange; on?: boolean; last?: boolean; flat?: boolean; onPick: () => void }) {
   const t = TINT[file.verdict];
-  const cut = file.path.lastIndexOf("/");
-  const name = file.path.slice(cut + 1);
-  const dir = cut > 0 ? file.path.slice(0, cut) : "";
   const body = (
     <>
-      <span className={cn("min-w-0 flex-1 truncate py-[3px] text-[12px]", !flat && "pl-3")}>
-        <span className={cn("text-ink", file.verdict === "removed" && "line-through")}>{name}</span>
-        {dir ? <span className="ml-1.5 text-[11px] text-faint">{dir}</span> : null}
-      </span>
+      <Name path={file.path} flat={flat} gone={file.verdict === "removed"} />
       <span className="tnum shrink-0 font-mono text-[10.5px]">
         <span style={{ color: TINT.added.ink }}>+{file.added}</span> <span style={{ color: TINT.removed.ink }}>−{file.removed}</span>
       </span>

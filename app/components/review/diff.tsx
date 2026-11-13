@@ -126,6 +126,40 @@ export function DiffMode({ blueprint, children }: { blueprint: string; children:
   );
 }
 
+type Answer = { q: string; diff?: BlueprintDiff; error?: string };
+
+const queryOf = (blueprint: string, from?: string, to?: string, review?: string) => {
+  const q = new URLSearchParams({ blueprint });
+  if (from) q.set("from", from);
+  if (to) q.set("to", to);
+  if (review) q.set("review", review);
+  return q.toString();
+};
+
+const SHA = /^[0-9a-f]{7,40}$/;
+/** Between two commits named by sha the answer cannot change, so it is kept; a branch, a review or the working tree moves. */
+const fixed = (from?: string, to?: string, review?: string) => !review && !!to && SHA.test(to) && !!from && SHA.test(from.replace(/~1$/, ""));
+/** Answers kept for this opening of the history: in flight, and settled so a render can read one without waiting. */
+const kept = new Map<string, Promise<Answer>>();
+const done = new Map<string, Answer>();
+
+function ask(q: string, keep: boolean): Promise<Answer> {
+  const had = kept.get(q);
+  if (had) return had;
+  const p: Promise<Answer> = fetch(`/api/diff?${q}`)
+    .then((r) => r.json())
+    .then((j) => (j.error ? { q, error: j.error as string } : { q, diff: j as BlueprintDiff }))
+    .catch(() => ({ q, error: "Could not read the checkout." }));
+  if (!keep) return p;
+  kept.set(q, p);
+  void p.then((a) => {
+    if (kept.get(q) !== p) return;
+    if (a.error) kept.delete(q);
+    else done.set(q, a);
+  });
+  return p;
+}
+
 function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; on: boolean; onOff: () => void; children: React.ReactNode }) {
   const [range, setR] = useState<{ from?: string; to?: string; review?: string }>({});
   const [commits, setCommits] = useState<Commit[]>([]);
@@ -142,12 +176,8 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
    * is the cascading render `react-hooks/set-state-in-effect` is about and
    * which `useInstalled` (components/agent/agents.tsx) avoids the same way.
    */
-  const [got, setGot] = useState<{ q: string; diff?: BlueprintDiff; error?: string }>();
-  const q = new URLSearchParams({ blueprint });
-  if (shown.from) q.set("from", shown.from);
-  if (shown.to) q.set("to", shown.to);
-  if (range.review) q.set("review", range.review);
-  const asked = q.toString();
+  const [got, setGot] = useState<Answer>();
+  const asked = queryOf(blueprint, shown.from, shown.to, range.review);
   const [again, setAgain] = useState(0);
 
   useEffect(() => {
@@ -155,21 +185,23 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
     // off, so the last answer is simply not read, and turning the mode back on
     // re-fetches over it.
     // Idle, it waits for the list that names the newest commit.
-    if (!on || (idle && !listed)) return;
+    if (!on || (idle && !listed) || done.has(asked)) return;
     let live = true;
-    fetch(`/api/diff?${asked}`)
-      .then((r) => r.json())
-      .then((j) => live && setGot(j.error ? { q: asked, error: j.error } : { q: asked, diff: j as BlueprintDiff }))
-      .catch(() => live && setGot({ q: asked, error: "Could not read the checkout." }));
+    void ask(asked, fixed(shown.from, shown.to, range.review)).then((a) => live && setGot(a));
     return () => {
       live = false;
     };
-  }, [on, asked, again, idle, listed]);
+  }, [on, asked, again, idle, listed, shown.from, shown.to, range.review]);
 
   // Read again each time the history is asked for: commits made since (Claude's) would be missing from it.
   const [asks, setAsks] = useState(0);
   useEffect(() => {
-    const ask = () => setAsks((n) => n + 1);
+    const ask = () => {
+      // The blueprint may have been updated since, and an answer names its sections.
+      kept.clear();
+      done.clear();
+      setAsks((n) => n + 1);
+    };
     window.addEventListener(OPEN_DIFF, ask);
     return () => window.removeEventListener(OPEN_DIFF, ask);
   }, []);
@@ -186,15 +218,28 @@ function DiffProvider({ blueprint, on, onOff, children }: { blueprint: string; o
     };
   }, [blueprint, on, asks]);
 
+  const here = got?.q === asked ? got : done.get(asked);
+
+  // The commits either side of the one read are read ahead, so walking the history waits on nothing.
+  useEffect(() => {
+    if (!on || !here || range.review || !shown.to || shown.from !== `${shown.to}~1`) return;
+    const at = commits.findIndex((c) => c.sha === shown.to);
+    if (at < 0) return;
+    for (const c of [commits[at + 1], commits[at - 1]]) if (c) void ask(queryOf(blueprint, `${c.sha}~1`, c.sha), true);
+  }, [on, here, range.review, shown.from, shown.to, commits, blueprint]);
+
   const setRange = useCallback((from?: string, to?: string) => setR({ from, to }), []);
   const setReview = useCallback((review?: string) => setR({ review }), []);
-  const reload = useCallback(() => setAgain((n) => n + 1), []);
+  const reload = useCallback(() => {
+    kept.delete(asked);
+    done.delete(asked);
+    setAgain((n) => n + 1);
+  }, [asked]);
   useEffect(() => {
     const on = (e: Event) => setR({ review: (e as CustomEvent<string>).detail });
     window.addEventListener(OPEN_REVIEW, on);
     return () => window.removeEventListener(OPEN_REVIEW, on);
   }, []);
-  const here = got?.q === asked ? got : undefined;
   const value = useMemo<DiffState>(
     () => ({ diff: on ? (here?.diff ?? null) : null, loading: on && !here, error: here?.error, ...range, from: shown.from, to: shown.to, commits, setRange, setReview, reload, off: onOff }),
     [on, here, range, shown.from, shown.to, commits, setRange, setReview, reload, onOff],
