@@ -825,9 +825,9 @@ export function Workspace() {
   );
 
   // A file picked in the history panel (components/review/diff-file.tsx) reads
-  // in one tab of the window, opened with the panel's first pick and closed
-  // with the panel, unless it was moved to the main view. The window goes back
-  // to how it was: hidden again if the tab is what showed it.
+  // in one tab of the window, opened with the panel's first pick. The window
+  // goes back to how it was when the tab closes: hidden again if the tab is
+  // what showed it.
   const diffFile = useDiffFile();
   const readingOpen = !!diffFile?.open;
   const readingPath = diffFile?.path;

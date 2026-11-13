@@ -12,8 +12,7 @@ import { cn } from "@/lib/client/utils";
  * inside the panel, so the panel stays a small popup and the lines get the room.
  * The workspace sits outside the diff's provider, hence a store both can reach.
  *
- * `open` is whether the panel is still up: closing it closes the tab, unless the
- * reader moved the tab into the main view to keep it.
+ * Picking a file closes the panel; the tab stays until the reader closes it.
  */
 export interface DiffFile {
   files: FileChange[];

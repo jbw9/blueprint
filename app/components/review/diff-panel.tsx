@@ -23,8 +23,8 @@ import { openTimeline } from "@/components/review/timeline";
  * commit picked on the right — who, when, which sections of the blueprint it
  * moved, each opening its level where the red and green are drawn in place
  * (components/review/diff.tsx), and its files. A file picked opens in a tab
- * of the workspace window (components/review/diff-file.tsx), so this stays a
- * small popup; it closes with the panel unless moved to the main view.
+ * of the workspace window (components/review/diff-file.tsx) and the panel
+ * closes, so the lines get the screen; opening it again comes back to the commit.
  *
  * A commit's line counts are given once, on its files: the list says only
  * what each commit is and when, so picking one never changes its height.
@@ -42,13 +42,13 @@ import { openTimeline } from "@/components/review/timeline";
 export function DiffPanel() {
   const d = useDiff();
   const { nodeAt, name: blueprint } = useBlueprint();
-  const [shown, setShownRaw] = useState(false);
+  const [shown, setShown] = useState(false);
   const [query, setQuery] = useState("");
   const reading = useDiffFile();
   const list = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const on = () => setShownRaw(true);
+    const on = () => setShown(true);
     window.addEventListener(OPEN_DIFF, on);
     return () => window.removeEventListener(OPEN_DIFF, on);
   }, []);
@@ -70,11 +70,10 @@ export function DiffPanel() {
   const files = d && !d.loading ? (diff?.files ?? []) : [];
   // The file read in the workspace (components/review/diff-file.tsx), while it is one of this pick's.
   const open = reading?.open && reading.files === files ? (files.find((f) => f.path === reading.path) ?? null) : null;
-  const setFile = (path: string | null) => setDiffFile(path ? { files, path, open: true } : null);
-  const setShown = (on: boolean) => {
-    setShownRaw(on);
-    // The file's tab goes with the panel, unless it was moved into the main view to keep.
-    if (!on) setDiffFile((was) => was && { ...was, open: false });
+  // The file is what is read now, so the panel makes way for it.
+  const setFile = (path: string) => {
+    setDiffFile({ files, path, open: true });
+    setShown(false);
   };
 
   /** The commit in view: the one picked, or the newer end of a comparison. */
@@ -163,14 +162,11 @@ export function DiffPanel() {
     <Overlay
       onClose={() => setShown(false)}
       dim
-      // A file open in the workspace window: the popup keeps clear of it.
-      style={reading?.open ? { paddingRight: "calc(var(--workspace-inset, 0px) + 24px)" } : undefined}
     >
-      {/* With a file open beside it, the commit's details give way: the list stays, with the commit's files under it. */}
-      <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
+      <div className={DIALOG + " pop h-[min(620px,100%)] max-w-[940px]"}>
         <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
           <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
-          <div className={cn("flex min-w-0", reading?.open && "hidden")}>
+          <div className="flex min-w-0">
             <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
           </div>
           <span className="flex-1" />
@@ -184,7 +180,6 @@ export function DiffPanel() {
               showBlueprint();
             }}
             title="How the code got here — every commit on the blueprint's sections, over time"
-            className={cn(reading?.open && "hidden")}
           >
             Timeline
           </Button>
@@ -193,7 +188,7 @@ export function DiffPanel() {
             size="sm"
             onClick={() => setShown(false)}
             title="Close History and see the changes colored on the blueprint"
-            className={cn("text-accent", reading?.open && "hidden")}
+            className="text-accent"
           >
             Show on blueprint
           </Button>
@@ -212,7 +207,7 @@ export function DiffPanel() {
 
         <div className="flex min-h-0 flex-1">
           {/* ── history ── */}
-          <aside className={reading?.open ? "flex min-w-0 flex-1 flex-col" : "flex w-[300px] shrink-0 flex-col border-r border-border-gray"}>
+          <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-gray">
             <div className="shrink-0 border-b border-border-gray p-2">
               <input
                 value={query}
@@ -274,11 +269,10 @@ export function DiffPanel() {
               {!all.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">Reading the history…</p> : null}
               {q && !commits.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">No commit matches “{query}”.</p> : null}
             </div>
-            {reading?.open ? <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border-gray px-3 pb-3">{fileList}</div> : null}
           </aside>
 
           {/* ── what the pick changed ── */}
-          <main className={reading?.open ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
+          <main className="flex min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
               {picked ? (
                 <Details key={picked.sha} blueprint={blueprint} commit={picked} all={all} onPick={pick} />
@@ -301,7 +295,7 @@ export function DiffPanel() {
               ) : null}
               {/* Where it changed on the blueprint leads when it moved anything there. */}
               {moved ? onBlueprint : null}
-              {reading?.open ? null : fileList}
+              {fileList}
               {moved ? null : onBlueprint}
             </div>
           </main>
