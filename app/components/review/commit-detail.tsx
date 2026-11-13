@@ -220,7 +220,6 @@ function InShort({ blueprint, sha }: { blueprint: string; sha: string }) {
       >
         {got.asking ? "Claude is reading the diff…" : "✦ Summarize this commit"}
       </button>
-      {got.asking ? null : <span className="text-[11.5px] text-faint">Claude reads the diff and says what it did — a small paid run, kept after.</span>}
       {got.error ? (
         <span className="w-full text-[12px]" style={{ color: TINT.removed.ink }}>
           {got.error}
@@ -278,7 +277,7 @@ export function OnTheBlueprint({ sections, trail, onOpen }: { sections: SectionD
   const moved = sections.filter((s) => s.verdict !== "untouched");
   return (
     <>
-      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">On the blueprint — open one to see it in red and green there</h3>
+      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">On the blueprint</h3>
       {moved.length ? (
         <ul className="mt-1.5 flex flex-col gap-1">
           {moved.map((s) => {
