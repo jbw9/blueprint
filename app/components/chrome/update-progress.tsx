@@ -27,8 +27,11 @@ export interface UpdateRow {
 }
 
 export interface UpdateView {
-  /** behind: code moved and nothing is committed. finding: started, no sections picked yet. idle: nothing to report. */
-  phase: "idle" | "behind" | "finding" | "running" | "done" | "failed";
+  /**
+   * behind: code moved and nothing is committed. finding: started, no sections picked yet. idle: nothing to
+   * report. offline: Blueprint's server does not answer, so nothing here can be known.
+   */
+  phase: "offline" | "idle" | "behind" | "finding" | "running" | "done" | "failed";
   rows: UpdateRow[];
   startedAt?: string;
   finishedAt?: string;
@@ -127,6 +130,7 @@ function headline(v: UpdateView): string {
   const n = v.rows.length;
   const landed = v.rows.filter(done).length;
   const failed = v.rows.filter((r) => r.state === "failed").length;
+  if (v.phase === "offline") return "Can't reach Blueprint's server";
   if (v.phase === "idle") return v.paused ? "Auto-updates paused" : "Blueprint up to date";
   if (v.phase === "behind") return `${n} ${n === 1 ? "section" : "sections"} behind the code`;
   if (v.phase === "finding") return "Updating blueprint";
@@ -156,6 +160,7 @@ function useElapsed(v: UpdateView, on: boolean): string | null {
 }
 
 const TONE = {
+  offline: "border-border-gray bg-card text-muted-slate hover:bg-surface-container",
   idle: "border-sage-line bg-sage-surface text-sage-ink",
   behind: "border-border-gray bg-card text-ink hover:bg-surface-container",
   finding: "border-amber-line bg-amber-surface text-amber-ink",
@@ -221,7 +226,7 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={v.phase === "behind" ? "The code changed under these sections. The blueprint follows when it is committed." : v.phase === "idle" ? "The blueprint matches the code" : headline(v)}
+        title={v.phase === "offline" ? "Blueprint's server does not answer. This updates once it does." : v.phase === "behind" ? "The code changed under these sections. The blueprint follows when it is committed." : v.phase === "idle" ? "The blueprint matches the code" : headline(v)}
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "arrive flex shrink-0 cursor-pointer items-center gap-2 rounded border font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
@@ -230,8 +235,11 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
         )}
       >
         {v.phase === "behind" ? <Dot className="bg-amber-ink" /> : null}
+        {v.phase === "offline" ? <Dot className="bg-faint" /> : null}
         {working ? <Dot className="bg-amber-ink" working /> : null}
-        {v.phase === "idle" ? (
+        {v.phase === "offline" ? (
+          <span>Reconnecting…</span>
+        ) : v.phase === "idle" ? (
           <span>{v.paused ? "Auto-updates paused" : "✓ Up to date"}</span>
         ) : v.phase === "behind" ? (
           <span>
@@ -296,7 +304,9 @@ function UpdatePanel({ v, up, onClose }: { v: UpdateView; up: boolean; onClose: 
     onClose();
   };
   const note =
-    v.phase === "idle"
+    v.phase === "offline"
+      ? "The server that runs updates stopped answering. This shows the blueprint's state again once it does."
+      : v.phase === "idle"
       ? v.paused
         ? "Turn them on from the Blueprint menu in the status bar."
         : "It follows the code on each commit."

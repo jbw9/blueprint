@@ -30,7 +30,7 @@ import { invoke } from "@tauri-apps/api/core";
 export function StatusBar() {
   const { name, blueprints, RUN, L0, TOP } = useBlueprint();
   const local = blueprints.some((m) => m.id === name && m.local);
-  const [project, reread] = useProject(name, local);
+  const [project, reread, lost] = useProject(name, local);
 
   const problems = useMemo(() => {
     let problems = 0;
@@ -69,7 +69,7 @@ export function StatusBar() {
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
+      <BlueprintUpdates key={name} p={project} lost={lost} root={RUN.root} local={local} />
       {STATIC_BLUEPRINT ? null : <UpdateReady />}
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
     </footer>
@@ -149,19 +149,26 @@ interface ProjectState {
 /**
  * Follows the open project every 2 seconds, for its updates and for what its
  * blueprint menu offers. Only the user's own projects: an example is no project.
- * The second value reads it again at once, after an action changed it.
+ * The second value reads it again at once, after an action changed it. The
+ * third is true while the server has not answered twice running: what the
+ * first says is then only what it last said.
  */
-function useProject(id: string, local: boolean): [ProjectState | null, () => void] {
+function useProject(id: string, local: boolean): [ProjectState | null, () => void, boolean] {
   const [got, setGot] = useState<{ id: string; p: ProjectState | null } | null>(null);
   const [asked, setAsked] = useState(0);
+  const [missed, setMissed] = useState(0);
   useEffect(() => {
     if (!local) return;
     let live = true;
     const read = () =>
       fetch(`/api/projects?id=${encodeURIComponent(id)}`)
         .then((r) => r.json())
-        .then((p: ProjectState | null) => live && setGot({ id, p }))
-        .catch(() => {});
+        .then((p: ProjectState | null) => {
+          if (!live) return;
+          setGot({ id, p });
+          setMissed(0);
+        })
+        .catch(() => live && setMissed((n) => n + 1));
     void read();
     const timer = setInterval(read, 2000);
     return () => {
@@ -170,7 +177,7 @@ function useProject(id: string, local: boolean): [ProjectState | null, () => voi
     };
   }, [id, local, asked]);
   const reread = useCallback(() => setAsked((n) => n + 1), []);
-  return [local && got?.id === id ? got.p : null, reread];
+  return [local && got?.id === id ? got.p : null, reread, local && missed >= 2];
 }
 
 /**
@@ -323,7 +330,7 @@ function rowOf(roots: Node[], id: string, state: RowState, title?: string): Upda
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
-function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: string; local: boolean }) {
+function BlueprintUpdates({ p, lost, root, local }: { p: ProjectState | null; lost: boolean; root?: string; local: boolean }) {
   const u = p?.update ?? null;
   const desktop = useDesktop();
   const { live, L0 } = useBlueprint();
@@ -355,6 +362,8 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
   // blueprint has not caught up with, then what the last update did.
   const view = useMemo((): UpdateView | null => {
     if (!p) return null;
+    // What it last heard may be long over: an update shown running, its clock still counting.
+    if (lost) return { phase: "offline", rows: [] };
     if (u?.status === "running") {
       const found = p.updating?.found ?? false;
       return {
@@ -374,7 +383,7 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
     if (u?.status === "done" && (u.outcome?.length || u.sections?.length))
       return { phase: "done", rows: rows(), startedAt: u.startedAt, finishedAt: u.finishedAt, paused, review: () => openReview("turn:latest") };
     return { phase: "idle", rows: [], paused };
-  }, [p, u, L0, live, behind.length, root, paused, follow]);
+  }, [p, lost, u, L0, live, behind.length, root, paused, follow]);
 
   useEffect(() => setUpdateView(view), [view]);
   useEffect(() => () => setUpdateView(null), []);
