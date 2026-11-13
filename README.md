@@ -30,3 +30,7 @@ It downloads the latest build for your system, or builds from source where there
 - `install.sh` - the one-line install
 - `docs/` - design notes and the decision log
 - `demo/` - the README's GIF; `node demo/record.mjs` records it again from the installed app (Windows, needs ffmpeg)
+
+## Licence
+
+[MIT](LICENSE)
