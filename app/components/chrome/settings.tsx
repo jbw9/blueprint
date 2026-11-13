@@ -382,9 +382,24 @@ function BlueprintCredit() {
   // GitHub's code while the reader enters it, or why signing in stopped.
   const [signin, setSignin] = useState<{ code: string; url: string; interval: number } | { reason: string } | null>(null);
   useEffect(() => {
-    const read = () => void readCredit().then(setC);
+    let t: ReturnType<typeof setTimeout>;
+    let gone = false;
+    // A status that could not be read (the server restarting) is asked again, not taken as no credit.
+    const read = () => {
+      clearTimeout(t);
+      void readCredit().then((next) => {
+        if (gone) return;
+        if (next) setC(next);
+        else t = setTimeout(read, 3000);
+      });
+    };
     read();
-    return onCreditChanged(read);
+    const off = onCreditChanged(read);
+    return () => {
+      gone = true;
+      clearTimeout(t);
+      off();
+    };
   }, []);
   useEffect(() => {
     if (!signin || !("code" in signin)) return;

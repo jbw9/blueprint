@@ -261,13 +261,16 @@ export async function creditStatus(): Promise<CreditStatus> {
   return s;
 }
 
-/** Whether the promotion is on, asked at most every five minutes, as the proxy caches it. */
+/**
+ * Whether the promotion is on, asked at most every five minutes, as the proxy caches it. An ask that
+ * fails keeps the last answer: one slow call to the proxy does not take the offer away.
+ */
 async function promoOn() {
   if (state.promo && Date.now() - state.promo.at < 300_000) return state.promo.on;
   const r = await api("/promo", { signal: AbortSignal.timeout(10_000) }).catch(() => null);
   const j = (r?.ok ? await r.json().catch(() => null) : null) as { on?: boolean } | null;
   if (j) state.promo = { on: !!j.on, at: Date.now() };
-  return !!j?.on;
+  return j ? !!j.on : !!state.promo?.on;
 }
 
 async function askStatus(): Promise<CreditStatus> {
