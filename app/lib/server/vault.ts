@@ -636,7 +636,9 @@ function updated(p: Project) {
     u.status = "failed";
     u.error = (() => {
       try {
-        return readFileSync(join(projectDir(p.id), "update.log"), "utf8").trimEnd().split("\n").slice(-12).join("\n");
+        // Git's line-ending warnings fill the log on Windows and say nothing about why it stopped.
+        const lines = readFileSync(join(projectDir(p.id), "update.log"), "utf8").trimEnd().split("\n").filter((l) => !l.startsWith("warning: in the working copy of"));
+        return lines.slice(-12).join("\n");
       } catch {
         return "";
       }
