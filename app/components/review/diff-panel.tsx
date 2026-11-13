@@ -313,7 +313,7 @@ export function DiffPanel() {
                       <span style={{ color: TINT.removed.ink }}>−{diff.files.reduce((n, f) => n + f.removed, 0)}</span>
                     </p>
                     {/* A file-level answer never pretends to be a section-level one. */}
-                    <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files — pick one to read its lines</h3>
+                    <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files</h3>
                     {diff.files.length ? (
                       <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
                         {diff.files.map((f) => (
