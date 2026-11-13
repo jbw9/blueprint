@@ -12,6 +12,7 @@ import { useDesktop } from "@/lib/client/platform";
 import { toggleRail, useRailExpanded, useRailWidth } from "@/lib/client/rail";
 import { setTabSlot } from "@/components/chrome/tab-slot";
 import { GearGlyph, RailGlyph } from "@/components/chrome/icons";
+import { UpdatePill } from "@/components/chrome/update-progress";
 
 /**
  * The window's own title bar. The native one is off (`decorations: false` in
@@ -90,6 +91,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
         <div data-tauri-drag-region className="h-full min-w-6 flex-1" />
       </div>
       <div data-tauri-drag-region className="flex h-full items-center justify-end">
+        {bare ? null : <UpdatePill place="title" />}
         {bare ? null : <BlueprintTools mac={mac} />}
         {bare ? null : (
           <Control

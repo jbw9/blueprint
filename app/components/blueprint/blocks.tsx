@@ -14,6 +14,7 @@ import { gridLayout } from "@/lib/blueprint/diagram-elk";
 import { useDiagramLayout } from "@/components/blueprint/use-diagram-layout";
 import { TINT, WORD as WORD_OF, useDiff } from "@/components/review/diff";
 import { DiagramChanges, changesUnder } from "@/components/review/diagram-diff";
+import { markWord, useCardMarks } from "@/components/chrome/update-progress";
 
 /**
  * The blocks a reader learns from without opening code (round 3, D34): the
@@ -73,6 +74,26 @@ function Caption({ children }: { children?: string }) {
 }
 
 /* ── diagram ─────────────────────────────────────────────────── */
+
+/** A box tag's text, measured in the page's own face: the words differ too much in shape to count letters. */
+const measured = new Map<string, number>();
+function tagWidth(word: string): number {
+  const known = measured.get(word);
+  if (known !== undefined) return known;
+  const ctx = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+  if (!ctx) return word.length * 5.6;
+  ctx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
+  const w = ctx.measureText(word).width;
+  measured.set(word, w);
+  return w;
+}
+
+/** An update's mark on a box, in the same families as the cards' chips. */
+const UPDATE_TINT = {
+  rewriting: { ink: "var(--color-amber-ink)", surface: "var(--color-amber-surface)", line: "var(--color-amber-line)" },
+  updated: { ink: "var(--color-sage-ink)", surface: "var(--color-sage-surface)", line: "var(--color-sage-line)" },
+  failed: { ink: "var(--color-clay-ink)", surface: "var(--color-clay-surface)", line: "var(--color-clay-line)" },
+} as const;
 
 const TONE = {
   plain: { stroke: "var(--color-border-strong)", fill: "var(--color-card)", ink: "var(--color-ink)", line: "var(--color-wire)" },
@@ -161,6 +182,7 @@ function Diagram({
   // to the change, not only the one that holds it.
   const diff = useDiff()?.diff;
   const changedCode = useChangedCode();
+  const updateMark = useCardMarks();
   const sections = diff?.sections;
   const verdictOf = (id: string | undefined) => {
     const s = id ? sections?.find((x) => x.id === id) : undefined;
@@ -361,6 +383,11 @@ function Diagram({
             const stroke = v ? TINT[v].line : near ? TINT.changed.line : sec >= 0 ? sectionTone(sec).ink : t.stroke;
             const ink = v ? TINT[v].ink : sec >= 0 ? sectionTone(sec).ink : t.ink;
             const sharedTag = b.shared ? sharedTagRect({ x, y, w }) : null;
+            const um = diff ? null : updateMark(b.opens);
+            const umTint = um ? UPDATE_TINT[um.state] : null;
+            const umWord = um ? markWord(um) : "";
+            const umAt = um?.state === "rewriting" ? 25 : 16;
+            const umW = umAt - 8 + tagWidth(umWord) + 9;
             return (
               <Box
                 key={b.id}
@@ -401,8 +428,20 @@ function Diagram({
                 >
                   {b.label}
                 </text>
+                {/* An update rewriting the sections under this part, or done with them: the edge and a tag on it say so. */}
+                {um && umTint ? (
+                  <g>
+                    <title>{um.state === "rewriting" ? "Being rewritten to match the code" : um.state === "failed" ? "The update could not rewrite this" : "Updated to match the code"}</title>
+                    <rect x={x} y={y} width={w} height={h} rx="3" fill="none" stroke={umTint.ink} strokeWidth={2} className={um.state === "rewriting" ? "animate-pulse" : undefined} />
+                    <rect x={x + 8} y={y - 9} width={umW} height={18} rx="9" fill={umTint.surface} stroke={umTint.line} />
+                    {um.state === "rewriting" ? <circle cx={x + 17} cy={y} r={3} fill={umTint.ink} className="animate-pulse" /> : null}
+                    <text x={x + umAt} y={y + 4} fontSize="11" fontWeight="600" fill={umTint.ink}>
+                      {umWord}
+                    </text>
+                  </g>
+                ) : null}
                 {/* Code under this part changed and the blueprint has not followed yet (lib/server/live.ts): a dot on the corner, the box itself untouched. */}
-                {!diff && b.opens && changedCode.get(b.opens) ? (
+                {!um && !diff && b.opens && changedCode.get(b.opens) ? (
                   <circle cx={x + w - 9} cy={y + 9} r={3.5} fill="var(--color-amber-ink)">
                     <title>{`Code changed: ${changedCode.get(b.opens)!.join(", ")}. The blueprint follows once they are committed.`}</title>
                   </circle>

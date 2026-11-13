@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { auditOf } from "@/lib/server/blueprints";
 import { primeCredit } from "@/lib/server/credit";
 import { bad, notJson } from "@/lib/server/route";
-import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, blueprintFileOf, progressOf, projectDir, removeProject, setPaused, updateBlueprint, VAULT, type Turn } from "@/lib/server/vault";
+import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, blueprintFileOf, progressOf, removeProject, setPaused, updateBlueprint, updatingOf, VAULT, type Turn } from "@/lib/server/vault";
 
 /**
  * The reader's projects (lib/server/vault.ts): list them, start, import or clone one, regenerate,
@@ -32,20 +31,6 @@ function turnOf(v: unknown): Turn | undefined {
   return { transcript, corrections };
 }
 
-/**
- * The section ids a running update is redoing, as its log names them
- * (scripts/generate/update.ts, "N sections to redo: a, b"), so the open blueprint can
- * mark them while they are rewritten. None until the updater has picked them.
- */
-function redoingOf(id: string): string[] {
-  try {
-    const line = readFileSync(join(projectDir(id), "update.log"), "utf8").match(/sections to redo: (.*)/)?.[1] ?? "";
-    return line.split(",").map((s) => s.trim()).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   // How one blueprint was made, for the audit view: a project's or an example's.
@@ -63,7 +48,7 @@ export async function GET(request: Request) {
       explain: p.explain ?? "full",
       hasBlueprint: Boolean(blueprintFileOf(p.id)),
       update: p.update ?? null,
-      redoing: p.update?.status === "running" ? redoingOf(p.id) : [],
+      updating: p.update?.status === "running" ? updatingOf(p.id) : null,
       progress: p.blueprint.status === "generating" ? progressOf(p.id) : null,
     });
   }

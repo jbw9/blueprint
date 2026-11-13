@@ -7,7 +7,7 @@ import { Eyebrow, OriginMark, Prose, StateChip } from "@/components/ui/state";
 import { useMayBeStale } from "@/components/chrome/crumbs";
 import { Button, CodeIcon } from "@/components/ui/button";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
-import { useRedoing } from "@/components/chrome/statusbar";
+import { useRedoing } from "@/components/chrome/update-progress";
 import { openReview } from "@/components/review/diff";
 import type { Node } from "@/lib/blueprint/schema";
 import type { Shape } from "@/lib/blueprint/view";

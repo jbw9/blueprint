@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import { openReview } from "@/components/review/diff";
 import { openFiles, useFiles } from "@/components/blueprint/files";
@@ -9,14 +9,16 @@ import { openProjects, remakeBlueprint } from "@/components/projects/projects";
 import { Menu, type MenuItem } from "@/components/ui/menu";
 import { projectAction } from "@/lib/client/api";
 import { claudePath } from "@/lib/client/claude";
-import type { Explain } from "@/lib/server/vault";
 import { UNFOLLOWED, claudeMidTurnIn, followTurn } from "@/lib/agent/turns";
 import type { Node } from "@/lib/blueprint/schema";
 import { STATIC_BLUEPRINT } from "@/lib/blueprint/source";
 import { onCreditChanged, percent, readCredit, resetsAt, type Credit } from "@/lib/client/credit";
 import { openSettings } from "@/lib/client/settings";
 import { cn } from "@/lib/client/utils";
-import { isDesktop } from "@/lib/client/platform";
+import { isDesktop, useDesktop } from "@/lib/client/platform";
+import { openable } from "@/components/blueprint/nodes";
+import { UpdatePill, setUpdateView, type RowState, type UpdateRow, type UpdateView } from "@/components/chrome/update-progress";
+import type { Explain, UpdateSection } from "@/lib/server/vault";
 import { invoke } from "@tauri-apps/api/core";
 
 /**
@@ -140,7 +142,8 @@ interface ProjectState {
   paused: boolean;
   explain: Explain;
   update: Update | null;
-  redoing?: string[];
+  /** A running update's sections, as its log has them so far. */
+  updating?: { found: boolean; sections: UpdateSection[] } | null;
 }
 
 /**
@@ -232,10 +235,6 @@ function BlueprintMenu({ id, commit, p, onChanged }: { id: string; commit?: stri
   );
 }
 
-/** The one thing to do about what the bar says, filled so it reads as a button and not a note. */
-const BAR_ACTION =
-  "flex h-[18px] shrink-0 cursor-pointer items-center rounded bg-accent px-2 font-sans text-[11px] font-medium text-on-accent hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
-
 function Item({
   children,
   title,
@@ -272,50 +271,62 @@ function Item({
 
 interface Update {
   status: "running" | "done" | "failed";
+  startedAt?: string;
   finishedAt?: string;
   changed?: string[];
   sections?: string[];
+  outcome?: UpdateSection[];
   error?: string;
 }
 
-/**
- * The section ids an update is rewriting right now, for the open level to say
- * so where the reader is looking (components/blueprint/canvas.tsx): the status bar alone
- * was missed, and a minute with nothing changing read as the update not working.
- */
-let redoing: string[] = [];
-const redoListeners = new Set<() => void>();
-function setRedoing(next: string[]) {
-  if (next.join("\n") === redoing.join("\n")) return;
-  redoing = next;
-  redoListeners.forEach((l) => l());
+/** Where a section sits on the blueprint: its nodes from the top, or null when it has none. */
+function locate(roots: Node[], id: string): Node[] | null {
+  for (const n of roots) {
+    if (n.id === id) return [n];
+    const below = locate(n.children ?? [], id);
+    if (below) return [n, ...below];
+  }
+  return null;
 }
-const NONE: string[] = [];
-export function useRedoing(): string[] {
-  return useSyncExternalStore(
-    (l) => (redoListeners.add(l), () => redoListeners.delete(l)),
-    () => redoing,
-    () => NONE,
-  );
+
+/** A row of the update's list, placed on the blueprint. */
+function rowOf(roots: Node[], id: string, state: RowState, title?: string): UpdateRow {
+  const nodes = locate(roots, id);
+  if (!nodes) return { id, title: title ?? id, trail: "", path: null, open: null, state };
+  const path = nodes.map((n) => n.id);
+  let shown = nodes.length;
+  while (shown > 0 && !openable(nodes[shown - 1])) shown--;
+  return {
+    id,
+    title: nodes[nodes.length - 1].title,
+    trail: nodes.slice(0, -1).map((n) => n.title).join(" › "),
+    path,
+    open: path.slice(0, shown),
+    state,
+  };
 }
 
 /**
- * Follows the open blueprint while an agent changes its code: an update redoing
- * the touched sections (lib/server/vault.ts) shows here while it runs. The blueprint takes
- * each section as it lands by itself (components/blueprint/blueprint-context.tsx); this only
- * says what is happening. Only the user's own projects update; an
- * example describes some other copy of its code, so when an agent edits its
- * checkout this says so and offers to import it.
+ * Follows the open blueprint while an agent changes its code, and says so in
+ * the title bar's pill (components/chrome/update-progress.tsx), or here in a
+ * browser, which has no title bar. Between commits: how many sections the code
+ * moved past (lib/server/live.ts, followed with the blueprint each second).
+ * While an update runs (lib/server/vault.ts): each section it took on, as it
+ * lands. After: what it did, until the reader dismisses it or looks. The
+ * blueprint takes each section as it lands by itself
+ * (components/blueprint/blueprint-context.tsx). Only the user's own projects
+ * update; an example describes some other copy of its code, so when an agent
+ * edits its checkout this says so and offers to import it.
  *
- * The blueprint updates once per commit. Between commits this says how far the
- * code has moved from what the blueprint describes (lib/server/live.ts, followed
- * with the blueprint each second), and asks for an update when HEAD moves. Not
+ * The blueprint updates once per commit, and asks for one when HEAD moves. Not
  * while Claude is mid-turn in the checkout: its turn asks when it ends, with its
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
 function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: string; local: boolean }) {
   const u = p?.update ?? null;
+  const desktop = useDesktop();
+  const { live, L0 } = useBlueprint();
   const [unfollowed, setUnfollowed] = useState(false);
 
   useEffect(() => {
@@ -323,28 +334,23 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
     window.addEventListener(UNFOLLOWED, on);
     return () => window.removeEventListener(UNFOLLOWED, on);
   }, [root]);
-  // The last finished update already on screen, so only a new one reloads.
-  const seen = useRef<string | undefined>(undefined);
-  const [fresh, setFresh] = useState(false);
 
+  // A finished update already done with: the one on record when the page
+  // opened, or one the reader dismissed or looked at. Only a newer one shows.
+  const [put, setPut] = useState<string | undefined>(undefined);
   const first = useRef(true);
   useEffect(() => {
     if (!p) return;
-    setRedoing(u?.status === "running" ? (p.redoing ?? []) : []);
-    const done = u?.status !== "running" ? u?.finishedAt : undefined;
-    if (!first.current && done && done !== seen.current) setFresh(true);
-    if (done) seen.current = done;
+    if (first.current && u?.status === "done") setPut(u.finishedAt);
     first.current = false;
   }, [p, u]);
-  useEffect(() => () => setRedoing([]), []);
 
-  const { live } = useBlueprint();
   const behind = local ? (live?.files ?? []) : [];
   const head = local ? live?.head : undefined;
   // Updating by hand runs whatever is committed.
-  const follow = () => {
+  const follow = useCallback(() => {
     if (root) void followTurn(root, { transcript: null, corrections: [] }, true);
-  };
+  }, [root]);
   // A new commit updates the blueprint; the server runs it only for a HEAD it
   // has not updated at (lib/server/vault.ts). Claude mid-turn asks with its turn when it ends.
   // Paused, nothing follows: turning updates back on catches up (lib/server/vault.ts, setPaused).
@@ -354,11 +360,36 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
     void followTurn(root, { transcript: null, corrections: [] });
   }, [head, root, paused]);
 
-  useEffect(() => {
-    if (!fresh) return;
-    const t = setTimeout(() => setFresh(false), 15000);
-    return () => clearTimeout(t);
-  }, [fresh]);
+  const view = useMemo((): UpdateView | null => {
+    if (!p) return null;
+    const dismiss = () => setPut(u?.finishedAt);
+    if (u?.status === "running") {
+      const found = p.updating?.found ?? false;
+      return {
+        phase: found ? "running" : "finding",
+        rows: (p.updating?.sections ?? []).map((s) => rowOf(L0, s.id, s.state, s.title)),
+        startedAt: u.startedAt,
+      };
+    }
+    if (u && u.finishedAt !== put && (u.status === "failed" || u.outcome?.length || u.sections?.length)) {
+      const rows = u.outcome?.length ? u.outcome.map((s) => rowOf(L0, s.id, s.state, s.title)) : (u.sections ?? []).map((t) => ({ id: t, title: t, trail: "", path: null, open: null, state: "updated" as const }));
+      return u.status === "done"
+        ? { phase: "done", rows, startedAt: u.startedAt, finishedAt: u.finishedAt, dismiss, review: () => (dismiss(), openReview("turn:latest")) }
+        : { phase: "failed", rows, startedAt: u.startedAt, finishedAt: u.finishedAt, error: u.error, dismiss, update: root ? follow : undefined };
+    }
+    if (!behind.length || !root) return null;
+    // Deepest only: a section above another that moved is on the way to it, not behind itself.
+    const touched = (live?.touched ?? []).filter((t) => !(live?.touched ?? []).some((o) => o !== t && o.path.length > t.path.length && t.path.every((id, i) => o.path[i] === id)));
+    return {
+      phase: "behind",
+      rows: touched.map((t) => rowOf(L0, t.path[t.path.length - 1], "behind")),
+      paused,
+      update: paused ? undefined : follow,
+    };
+  }, [p, u, put, L0, live, behind.length, root, paused, follow]);
+
+  useEffect(() => setUpdateView(view), [view]);
+  useEffect(() => () => setUpdateView(null), []);
 
   if (unfollowed && root)
     return (
@@ -381,48 +412,5 @@ function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: s
         </button>
       </span>
     );
-  // A turn that changed nothing the blueprint covers passes silently.
-  if (!u || (u.status === "done" && (!fresh || !u.sections?.length)))
-    return behind.length && root ? (
-      <span className="mr-2 flex min-w-0 items-center gap-2 text-amber-ink">
-        <span className="truncate" title={behind.map((f) => `${f.path} +${f.add} −${f.del}`).join("\n")}>
-          Editing · {live?.touched.length ? `${live.touched.length} ${live.touched.length === 1 ? "section" : "sections"}` : "no sections"} affected
-          {paused ? " · auto-updates paused" : " · blueprint follows on commit"}
-        </span>
-        {paused ? null : (
-          <button type="button" onClick={follow} className={BAR_ACTION}>
-            Update now
-          </button>
-        )}
-      </span>
-    ) : null;
-  const what = u.sections?.length ? u.sections.join(", ") : u.changed?.join(", ");
-  return (
-    <span
-      title={u.status === "failed" ? u.error : what}
-      className={cn(
-        "mr-2 flex min-w-0 max-w-[420px] items-center gap-1.5 truncate",
-        u.status === "failed" ? "text-clay-ink" : u.status === "running" ? "text-amber-ink" : "text-accent",
-      )}
-    >
-      {u.status === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" /> : null}
-      <span className="truncate">
-        {u.status === "running"
-          ? "Updating the blueprint to match the code…"
-          : u.status === "failed"
-            ? "✗ Blueprint update failed"
-            : `✓ Blueprint updated: ${u.sections!.join(", ")}`}
-      </span>
-      {u.status === "failed" && root ? (
-        <button type="button" onClick={follow} className={BAR_ACTION}>
-          Retry
-        </button>
-      ) : null}
-      {u.status === "done" ? (
-        <button type="button" onClick={() => (setFresh(false), openReview("turn:latest"))} className="shrink-0 cursor-pointer underline">
-          see what changed
-        </button>
-      ) : null}
-    </span>
-  );
+  return desktop ? null : <UpdatePill place="status" />;
 }

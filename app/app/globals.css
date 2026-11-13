@@ -41,6 +41,11 @@
   --color-clay-surface: #fde4e1;
   --color-clay-line: #eda59c;
 
+  /* ── sage family — an update that landed ───────────────── */
+  --color-sage-ink: #1d6b40;
+  --color-sage-surface: #e2f1e7;
+  --color-sage-line: #9ccfae;
+
   /* ── claude — Claude's orange, wherever Claude is acting ── */
   --color-claude: #d97757;
   --color-claude-ink: #b4553a;
@@ -199,6 +204,10 @@
   --color-clay-ink: #f08a8f;
   --color-clay-surface: #301e1f;
   --color-clay-line: #6a3c3e;
+
+  --color-sage-ink: #74cf98;
+  --color-sage-surface: #15291e;
+  --color-sage-line: #2f5a40;
 
   --color-claude-ink: #e8957a;
 
@@ -576,6 +585,16 @@
   }
   to {
     background-position: -120% 0;
+  }
+}
+
+/* Work going on with no measure yet: a bar run across its track. */
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
   }
 }
 

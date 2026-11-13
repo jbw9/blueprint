@@ -98,8 +98,18 @@ export interface Project {
     changed?: string[];
     /** The sections redone, by title. */
     sections?: string[];
+    /** Each section the finished run touched, and what became of it. */
+    outcome?: UpdateSection[];
     error?: string;
   };
+}
+
+/** A section an update takes on: being rewritten, or how it landed (scripts/generate/update.ts). */
+export interface UpdateSection {
+  id: string;
+  /** Only for a section the blueprint does not have yet: a new root, by the cut's title. */
+  title?: string;
+  state: "rewriting" | "updated" | "removed" | "added" | "failed";
 }
 
 interface Index {
@@ -598,6 +608,11 @@ function updated(p: Project) {
     u.status = r.ok ? "done" : "failed";
     u.changed = r.changed;
     u.sections = (r.sections ?? []).map((s: { title: string }) => s.title);
+    u.outcome = (r.sections ?? []).map((s: { id: string; title: string; ok: boolean; removed?: boolean; added?: boolean }): UpdateSection => ({
+      id: s.id,
+      title: s.title,
+      state: !s.ok ? "failed" : s.removed ? "removed" : s.added ? "added" : "updated",
+    }));
     u.error = r.error;
   } catch {
     u.status = "failed";
@@ -836,6 +851,39 @@ export interface Progress {
   reading?: { files: string[]; read: string[]; recent: { path: string; purpose: string }[] };
   /** The generator's last line, when it has not written a progress file yet. */
   line?: string;
+}
+
+/**
+ * How far a running update is, read off its log (scripts/generate/update.ts):
+ * the sections it picked, once it has, and each one's state as it lands.
+ */
+export function updatingOf(id: string): { found: boolean; sections: UpdateSection[] } {
+  const dir = projectDir(id);
+  let log = "";
+  try {
+    log = readFileSync(join(dir, "update.log"), "utf8");
+  } catch {
+    return { found: false, sections: [] };
+  }
+  const picked = log.match(/^\d+ sections to redo: (.*)$/m);
+  const ids = (picked?.[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const fresh = [...log.matchAll(/^ {2}new root (\S+):/gm)].map((m) => m[1]);
+  let titles: Record<string, string> = {};
+  if (fresh.length)
+    try {
+      const cut = JSON.parse(readFileSync(join(dir, ".cache", "cut.json"), "utf8")) as { roots: { id: string; title: string }[] };
+      titles = Object.fromEntries(cut.roots.map((r) => [r.id, r.title]));
+    } catch {
+      /* the cut is being rewritten: the ids stand in */
+    }
+  const sections = new Map<string, UpdateSection>();
+  for (const s of ids) sections.set(s, { id: s, state: "rewriting" });
+  for (const s of fresh) sections.set(s, { id: s, title: titles[s], state: "rewriting" });
+  for (const m of log.matchAll(/^ {2}(\S+): (updated|removed|added|FAILED)/gm)) {
+    const s = sections.get(m[1]);
+    if (s) s.state = m[2] === "FAILED" ? "failed" : (m[2] as UpdateSection["state"]);
+  }
+  return { found: Boolean(picked), sections: [...sections.values()] };
 }
 
 /**

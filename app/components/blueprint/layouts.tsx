@@ -11,6 +11,7 @@ import type { Link } from "@/lib/blueprint/coverage";
 import { BLURB_LINES } from "@/lib/blueprint/view";
 import { authored, openable } from "@/components/blueprint/nodes";
 import { openInTab } from "@/components/chrome/tabs";
+import { CardMarkChip, cardMarkClass, useCardMark } from "@/components/chrome/update-progress";
 
 /* ── layout ──────────────────────────────────────────────────── */
 
@@ -144,7 +145,7 @@ export function List({
               <span className="truncate text-[14px] font-medium tracking-[-0.01em] text-ink">
                 {n.title}
               </span>
-              <ChangeDot files={changed.get(n.id)} />
+              <PartMark id={n.id} files={changed.get(n.id)} />
               {n.issues?.length ? (
                 <span className="shrink-0 font-mono text-[10.5px] text-clay-ink">
                   ⚠ {n.issues.length}
@@ -315,12 +316,19 @@ function ChangeDot({ files }: { files?: string[] }) {
   return <span role="img" aria-label={said} title={said} className="size-[7px] shrink-0 rounded-full bg-amber-ink" />;
 }
 
+/** What an update is doing under a part, else whether its code moved past the blueprint. */
+function PartMark({ id, files }: { id: string; files?: string[] }) {
+  const mark = useCardMark(id);
+  return mark ? <CardMarkChip mark={mark} /> : <ChangeDot files={files} />;
+}
+
 /**
  * One part of the level: what it is, in a line, and what you will find if you
  * open it. Never its contents — those are the next step down.
  */
 function Row({ node, at, onOpen }: { node: Node; at: string[]; onOpen: (p: string[]) => void }) {
   const changed = useChangedCode();
+  const mark = useCardMark(node.id);
   const go = openable(node) ? () => onOpen([...at, node.id]) : undefined;
   // No path on a card at all (D42): a card says what the part IS, and the
   // level it opens says where that lives.
@@ -337,6 +345,7 @@ function Row({ node, at, onOpen }: { node: Node; at: string[]; onOpen: (p: strin
         "group flex w-full items-start gap-3 border bg-card px-4 py-3 text-left transition-[border-color,box-shadow] duration-150",
         node.ghost ? "border-dashed border-border-strong bg-surface-container-low/60" : "border-border-gray",
         go && "hover:border-border-strong hover:shadow-panel",
+        cardMarkClass(mark),
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
       )}
     >
@@ -345,7 +354,7 @@ function Row({ node, at, onOpen }: { node: Node; at: string[]; onOpen: (p: strin
           <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {node.title}
           </span>
-          <ChangeDot files={changed.get(node.id)} />
+          <PartMark id={node.id} files={changed.get(node.id)} />
           <StateChip state={node.state} alarm={node.alarm} />
           {node.issues?.length ? (
             <span className="shrink-0 border border-clay-line bg-clay-surface px-2 py-[3px] font-mono text-[10px] leading-none text-clay-ink">
