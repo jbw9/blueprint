@@ -32,8 +32,14 @@ export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; 
   }, [blueprint]);
   return (
     <>
-      <select value={value ?? ""} aria-label="Review a pull request, branch or agent turn" onChange={(e) => onPick(e.target.value || undefined)} className={SELECT}>
-        <option value="">{got ? "Review a pull request, branch or turn…" : "Reading branches…"}</option>
+      <select
+        value={value ?? ""}
+        aria-label="Commits, or a pull request, branch or agent turn to review"
+        title={got?.why ?? "Show all commits, or review a pull request, branch or agent turn"}
+        onChange={(e) => onPick(e.target.value || undefined)}
+        className={SELECT}
+      >
+        <option value="">All commits</option>
         {got?.turns.length ? (
           <optgroup label="What the agent changed, turn by turn">
             {got.turns.map((t) => (
@@ -64,7 +70,6 @@ export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; 
           </optgroup>
         ) : null}
       </select>
-      {got?.why ? <p className="mt-1 text-[11px] leading-snug text-faint">{got.why}</p> : null}
     </>
   );
 }

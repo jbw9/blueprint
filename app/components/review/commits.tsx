@@ -71,15 +71,10 @@ function Name({ path, flat, gone }: { path: string; flat?: boolean; gone?: boole
 }
 
 /** A file the commit names while its diff is still being read: the same row, dimmed, so nothing moves when it arrives. */
-export function PendingFileRow({ path, last, flat }: { path: string; last?: boolean; flat?: boolean }) {
-  return flat ? (
+export function PendingFileRow({ path }: { path: string }) {
+  return (
     <div className="flex items-center gap-2 border-b border-border-gray px-3 py-1 opacity-50 last:border-b-0">
       <Name path={path} flat />
-    </div>
-  ) : (
-    <div className="flex items-stretch gap-2 pr-3 opacity-50">
-      <Rail last={last} />
-      <Name path={path} />
     </div>
   );
 }
@@ -103,7 +98,11 @@ export function FileRow({ file, on, last, flat, onPick }: { file: FileChange; on
       <button
         type="button"
         onClick={onPick}
-        className="flex w-full cursor-pointer items-center gap-2 border-b border-border-gray px-3 py-1 text-left last:border-b-0 hover:bg-surface-container-low focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+        aria-current={on || undefined}
+        className={cn(
+          "flex w-full cursor-pointer items-center gap-2 border-b border-border-gray px-3 py-1 text-left last:border-b-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+          on ? "bg-accent/15" : "hover:bg-surface-container-low",
+        )}
       >
         {body}
       </button>

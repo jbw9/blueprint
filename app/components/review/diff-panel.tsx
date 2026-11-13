@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DIALOG, Overlay } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PanelClose } from "@/components/ui/panel";
@@ -11,7 +11,7 @@ import { useBlueprint } from "@/components/blueprint/blueprint-context";
 import type { Commit, SectionDiff } from "@/lib/server/diff";
 import { ReviewCard, ReviewPicker, Outside } from "@/components/review/reviews";
 import { FileRow, PendingFileRow, Rail, Row } from "@/components/review/commits";
-import { Comparing, Details, EndTag, OnTheBlueprint, Refs } from "@/components/review/commit-detail";
+import { Comparing, Details, EndTag, OnTheBlueprint } from "@/components/review/commit-detail";
 import { setDiffFile, useDiffFile } from "@/components/review/diff-file";
 import { showBlueprint } from "@/lib/agent/workspace-toggle";
 import { ago } from "@/components/review/ago";
@@ -19,39 +19,33 @@ import { openTimeline } from "@/components/review/timeline";
 
 /**
  * The history and what each commit did, laid out the way a code editor's
- * source control is (D75): the commits down the left on one line, the one
- * picked opening onto its files beneath it (clicked again, folding them
- * away). A file picked opens in a tab of the workspace window
- * (components/review/diff-file.tsx), so this stays a small popup; it closes
- * with the panel unless moved to the main view. The right side is the
- * commit itself — who, when, and which sections of the blueprint it moved, each
- * opening its level, where the red and green are drawn in place
- * (components/review/diff.tsx).
+ * source control is (D75): the commits down the left, one line each, and the
+ * commit picked on the right — who, when, which sections of the blueprint it
+ * moved, each opening its level where the red and green are drawn in place
+ * (components/review/diff.tsx), and its files. A file picked opens in a tab
+ * of the workspace window (components/review/diff-file.tsx), so this stays a
+ * small popup; it closes with the panel unless moved to the main view.
  *
- * ↑/↓ walk commits and files as one list, so reading a commit is the arrow
- * key and nothing else. Comparing is any two commits, as an editor's history
- * does it: "Compare with selected" on a row, or ⇧/⌘-click it; the right side
- * then names both ends and can swap them. It opens on the newest commit —
- * the blueprint keeps itself current, so "since the blueprint was made" is not a
- * question worth a row (D76).
+ * A commit's line counts are given once, on its files: the list says only
+ * what each commit is and when, so picking one never changes its height.
+ *
+ * ↑/↓ walk the commits, so reading a commit is the arrow key and nothing
+ * else. Comparing is any two commits, as an editor's history does it:
+ * "Compare" on a row, or ⇧/⌘-click it; the right side then names both ends
+ * and can swap them. It opens on the newest commit — the blueprint keeps
+ * itself current, so "since the blueprint was made" is not a question worth a
+ * row (D76).
  *
  * Mounted once beside the other dialogs and opened by the same event that
  * turns diff mode on, so there is one way in. Leaving is `off`, in the header.
  */
-
-type Item = { k: "commit"; c: Commit } | { k: "file"; path: string };
-
 export function DiffPanel() {
   const d = useDiff();
   const { nodeAt, name: blueprint } = useBlueprint();
   const [shown, setShownRaw] = useState(false);
-  // A commit clicked again folds its files away.
-  const [folded, setFolded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const reading = useDiffFile();
   const list = useRef<HTMLDivElement>(null);
-  // Commits clicked away from keep their files on screen while the pointer stays in the list, so a row below never moves from under it.
-  const [linger, setLinger] = useState<string[]>([]);
 
   useEffect(() => {
     const on = () => setShownRaw(true);
@@ -79,20 +73,13 @@ export function DiffPanel() {
   const setFile = (path: string | null) => setDiffFile(path ? { files, path, open: true } : null);
   const setShown = (on: boolean) => {
     setShownRaw(on);
-    setLinger([]);
     // The file's tab goes with the panel, unless it was moved into the main view to keep.
     if (!on) setDiffFile((was) => was && { ...was, open: false });
   };
 
-  const items: Item[] = [];
-  for (const c of commits) {
-    items.push({ k: "commit", c });
-    if (c === (picked ?? pair?.with) && folded !== c.sha) for (const f of files) items.push({ k: "file", path: f.path });
-  }
-  const atCommit = items.findIndex((it) => it.k === "commit" && it.c === (picked ?? pair?.with));
-  const atFile = open ? items.findIndex((it) => it.k === "file" && it.path === open.path) : -1;
-  // A file folded away under its commit leaves the commit lit.
-  const active = atFile >= 0 ? atFile : atCommit;
+  /** The commit in view: the one picked, or the newer end of a comparison. */
+  const anchor = picked ?? pair?.with;
+  const active = anchor ? commits.indexOf(anchor) : -1;
 
   useEffect(() => {
     if (shown) list.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "nearest" });
@@ -103,20 +90,13 @@ export function DiffPanel() {
 
   if (!shown || !d) return null;
 
-  function pick(it: Item, click = false) {
-    if (it.k === "file") return setFile(it.path);
-    if (it.c === picked) {
-      if (click) setFolded((f) => (f === it.c.sha ? null : it.c.sha));
-      return;
-    }
-    setFolded(null);
-    d!.setRange(`${it.c.sha}~1`, it.c.sha);
+  function pick(c: Commit) {
+    if (c !== picked) d!.setRange(`${c.sha}~1`, c.sha);
   }
 
   /** The commit in view, compared with `c`: the older is the base. */
-  const anchor = picked ?? pair?.with;
   function compare(c: Commit) {
-    if (!anchor || anchor === c) return pick({ k: "commit", c });
+    if (!anchor || anchor === c) return pick(c);
     const [newer, older] = all.indexOf(anchor) < all.indexOf(c) ? [anchor, c] : [c, anchor];
     d!.setRange(older.sha, newer.sha);
   }
@@ -135,13 +115,49 @@ export function DiffPanel() {
       : d.review.startsWith("pr:")
         ? `Reviewing pull request #${d.review.slice(3)}`
         : `Reviewing ${d.review.split("...")[1]} since it left ${d.review.split("...")[0]}`
-    : picked
-      ? `${picked.short} · ${picked.subject}`
-      : single
-        ? single
-        : d.from || d.to
-          ? `Comparing ${short(d.from) || "the start"} ⇄ ${short(d.to) || "your working tree"}`
-          : "Reading the history…";
+    : single
+      ? single
+      : d.from || d.to
+        ? `Comparing ${short(d.from) || "the start"} ⇄ ${short(d.to) || "your working tree"}`
+        : "Reading the history…";
+
+  const moved = !d.loading && diff?.basis === "sections" && diff.sections.some((s) => s.verdict !== "untouched");
+  const onBlueprint =
+    diff && !d.loading ? (
+      <>
+        {diff.basis === "files" ? <p className="mt-6 text-[12.5px] leading-snug text-on-surface-variant">{diff.why}</p> : null}
+        {diff.basis === "sections" ? <OnTheBlueprint sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
+        {diff.outside?.length ? <Outside outside={diff.outside} title={(p) => nodeAt(p)?.title ?? p.at(-1)!} onOpen={(p) => (goTo(p), setShown(false))} /> : null}
+      </>
+    ) : null;
+  const fileList = d.loading ? (
+    picked ? (
+      <>
+        <FilesHeading files={picked.files.length} added={picked.added} removed={picked.removed} />
+        <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
+          {picked.files.slice(0, 200).map((p) => (
+            <PendingFileRow key={p} path={p} />
+          ))}
+        </div>
+        <p className="mt-6 text-[12.5px] text-muted-slate">Reading what it changed on the blueprint…</p>
+      </>
+    ) : (
+      <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p>
+    )
+  ) : diff ? (
+    <>
+      <FilesHeading files={diff.files.length} added={diff.files.reduce((n, f) => n + f.added, 0)} removed={diff.files.reduce((n, f) => n + f.removed, 0)} />
+      {diff.files.length ? (
+        <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
+          {diff.files.map((f) => (
+            <FileRow key={f.path} file={f} flat on={f === open} onPick={() => setFile(f.path)} />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[13px] text-muted-slate">Nothing changed.</p>
+      )}
+    </>
+  ) : null;
 
   return (
     <Overlay
@@ -150,11 +166,14 @@ export function DiffPanel() {
       // A file open in the workspace window: the popup keeps clear of it.
       style={reading?.open ? { paddingRight: "calc(var(--workspace-inset, 0px) + 24px)" } : undefined}
     >
-      {/* With a file open beside it, only the list stays: the commit's details would be crushed, and the file is what is being read. */}
+      {/* With a file open beside it, the commit's details give way: the list stays, with the commit's files under it. */}
       <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
         <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
           <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-slate">{reading?.open ? null : caption}</span>
+          <div className={cn("min-w-0 max-w-[260px] flex-1", reading?.open && "hidden")}>
+            <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
+          </div>
+          <span className="flex-1" />
           <Button
             variant="ghost"
             size="sm"
@@ -165,6 +184,7 @@ export function DiffPanel() {
               showBlueprint();
             }}
             title="How the code got here — every commit on the blueprint's sections, over time"
+            className={cn(reading?.open && "hidden")}
           >
             Timeline
           </Button>
@@ -192,155 +212,97 @@ export function DiffPanel() {
 
         <div className="flex min-h-0 flex-1">
           {/* ── history ── */}
-          <aside className={reading?.open ? "flex min-w-0 flex-1 flex-col" : "flex w-[320px] shrink-0 flex-col border-r border-border-gray"}>
+          <aside className={reading?.open ? "flex min-w-0 flex-1 flex-col" : "flex w-[300px] shrink-0 flex-col border-r border-border-gray"}>
             <div className="shrink-0 border-b border-border-gray p-2">
-              <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filter commits by message, author or sha"
+                placeholder="Filter commits"
+                title="By message, author or sha"
                 aria-label="Filter commits"
-                className="mt-2 w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                className="w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
               />
             </div>
             <div
               ref={list}
               role="listbox"
-              aria-label="Commits and their files"
+              aria-label="Commits"
               tabIndex={0}
-              onMouseLeave={() => setLinger([])}
               onKeyDown={(e) => {
-                if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !items.length) return;
+                if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !commits.length) return;
                 e.preventDefault();
-                setLinger([]);
-                const at = Math.max(0, Math.min(items.length - 1, (active < 0 ? 0 : active) + (e.key === "ArrowDown" ? 1 : -1)));
-                pick(items[at]);
+                const at = Math.max(0, Math.min(commits.length - 1, (active < 0 ? 0 : active) + (e.key === "ArrowDown" ? 1 : -1)));
+                pick(commits[at]);
               }}
               className="min-h-0 flex-1 overflow-y-auto py-1 outline-none"
             >
-              {items.map((it, i) => {
-                const on = i === active;
-                const first = i === 0;
-                const last = i === items.length - 1;
-                if (it.k === "file") {
-                  const f = files.find((x) => x.path === it.path)!;
-                  return <FileRow key={`f:${it.path}:${i}`} file={f} on={on} last={last} onPick={() => pick(it)} />;
-                }
-                const c = it.c;
+              {commits.map((c, i) => {
+                const on = c === anchor;
                 const n = all.indexOf(c);
                 const end = c === pair?.base ? "base" : c === pair?.with ? "compare" : null;
                 const inPair = !!span && n >= span[0] && n <= span[1];
                 return (
-                  <Fragment key={c.sha}>
-                    <Row
-                      on={on || !!end}
-                      soft={inPair}
-                      onPick={(e) => {
-                        if (anchor && anchor !== c && folded !== anchor.sha && all.indexOf(anchor) < n) setLinger((l) => [...l, anchor.sha]);
-                        if (e.shiftKey || e.metaKey || e.ctrlKey) compare(c);
-                        else pick(it, true);
-                      }}
-                      title={`${c.subject}\n${c.author} <${c.email ?? ""}> · ${new Date(c.at).toLocaleString()}\n${c.sha}`}
-                    >
-                      <Rail dot={(c.parents?.length ?? 0) > 1 ? "merge" : on || inPair ? "on" : "off"} first={first} last={last} />
-                      <span className="min-w-0 flex-1 py-1.5">
-                        <span className="flex items-center gap-1">
-                          {end ? <EndTag end={end} /> : null}
-                          <Refs refs={c.refs} max={2} />
-                          <span className="min-w-0 truncate text-[12.5px] text-ink">{c.subject}</span>
-                        </span>
-                        <span className="block truncate text-[11px] text-muted-slate">
-                          {ago(c.at)} · {c.author}
-                        </span>
-                      </span>
-                      <span className="shrink-0 py-1.5 text-right font-mono text-[10.5px] leading-[1.55]">
-                        <span className="block text-faint">{c.short}</span>
-                        <span className="tnum block">
-                          <span style={{ color: TINT.added.ink }}>+{c.added}</span> <span style={{ color: TINT.removed.ink }}>−{c.removed}</span>
-                        </span>
-                      </span>
-                      {anchor && anchor !== c ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            compare(c);
-                          }}
-                          title={`Compare ${c.short} with ${anchor.short}`}
-                          className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer rounded border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-panel hover:border-accent group-hover:block"
-                        >
-                          ⇄ Compare with {anchor.short}
-                        </button>
-                      ) : null}
-                    </Row>
-                    {/* The commit's own paths, from the log, while its diff is read. */}
-                    {(c === picked && d.loading && folded !== c.sha) || (c !== anchor && linger.includes(c.sha))
-                      ? c.files.slice(0, 200).map((p) => <PendingFileRow key={p} path={p} />)
-                      : null}
-                  </Fragment>
+                  <Row
+                    key={c.sha}
+                    on={on || !!end}
+                    soft={inPair}
+                    onPick={(e) => (e.shiftKey || e.metaKey || e.ctrlKey ? compare(c) : pick(c))}
+                    title={`${c.subject}\n${c.author} · ${new Date(c.at).toLocaleString()}\n${c.short} · +${c.added} −${c.removed}\n⇧ or ⌘-click to compare`}
+                  >
+                    <Rail dot={(c.parents?.length ?? 0) > 1 ? "merge" : on || inPair ? "on" : "off"} first={i === 0} last={i === commits.length - 1} />
+                    <span className="flex min-w-0 flex-1 items-center gap-1 py-1.5">
+                      {end ? <EndTag end={end} /> : null}
+                      <span className="min-w-0 truncate text-[12.5px] text-ink">{c.subject}</span>
+                    </span>
+                    <span className={cn("shrink-0 py-1.5 text-[11px] text-faint", anchor && anchor !== c && "group-hover:invisible")}>{ago(c.at)}</span>
+                    {anchor && anchor !== c ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          compare(c);
+                        }}
+                        title={`Compare ${c.short} with ${anchor.short}`}
+                        className="absolute right-2 top-1/2 hidden -translate-y-1/2 cursor-pointer rounded border border-border-strong bg-card px-1.5 py-0.5 text-[10.5px] text-ink shadow-panel hover:border-accent group-hover:block"
+                      >
+                        ⇄ Compare
+                      </button>
+                    ) : null}
+                  </Row>
                 );
               })}
               {!all.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">Reading the history…</p> : null}
               {q && !commits.length ? <p className="px-4 py-3 text-[12px] text-muted-slate">No commit matches “{query}”.</p> : null}
             </div>
-            <p className="shrink-0 border-t border-border-gray px-3 py-1.5 text-[11px] text-faint">↑↓ to move · ⇧ or ⌘-click a second commit to compare</p>
+            {reading?.open ? <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border-gray px-3 pb-3">{fileList}</div> : null}
           </aside>
 
           {/* ── what the pick changed ── */}
           <main className={reading?.open ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                {picked ? (
-                  <Details key={picked.sha} blueprint={blueprint} commit={picked} all={all} onPick={(c) => pick({ k: "commit", c })} />
-                ) : pair?.base && pair.with ? (
-                  <Comparing
-                    base={pair.base}
-                    other={pair.with}
-                    between={span ? span[1] - span[0] : 0}
-                    onSwap={() => d.setRange(d.to, d.from)}
-                    onDone={() => pick({ k: "commit", c: pair.with! })}
-                  />
-                ) : (
-                  <h3 className="text-[17px] font-semibold leading-snug text-ink">{caption}</h3>
-                )}
-                {diff?.review ? <ReviewCard r={diff.review} blueprint={blueprint} spec={d.review} onMade={d.reload} /> : null}
-                {d.loading && picked ? (
-                  <>
-                    <Counts files={picked.files.length} added={picked.added} removed={picked.removed} />
-                    <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files</h3>
-                    <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
-                      {picked.files.slice(0, 200).map((p) => (
-                        <PendingFileRow key={p} path={p} flat />
-                      ))}
-                    </div>
-                    <p className="mt-6 text-[12.5px] text-muted-slate">Reading what it changed on the blueprint…</p>
-                  </>
-                ) : d.loading ? (
-                  <p className="mt-4 text-[13px] text-muted-slate">Reading what changed…</p>
-                ) : null}
-                {d.error ? (
-                  <p className="mt-4 text-[13px]" style={{ color: TINT.removed.ink }}>
-                    {d.error}
-                  </p>
-                ) : null}
-                {diff && !d.loading ? (
-                  <>
-                    <Counts files={diff.files.length} added={diff.files.reduce((n, f) => n + f.added, 0)} removed={diff.files.reduce((n, f) => n + f.removed, 0)} />
-                    {/* A file-level answer never pretends to be a section-level one. */}
-                    <h3 className="mt-6 text-[12px] font-medium text-muted-slate">Files</h3>
-                    {diff.files.length ? (
-                      <div className="mt-1.5 overflow-hidden rounded-md border border-border-gray">
-                        {diff.files.map((f) => (
-                          <FileRow key={f.path} file={f} flat onPick={() => setFile(f.path)} />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1.5 text-[13px] text-muted-slate">Nothing changed.</p>
-                    )}
-                    {diff.basis === "files" ? <p className="mt-4 text-[12.5px] leading-snug text-on-surface-variant">{diff.why}</p> : null}
-                    {diff.basis === "sections" ? <OnTheBlueprint sections={diff.sections} trail={trail} onOpen={(s) => (goTo(s.path), setShown(false))} /> : null}
-                    {diff.outside?.length ? <Outside outside={diff.outside} title={(p) => nodeAt(p)?.title ?? p.at(-1)!} onOpen={(p) => (goTo(p), setShown(false))} /> : null}
-                  </>
-                ) : null}
+              {picked ? (
+                <Details key={picked.sha} blueprint={blueprint} commit={picked} all={all} onPick={pick} />
+              ) : pair?.base && pair.with ? (
+                <Comparing
+                  base={pair.base}
+                  other={pair.with}
+                  between={span ? span[1] - span[0] : 0}
+                  onSwap={() => d.setRange(d.to, d.from)}
+                  onDone={() => pick(pair.with!)}
+                />
+              ) : (
+                <h3 className="text-[17px] font-semibold leading-snug text-ink">{caption}</h3>
+              )}
+              {diff?.review ? <ReviewCard r={diff.review} blueprint={blueprint} spec={d.review} onMade={d.reload} /> : null}
+              {d.error ? (
+                <p className="mt-4 text-[13px]" style={{ color: TINT.removed.ink }}>
+                  {d.error}
+                </p>
+              ) : null}
+              {/* Where it changed on the blueprint leads when it moved anything there. */}
+              {moved ? onBlueprint : null}
+              {reading?.open ? null : fileList}
+              {moved ? null : onBlueprint}
             </div>
           </main>
         </div>
@@ -349,11 +311,14 @@ export function DiffPanel() {
   );
 }
 
-function Counts({ files, added, removed }: { files: number; added: number; removed: number }) {
+/** The commit's line counts, given once, over its files. */
+function FilesHeading({ files, added, removed }: { files: number; added: number; removed: number }) {
   return (
-    <p className="tnum mt-2 font-mono text-[11.5px] text-muted-slate">
-      {files} {files === 1 ? "file" : "files"} · <span style={{ color: TINT.added.ink }}>+{added}</span>{" "}
-      <span style={{ color: TINT.removed.ink }}>−{removed}</span>
-    </p>
+    <h3 className="tnum mt-6 flex items-baseline gap-2 text-[12px] font-medium text-muted-slate">
+      {files} {files === 1 ? "file" : "files"}
+      <span className="font-mono text-[11px]">
+        <span style={{ color: TINT.added.ink }}>+{added}</span> <span style={{ color: TINT.removed.ink }}>−{removed}</span>
+      </span>
+    </h3>
   );
 }
