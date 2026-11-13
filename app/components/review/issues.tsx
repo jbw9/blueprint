@@ -8,7 +8,6 @@ import { mention } from "@/lib/agent/context";
 import { ago } from "@/components/review/ago";
 import { TINT } from "@/components/review/diff";
 import type { CloseReason, FullIssue, Issue, IssueState } from "@/lib/server/issues";
-import { Segmented } from "@/components/ui/dialog";
 
 /**
  * The Issues tab of the commits panel (components/review/diff-panel.tsx): the
@@ -26,7 +25,6 @@ const STATES: { value: IssueState; label: string }[] = [
 export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: () => void }) {
   const desktop = useDesktop();
   const [state, setState] = useState<IssueState>("open");
-  // Each list as last read, so switching back shows it at once while it is read again.
   const [lists, setLists] = useState<Partial<Record<IssueState, { issues?: Issue[]; why?: string }>>>({});
   const [again, setAgain] = useState(0);
   const list = lists[state] ?? null;
@@ -37,17 +35,20 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
   const [full, setFull] = useState<Record<number, FullIssue | { error: string }>>({});
   const rows = useRef<HTMLDivElement>(null);
 
+  // Both lists are read together, so each switch shows its count and opens at once.
   useEffect(() => {
     let live = true;
-    const got = (l: { issues?: Issue[]; why?: string }) => live && setLists((all) => ({ ...all, [state]: l }));
-    fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}&state=${state}`)
-      .then((r) => r.json())
-      .then((j: { issues?: Issue[]; why?: string; error?: string }) => got({ issues: j.issues, why: j.why ?? j.error }))
-      .catch(() => got({ why: "Could not reach the app's server." }));
+    for (const st of ["open", "closed"] as const) {
+      const got = (l: { issues?: Issue[]; why?: string }) => live && setLists((all) => ({ ...all, [st]: l }));
+      fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}&state=${st}`)
+        .then((r) => r.json())
+        .then((j: { issues?: Issue[]; why?: string; error?: string }) => got({ issues: j.issues, why: j.why ?? j.error }))
+        .catch(() => got({ why: "Could not reach the app's server." }));
+    }
     return () => {
       live = false;
     };
-  }, [blueprint, state, again]);
+  }, [blueprint, again]);
 
   const q = query.trim().toLowerCase().replace(/^#/, "");
   const shown = useMemo(
@@ -98,7 +99,6 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
     setClosing(null);
     setPicked(null);
     setList((l) => ({ ...l, issues: l.issues?.filter((i) => i.number !== n) }));
-    setLists((all) => ({ [state]: all[state] }));
     setFull((f) => {
       const rest = { ...f };
       delete rest[n];
@@ -113,16 +113,33 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-gray">
         <div className="flex shrink-0 flex-col gap-2 border-b border-border-gray p-2">
-          <Segmented
-            label="Open or closed issues"
-            value={state}
-            options={STATES}
-            onChange={(s) => {
-              setState(s);
-              setPicked(null);
-              setClosing(null);
-            }}
-          />
+          <div role="radiogroup" aria-label="Open or closed issues" className="flex items-center gap-3 px-1">
+            {STATES.map((o) => {
+              const on = o.value === state;
+              const count = lists[o.value]?.issues?.length;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => {
+                    setState(o.value);
+                    setPicked(null);
+                    setClosing(null);
+                  }}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-1.5 text-[12px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/70",
+                    on ? "font-semibold text-ink" : "font-medium text-muted-slate hover:text-ink",
+                  )}
+                >
+                  <StateMark state={o.value} />
+                  {count === undefined ? null : <span className="tnum">{count}</span>}
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -264,5 +281,21 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
         </div>
       </main>
     </div>
+  );
+}
+
+/** GitHub's marks: a ring with a dot for open, a tick for closed. */
+function StateMark({ state }: { state: IssueState }) {
+  return (
+    <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" className="shrink-0">
+      {state === "open" ? (
+        <>
+          <circle cx="8" cy="8" r="6.2" />
+          <circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" />
+        </>
+      ) : (
+        <path d="M3 8.5l3.2 3.2L13 4.8" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+    </svg>
   );
 }
