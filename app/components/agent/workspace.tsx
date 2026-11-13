@@ -825,26 +825,18 @@ export function Workspace() {
   );
 
   // A file picked in the history panel (components/review/diff-file.tsx) reads
-  // in one tab of the window, opened with the panel's first pick. The window
-  // goes back to how it was when the tab closes: hidden again if the tab is
-  // what showed it.
+  // in one tab of the main view, as a file a terminal names does, named for the file.
   const diffFile = useDiffFile();
-  const readingOpen = !!diffFile?.open;
   const readingPath = diffFile?.path;
-  const hidAfter = useRef(false);
   useEffect(() => {
+    if (!readingPath) return;
+    const title = readingPath.slice(readingPath.lastIndexOf("/") + 1);
     const had = tabsNow.current.find((x) => x.kind === "diff");
-    if (readingOpen) {
-      if (!had) {
-        hidAfter.current = !open;
-        add(null, { kind: "diff", title: "Diff", cwd: here });
-      } else if (!had.main) bring(had.key);
-    } else if (had && !had.main) {
-      close(had.key);
-      if (hidAfter.current) show(false);
-    }
+    if (!had) return void add(null, { kind: "diff", title, cwd: here, main: true });
+    patch(had.key, { title });
+    bring(had.key);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- on the panel's picks only
-  }, [readingOpen, readingPath]);
+  }, [readingPath, diffFile]);
   useEffect(() => {
     const front = () => setFront((f) => ({ ...f, [latest.current.here]: null }));
     window.addEventListener(SHOW_BLUEPRINT, front);
@@ -1289,10 +1281,8 @@ export function Workspace() {
         visibility: !shown && settled ? "hidden" : "visible",
       }}
       data-chrome
-      // Over the history popup's veil while it has a file open here, so the two read together.
       className={cn(
-        "fixed flex flex-col rounded-lg bg-surface-container-low shadow-float",
-        readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
+        "fixed flex flex-col rounded-lg bg-surface-container-low shadow-float z-40",
         // A staged Preview lies past the window's edge, and would be clipped.
         !stagedAt?.main && stagedAt ? "overflow-visible" : "overflow-hidden",
       )}

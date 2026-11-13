@@ -17,7 +17,6 @@ import { cn } from "@/lib/client/utils";
 export interface DiffFile {
   files: FileChange[];
   path: string;
-  open: boolean;
 }
 
 let now: DiffFile | null = null;

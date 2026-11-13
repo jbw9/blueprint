@@ -69,10 +69,10 @@ export function DiffPanel() {
   const span = pair?.base && pair.with ? [all.indexOf(pair.base), all.indexOf(pair.with)].sort((a, b) => a - b) : null;
   const files = d && !d.loading ? (diff?.files ?? []) : [];
   // The file read in the workspace (components/review/diff-file.tsx), while it is one of this pick's.
-  const open = reading?.open && reading.files === files ? (files.find((f) => f.path === reading.path) ?? null) : null;
+  const open = reading && reading.files === files ? (files.find((f) => f.path === reading.path) ?? null) : null;
   // The file is what is read now, so the panel makes way for it.
   const setFile = (path: string) => {
-    setDiffFile({ files, path, open: true });
+    setDiffFile({ files, path });
     setShown(false);
   };
 
