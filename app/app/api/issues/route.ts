@@ -1,6 +1,6 @@
 import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
-import { issue, issues } from "@/lib/server/issues";
-import { bad } from "@/lib/server/route";
+import { closeIssue, issue, issues } from "@/lib/server/issues";
+import { bad, notJson } from "@/lib/server/route";
 
 /**
  * The open GitHub issues of a blueprint's checkout.
@@ -25,4 +25,22 @@ export async function GET(request: Request) {
   if (!/^\d{1,7}$/.test(n)) return bad("An issue is named by its number.");
   const one = issue(root, Number(n));
   return "error" in one ? bad(one.error) : Response.json(one);
+}
+
+/** `POST { blueprint, n, reason }` closes issue `n` as "completed" or "not planned". */
+export async function POST(request: Request) {
+  const refused = notJson(request);
+  if (refused) return refused;
+  const body = (await request.json().catch(() => null)) as { blueprint?: string; n?: unknown; reason?: unknown } | null;
+  let open;
+  try {
+    open = loadBlueprint(body?.blueprint);
+  } catch {
+    open = null;
+  }
+  if (!open) return bad("No such blueprint.", 404);
+  if (typeof body?.n !== "number" || !Number.isInteger(body.n) || body.n < 1) return bad("An issue is named by its number.");
+  if (body.reason !== "completed" && body.reason !== "not planned") return bad("An issue closes as completed or not planned.");
+  const error = closeIssue(rootOf(open.file.RUN), body.n, body.reason);
+  return error ? bad(error) : Response.json({ closed: body.n });
 }

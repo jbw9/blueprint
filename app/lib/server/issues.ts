@@ -64,3 +64,10 @@ export function issue(root: string, n: number): FullIssue | { error: string } {
   ].join("\n");
   return { ...base, body, state: r.state, comments, text };
 }
+
+export type CloseReason = "completed" | "not planned";
+
+/** Closes an issue on GitHub, as completed or as not planned; null when it is closed. */
+export function closeIssue(root: string, n: number, reason: CloseReason): string | null {
+  return gh(root, ["issue", "close", String(n), "--reason", reason]) === null ? `Could not close issue #${n}. ${NO_GH}` : null;
+}

@@ -6,7 +6,8 @@ import { cn } from "@/lib/client/utils";
 import { useDesktop } from "@/lib/client/platform";
 import { mention } from "@/lib/agent/context";
 import { ago } from "@/components/review/ago";
-import type { FullIssue, Issue } from "@/lib/server/issues";
+import { TINT } from "@/components/review/diff";
+import type { CloseReason, FullIssue, Issue } from "@/lib/server/issues";
 
 /**
  * The Issues tab of the commits panel (components/review/diff-panel.tsx): the
@@ -68,6 +69,23 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
     mention({ key: `issue:${i.number}`, title: name, text: i.text });
     onGiven();
   };
+
+  // Asked first, as completed or not planned, which is also the guard against a stray click.
+  const [closing, setClosing] = useState<{ n: number; busy?: boolean; error?: string } | null>(null);
+  async function close(n: number, reason: CloseReason) {
+    setClosing({ n, busy: true });
+    const r = await fetch("/api/issues", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ blueprint, n, reason }),
+    })
+      .then((r) => r.json() as Promise<{ closed?: number; error?: string }>)
+      .catch(() => ({ error: "Could not reach the app's server." }));
+    if ("error" in r && r.error) return setClosing({ n, error: r.error });
+    setClosing(null);
+    setPicked(null);
+    setList((l) => l && { ...l, issues: l.issues?.filter((i) => i.number !== n) });
+  }
 
   const summary = at === null ? undefined : list?.issues?.find((i) => i.number === at);
 
@@ -158,7 +176,31 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
                 >
                   Open on GitHub ↗
                 </a>
+                <span className="flex-1" />
+                {closing?.n === summary.number ? (
+                  <span className="flex items-center gap-1">
+                    <span className="mr-1 text-[12px] text-muted-slate">{closing.busy ? "Closing…" : "Close as"}</span>
+                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void close(summary.number, "completed")}>
+                      Completed
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void close(summary.number, "not planned")}>
+                      Not planned
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={closing.busy} onClick={() => setClosing(null)}>
+                      Cancel
+                    </Button>
+                  </span>
+                ) : (
+                  <Button variant="ghost" size="sm" onClick={() => setClosing({ n: summary.number })}>
+                    Close issue
+                  </Button>
+                )}
               </div>
+              {closing?.n === summary.number && closing.error ? (
+                <p className="mt-2 text-[12px]" style={{ color: TINT.removed.ink }}>
+                  {closing.error}
+                </p>
+              ) : null}
               {!one ? <p className="mt-4 text-[13px] text-muted-slate">Reading the issue…</p> : null}
               {one && "error" in one ? <p className="mt-4 text-[13px] text-muted-slate">{one.error}</p> : null}
               {one && "text" in one ? (
