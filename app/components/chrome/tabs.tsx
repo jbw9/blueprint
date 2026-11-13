@@ -15,13 +15,17 @@ import { cn } from "@/lib/client/utils";
 export const tabTitle = (nodeAt: (path: string[]) => { title: string } | null | undefined, path: string[], file?: string) =>
   file ? file.split("/").pop()! : path.length ? (nodeAt(path)?.title ?? "Blueprint") : "Blueprint";
 
-/** A floor plan: the Blueprint tab, the top of the blueprint. Drawn like the workspace's tab glyphs. */
+/** The Blueprint mark, the ghost on its sheet, redrawn with heavier lines so it stays sharp at tab size. */
 export function BlueprintIcon() {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mr-0.5 size-3 shrink-0">
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
-      <path d="M7.5 2.5v6h6" />
-      <path d="M2.5 10.5h3" />
+    <svg viewBox="130 300 750 560" fill="none" stroke="currentColor" strokeWidth="46" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mr-0.5 h-3 w-4 shrink-0">
+      <path d="M334 562C332 446 414 346 514 346 612 346 694 444 690 560" />
+      <path d="M160 566C360 558 660 570 864 562" />
+      <path d="M268 670H532M332 770H716" />
+      <g fill="currentColor" stroke="none">
+        <ellipse cx="460" cy="474" rx="26" ry="34" />
+        <ellipse cx="570" cy="474" rx="26" ry="34" />
+      </g>
     </svg>
   );
 }
@@ -158,7 +162,7 @@ export function NewTab({ onBlueprint, hidePreview }: { onBlueprint: () => void; 
         aria-label="New tab"
         aria-haspopup="menu"
         title="New tab"
-        className="flex h-6 w-6 shrink-0 cursor-pointer items-center self-center justify-center rounded text-faint transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-90 focus-visible:outline-2 focus-visible:outline-accent"
+        className="flex h-7 w-7 shrink-0 cursor-pointer items-center self-center justify-center rounded text-faint transition-[background-color,color,transform] duration-150 hover:bg-surface-container hover:text-ink active:scale-90 focus-visible:outline-2 focus-visible:outline-accent"
       >
         <svg aria-hidden width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
           <path d="M5 1.5v7M1.5 5h7" />
@@ -342,14 +346,14 @@ export const TAB_OPENED = "animate-[tab-opened_1.4s_ease-out]";
 /** The strip. Its bottom line is an inset shadow rather than a border, so the
  * tab in front can paint over it and run on into what is below. */
 export const TAB_STRIP =
-  "flex h-8 shrink-0 items-end gap-0.5 overflow-x-auto bg-surface-container-low px-1.5 shadow-[inset_0_-1px_0_var(--color-border-gray)]";
+  "flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto bg-surface-container-low px-1.5 shadow-[inset_0_-1px_0_var(--color-border-gray)]";
 
 /** A tab. The one in front is the blueprint's own ground, open at the bottom, so it
  * reads as the top of the page beneath rather than a button on the strip. */
 export function tabLook(active: boolean, closable: boolean) {
   return cn(
-    "group flex h-[29px] min-w-0 max-w-[200px] shrink-0 items-center gap-1 rounded-t border border-b-0 pl-2.5 text-[12px] transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
-    closable ? "pr-1" : "pr-2.5",
+    "group flex h-[33px] min-w-0 max-w-[200px] shrink-0 items-center gap-1 rounded-t border border-b-0 pl-3 text-[13px] transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+    closable ? "pr-1.5" : "pr-3",
     active
       ? "border-border-gray bg-paper font-semibold text-ink shadow-[inset_0_2px_0_var(--color-accent)]"
       : "border-transparent text-muted-slate hover:bg-surface-container hover:text-ink",

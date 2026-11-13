@@ -71,7 +71,7 @@ export function Titlebar({ bare }: { bare?: boolean }) {
     <header
       data-tauri-drag-region
       data-chrome="bar"
-      className="grid h-9 shrink-0 select-none grid-cols-[max-content_minmax(0,1fr)_max-content] items-end bg-surface-container-low shadow-[inset_0_-1px_0_var(--color-border-gray)]"
+      className="grid h-10 shrink-0 select-none grid-cols-[max-content_minmax(0,1fr)_max-content] items-end bg-surface-container-low shadow-[inset_0_-1px_0_var(--color-border-gray)]"
     >
       <div
         data-tauri-drag-region
