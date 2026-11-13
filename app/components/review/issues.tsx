@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, keys } from "@/components/ui/button";
 import { cn } from "@/lib/client/utils";
-import { useDesktop } from "@/lib/client/platform";
+import { useDesktop, useMac } from "@/lib/client/platform";
 import { mention } from "@/lib/agent/context";
 import { ago } from "@/components/review/ago";
 import { TINT } from "@/components/review/diff";
@@ -274,6 +274,18 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
                       </ul>
                     </>
                   ) : null}
+                  <CommentBox
+                    key={one.number}
+                    blueprint={blueprint}
+                    n={one.number}
+                    onPosted={() =>
+                      setFull((f) => {
+                        const rest = { ...f };
+                        delete rest[one.number];
+                        return rest;
+                      })
+                    }
+                  />
                 </>
               ) : null}
             </>
@@ -297,5 +309,60 @@ function StateMark({ state }: { state: IssueState }) {
         <path d="M3 8.5l3.2 3.2L13 4.8" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
+  );
+}
+
+/** A comment on the issue, posted as the signed-in GitHub user; Ctrl/⌘+Enter posts it. */
+function CommentBox({ blueprint, n, onPosted }: { blueprint: string; n: number; onPosted: () => void }) {
+  const [text, setText] = useState("");
+  const mac = useMac();
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function post() {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setError(null);
+    const r = await fetch("/api/issues", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ blueprint, n, comment: text }),
+    })
+      .then((r) => r.json() as Promise<{ error?: string }>)
+      .catch(() => ({ error: "Could not reach the app's server." }));
+    setSending(false);
+    if (r.error) return setError(r.error);
+    setText("");
+    onPosted();
+  }
+  return (
+    <div className="mt-6 border-t border-border-gray pt-3">
+      <textarea
+        id={`issue-${n}-comment`}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            void post();
+          }
+        }}
+        rows={3}
+        placeholder="Leave a comment"
+        aria-label={`Comment on issue #${n}`}
+        className="block w-full resize-y rounded-md border border-border-gray bg-card px-2.5 py-2 text-[12.5px] leading-relaxed text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+      />
+      <div className="mt-2 flex items-center gap-2">
+        {error ? (
+          <span className="min-w-0 flex-1 text-[12px]" style={{ color: TINT.removed.ink }}>
+            {error}
+          </span>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <Button variant="outline" size="sm" disabled={!text.trim() || sending} onClick={() => void post()} title={keys(mac, "Enter")}>
+          {sending ? "Commenting…" : "Comment"}
+        </Button>
+      </div>
+    </div>
   );
 }

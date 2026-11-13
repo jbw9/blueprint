@@ -1,5 +1,5 @@
 import { loadBlueprint, rootOf } from "@/lib/server/blueprints";
-import { closeIssue, issue, issues, reopenIssue } from "@/lib/server/issues";
+import { closeIssue, COMMENT_MAX, commentOn, issue, issues, reopenIssue } from "@/lib/server/issues";
 import { bad, notJson } from "@/lib/server/route";
 
 /**
@@ -27,11 +27,14 @@ export async function GET(request: Request) {
   return "error" in one ? bad(one.error) : Response.json(one);
 }
 
-/** `POST { blueprint, n, reason }` closes issue `n` as "completed" or "not planned"; `POST { blueprint, n, reopen: true }` opens it again. */
+/**
+ * `POST { blueprint, n, reason }` closes issue `n` as "completed" or "not planned";
+ * `{ blueprint, n, reopen: true }` opens it again; `{ blueprint, n, comment }` comments on it.
+ */
 export async function POST(request: Request) {
   const refused = notJson(request);
   if (refused) return refused;
-  const body = (await request.json().catch(() => null)) as { blueprint?: string; n?: unknown; reason?: unknown; reopen?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { blueprint?: string; n?: unknown; reason?: unknown; reopen?: unknown; comment?: unknown } | null;
   let open;
   try {
     open = loadBlueprint(body?.blueprint);
@@ -41,6 +44,12 @@ export async function POST(request: Request) {
   if (!open) return bad("No such blueprint.", 404);
   if (typeof body?.n !== "number" || !Number.isInteger(body.n) || body.n < 1) return bad("An issue is named by its number.");
   const root = rootOf(open.file.RUN);
+  if (body.comment !== undefined) {
+    if (typeof body.comment !== "string" || !body.comment.trim()) return bad("A comment needs some words.");
+    if (body.comment.length > COMMENT_MAX) return bad(`A comment can be at most ${COMMENT_MAX} characters.`);
+    const error = commentOn(root, body.n, body.comment);
+    return error ? bad(error) : Response.json({ commented: body.n });
+  }
   if (body.reopen === true) {
     const error = reopenIssue(root, body.n);
     return error ? bad(error) : Response.json({ reopened: body.n });

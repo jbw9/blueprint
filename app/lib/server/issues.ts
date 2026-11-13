@@ -78,3 +78,11 @@ export function closeIssue(root: string, n: number, reason: CloseReason): string
 export function reopenIssue(root: string, n: number): string | null {
   return gh(root, ["issue", "reopen", String(n)]) === null ? `Could not reopen issue #${n}. ${NO_GH}` : null;
 }
+
+/** The longest comment GitHub takes. */
+export const COMMENT_MAX = 65_536;
+
+/** Comments on an issue as the signed-in GitHub user; null when it is posted. */
+export function commentOn(root: string, n: number, body: string): string | null {
+  return gh(root, ["issue", "comment", String(n), "--body-file", "-"], body) === null ? `Could not comment on issue #${n}. ${NO_GH}` : null;
+}
