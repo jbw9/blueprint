@@ -1,26 +1,35 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Zilla_Slab } from "next/font/google";
+import localFont from "next/font/local";
 import { THEME_SCRIPT } from "@/lib/client/theme";
 import "./globals.css";
 
-const sans = IBM_Plex_Sans({
+// Kept here rather than fetched from Google at build time: a build that could not reach Google failed.
+const sans = localFont({
   variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  src: [
+    { path: "./fonts/ibm-plex-sans-400.woff2", weight: "400" },
+    { path: "./fonts/ibm-plex-sans-500.woff2", weight: "500" },
+    { path: "./fonts/ibm-plex-sans-600.woff2", weight: "600" },
+  ],
   display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = localFont({
   variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  src: [
+    { path: "./fonts/ibm-plex-mono-400.woff2", weight: "400" },
+    { path: "./fonts/ibm-plex-mono-500.woff2", weight: "500" },
+    { path: "./fonts/ibm-plex-mono-600.woff2", weight: "600" },
+  ],
   display: "swap",
 });
 
-const display = Zilla_Slab({
+const display = localFont({
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["300", "400"],
+  src: [
+    { path: "./fonts/zilla-slab-300.woff2", weight: "300" },
+    { path: "./fonts/zilla-slab-400.woff2", weight: "400" },
+  ],
   display: "swap",
 });
 
