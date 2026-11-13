@@ -157,12 +157,22 @@ function useElapsed(v: UpdateView, on: boolean): string | null {
 
 const TONE = {
   idle: "border-sage-line bg-sage-surface text-sage-ink",
-  behind: "border-border-strong bg-surface text-ink hover:bg-surface-container",
+  behind: "border-border-gray bg-card text-ink hover:bg-surface-container",
   finding: "border-amber-line bg-amber-surface text-amber-ink",
   running: "border-amber-line bg-amber-surface text-amber-ink",
   done: "border-sage-line bg-sage-surface text-sage-ink",
   failed: "border-clay-line bg-clay-surface text-clay-ink",
 } as const;
+
+/** The app's working dot (components/agent/status-dot.tsx): still while it waits, ringing while work goes on. */
+function Dot({ className, working }: { className: string; working?: boolean }) {
+  return (
+    <span aria-hidden className="relative flex size-2 shrink-0">
+      {working ? <span className={cn("absolute inset-0 animate-ping rounded-full opacity-60", className)} /> : null}
+      <span className={cn("relative size-2 rounded-full", className)} />
+    </span>
+  );
+}
 
 /** A thin bar of how many sections have landed; before any are picked, a sweep. */
 function Progress({ v }: { v: UpdateView }) {
@@ -204,6 +214,7 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
   const landed = v.rows.filter(done).length;
   const failed = v.rows.filter((r) => r.state === "failed").length;
   const title = place === "title";
+  const working = v.phase === "finding" || v.phase === "running";
   return (
     <div ref={box} className={cn("relative flex items-center", title ? "mr-1.5" : "mr-1 h-full")}>
       <button
@@ -213,13 +224,13 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
         title={v.phase === "behind" ? "The code changed under these sections. The blueprint follows when it is committed." : v.phase === "idle" ? "The blueprint matches the code" : headline(v)}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "arrive flex shrink-0 cursor-pointer items-center gap-2 border font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-          title ? "h-7 rounded-full px-3 text-[12px]" : "h-[18px] rounded px-2 text-[11px]",
+          "arrive flex shrink-0 cursor-pointer items-center gap-2 rounded border font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+          title ? "h-7 px-2.5 text-[12.5px]" : "h-[18px] px-2 text-[11px]",
           TONE[v.phase],
         )}
       >
-        {v.phase === "behind" ? <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-amber-ink" /> : null}
-        {v.phase === "finding" || v.phase === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-current" /> : null}
+        {v.phase === "behind" ? <Dot className="bg-amber-ink" /> : null}
+        {working ? <Dot className="bg-amber-ink" working /> : null}
         {v.phase === "idle" ? (
           <span>{v.paused ? "Auto-updates paused" : "✓ Up to date"}</span>
         ) : v.phase === "behind" ? (
@@ -234,12 +245,12 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
           <span>Updating blueprint</span>
         )}
         {v.phase === "running" ? (
-          <span className="font-mono text-[11px] tabular-nums">
+          <span className="tabular-nums opacity-80">
             {landed}/{n}
           </span>
         ) : null}
-        {v.phase === "done" ? <span className="font-mono text-[11px] tabular-nums">{n}</span> : null}
-        {v.phase === "finding" || v.phase === "running" ? <Progress v={v} /> : null}
+        {v.phase === "done" ? <span className="tabular-nums opacity-80">{n}</span> : null}
+        {working ? <Progress v={v} /> : null}
       </button>
       {open ? <UpdatePanel v={v} up={!title} onClose={() => setOpen(false)} /> : null}
     </div>
@@ -247,16 +258,16 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
 }
 
 const WORD: Record<RowState, string> = {
-  behind: "behind",
-  rewriting: "rewriting",
-  updated: "updated",
-  removed: "removed",
-  added: "added",
-  failed: "failed",
+  behind: "Behind",
+  rewriting: "Rewriting",
+  updated: "Updated",
+  removed: "Removed",
+  added: "Added",
+  failed: "Failed",
 };
 
 const INK: Record<RowState, string> = {
-  behind: "text-faint",
+  behind: "text-amber-ink",
   rewriting: "text-amber-ink",
   updated: "text-sage-ink",
   removed: "text-muted-slate",
@@ -264,107 +275,92 @@ const INK: Record<RowState, string> = {
   failed: "text-clay-ink",
 };
 
-function Mark({ state }: { state: RowState }) {
-  if (state === "rewriting") return <span aria-hidden className="size-[7px] animate-pulse rounded-full bg-amber-ink" />;
-  if (state === "behind") return <span aria-hidden className="size-[7px] rounded-full bg-amber-ink" />;
-  return (
-    <span aria-hidden className={cn("font-mono text-[11px] font-semibold leading-none", INK[state])}>
-      {state === "failed" ? "✗" : state === "removed" ? "−" : state === "added" ? "+" : "✓"}
-    </span>
-  );
-}
+const DOT: Record<RowState, string> = {
+  behind: "bg-amber-ink",
+  rewriting: "bg-amber-ink",
+  updated: "bg-sage-ink",
+  removed: "bg-faint",
+  added: "bg-sage-ink",
+  failed: "bg-clay-ink",
+};
 
-const ACT = "flex h-6 cursor-pointer items-center rounded px-2.5 text-[12px] font-medium focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
-const PRIMARY = cn(ACT, "bg-accent text-on-accent hover:bg-accent-strong");
+/** The menu's own row (components/ui/menu.tsx). */
+const ROW = "flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] font-medium text-ink outline-none transition-colors duration-100";
+const LIVE = "cursor-pointer hover:bg-surface-container focus-visible:bg-surface-container";
 
+/** The list behind the pill, drawn as the app's menus are (components/ui/menu.tsx). */
 function UpdatePanel({ v, up, onClose }: { v: UpdateView; up: boolean; onClose: () => void }) {
   const elapsed = useElapsed(v, true);
   const act = (f?: () => void) => () => {
     f?.();
     onClose();
   };
+  const note =
+    v.phase === "idle"
+      ? v.paused
+        ? "Turn them on from the Blueprint menu in the status bar."
+        : "It follows the code on each commit."
+      : v.phase === "behind"
+        ? v.paused
+          ? "Auto-updates are paused."
+          : "It updates when the code is committed."
+        : v.phase === "finding"
+          ? "Finding the sections the change touches."
+          : v.phase === "running"
+            ? "Each section changes on the blueprint as it lands."
+            : v.phase === "done"
+              ? "The blueprint matches the code."
+              : "What failed keeps its last version.";
+  const actions = [
+    v.review ? { label: "See what changed", run: v.review } : null,
+    v.update ? { label: v.phase === "failed" ? "Retry" : "Update now", run: v.update } : null,
+  ].filter((a): a is { label: string; run: () => void } => a !== null);
   return (
     <div
       role="dialog"
       aria-label="Blueprint update"
+      data-chrome
       className={cn(
-        "absolute right-0 z-50 w-[340px] animate-[dialog-in_.14s_ease-out] overflow-hidden rounded-md border border-border-gray bg-card font-sans shadow-lift",
+        "absolute right-0 z-50 w-[300px] animate-[dialog-in_.14s_ease-out] overflow-hidden rounded-md border border-border-gray bg-card p-1 font-sans shadow-lift",
         up ? "bottom-full mb-1.5" : "top-full mt-1.5",
       )}
     >
-      <div className="flex items-baseline justify-between gap-3 border-b border-border-gray px-3.5 pt-3 pb-2.5">
-        <span className={cn("text-[13px] font-semibold", v.phase === "done" ? "text-sage-ink" : v.phase === "failed" ? "text-clay-ink" : "text-ink")}>{headline(v)}</span>
-        {elapsed ? <span className="font-mono text-[11px] text-faint tabular-nums">{elapsed}</span> : null}
-      </div>
-      {v.phase === "finding" ? (
-        <p className="flex items-center gap-2 px-3.5 py-3 text-[12.5px] text-muted-slate">
-          <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-amber-ink" />
-          Finding the sections the change touches…
-        </p>
-      ) : v.rows.length ? (
-        <ul className="max-h-[300px] overflow-y-auto py-1">
+      <p className="flex items-baseline gap-2 px-2.5 pb-1.5 pt-1 text-[12px] font-medium text-muted-slate">
+        <span className="min-w-0 flex-1 truncate">{headline(v)}</span>
+        {elapsed ? <span className="shrink-0 tabular-nums">{elapsed}</span> : null}
+      </p>
+      {v.rows.length ? (
+        <div className="max-h-[300px] overflow-y-auto">
           {v.rows.map((r) => {
             const go = r.open;
             return (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  disabled={!go}
-                  onClick={go ? act(() => goTo(go)) : undefined}
-                  title={r.trail ? `${r.trail} › ${r.title}` : r.title}
-                  className={cn(
-                    "grid w-full grid-cols-[14px_minmax(0,1fr)_max-content] items-center gap-2.5 px-3.5 py-1.5 text-left",
-                    go && "cursor-pointer hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none",
-                  )}
-                >
-                  <span className="flex justify-center">
-                    <Mark state={r.state} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[12.5px] font-medium text-ink">{r.title}</span>
-                    {r.trail ? <span className="block truncate text-[11px] text-faint">{r.trail}</span> : null}
-                  </span>
-                  <span className={cn("font-mono text-[10.5px]", INK[r.state])}>{WORD[r.state]}</span>
-                </button>
-              </li>
+              <button
+                key={r.id}
+                type="button"
+                disabled={!go}
+                onClick={go ? act(() => goTo(go)) : undefined}
+                title={r.trail ? `${r.trail} › ${r.title}` : r.title}
+                className={cn(ROW, go ? LIVE : "cursor-default")}
+              >
+                <Dot className={DOT[r.state]} working={r.state === "rewriting"} />
+                <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                <span className={cn("shrink-0 text-[12px] font-normal", INK[r.state])}>{WORD[r.state]}</span>
+              </button>
             );
           })}
-        </ul>
+        </div>
       ) : null}
       {v.phase === "failed" && v.error ? (
-        <p title={v.error} className="mx-3.5 mb-2 line-clamp-3 border-l-2 border-clay-line pl-2 font-mono text-[11px] leading-snug text-clay-ink">
+        <p title={v.error} className="line-clamp-3 px-2.5 py-1.5 text-[12px] leading-snug text-clay-ink">
           {v.error}
         </p>
       ) : null}
-      <div className="flex items-center justify-between gap-3 border-t border-border-gray px-3.5 py-2">
-        <span className="min-w-0 truncate text-[11.5px] text-muted-slate">
-          {v.phase === "idle"
-            ? v.paused
-              ? "Turn them on from the Blueprint menu"
-              : "It follows the code on each commit"
-            : v.phase === "behind"
-            ? v.paused
-              ? "Auto-updates are paused"
-              : "Updates when the code is committed"
-            : v.phase === "finding" || v.phase === "running"
-              ? "Each section changes on the blueprint as it lands"
-              : v.phase === "done"
-                ? "The blueprint matches the code"
-                : "What failed keeps its last version"}
-        </span>
-        <span className="flex shrink-0 items-center gap-1">
-          {v.review ? (
-            <button type="button" onClick={act(v.review)} className={PRIMARY}>
-              See what changed
-            </button>
-          ) : null}
-          {v.update ? (
-            <button type="button" onClick={act(v.update)} className={PRIMARY}>
-              {v.phase === "failed" ? "Retry" : "Update now"}
-            </button>
-          ) : null}
-        </span>
-      </div>
+      <p className={cn("px-2.5 py-1.5 text-[12px] text-muted-slate", (v.rows.length > 0 || v.error) && "mt-1 border-t border-border-gray pt-2")}>{note}</p>
+      {actions.map((a) => (
+        <button key={a.label} type="button" onClick={act(a.run)} className={cn(ROW, LIVE)}>
+          {a.label}
+        </button>
+      ))}
     </div>
   );
 }
