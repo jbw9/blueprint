@@ -52,7 +52,7 @@ export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; 
         aria-label="Commits, or a pull request, branch or agent turn to review"
         title={got?.why ?? "Show all commits, or review a pull request, branch or agent turn"}
         onChange={(e) => onPick(e.target.value || undefined)}
-        className="absolute inset-0 cursor-pointer opacity-0"
+        className="absolute inset-0 cursor-pointer bg-card text-[12px] text-ink opacity-0"
       >
         <option value="">All commits</option>
         {got?.turns.length ? (
