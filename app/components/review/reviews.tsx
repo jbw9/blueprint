@@ -10,9 +10,6 @@ import { ago } from "@/components/review/ago";
 
 /* ── reviews ─────────────────────────────────────────────────── */
 
-const SELECT =
-  "w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink focus:border-accent focus:outline-none";
-
 /**
  * Something to review as one change: a pull request or a branch, from where
  * it left its base (lib/server/review.ts), or one turn of the agent in the app, as
@@ -30,14 +27,32 @@ export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; 
       live = false;
     };
   }, [blueprint]);
+  const turn = value?.startsWith("turn:") ? got?.turns.find((t) => `turn:${t.id}` === value) : undefined;
+  const pull = value?.startsWith("pr:") ? got?.pulls?.find((p) => `pr:${p.number}` === value) : undefined;
+  const label = !value
+    ? "All commits"
+    : turn
+      ? turn.prompt || "An agent turn"
+      : pull
+        ? `#${pull.number} ${pull.title}`
+        : value.startsWith("pr:")
+          ? `#${value.slice(3)}`
+          : value.startsWith("turn:")
+            ? "An agent turn"
+            : (value.split("...")[1] ?? value);
+  // The select is laid over its own label, so the header shows a button the width of what is picked while the list stays the system's own.
   return (
-    <>
+    <span className="relative inline-flex h-7 min-w-0 max-w-[240px] items-center gap-1 rounded px-2.5 text-[12.5px] font-medium text-on-surface-variant transition-colors duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent/70 hover:bg-surface-container hover:text-ink">
+      <span className="min-w-0 truncate">{label}</span>
+      <svg aria-hidden width="10" height="10" viewBox="0 0 10 10" className="shrink-0">
+        <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
       <select
         value={value ?? ""}
         aria-label="Commits, or a pull request, branch or agent turn to review"
         title={got?.why ?? "Show all commits, or review a pull request, branch or agent turn"}
         onChange={(e) => onPick(e.target.value || undefined)}
-        className={SELECT}
+        className="absolute inset-0 cursor-pointer opacity-0"
       >
         <option value="">All commits</option>
         {got?.turns.length ? (
@@ -70,7 +85,7 @@ export function ReviewPicker({ blueprint, value, onPick }: { blueprint: string; 
           </optgroup>
         ) : null}
       </select>
-    </>
+    </span>
   );
 }
 

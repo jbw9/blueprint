@@ -170,7 +170,7 @@ export function DiffPanel() {
       <div className={DIALOG + " pop h-[min(620px,100%)] " + (reading?.open ? "max-w-[360px]" : "max-w-[940px]")}>
         <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
           <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
-          <div className={cn("min-w-0 max-w-[260px] flex-1", reading?.open && "hidden")}>
+          <div className={cn("flex min-w-0", reading?.open && "hidden")}>
             <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
           </div>
           <span className="flex-1" />
