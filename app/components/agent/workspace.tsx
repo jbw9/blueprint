@@ -1215,7 +1215,7 @@ export function Workspace() {
       onPointerDown={grab(t)}
       title="Drag onto the blueprint to open it in the main view, or back onto the window"
       className={cn(
-        "group flex min-w-[76px] max-w-[200px] shrink cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
+        "group flex min-w-[76px] flex-[0_1_160px] cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
         selected ? "bg-surface-container-low text-ink" : "border-b text-muted-slate hover:text-ink",
         dragging?.key === t.key && "opacity-40",
       )}
