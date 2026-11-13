@@ -95,8 +95,8 @@ export function Header({
         ) : null}
         <span className="flex-1" />
         {pending ? (
-          <span role="status" className="arrive flex items-center gap-2 text-[12.5px] text-muted-slate">
-            <span aria-hidden className="size-[6px] shrink-0 rounded-full bg-accent" />
+          <span role="status" className="arrive flex items-center gap-2 text-[12.5px] font-medium text-sage-ink">
+            <span aria-hidden className="size-[6px] shrink-0 rounded-full bg-sage-ink" />
             Updated to match the code
             <Button variant="ghost" onClick={() => (apply(), openReview("turn:latest"))}>
               Show changes
