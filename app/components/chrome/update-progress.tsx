@@ -27,8 +27,8 @@ export interface UpdateRow {
 }
 
 export interface UpdateView {
-  /** behind: code moved and nothing is committed. finding: started, no sections picked yet. */
-  phase: "behind" | "finding" | "running" | "done" | "failed";
+  /** behind: code moved and nothing is committed. finding: started, no sections picked yet. idle: nothing to report. */
+  phase: "idle" | "behind" | "finding" | "running" | "done" | "failed";
   rows: UpdateRow[];
   startedAt?: string;
   finishedAt?: string;
@@ -36,7 +36,6 @@ export interface UpdateView {
   error?: string;
   update?: () => void;
   review?: () => void;
-  dismiss?: () => void;
 }
 
 let view: UpdateView | null = null;
@@ -69,7 +68,8 @@ export type CardMark = { state: "rewriting" | "updated" | "failed"; n: number };
 
 /** What an update is doing under a part: rewriting what it holds, done with it, or failed at it. */
 function markOf(v: UpdateView | null, id: string): CardMark | null {
-  if (!v || v.phase === "behind" || v.phase === "finding") return null;
+  // While it runs, and where it failed. A finished update's marks would stay on the blueprint for good.
+  if (!v || (v.phase !== "running" && v.phase !== "failed")) return null;
   const under = v.rows.filter((r) => r.path?.includes(id));
   const count = (s: CardMark["state"]) => under.filter((r) => (s === "updated" ? r.state === "updated" || r.state === "added" || r.state === "removed" : r.state === s)).length;
   for (const s of ["rewriting", "failed", "updated"] as const) if (count(s)) return { state: s, n: count(s) };
@@ -127,6 +127,7 @@ function headline(v: UpdateView): string {
   const n = v.rows.length;
   const landed = v.rows.filter(done).length;
   const failed = v.rows.filter((r) => r.state === "failed").length;
+  if (v.phase === "idle") return v.paused ? "Auto-updates paused" : "Blueprint up to date";
   if (v.phase === "behind") return `${n} ${n === 1 ? "section" : "sections"} behind the code`;
   if (v.phase === "finding") return "Updating blueprint";
   if (v.phase === "running") return `Updating blueprint · ${landed} of ${n}`;
@@ -155,6 +156,7 @@ function useElapsed(v: UpdateView, on: boolean): string | null {
 }
 
 const TONE = {
+  idle: "border-sage-line bg-sage-surface text-sage-ink",
   behind: "border-border-strong bg-surface text-ink hover:bg-surface-container",
   finding: "border-amber-line bg-amber-surface text-amber-ink",
   running: "border-amber-line bg-amber-surface text-amber-ink",
@@ -208,7 +210,7 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={v.phase === "behind" ? "The code changed under these sections. The blueprint follows when it is committed." : headline(v)}
+        title={v.phase === "behind" ? "The code changed under these sections. The blueprint follows when it is committed." : v.phase === "idle" ? "The blueprint matches the code" : headline(v)}
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "arrive flex shrink-0 cursor-pointer items-center gap-2 border font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
@@ -218,7 +220,9 @@ export function UpdatePill({ place }: { place: "title" | "status" }) {
       >
         {v.phase === "behind" ? <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-amber-ink" /> : null}
         {v.phase === "finding" || v.phase === "running" ? <span aria-hidden className="size-[7px] shrink-0 animate-pulse rounded-full bg-current" /> : null}
-        {v.phase === "behind" ? (
+        {v.phase === "idle" ? (
+          <span>{v.paused ? "Auto-updates paused" : "✓ Up to date"}</span>
+        ) : v.phase === "behind" ? (
           <span>
             {n} {n === 1 ? "section" : "sections"} behind{v.paused ? " · paused" : ""}
           </span>
@@ -272,7 +276,6 @@ function Mark({ state }: { state: RowState }) {
 
 const ACT = "flex h-6 cursor-pointer items-center rounded px-2.5 text-[12px] font-medium focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
 const PRIMARY = cn(ACT, "bg-accent text-on-accent hover:bg-accent-strong");
-const QUIET = cn(ACT, "text-muted-slate hover:bg-surface-container hover:text-ink");
 
 function UpdatePanel({ v, up, onClose }: { v: UpdateView; up: boolean; onClose: () => void }) {
   const elapsed = useElapsed(v, true);
@@ -335,7 +338,11 @@ function UpdatePanel({ v, up, onClose }: { v: UpdateView; up: boolean; onClose: 
       ) : null}
       <div className="flex items-center justify-between gap-3 border-t border-border-gray px-3.5 py-2">
         <span className="min-w-0 truncate text-[11.5px] text-muted-slate">
-          {v.phase === "behind"
+          {v.phase === "idle"
+            ? v.paused
+              ? "Turn them on from the Blueprint menu"
+              : "It follows the code on each commit"
+            : v.phase === "behind"
             ? v.paused
               ? "Auto-updates are paused"
               : "Updates when the code is committed"
@@ -346,11 +353,6 @@ function UpdatePanel({ v, up, onClose }: { v: UpdateView; up: boolean; onClose: 
                 : "What failed keeps its last version"}
         </span>
         <span className="flex shrink-0 items-center gap-1">
-          {v.dismiss ? (
-            <button type="button" onClick={act(v.dismiss)} className={QUIET}>
-              Dismiss
-            </button>
-          ) : null}
           {v.review ? (
             <button type="button" onClick={act(v.review)} className={PRIMARY}>
               See what changed

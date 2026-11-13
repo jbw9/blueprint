@@ -69,7 +69,7 @@ export function StatusBar() {
         </Item>
       ) : null}
       <span className="min-w-0 flex-1" />
-      <BlueprintUpdates key={name} id={name} p={project} root={RUN.root} local={local} />
+      <BlueprintUpdates key={name} p={project} root={RUN.root} local={local} />
       {STATIC_BLUEPRINT ? null : <UpdateReady />}
       {STATIC_BLUEPRINT ? null : <CreditLeft />}
     </footer>
@@ -312,7 +312,7 @@ function rowOf(roots: Node[], id: string, state: RowState, title?: string): Upda
  * browser, which has no title bar. Between commits: how many sections the code
  * moved past (lib/server/live.ts, followed with the blueprint each second).
  * While an update runs (lib/server/vault.ts): each section it took on, as it
- * lands. After: what it did, until the reader dismisses it or looks. The
+ * lands. After: what the last one did, or that the blueprint is up to date. The
  * blueprint takes each section as it lands by itself
  * (components/blueprint/blueprint-context.tsx). Only the user's own projects
  * update; an example describes some other copy of its code, so when an agent
@@ -323,24 +323,7 @@ function rowOf(roots: Node[], id: string, state: RowState, title?: string): Upda
  * account of what it did. A commit is never retried after it failed, since each
  * try is a paid run; Update now runs regardless.
  */
-const putKey = (id: string) => `blueprint:update-seen:${id}`;
-function readPut(id: string): string | undefined {
-  try {
-    return localStorage.getItem(putKey(id)) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-function writePut(id: string, at?: string) {
-  try {
-    if (at) localStorage.setItem(putKey(id), at);
-    else localStorage.removeItem(putKey(id));
-  } catch {
-    /* storage off: it is put away until the page reloads */
-  }
-}
-
-function BlueprintUpdates({ id, p, root, local }: { id: string; p: ProjectState | null; root?: string; local: boolean }) {
+function BlueprintUpdates({ p, root, local }: { p: ProjectState | null; root?: string; local: boolean }) {
   const u = p?.update ?? null;
   const desktop = useDesktop();
   const { live, L0 } = useBlueprint();
@@ -351,17 +334,6 @@ function BlueprintUpdates({ id, p, root, local }: { id: string; p: ProjectState 
     window.addEventListener(UNFOLLOWED, on);
     return () => window.removeEventListener(UNFOLLOWED, on);
   }, [root]);
-
-  // A finished update the reader dismissed or looked at, kept with the project
-  // so a restart does not bring it back. Until then it stays.
-  const [put, setPut] = useState<string | undefined>(() => readPut(id));
-  const putAway = useCallback(
-    (at?: string) => {
-      setPut(at);
-      writePut(id, at);
-    },
-    [id],
-  );
 
   const behind = local ? (live?.files ?? []) : [];
   const head = local ? live?.head : undefined;
@@ -378,9 +350,11 @@ function BlueprintUpdates({ id, p, root, local }: { id: string; p: ProjectState 
     void followTurn(root, { transcript: null, corrections: [] });
   }, [head, root, paused]);
 
+  // Always something to say, so the reader always knows where the blueprint
+  // stands: an update running comes first, then one that failed, then code the
+  // blueprint has not caught up with, then what the last update did.
   const view = useMemo((): UpdateView | null => {
     if (!p) return null;
-    const dismiss = () => putAway(u?.finishedAt);
     if (u?.status === "running") {
       const found = p.updating?.found ?? false;
       return {
@@ -389,22 +363,18 @@ function BlueprintUpdates({ id, p, root, local }: { id: string; p: ProjectState 
         startedAt: u.startedAt,
       };
     }
-    if (u && u.finishedAt !== put && (u.status === "failed" || u.outcome?.length || u.sections?.length)) {
-      const rows = u.outcome?.length ? u.outcome.map((s) => rowOf(L0, s.id, s.state, s.title)) : (u.sections ?? []).map((t) => ({ id: t, title: t, trail: "", path: null, open: null, state: "updated" as const }));
-      return u.status === "done"
-        ? { phase: "done", rows, startedAt: u.startedAt, finishedAt: u.finishedAt, dismiss, review: () => (dismiss(), openReview("turn:latest")) }
-        : { phase: "failed", rows, startedAt: u.startedAt, finishedAt: u.finishedAt, error: u.error, dismiss, update: root ? follow : undefined };
+    const rows = (): UpdateRow[] =>
+      u?.outcome?.length ? u.outcome.map((s) => rowOf(L0, s.id, s.state, s.title)) : (u?.sections ?? []).map((t) => ({ id: t, title: t, trail: "", path: null, open: null, state: "updated" as const }));
+    if (u?.status === "failed") return { phase: "failed", rows: rows(), startedAt: u.startedAt, finishedAt: u.finishedAt, error: u.error, update: root ? follow : undefined };
+    if (behind.length && root) {
+      // Deepest only: a section above another that moved is on the way to it, not behind itself.
+      const touched = (live?.touched ?? []).filter((t) => !(live?.touched ?? []).some((o) => o !== t && o.path.length > t.path.length && t.path.every((id, i) => o.path[i] === id)));
+      return { phase: "behind", rows: touched.map((t) => rowOf(L0, t.path[t.path.length - 1], "behind")), paused, update: paused ? undefined : follow };
     }
-    if (!behind.length || !root) return null;
-    // Deepest only: a section above another that moved is on the way to it, not behind itself.
-    const touched = (live?.touched ?? []).filter((t) => !(live?.touched ?? []).some((o) => o !== t && o.path.length > t.path.length && t.path.every((id, i) => o.path[i] === id)));
-    return {
-      phase: "behind",
-      rows: touched.map((t) => rowOf(L0, t.path[t.path.length - 1], "behind")),
-      paused,
-      update: paused ? undefined : follow,
-    };
-  }, [p, u, put, putAway, L0, live, behind.length, root, paused, follow]);
+    if (u?.status === "done" && (u.outcome?.length || u.sections?.length))
+      return { phase: "done", rows: rows(), startedAt: u.startedAt, finishedAt: u.finishedAt, paused, review: () => openReview("turn:latest") };
+    return { phase: "idle", rows: [], paused };
+  }, [p, u, L0, live, behind.length, root, paused, follow]);
 
   useEffect(() => setUpdateView(view), [view]);
   useEffect(() => () => setUpdateView(null), []);
