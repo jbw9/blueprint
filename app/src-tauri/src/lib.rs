@@ -88,8 +88,9 @@ pub fn run() {
                     if let Err(e) = server::start(&handle).and_then(|()| open_main(&handle).map_err(|e| e.to_string())) {
                         use tauri_plugin_dialog::DialogExt;
                         handle.dialog().message(e).title("Blueprint couldn't start").blocking_show();
-                        handle.exit(1);
+                        return handle.exit(1);
                     }
+                    server::watch(handle);
                 });
             }
             #[cfg(target_os = "macos")]

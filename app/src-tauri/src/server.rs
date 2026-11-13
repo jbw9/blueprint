@@ -10,6 +10,7 @@
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -69,7 +70,35 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     Err(format!("Blueprint's server didn't start in 30 s. See {}.", data.join("server.log").display()))
 }
 
+/// Starts the server again whenever it stops while Blueprint runs: `npm run app:install` ends the one
+/// behind an open window to swap in its build, and a crash ends it too. Never mid-swap, while
+/// `server-next` or `server.old` is there, so the folder the install moves is not held open again.
+pub fn watch(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let Ok(data) = app.path().app_data_dir() else { return };
+        loop {
+            std::thread::sleep(Duration::from_secs(2));
+            if STOPPING.load(Ordering::SeqCst) {
+                return;
+            }
+            if up() || data.join("server-next").exists() || data.join("server.old").exists() {
+                continue;
+            }
+            if let Some(mut c) = app.state::<Server>().0.lock().unwrap().take() {
+                let _ = c.kill();
+                let _ = c.wait();
+            }
+            if let Err(e) = start(&app) {
+                eprintln!("server: {e}");
+            }
+        }
+    });
+}
+
+static STOPPING: AtomicBool = AtomicBool::new(false);
+
 pub fn stop(app: &tauri::AppHandle) {
+    STOPPING.store(true, Ordering::SeqCst);
     if let Some(mut c) = app.state::<Server>().0.lock().unwrap().take() {
         let _ = c.kill();
         let _ = c.wait();
