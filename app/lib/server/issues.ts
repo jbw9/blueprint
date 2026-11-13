@@ -36,9 +36,11 @@ const KEPT = 10;
 type Raw = { number: number; title: string; labels?: { name: string }[]; author?: { login?: string }; createdAt: string; url: string };
 const issueOf = (r: Raw): Issue => ({ number: r.number, title: r.title, labels: (r.labels ?? []).map((l) => l.name), author: r.author?.login ?? "", at: r.createdAt, url: r.url });
 
-/** Open issues, newest first, or why there are none to show. */
-export function issues(root: string): { issues: Issue[] } | { why: string } {
-  const out = gh(root, ["issue", "list", "--state", "open", "--limit", "100", "--json", "number,title,labels,author,createdAt,url"]);
+export type IssueState = "open" | "closed";
+
+/** Open or closed issues, newest first, or why there are none to show. */
+export function issues(root: string, state: IssueState): { issues: Issue[] } | { why: string } {
+  const out = gh(root, ["issue", "list", "--state", state, "--limit", "100", "--json", "number,title,labels,author,createdAt,url"]);
   if (out === null) return { why: NO_GH };
   return { issues: (JSON.parse(out) as Raw[]).map(issueOf) };
 }
@@ -70,4 +72,9 @@ export type CloseReason = "completed" | "not planned";
 /** Closes an issue on GitHub, as completed or as not planned; null when it is closed. */
 export function closeIssue(root: string, n: number, reason: CloseReason): string | null {
   return gh(root, ["issue", "close", String(n), "--reason", reason]) === null ? `Could not close issue #${n}. ${NO_GH}` : null;
+}
+
+/** Opens a closed issue again; null when it is open. */
+export function reopenIssue(root: string, n: number): string | null {
+  return gh(root, ["issue", "reopen", String(n)]) === null ? `Could not reopen issue #${n}. ${NO_GH}` : null;
 }

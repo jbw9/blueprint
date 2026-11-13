@@ -7,7 +7,8 @@ import { useDesktop } from "@/lib/client/platform";
 import { mention } from "@/lib/agent/context";
 import { ago } from "@/components/review/ago";
 import { TINT } from "@/components/review/diff";
-import type { CloseReason, FullIssue, Issue } from "@/lib/server/issues";
+import type { CloseReason, FullIssue, Issue, IssueState } from "@/lib/server/issues";
+import { Segmented } from "@/components/ui/dialog";
 
 /**
  * The Issues tab of the commits panel (components/review/diff-panel.tsx): the
@@ -17,10 +18,20 @@ import type { CloseReason, FullIssue, Issue } from "@/lib/server/issues";
  */
 
 const NAME = 60;
+const STATES: { value: IssueState; label: string }[] = [
+  { value: "open", label: "Open" },
+  { value: "closed", label: "Closed" },
+];
 
 export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: () => void }) {
   const desktop = useDesktop();
-  const [list, setList] = useState<{ issues?: Issue[]; why?: string } | null>(null);
+  const [state, setState] = useState<IssueState>("open");
+  // Each list as last read, so switching back shows it at once while it is read again.
+  const [lists, setLists] = useState<Partial<Record<IssueState, { issues?: Issue[]; why?: string }>>>({});
+  const [again, setAgain] = useState(0);
+  const list = lists[state] ?? null;
+  const setList = (f: (l: { issues?: Issue[]; why?: string }) => { issues?: Issue[]; why?: string }) =>
+    setLists((all) => (all[state] ? { ...all, [state]: f(all[state]) } : all));
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<number | null>(null);
   const [full, setFull] = useState<Record<number, FullIssue | { error: string }>>({});
@@ -28,14 +39,15 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
 
   useEffect(() => {
     let live = true;
-    fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}`)
+    const got = (l: { issues?: Issue[]; why?: string }) => live && setLists((all) => ({ ...all, [state]: l }));
+    fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}&state=${state}`)
       .then((r) => r.json())
-      .then((j: { issues?: Issue[]; why?: string; error?: string }) => live && setList({ issues: j.issues, why: j.why ?? j.error }))
-      .catch(() => live && setList({ why: "Could not reach the app's server." }));
+      .then((j: { issues?: Issue[]; why?: string; error?: string }) => got({ issues: j.issues, why: j.why ?? j.error }))
+      .catch(() => got({ why: "Could not reach the app's server." }));
     return () => {
       live = false;
     };
-  }, [blueprint]);
+  }, [blueprint, state, again]);
 
   const q = query.trim().toLowerCase().replace(/^#/, "");
   const shown = useMemo(
@@ -72,19 +84,27 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
 
   // Asked first, as completed or not planned, which is also the guard against a stray click.
   const [closing, setClosing] = useState<{ n: number; busy?: boolean; error?: string } | null>(null);
-  async function close(n: number, reason: CloseReason) {
+  /** Closes `n` with a reason, or opens it again; it leaves this list, and both lists are read again. */
+  async function move(n: number, to: CloseReason | "reopen") {
     setClosing({ n, busy: true });
     const r = await fetch("/api/issues", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ blueprint, n, reason }),
+      body: JSON.stringify(to === "reopen" ? { blueprint, n, reopen: true } : { blueprint, n, reason: to }),
     })
-      .then((r) => r.json() as Promise<{ closed?: number; error?: string }>)
+      .then((r) => r.json() as Promise<{ error?: string }>)
       .catch(() => ({ error: "Could not reach the app's server." }));
-    if ("error" in r && r.error) return setClosing({ n, error: r.error });
+    if (r.error) return setClosing({ n, error: r.error });
     setClosing(null);
     setPicked(null);
-    setList((l) => l && { ...l, issues: l.issues?.filter((i) => i.number !== n) });
+    setList((l) => ({ ...l, issues: l.issues?.filter((i) => i.number !== n) }));
+    setLists((all) => ({ [state]: all[state] }));
+    setFull((f) => {
+      const rest = { ...f };
+      delete rest[n];
+      return rest;
+    });
+    setAgain((k) => k + 1);
   }
 
   const summary = at === null ? undefined : list?.issues?.find((i) => i.number === at);
@@ -92,11 +112,21 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
   return (
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-gray">
-        <div className="shrink-0 border-b border-border-gray p-2">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border-gray p-2">
+          <Segmented
+            label="Open or closed issues"
+            value={state}
+            options={STATES}
+            onChange={(s) => {
+              setState(s);
+              setPicked(null);
+              setClosing(null);
+            }}
+          />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={list?.issues ? `Filter ${list.issues.length} open ${list.issues.length === 1 ? "issue" : "issues"}` : "Filter issues"}
+            placeholder={list?.issues ? `Filter ${list.issues.length} ${state} ${list.issues.length === 1 ? "issue" : "issues"}` : "Filter issues"}
             title="By number, title or label"
             aria-label="Filter issues"
             className="w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
@@ -105,7 +135,7 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
         <div
           ref={rows}
           role="listbox"
-          aria-label="Open issues"
+          aria-label={state === "open" ? "Open issues" : "Closed issues"}
           tabIndex={0}
           onKeyDown={(e) => {
             if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !shown.length) return;
@@ -136,7 +166,7 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
           })}
           {!list ? <p className="px-3 py-2 text-[12px] text-muted-slate">Reading the issues…</p> : null}
           {list?.why ? <p className="px-3 py-2 text-[12px] leading-snug text-muted-slate">{list.why}</p> : null}
-          {list?.issues && !list.issues.length ? <p className="px-3 py-2 text-[12px] text-muted-slate">No open issues.</p> : null}
+          {list?.issues && !list.issues.length ? <p className="px-3 py-2 text-[12px] text-muted-slate">No {state} issues.</p> : null}
           {list?.issues?.length && !shown.length ? <p className="px-3 py-2 text-[12px] text-muted-slate">No issue matches “{query}”.</p> : null}
         </div>
       </aside>
@@ -146,7 +176,7 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
           {summary ? (
             <>
               <p className="text-[12px] text-muted-slate">
-                Opened by {summary.author} {ago(summary.at)}
+                {state === "closed" ? "Closed · " : ""}Opened by {summary.author} {ago(summary.at)}
                 {one && "comments" in one ? ` · ${one.comments.length} ${one.comments.length === 1 ? "comment" : "comments"}` : ""}
               </p>
               <h3 className="mt-1.5 text-[17px] font-semibold leading-snug text-ink">
@@ -177,13 +207,17 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
                   Open on GitHub ↗
                 </a>
                 <span className="flex-1" />
-                {closing?.n === summary.number ? (
+                {state === "closed" ? (
+                  <Button variant="ghost" size="sm" disabled={closing?.busy} onClick={() => void move(summary.number, "reopen")}>
+                    {closing?.n === summary.number && closing.busy ? "Reopening…" : "Reopen issue"}
+                  </Button>
+                ) : closing?.n === summary.number ? (
                   <span className="flex items-center gap-1">
                     <span className="mr-1 text-[12px] text-muted-slate">{closing.busy ? "Closing…" : "Close as"}</span>
-                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void close(summary.number, "completed")}>
+                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void move(summary.number, "completed")}>
                       Completed
                     </Button>
-                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void close(summary.number, "not planned")}>
+                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void move(summary.number, "not planned")}>
                       Not planned
                     </Button>
                     <Button variant="ghost" size="sm" disabled={closing.busy} onClick={() => setClosing(null)}>
