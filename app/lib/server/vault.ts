@@ -101,7 +101,25 @@ export interface Project {
     /** Each section the finished run touched, and what became of it. */
     outcome?: UpdateSection[];
     error?: string;
+    /** The run before this one, while this one runs: it comes back if this one finds nothing to do. */
+    last?: UpdateResult;
   };
+}
+
+/** What a finished update did, as the open blueprint reports it. */
+type UpdateResult = Pick<NonNullable<Project["update"]>, "status" | "startedAt" | "finishedAt" | "changed" | "sections" | "outcome" | "error">;
+
+/**
+ * The result a new run stands in front of. A run that did something is it; one
+ * that found nothing to do passes on the result it stood in front of, so a
+ * commit made while an update ran, which runs again only to find that update
+ * already covered it, never hides what that update did.
+ */
+function lastResult(u: Project["update"]): UpdateResult | undefined {
+  if (!u || u.status === "running") return u?.last;
+  if (u.status === "done" && !u.sections?.length) return u.last;
+  const { status, startedAt, finishedAt, changed, sections, outcome, error } = u;
+  return { status, startedAt, finishedAt, changed, sections, outcome, error };
 }
 
 /** A section an update takes on: being rewritten, or how it landed (scripts/generate/update.ts). */
@@ -625,6 +643,9 @@ function updated(p: Project) {
     })() || "The update stopped without saying why.";
   }
   void sendRun(projectDir(p.id), "update", u.status === "done" ? "ok" : "failed");
+  // Nothing to do: the open blueprint keeps reporting the run before.
+  if (u.status === "done" && !u.sections?.length && u.last) Object.assign(u, u.last);
+  u.last = undefined;
 }
 
 /** An agent's turn the blueprint follows: what it did and why (its transcript), and where it found the blueprint wrong. */
@@ -703,7 +724,7 @@ export function updateBlueprint(root: string, claude?: string, turn?: Turn, forc
   );
   closeSync(log);
   child.unref();
-  update(p.id, (q) => (q.update = { status: "running", startedAt: new Date().toISOString(), pid: child.pid, head }));
+  update(p.id, (q) => (q.update = { status: "running", startedAt: new Date().toISOString(), pid: child.pid, head, last: lastResult(q.update) }));
   child.on("exit", () => {
     let again = false;
     update(p.id, (q) => {
