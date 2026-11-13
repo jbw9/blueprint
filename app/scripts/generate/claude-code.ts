@@ -272,6 +272,9 @@ async function claude(args: string[], prompt: string, stage: string, effort?: st
         // A missing binary emits "error", not "close"; unheard, it crashes the run.
         p.on("error", (e) => resolve({ code: null, stdout: "", stderr: String(e) }));
         p.on("close", (code) => resolve({ code, stdout, stderr }));
+        // A claude that quits before reading its prompt fails the write with EOF or EPIPE; unheard, it
+        // crashed the whole run with no word of why. The close above reports what claude said.
+        p.stdin.on("error", (e) => (stderr += `${e}\n`));
         p.stdin.end(prompt);
       });
       let r: Result | null = null;
