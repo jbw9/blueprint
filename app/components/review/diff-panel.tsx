@@ -192,10 +192,10 @@ export function DiffPanel() {
             variant="ghost"
             size="sm"
             onClick={() => setShown(false)}
-            title="Close this and keep the blueprint coloured by what changed"
+            title="Close History and see the changes colored on the blueprint"
             className={cn("text-accent", reading?.open && "hidden")}
           >
-            See it on the blueprint
+            Show on blueprint
           </Button>
           <Button
             variant="ghost"
