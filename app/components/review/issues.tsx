@@ -1,0 +1,192 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/client/utils";
+import { useDesktop } from "@/lib/client/platform";
+import { mention } from "@/lib/agent/context";
+import { ago } from "@/components/review/ago";
+import type { FullIssue, Issue } from "@/lib/server/issues";
+
+/**
+ * The Issues tab of the commits panel (components/review/diff-panel.tsx): the
+ * checkout's open GitHub issues on the left, the one picked on the right in
+ * full, and Give to Claude, which names it in Claude's prompt and sends its
+ * text with that prompt (lib/agent/context.ts `mention`), as a picked section is.
+ */
+
+const NAME = 60;
+
+export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: () => void }) {
+  const desktop = useDesktop();
+  const [list, setList] = useState<{ issues?: Issue[]; why?: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<number | null>(null);
+  const [full, setFull] = useState<Record<number, FullIssue | { error: string }>>({});
+  const rows = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}`)
+      .then((r) => r.json())
+      .then((j: { issues?: Issue[]; why?: string; error?: string }) => live && setList({ issues: j.issues, why: j.why ?? j.error }))
+      .catch(() => live && setList({ why: "Could not reach the app's server." }));
+    return () => {
+      live = false;
+    };
+  }, [blueprint]);
+
+  const q = query.trim().toLowerCase().replace(/^#/, "");
+  const shown = useMemo(
+    () =>
+      (list?.issues ?? []).filter(
+        (i) => !q || String(i.number).startsWith(q) || i.title.toLowerCase().includes(q) || i.labels.some((l) => l.toLowerCase().includes(q)),
+      ),
+    [list, q],
+  );
+  const at = picked ?? shown[0]?.number ?? null;
+  const one = at === null ? undefined : full[at];
+
+  useEffect(() => {
+    if (at === null || full[at]) return;
+    let live = true;
+    fetch(`/api/issues?blueprint=${encodeURIComponent(blueprint)}&n=${at}`)
+      .then((r) => r.json())
+      .then((j: FullIssue & { error?: string }) => live && setFull((f) => ({ ...f, [at]: j.error ? { error: j.error } : j })))
+      .catch(() => live && setFull((f) => ({ ...f, [at]: { error: "Could not reach the app's server." } })));
+    return () => {
+      live = false;
+    };
+  }, [at, blueprint, full]);
+
+  useEffect(() => {
+    rows.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [at]);
+
+  const give = (i: FullIssue) => {
+    const name = `#${i.number} ${i.title.length > NAME ? `${i.title.slice(0, NAME - 1)}…` : i.title}`;
+    mention({ key: `issue:${i.number}`, title: name, text: i.text });
+    onGiven();
+  };
+
+  const summary = at === null ? undefined : list?.issues?.find((i) => i.number === at);
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-gray">
+        <div className="shrink-0 border-b border-border-gray p-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={list?.issues ? `Filter ${list.issues.length} open ${list.issues.length === 1 ? "issue" : "issues"}` : "Filter issues"}
+            title="By number, title or label"
+            aria-label="Filter issues"
+            className="w-full rounded-md border border-border-gray bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+          />
+        </div>
+        <div
+          ref={rows}
+          role="listbox"
+          aria-label="Open issues"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !shown.length) return;
+            e.preventDefault();
+            const now = shown.findIndex((i) => i.number === at);
+            const next = Math.max(0, Math.min(shown.length - 1, (now < 0 ? 0 : now) + (e.key === "ArrowDown" ? 1 : -1)));
+            setPicked(shown[next].number);
+          }}
+          className="min-h-0 flex-1 overflow-y-auto p-1 outline-none"
+        >
+          {shown.map((i) => {
+            const on = i.number === at;
+            return (
+              <div
+                key={i.number}
+                role="option"
+                aria-selected={on}
+                data-active={on}
+                onClick={() => setPicked(i.number)}
+                title={`#${i.number} ${i.title}\n${i.author} · ${new Date(i.at).toLocaleString()}`}
+                className={cn("flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5", on ? "bg-accent/15" : "hover:bg-surface-container-low/60")}
+              >
+                <span className="tnum w-9 shrink-0 font-mono text-[11px] text-faint">#{i.number}</span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{i.title}</span>
+                <span className="shrink-0 text-[11px] text-faint">{ago(i.at)}</span>
+              </div>
+            );
+          })}
+          {!list ? <p className="px-3 py-2 text-[12px] text-muted-slate">Reading the issues…</p> : null}
+          {list?.why ? <p className="px-3 py-2 text-[12px] leading-snug text-muted-slate">{list.why}</p> : null}
+          {list?.issues && !list.issues.length ? <p className="px-3 py-2 text-[12px] text-muted-slate">No open issues.</p> : null}
+          {list?.issues?.length && !shown.length ? <p className="px-3 py-2 text-[12px] text-muted-slate">No issue matches “{query}”.</p> : null}
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {summary ? (
+            <>
+              <p className="text-[12px] text-muted-slate">
+                Opened by {summary.author} {ago(summary.at)}
+                {one && "comments" in one ? ` · ${one.comments.length} ${one.comments.length === 1 ? "comment" : "comments"}` : ""}
+              </p>
+              <h3 className="mt-1.5 text-[17px] font-semibold leading-snug text-ink">
+                <span className="mr-1.5 font-mono text-[15px] font-normal text-faint">#{summary.number}</span>
+                {summary.title}
+              </h3>
+              {summary.labels.length ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {summary.labels.map((l) => (
+                    <span key={l} className="rounded-full border border-border-strong px-2 text-[11px] leading-[18px] text-on-surface-variant">
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-3 flex items-center gap-2">
+                {desktop ? (
+                  <Button variant="primary" size="sm" disabled={!one || !("text" in one)} onClick={() => one && "text" in one && give(one)}>
+                    Give to Claude
+                  </Button>
+                ) : null}
+                <a
+                  href={summary.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-7 items-center rounded px-2.5 text-[12.5px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-ink"
+                >
+                  Open on GitHub ↗
+                </a>
+              </div>
+              {!one ? <p className="mt-4 text-[13px] text-muted-slate">Reading the issue…</p> : null}
+              {one && "error" in one ? <p className="mt-4 text-[13px] text-muted-slate">{one.error}</p> : null}
+              {one && "text" in one ? (
+                <>
+                  <p className="mt-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-on-surface-variant">{one.body || "No description."}</p>
+                  {one.comments.length ? (
+                    <>
+                      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">
+                        {one.comments.length} {one.comments.length === 1 ? "comment" : "comments"}
+                      </h3>
+                      <ul className="mt-1.5 flex flex-col gap-3">
+                        {one.comments.map((c, k) => (
+                          <li key={k} className="border-t border-border-gray pt-2">
+                            <p className="text-[11.5px] text-muted-slate">
+                              <span className="font-medium text-ink">{c.author}</span> · {ago(c.at)}
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-[12.5px] leading-relaxed text-on-surface-variant">{c.body}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </main>
+    </div>
+  );
+}

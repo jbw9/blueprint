@@ -46,7 +46,7 @@ export interface Pull {
 // A desktop app's server starts with launchd's PATH, which has no Homebrew.
 const PATH = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(delimiter);
 
-function gh(root: string, args: string[]): string | null {
+export function gh(root: string, args: string[]): string | null {
   try {
     return execFileSync("gh", args, { cwd: root, encoding: "utf8", env: { ...process.env, PATH }, stdio: ["ignore", "pipe", "pipe"], timeout: 20_000, windowsHide: true });
   } catch {

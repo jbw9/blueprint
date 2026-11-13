@@ -168,7 +168,7 @@ function BlueprintTools({ mac }: { mac: boolean }) {
   return (
     <>
       <Control
-        label={diff?.diff || diff?.loading ? "Version control — showing changes on the blueprint. Open the history" : "Version control — the commit history, and what each changed"}
+        label={diff?.diff || diff?.loading ? "Commits and issues — showing changes on the blueprint. Open them" : "Commits and issues — what each commit changed, and the open issues"}
         onClick={openDiff}
         active={Boolean(diff?.diff || diff?.loading)}
       >

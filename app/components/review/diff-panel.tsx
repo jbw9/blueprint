@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIALOG, Overlay } from "@/components/ui/dialog";
+import { DIALOG, Overlay, Segmented } from "@/components/ui/dialog";
+import { IssuesTab } from "@/components/review/issues";
 import { Button } from "@/components/ui/button";
 import { PanelClose } from "@/components/ui/panel";
 import { cn } from "@/lib/client/utils";
@@ -39,11 +40,18 @@ import { openTimeline } from "@/components/review/timeline";
  * Mounted once beside the other dialogs and opened by the same event that
  * turns diff mode on, so there is one way in. Leaving is `off`, in the header.
  */
+type Tab = "commits" | "issues";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "commits", label: "Commits" },
+  { value: "issues", label: "Issues" },
+];
+
 export function DiffPanel() {
   const d = useDiff();
   const { nodeAt, name: blueprint } = useBlueprint();
   const [shown, setShown] = useState(false);
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<Tab>("commits");
   const reading = useDiffFile();
   const list = useRef<HTMLDivElement>(null);
 
@@ -165,46 +173,58 @@ export function DiffPanel() {
     >
       <div className={DIALOG + " pop h-[min(620px,100%)] max-w-[940px]"}>
         <header className="flex shrink-0 items-center gap-1.5 border-b border-border-gray bg-surface-container-low px-5 py-3">
-          <h2 className="mr-2 text-[15px] font-semibold leading-tight tracking-[-0.01em] text-ink">History</h2>
-          <div className="flex min-w-0">
-            <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
+          <div className="mr-2">
+            <Segmented label="Commits or issues" value={tab} options={TABS} onChange={setTab} />
           </div>
-          <span className="flex-1" />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setShown(false);
-              openTimeline();
-              // A tab docked in the main view would hide the timeline it opens on.
-              showBlueprint();
-            }}
-            title="How the code got here — every commit on the blueprint's sections, over time"
-          >
-            Timeline
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShown(false)}
-            title="Close History and see the changes colored on the blueprint"
-            className="text-accent"
-          >
-            Show on blueprint
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              d.off();
-              setShown(false);
-            }}
-          >
-            Leave diff
-          </Button>
+          {/* The commit tools are about commits, so the Issues tab goes without them. */}
+          {tab === "commits" ? (
+            <>
+              <div className="flex min-w-0">
+                <ReviewPicker blueprint={blueprint} value={d.review} onPick={d.setReview} />
+              </div>
+              <span className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShown(false);
+                  openTimeline();
+                  // A tab docked in the main view would hide the timeline it opens on.
+                  showBlueprint();
+                }}
+                title="How the code got here — every commit on the blueprint's sections, over time"
+              >
+                Timeline
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShown(false)}
+                title="Close this and see the changes colored on the blueprint"
+                className="text-accent"
+              >
+                Show on blueprint
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  d.off();
+                  setShown(false);
+                }}
+              >
+                Leave diff
+              </Button>
+            </>
+          ) : (
+            <span className="flex-1" />
+          )}
           <PanelClose onClick={() => setShown(false)} className="my-0 ml-1" />
         </header>
 
+        {tab === "issues" ? (
+          <IssuesTab blueprint={blueprint} onGiven={() => setShown(false)} />
+        ) : (
         <div className="flex min-h-0 flex-1">
           {/* ── history ── */}
           <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-gray">
@@ -300,6 +320,7 @@ export function DiffPanel() {
             </div>
           </main>
         </div>
+        )}
       </div>
     </Overlay>
   );
