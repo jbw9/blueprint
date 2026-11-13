@@ -176,8 +176,11 @@ function BlueprintTools({ mac }: { mac: boolean }) {
         </g>
       </Control>
       <Control label="Open a file, folder or symbol" kbd={keys(mac, "K")} onClick={() => openPalette("code")}>
-        <path d="M4 1.5h5.5L12 4v10.5H4z" />
-        <path d="M9.5 1.5V4H12" />
+        {/* Lucide's search. */}
+        <g transform="scale(0.6667)" strokeWidth="1.875">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-4.3-4.3" />
+        </g>
       </Control>
     </>
   );

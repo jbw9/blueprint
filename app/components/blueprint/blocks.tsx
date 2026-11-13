@@ -192,6 +192,29 @@ function Diagram({
   const touches = (a: { from: string; to: string }) => held !== null && (a.from === held || a.to === held);
   const kin = new Set(held ? [held, ...arrows.filter(touches).flatMap((a) => [a.from, a.to])] : []);
   const fade = "transition-opacity duration-150 motion-reduce:transition-none";
+  // Wider than the level: it runs on past the level's padding, up to the
+  // workspace window's edge, and fades out there as if going under it.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    el.addEventListener("scroll", check, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", check);
+    };
+  }, []);
+  const edge = more ? "linear-gradient(to right, #000 calc(100% - 72px), transparent calc(100% - 8px))" : undefined;
+  // Out through the level's px-10 (components/blueprint/canvas.tsx) and 24px on
+  // under the window, padded back so the picture's width is unchanged. With no
+  // window open it stops at the pane's edge, so nothing scrolls sideways.
+  const reach = "calc(40px + min(24px, var(--workspace-inset, 0px)))";
 
   return (
     <figure className="min-w-0">
@@ -209,7 +232,11 @@ function Diagram({
       {/* No frame: the picture is the level, not an illustration pasted onto
           it (D41). A border here drew a box around the one thing that should
           read as the page itself. */}
-      <div className="overflow-x-auto">
+      <div
+        ref={scroller}
+        className="overflow-x-auto"
+        style={{ marginRight: `calc(-1 * ${reach})`, paddingRight: reach, maskImage: edge, WebkitMaskImage: edge }}
+      >
         {/* Grows into the width the level has, up to DIAGRAM_MAX_SCALE — the
             picture is the main thing on the page (D40) and was rendering at
             its natural size inside a column half again as wide, which is the

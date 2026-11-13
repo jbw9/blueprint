@@ -28,7 +28,7 @@ export function dragWidth(e: React.PointerEvent, aside: RefObject<HTMLElement | 
     last = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 2 * GAP, start + from - m.clientX));
     // Straight to the page while dragging: a render of every tab per move made the edge trail the pointer.
     if (aside.current) aside.current.style.width = `min(${last}px, calc(100vw - ${2 * GAP}px))`;
-    document.documentElement.style.setProperty("--workspace-inset", `calc(min(${last}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)`);
+    document.documentElement.style.setProperty("--workspace-inset", `calc(min(${last}px, 100vw - ${2 * GAP}px) + ${GAP}px)`);
   };
   const up = () => {
     window.removeEventListener("pointermove", move);

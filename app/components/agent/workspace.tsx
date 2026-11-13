@@ -1065,12 +1065,13 @@ export function Workspace() {
     setWasShown(shown);
     setSettled(false);
   }
-  // What the window covers of the main view's right, gap included. The plan
+  // What the window covers of the main view's right, up to its edge: what keeps
+  // clear runs right up to the window, so it reads as floating over it. The plan
   // keeps clear of it, and so does the blueprint (components/blueprint/canvas.tsx), which is
   // not drawn here and reads it as --workspace-inset.
   // Kept until the window has slid away, so the blueprint widens once, after, not under it.
   // With no tab left the window is not drawn at all, so it never finishes sliding away.
-  const inset = tabs.length && (shown || !settled) ? `calc(min(${width}px, 100vw - ${2 * GAP}px) + ${2 * GAP}px)` : undefined;
+  const inset = tabs.length && (shown || !settled) ? `calc(min(${width}px, 100vw - ${2 * GAP}px) + ${GAP}px)` : undefined;
   useEffect(() => {
     const root = document.documentElement.style;
     if (inset) root.setProperty("--workspace-inset", inset);
@@ -1286,7 +1287,7 @@ export function Workspace() {
       data-chrome
       // Over the history popup's veil while it has a file open here, so the two read together.
       className={cn(
-        "fixed flex flex-col rounded-lg border border-border-gray bg-surface-container-low shadow-lift",
+        "fixed flex flex-col rounded-lg bg-surface-container-low shadow-float",
         readingOpen && current?.kind === "diff" ? "z-[60]" : "z-40",
         // A staged Preview lies past the window's edge, and would be clipped.
         !stagedAt?.main && stagedAt ? "overflow-visible" : "overflow-hidden",
