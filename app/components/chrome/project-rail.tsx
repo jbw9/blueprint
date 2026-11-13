@@ -9,7 +9,7 @@ import { openProjects } from "@/components/projects/projects";
 import { keys } from "@/components/ui/button";
 import { arrived, closeProject, keepOnly, useOpenProjects } from "@/lib/client/open-projects";
 import { useDesktop, useMac } from "@/lib/client/platform";
-import { useRailExpanded, useRailWidth } from "@/lib/client/rail";
+import { dragRail, useRailExpanded, useRailWidth } from "@/lib/client/rail";
 import { openSettings } from "@/lib/client/settings";
 import { GearGlyph } from "@/components/chrome/icons";
 import { FoldButton } from "@/components/chrome/titlebar";
@@ -26,10 +26,11 @@ export function initials(label: string) {
  * The projects open in the window, down its left edge: a square each with
  * its initials and the dot of the loudest Claude among its workspace tabs
  * (components/agent/workspace.tsx), the open one marked with an accent bar. The rail
- * opens to show their names (the fold button above it, kept between launches);
+ * opens to show their names (the fold button above it, or its right edge dragged,
+ * which also sets how wide; both kept between launches);
  * + opens another, imports one, or manages them. Switching keeps every
  * terminal running, and the workspace shows the tabs of the project switched
- * to. Cmd+1–9 (Ctrl+1–9 off a Mac) picks one. Middle click closes one. Where you
+ * to. Cmd+1–9 (Ctrl+1–9 off a Mac) picks one. Its × on hover, or a middle click, closes one. Where you
  * are inside the blueprint is the blueprint tabs' to say (components/chrome/tabs.tsx).
  */
 export function ProjectRail() {
@@ -87,8 +88,16 @@ export function ProjectRail() {
       aria-label="Projects"
       data-chrome="bar"
       style={{ width }}
-      className="flex shrink-0 select-none flex-col gap-2 overflow-y-auto overflow-x-hidden border-r border-border-gray bg-surface-container-low px-2 py-2 transition-[width] duration-[240ms] ease-[cubic-bezier(.2,.7,.2,1)]"
+      className="relative flex shrink-0 select-none flex-col gap-2 overflow-y-auto overflow-x-hidden border-r border-border-gray bg-surface-container-low px-2 py-2 transition-[width] duration-[240ms] ease-[cubic-bezier(.2,.7,.2,1)] [body[data-dragging]_&]:transition-none"
     >
+      <div
+        onPointerDown={dragRail}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize projects"
+        title="Drag to resize"
+        className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize hover:bg-accent/20"
+      />
       {mac ? <FoldButton wide={wide} /> : null}
       <div role="tablist" aria-label="Open projects" aria-orientation="vertical" className="flex flex-col gap-2">
         {shown.map((m, i) => {
@@ -129,12 +138,19 @@ export function ProjectRail() {
                   <StatusDot status={dot} />
                 </span>
               ) : null}
-              {wide && shown.length > 1 ? (
+              {shown.length > 1 ? (
                 <button
                   type="button"
                   onClick={() => close(m.id)}
                   aria-label={`Close ${m.label}`}
-                  className="mr-2 flex size-4 shrink-0 cursor-pointer items-center justify-center text-faint opacity-0 hover:bg-border-gray hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                  title={`Close ${m.label}`}
+                  className={cn(
+                    "flex size-4 shrink-0 cursor-pointer items-center justify-center opacity-0 focus-visible:opacity-100 group-hover:opacity-100",
+                    // Folded, the square fills the row: the × sits on its top-right corner, as a badge.
+                    wide
+                      ? "mr-2 text-faint hover:bg-border-gray hover:text-ink"
+                      : "absolute right-0 top-0 rounded-full border border-border-strong bg-surface-container-low text-muted-slate shadow-panel hover:bg-surface-dim hover:text-ink",
+                  )}
                 >
                   <svg aria-hidden width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
                     <path d="m1.5 1.5 5 5m0-5-5 5" />
