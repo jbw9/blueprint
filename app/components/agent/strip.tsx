@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { AgentIcon, CLAUDE, agentById, type Agent } from "@/components/agent/agents";
+import { AgentIcon, CLAUDE, CLAUDE_CODE, agentById, type Agent } from "@/components/agent/agents";
 import type { Tab } from "@/components/agent/workspace-tab";
 import { openSettings } from "@/lib/client/settings";
 
@@ -45,13 +45,15 @@ export function Strip({
           onClick={() => run(a)}
           title={
             a.id === CLAUDE.id
-              ? "Runs blueprint-claude in this shell: your Claude Code, able to take blueprint context"
-              : `Runs ${a.command} in this shell: your ${a.label}, able to take blueprint context`
+              ? "Runs blueprint-claude in this shell: Claude Code with the blueprint's context and tools, on Blueprint credit when Settings has it on"
+              : a.id === CLAUDE_CODE.id
+                ? "Runs claude-code in this shell: your own Claude Code as in any terminal, with no blueprint context, always on your Claude plan"
+                : `Runs ${a.command} in this shell: your ${a.label}, able to take blueprint context`
           }
           className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded bg-surface-container px-2.5 font-medium text-ink transition-[background-color,transform] duration-150 hover:bg-surface-dim active:scale-[0.97]"
         >
           <AgentIcon id={a.id} />
-          {a.id === CLAUDE.id ? "Claude" : a.label}
+          {a.label}
         </button>
       ))}
       {tab.found === false ? (

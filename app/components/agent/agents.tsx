@@ -21,20 +21,25 @@ export interface Agent {
   label: string;
   /** What is typed into the shell to start it. */
   command: string;
+  /** What its tabs are called, numbered. */
+  tab: string;
   /** The user's own CLI, looked for to know it is installed. */
   bin?: string;
 }
 
-export const CLAUDE: Agent = { id: "claude", label: "Claude Code", command: "blueprint-claude" };
+export const CLAUDE: Agent = { id: "claude", label: "Blueprint Claude", command: "blueprint-claude", tab: "blueprint claude" };
+
+/** The user's own Claude Code with nothing of Blueprint's, so its usage is plainly theirs (src-tauri/src/claude.rs, PLAIN). */
+export const CLAUDE_CODE: Agent = { id: "claude-code", label: "Claude Code", command: "claude-code", tab: "claude code" };
 
 /** Every other agent, shown when installed. */
 const AGENTS: Agent[] = [
-  { id: "codex", label: "Codex", command: "blueprint-codex", bin: "codex" },
-  { id: "opencode", label: "OpenCode", command: "blueprint-opencode", bin: "opencode" },
-  { id: "pi", label: "Pi", command: "blueprint-pi", bin: "pi" },
+  { id: "codex", label: "Codex", command: "blueprint-codex", tab: "codex", bin: "codex" },
+  { id: "opencode", label: "OpenCode", command: "blueprint-opencode", tab: "opencode", bin: "opencode" },
+  { id: "pi", label: "Pi", command: "blueprint-pi", tab: "pi", bin: "pi" },
 ];
 
-export const agentById = (id: string | undefined) => (id === CLAUDE.id ? CLAUDE : AGENTS.find((a) => a.id === id));
+export const agentById = (id: string | undefined) => [CLAUDE, CLAUDE_CODE, ...AGENTS].find((a) => a.id === id);
 
 /* ── icons ────────────────────────────────────────────────────── */
 
@@ -69,7 +74,7 @@ export function TerminalIcon({ className }: { className?: string }) {
 }
 
 export function AgentIcon({ id, className }: { id: string | undefined; className?: string }) {
-  const logo = id ? LOGOS[id] : undefined;
+  const logo = id ? LOGOS[id === CLAUDE_CODE.id ? CLAUDE.id : id] : undefined;
   if (!logo) return <TerminalIcon className={className} />;
   return (
     <svg
@@ -125,6 +130,6 @@ export function useAgents(): { agents: Agent[]; main: Agent; others: Agent[] } {
   const others = useInstalled();
   const claudeFound = useClaudeFound();
   const preferred = useSettings().agent;
-  const agents = [...(claudeFound === false ? [] : [CLAUDE]), ...others];
+  const agents = [...(claudeFound === false ? [] : [CLAUDE, CLAUDE_CODE]), ...others];
   return { agents, others, main: agents.find((a) => a.id === preferred) ?? CLAUDE };
 }

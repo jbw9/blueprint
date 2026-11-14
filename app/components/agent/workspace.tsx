@@ -1137,7 +1137,7 @@ export function Workspace() {
         : t.kind !== "shell"
         ? PLATFORM[t.kind].label
         : front
-          ? (agentHeading(t.heading) ?? `${front.command.replace(/^blueprint-/, "")} ${i + 1}`)
+          ? (agentHeading(t.heading) ?? `${front.tab} ${i + 1}`)
           : (t.label ?? `${t.title} ${i + 1}`);
   };
 

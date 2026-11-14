@@ -374,6 +374,22 @@ const CLAUDE_SHIM: &str = r#"#!/bin/sh
 exec "${BLUEPRINT_LAUNCHER%.cmd}" "$@"
 "#;
 
+/// The user's own Claude Code, as in any terminal: none of the launcher's hooks,
+/// context or tools, and never Blueprint credit, so what it uses is plainly theirs.
+const PLAIN: &str = r#"#!/bin/sh
+[ -n "$BLUEPRINT_CLAUDE_BIN" ] || { echo 'Claude Code was not found. Set its path in Blueprint Settings.' >&2; exit 127; }
+exec "$BLUEPRINT_CLAUDE_BIN" "$@"
+"#;
+
+/// `claude-code` typed in cmd or PowerShell: PLAIN, with no bash needed.
+#[cfg(windows)]
+const PLAIN_CMD: &str = "@echo off\r\n\
+if not defined BLUEPRINT_CLAUDE_BIN (\r\n\
+  echo Claude Code was not found. Set its path in Blueprint Settings. 1>&2\r\n\
+  exit /b 127\r\n\
+)\r\n\
+\"%BLUEPRINT_CLAUDE_BIN%\" %*\r\n";
+
 /// `claude` typed in cmd or PowerShell: CLAUDE_SHIM, run by Git for Windows' bash.
 /// Without it, the user's own `claude`, as Blueprint's launcher cannot run either.
 #[cfg(windows)]
@@ -793,8 +809,11 @@ fn launcher() -> std::io::Result<PathBuf> {
     let path = dir.join("blueprint-claude");
     install(&path, LAUNCHER)?;
     install(&dir.join("claude"), CLAUDE_SHIM)?;
+    install(&dir.join("claude-code"), PLAIN)?;
     #[cfg(windows)]
     install(&dir.join("claude.cmd"), CLAUDE_CMD)?;
+    #[cfg(windows)]
+    install(&dir.join("claude-code.cmd"), PLAIN_CMD)?;
     #[cfg(unix)]
     {
         install(&zdotdir().join(".zshenv"), ZSHENV)?;
