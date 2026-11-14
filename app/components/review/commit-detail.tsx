@@ -14,7 +14,7 @@ import { ago } from "@/components/review/ago";
 /* ── the right side ──────────────────────────────────────────── */
 
 /** Initials on a colour of their own, the same for one email everywhere: no picture is fetched. */
-function Avatar({ name, email, size = 32 }: { name: string; email?: string; size?: number }) {
+export function Avatar({ name, email, size = 32 }: { name: string; email?: string; size?: number }) {
   const key = email || name;
   let h = 0;
   for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

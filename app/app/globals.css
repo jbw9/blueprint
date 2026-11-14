@@ -150,6 +150,9 @@
   --color-diff-remove-ink: #b42318;
   --color-diff-remove-surface: #fbe0dc;
   --color-diff-remove-line: #e79a92;
+  /* A closed issue, in the purple GitHub gives it (components/review/issues.tsx). */
+  --color-issue-closed-ink: #8250df;
+  --color-issue-closed-surface: #efe6fd;
 }
 
 /* Light and Dark: neutral greys and a near-black (or near-white) ink; the
@@ -256,6 +259,8 @@
   --color-diff-remove-ink: #e88080;
   --color-diff-remove-surface: #331d1d;
   --color-diff-remove-line: #7a3535;
+  --color-issue-closed-ink: #b392f0;
+  --color-issue-closed-surface: #2a2238;
 
   --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-lift: 0 10px 34px -6px rgba(0, 0, 0, 0.5);

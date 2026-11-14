@@ -6,6 +6,7 @@ import { cn } from "@/lib/client/utils";
 import { useDesktop, useMac } from "@/lib/client/platform";
 import { mention } from "@/lib/agent/context";
 import { ago } from "@/components/review/ago";
+import { Avatar } from "@/components/review/commit-detail";
 import { TINT } from "@/components/review/diff";
 import type { CloseReason, FullIssue, Issue, IssueState } from "@/lib/server/issues";
 
@@ -192,45 +193,31 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           {summary ? (
             <>
-              <p className="text-[12px] text-muted-slate">
-                {state === "closed" ? "Closed · " : ""}Opened by {summary.author} {ago(summary.at)}
-                {one && "comments" in one ? ` · ${one.comments.length} ${one.comments.length === 1 ? "comment" : "comments"}` : ""}
-              </p>
-              <h3 className="mt-1.5 text-[17px] font-semibold leading-snug text-ink">
-                <span className="mr-1.5 font-mono text-[15px] font-normal text-faint">#{summary.number}</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StatePill state={state} />
+                {summary.labels.map((l) => (
+                  <span key={l} className="rounded-full border border-border-strong px-2 text-[11px] leading-[18px] text-on-surface-variant">
+                    {l}
+                  </span>
+                ))}
+              </div>
+              <h3 className="mt-2 text-[18px] font-semibold leading-snug tracking-[-0.01em] text-ink">
                 {summary.title}
+                <span className="ml-2 font-normal text-faint">#{summary.number}</span>
               </h3>
-              {summary.labels.length ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {summary.labels.map((l) => (
-                    <span key={l} className="rounded-full border border-border-strong px-2 text-[11px] leading-[18px] text-on-surface-variant">
-                      {l}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-1">
                 {desktop ? (
                   <Button variant="primary" size="sm" disabled={!one || !("text" in one)} onClick={() => one && "text" in one && give(one)}>
-                    Give to Claude
+                    ✦ Give to Claude
                   </Button>
                 ) : null}
-                <a
-                  href={summary.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-7 items-center rounded px-2.5 text-[12.5px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-ink"
-                >
-                  Open on GitHub ↗
-                </a>
-                <span className="flex-1" />
                 {state === "closed" ? (
                   <Button variant="ghost" size="sm" disabled={closing?.busy} onClick={() => void move(summary.number, "reopen")}>
-                    {closing?.n === summary.number && closing.busy ? "Reopening…" : "Reopen issue"}
+                    {closing?.n === summary.number && closing.busy ? "Reopening…" : "Reopen"}
                   </Button>
                 ) : closing?.n === summary.number ? (
                   <span className="flex items-center gap-1">
-                    <span className="mr-1 text-[12px] text-muted-slate">{closing.busy ? "Closing…" : "Close as"}</span>
+                    <span className="mx-1 text-[12px] text-muted-slate">{closing.busy ? "Closing…" : "Close as"}</span>
                     <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void move(summary.number, "completed")}>
                       Completed
                     </Button>
@@ -243,50 +230,52 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
                   </span>
                 ) : (
                   <Button variant="ghost" size="sm" onClick={() => setClosing({ n: summary.number })}>
-                    Close issue
+                    Close
                   </Button>
                 )}
+                <a
+                  href={summary.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-7 items-center rounded px-2.5 text-[12.5px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-ink"
+                >
+                  GitHub ↗
+                </a>
               </div>
               {closing?.n === summary.number && closing.error ? (
                 <p className="mt-2 text-[12px]" style={{ color: TINT.removed.ink }}>
                   {closing.error}
                 </p>
               ) : null}
-              {!one ? <p className="mt-4 text-[13px] text-muted-slate">Reading the issue…</p> : null}
-              {one && "error" in one ? <p className="mt-4 text-[13px] text-muted-slate">{one.error}</p> : null}
+              {!one ? <p className="mt-5 text-[13px] text-muted-slate">Reading the issue…</p> : null}
+              {one && "error" in one ? <p className="mt-5 text-[13px] text-muted-slate">{one.error}</p> : null}
               {one && "text" in one ? (
-                <>
-                  <p className="mt-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-on-surface-variant">{one.body || "No description."}</p>
-                  {one.comments.length ? (
-                    <>
-                      <h3 className="mt-6 text-[12px] font-medium text-muted-slate">
-                        {one.comments.length} {one.comments.length === 1 ? "comment" : "comments"}
-                      </h3>
-                      <ul className="mt-1.5 flex flex-col gap-3">
-                        {one.comments.map((c, k) => (
-                          <li key={k} className="border-t border-border-gray pt-2">
-                            <p className="text-[11.5px] text-muted-slate">
-                              <span className="font-medium text-ink">{c.author}</span> · {ago(c.at)}
-                            </p>
-                            <p className="mt-1 whitespace-pre-wrap break-words text-[12.5px] leading-relaxed text-on-surface-variant">{c.body}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : null}
-                  <CommentBox
-                    key={one.number}
-                    blueprint={blueprint}
-                    n={one.number}
-                    onPosted={() =>
-                      setFull((f) => {
-                        const rest = { ...f };
-                        delete rest[one.number];
-                        return rest;
-                      })
-                    }
-                  />
-                </>
+                // The thread hangs on one line, as the commit list does: the description, each comment, then the box.
+                <ol className="relative mt-5 flex flex-col gap-4 before:absolute before:bottom-4 before:left-[13.5px] before:top-7 before:w-px before:bg-border-strong">
+                  <Post author={one.author} at={one.at} body={one.body || "No description."} />
+                  {one.comments.map((c, k) => (
+                    <Post key={k} author={c.author} at={c.at} body={c.body} />
+                  ))}
+                  <li className="relative flex gap-3">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border-strong bg-card text-faint">
+                      <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                        <path d="M8 3.5v9M3.5 8h9" />
+                      </svg>
+                    </span>
+                    <CommentBox
+                      key={one.number}
+                      blueprint={blueprint}
+                      n={one.number}
+                      onPosted={() =>
+                        setFull((f) => {
+                          const rest = { ...f };
+                          delete rest[one.number];
+                          return rest;
+                        })
+                      }
+                    />
+                  </li>
+                </ol>
               ) : null}
             </>
           ) : null}
@@ -312,12 +301,43 @@ function StateMark({ state }: { state: IssueState }) {
   );
 }
 
-/** A comment on the issue, posted as the signed-in GitHub user; Ctrl/⌘+Enter posts it. */
+/** Open in green, closed in purple, as GitHub marks them. */
+function StatePill({ state }: { state: IssueState }) {
+  const ink = state === "open" ? "var(--color-diff-add-ink)" : "var(--color-issue-closed-ink)";
+  const surface = state === "open" ? "var(--color-diff-add-surface)" : "var(--color-issue-closed-surface)";
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full py-0.5 pl-1.5 pr-2.5 text-[11.5px] font-semibold" style={{ color: ink, background: surface }}>
+      <StateMark state={state} />
+      {state === "open" ? "Open" : "Closed"}
+    </span>
+  );
+}
+
+/** One post in the thread: the description or a comment, under its author's initials. */
+function Post({ author, at, body }: { author: string; at: string; body: string }) {
+  return (
+    <li className="relative flex gap-3">
+      <Avatar name={author || "?"} size={28} />
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="text-[12px] text-muted-slate">
+          <span className="font-semibold text-ink">{author}</span> · {ago(at)}
+        </p>
+        <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-on-surface-variant">{body}</p>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * A comment on the issue, posted as the signed-in GitHub user. One line until it
+ * is used, then it grows; Ctrl/⌘+Enter posts it.
+ */
 function CommentBox({ blueprint, n, onPosted }: { blueprint: string; n: number; onPosted: () => void }) {
   const [text, setText] = useState("");
   const mac = useMac();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
   async function post() {
     if (!text.trim() || sending) return;
     setSending(true);
@@ -334,35 +354,50 @@ function CommentBox({ blueprint, n, onPosted }: { blueprint: string; n: number; 
     setText("");
     onPosted();
   }
+  const open = focused || !!text;
   return (
-    <div className="mt-6 border-t border-border-gray pt-3">
-      <textarea
-        id={`issue-${n}-comment`}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            void post();
-          }
-        }}
-        rows={3}
-        placeholder="Leave a comment"
-        aria-label={`Comment on issue #${n}`}
-        className="block w-full resize-y rounded-md border border-border-gray bg-card px-2.5 py-2 text-[12.5px] leading-relaxed text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-      />
-      <div className="mt-2 flex items-center gap-2">
-        {error ? (
-          <span className="min-w-0 flex-1 text-[12px]" style={{ color: TINT.removed.ink }}>
-            {error}
-          </span>
-        ) : (
-          <span className="flex-1" />
+    <div className="min-w-0 flex-1">
+      <div
+        className={cn(
+          "flex gap-2 rounded-md border bg-card pl-2.5 pr-1 transition-colors duration-150",
+          open ? "flex-col items-stretch border-accent/60 py-1.5" : "items-center border-border-gray py-1",
         )}
-        <Button variant="outline" size="sm" disabled={!text.trim() || sending} onClick={() => void post()} title={keys(mac, "Enter")}>
-          {sending ? "Commenting…" : "Comment"}
-        </Button>
+      >
+        <textarea
+          id={`issue-${n}-comment`}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              void post();
+            }
+          }}
+          rows={open ? 4 : 1}
+          placeholder="Leave a comment"
+          aria-label={`Comment on issue #${n}`}
+          className="min-w-0 flex-1 resize-none bg-transparent py-0.5 text-[12.5px] leading-relaxed text-ink placeholder:text-faint focus:outline-none"
+        />
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          {open ? <span className="text-[11px] text-faint">{keys(mac, "Enter")}</span> : null}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!text.trim() || sending}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void post()}
+          >
+            {sending ? "Commenting…" : "Comment"}
+          </Button>
+        </div>
       </div>
+      {error ? (
+        <p className="mt-1.5 text-[12px]" style={{ color: TINT.removed.ink }}>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
