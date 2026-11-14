@@ -3,7 +3,7 @@ import { join, resolve, sep } from "node:path";
 import { auditOf } from "@/lib/server/blueprints";
 import { primeCredit } from "@/lib/server/credit";
 import { bad, notJson } from "@/lib/server/route";
-import { cancel, cloneProject, createProject, focus, generate, headOf, ImportError, importProject, listProjects, blueprintFileOf, progressOf, removeProject, setPaused, updateBlueprint, updatingOf, VAULT, type Turn } from "@/lib/server/vault";
+import { cancel, cloneProject, createProject, focus, generate, ImportError, importProject, listProjects, blueprintFileOf, progressOf, removeProject, setPaused, updateBlueprint, updatingOf, VAULT, type Turn } from "@/lib/server/vault";
 
 /**
  * The reader's projects (lib/server/vault.ts): list them, start, import or clone one, regenerate,
@@ -53,13 +53,13 @@ export async function GET(request: Request) {
     });
   }
   const projects = listProjects().map((p) => {
-    const head = headOf(p.root);
+    // An update that finished brought the blueprint up to the commit it ran at.
+    const at = (p.update?.status === "done" && p.update.head?.slice(0, p.blueprint.commit?.length ?? 8)) || p.blueprint.commit;
     return {
       ...p,
+      at,
       // A blueprint from an earlier run still opens while a new one is being made.
       hasBlueprint: Boolean(blueprintFileOf(p.id)),
-      // The code moved on since the blueprint was made.
-      stale: Boolean(p.blueprint.status === "ready" && p.blueprint.commit && head && head !== p.blueprint.commit),
       progress: p.blueprint.status === "generating" ? progressOf(p.id) : undefined,
     };
   });

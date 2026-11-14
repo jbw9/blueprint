@@ -229,9 +229,6 @@ const git = (root: string, ...args: string[]) => {
   }
 };
 
-/** Where the checkout's code is now, to tell a blueprint that has fallen behind. */
-export const headOf = (root: string) => git(root, "rev-parse", "--short", "HEAD");
-
 const TSX = ["--import", pathToFileURL(join(process.cwd(), "node_modules", "tsx", "dist", "loader.mjs")).href];
 
 const alive = (pid: number) => {

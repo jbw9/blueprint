@@ -56,7 +56,7 @@ export const newProject = () => show({ mode: "new" });
 /** Asks how much the project's new blueprint should explain, then makes it again. */
 export const remakeBlueprint = (id: string) => show({ remake: id });
 
-type Listed = Project & { hasBlueprint: boolean; stale: boolean; progress?: Progress };
+type Listed = Project & { hasBlueprint: boolean; at?: string; progress?: Progress };
 interface List {
   vault: string;
   projects: Listed[];
@@ -671,14 +671,13 @@ function Roots({ roots, onOpen }: { roots: Progress["roots"]; onOpen: (at: strin
 
 /** The row's one-word state, and its tone; the detail is in the title. */
 function statusOf(p: Listed): { text: string; title?: string; tone: string } {
-  const { status, commit, seconds } = p.blueprint;
+  const { status, seconds } = p.blueprint;
+  const commit = p.at;
   if (status === "generating") return { text: `Mapping · ${minutes(p.blueprint.startedAt)} min`, tone: "text-amber-ink" };
   if (status === "failed" && !p.paused) return { text: "Mapping failed", tone: "text-clay-ink" };
   if (p.paused) return p.hasBlueprint ? { text: "Updates off", title: `The blueprint from ${commit ?? "earlier"} is kept as it is.`, tone: "text-faint" } : { text: "No blueprint", tone: "text-faint" };
   if (status === "ready")
-    return p.stale
-      ? { text: "Out of date", title: `Blueprint made at ${commit ?? "?"}; the code has changed since.`, tone: "text-amber-ink" }
-      : { text: commit ? `Blueprint · ${commit}` : "Blueprint ready", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
+    return { text: commit ? `Blueprint · ${commit}` : "Blueprint ready", title: seconds ? `Took ${Math.round(seconds / 60)} min` : undefined, tone: "text-faint" };
   if (status === "cancelled") return { text: "Cancelled", tone: "text-faint" };
   return { text: "Empty", title: "Make its blueprint once it has code.", tone: "text-faint" };
 }
