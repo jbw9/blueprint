@@ -205,40 +205,33 @@ export function IssuesTab({ blueprint, onGiven }: { blueprint: string; onGiven: 
                 {summary.title}
                 <span className="ml-2 font-normal text-faint">#{summary.number}</span>
               </h3>
-              <div className="mt-3 flex flex-wrap items-center gap-1">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {desktop ? (
-                  <Button variant="primary" size="sm" disabled={!one || !("text" in one)} onClick={() => one && "text" in one && give(one)}>
+                  <TextAction strong disabled={!one || !("text" in one)} onClick={() => one && "text" in one && give(one)}>
                     ✦ Give to Claude
-                  </Button>
+                  </TextAction>
                 ) : null}
                 {state === "closed" ? (
-                  <Button variant="ghost" size="sm" disabled={closing?.busy} onClick={() => void move(summary.number, "reopen")}>
+                  <TextAction disabled={closing?.busy} onClick={() => void move(summary.number, "reopen")}>
                     {closing?.n === summary.number && closing.busy ? "Reopening…" : "Reopen"}
-                  </Button>
+                  </TextAction>
                 ) : closing?.n === summary.number ? (
-                  <span className="flex items-center gap-1">
-                    <span className="mx-1 text-[12px] text-muted-slate">{closing.busy ? "Closing…" : "Close as"}</span>
-                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void move(summary.number, "completed")}>
+                  <span className="flex items-center gap-3">
+                    <span className="text-[12.5px] text-faint">{closing.busy ? "Closing…" : "Close as"}</span>
+                    <TextAction disabled={closing.busy} onClick={() => void move(summary.number, "completed")}>
                       Completed
-                    </Button>
-                    <Button variant="outline" size="sm" disabled={closing.busy} onClick={() => void move(summary.number, "not planned")}>
+                    </TextAction>
+                    <TextAction disabled={closing.busy} onClick={() => void move(summary.number, "not planned")}>
                       Not planned
-                    </Button>
-                    <Button variant="ghost" size="sm" disabled={closing.busy} onClick={() => setClosing(null)}>
+                    </TextAction>
+                    <TextAction disabled={closing.busy} onClick={() => setClosing(null)}>
                       Cancel
-                    </Button>
+                    </TextAction>
                   </span>
                 ) : (
-                  <Button variant="ghost" size="sm" onClick={() => setClosing({ n: summary.number })}>
-                    Close
-                  </Button>
+                  <TextAction onClick={() => setClosing({ n: summary.number })}>Close</TextAction>
                 )}
-                <a
-                  href={summary.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-7 items-center rounded px-2.5 text-[12.5px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-ink"
-                >
+                <a href={summary.url} target="_blank" rel="noreferrer" className={ACTION}>
                   GitHub ↗
                 </a>
               </div>
@@ -298,6 +291,23 @@ function StateMark({ state }: { state: IssueState }) {
         <path d="M3 8.5l3.2 3.2L13 4.8" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
+  );
+}
+
+const ACTION =
+  "cursor-pointer rounded-sm text-[12.5px] font-medium text-muted-slate transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/70 disabled:cursor-default disabled:opacity-45 disabled:hover:text-muted-slate";
+
+/** An action as words alone, with no box: `strong` is the one the issue is mostly here for, in Claude's colour. */
+function TextAction({ strong, disabled, onClick, children }: { strong?: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(ACTION, strong && "font-semibold text-claude-ink hover:text-claude disabled:hover:text-claude-ink")}
+    >
+      {children}
+    </button>
   );
 }
 
