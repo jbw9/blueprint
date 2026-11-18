@@ -1,6 +1,7 @@
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType, keymap } from "@codemirror/view";
+import { mount, parse } from "pele";
 
 /**
  * Markdown drawn as the page it makes, in the text it is written in, the way
@@ -179,6 +180,10 @@ function build(view: EditorView, focused: boolean): DecorationSet {
             lineClass(n.from, n.to, "cm-md-quote");
             return;
           case "FencedCode":
+            // A ```mermaid fence is drawn whole by the tables field below, unless it is being edited.
+            if (mermaidOf(state, n.node) !== null && !touches(on, doc, n.from, n.to)) return false;
+            lineClass(n.from, n.to, "cm-md-fence");
+            return;
           case "CodeBlock":
             lineClass(n.from, n.to, "cm-md-fence");
             return;
@@ -350,11 +355,63 @@ const alignOf = (cell: string) => {
   return c.startsWith(":") && c.endsWith(":") ? "center" : c.endsWith(":") ? "right" : c.startsWith(":") ? "left" : "";
 };
 
+/**
+ * The diagram a ```mermaid fence holds, when pele can read it: one it cannot
+ * stays as written, so a typo shows as the text to fix, not a blank.
+ */
+function mermaidOf(state: EditorState, fence: SyntaxNode): string | null {
+  const info = fence.getChild("CodeInfo");
+  if (!info || state.sliceDoc(info.from, info.to).trim().toLowerCase() !== "mermaid") return null;
+  const text = fence.getChildren("CodeText").map((c) => state.sliceDoc(c.from, c.to)).join("\n");
+  try {
+    parse(text);
+    return text;
+  } catch {
+    return null;
+  }
+}
+
+/** A ```mermaid fence drawn as its diagram (components/ui/markdown/mermaid.tsx draws the same for the split view). */
+class Diagram extends WidgetType {
+  private static mounted = new WeakMap<HTMLElement, ReturnType<typeof mount>>();
+  constructor(readonly source: string) {
+    super();
+  }
+  eq(o: Diagram) {
+    return o.source === this.source;
+  }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-md-diagram pele-frame";
+    Diagram.mounted.set(wrap, mount(wrap, this.source));
+    // A click puts the caret in the fence, which shows it as written to edit.
+    wrap.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      view.dispatch({ selection: { anchor: view.posAtDOM(wrap) } });
+      view.focus();
+    });
+    return wrap;
+  }
+  destroy(dom: HTMLElement) {
+    Diagram.mounted.get(dom)?.destroy();
+    Diagram.mounted.delete(dom);
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
 function drawTables(state: EditorState, focused: boolean): DecorationSet {
   const on = focused ? activeLines(state) : new Set<number>();
   const out: Range<Decoration>[] = [];
   syntaxTree(state).iterate({
     enter: (n) => {
+      if (n.name === "FencedCode") {
+        const source = mermaidOf(state, n.node);
+        if (source !== null && state.doc.lineAt(n.from).from === n.from && !touches(on, state.doc, n.from, n.to))
+          out.push(Decoration.replace({ widget: new Diagram(source), block: true }).range(n.from, n.to));
+        return false;
+      }
       if (n.name === "Paragraph" || /Heading|Code|HTML/.test(n.name)) return false;
       if (n.name !== "Table") return;
       // Only one that starts its line can stand in for its lines.
@@ -375,7 +432,7 @@ function drawTables(state: EditorState, focused: boolean): DecorationSet {
 /** Whether the caret is in the text, as the view last said: a field cannot ask the view. */
 const focusSet = StateEffect.define<boolean>();
 
-/** Tables span lines, which only a field, not a view plugin, may replace. */
+/** Tables and diagrams span lines, which only a field, not a view plugin, may replace. */
 const tables = StateField.define<{ focused: boolean; deco: DecorationSet }>({
   create: (state) => ({ focused: false, deco: drawTables(state, false) }),
   update(v, tr) {
@@ -475,6 +532,7 @@ const page = EditorView.theme({
   ".cm-md-rule": { display: "inline-block", width: "100%", verticalAlign: "middle", borderTop: `1px solid ${v("border-gray")}` },
   ".cm-md-image": { maxWidth: "100%", display: "inline-block", verticalAlign: "bottom" },
   ".cm-md-table-wrap": { padding: "8px 32px 8px 56px", overflowX: "auto", cursor: "text" },
+  ".cm-md-diagram": { padding: "8px 32px 8px 56px", cursor: "text" },
   ".cm-md-table": { borderCollapse: "collapse", fontSize: "14px", lineHeight: "1.5" },
   ".cm-md-table th, .cm-md-table td": { border: `1px solid ${v("border-gray")}`, padding: "5px 12px", verticalAlign: "top" },
   ".cm-md-table th": { color: v("ink"), fontWeight: "600", backgroundColor: v("surface-container"), textAlign: "left" },

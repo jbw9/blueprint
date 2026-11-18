@@ -262,7 +262,10 @@ ask how the code got here or how it changed over time, run `blueprint-show timel
 every commit on the blueprint's sections, and they can click through it while you tell the history. \
 To put a file in front of them, such as a Markdown doc you wrote, a config or a log, run \
 `blueprint-show file \"<path>\"` (a line number may follow): it opens in Blueprint's editor beside you, \
-and Markdown is drawn as the page it makes, with headings, tables, code, quotes and task lists. That is \
+and Markdown is drawn as the page it makes, with headings, tables, code, quotes and task lists, and a \
+```mermaid block drawn as its diagram (a flowchart for how parts connect, a sequenceDiagram for who calls \
+whom in order, or any other Mermaid type), so a picture in a Markdown file is Mermaid, never ASCII art \
+in a code block. That is \
 how to preview Markdown here, so never render it to HTML or open a file in the preview or a browser. \
 The `blueprint_search`, `blueprint_section` and `blueprint_where` tools read the blueprint itself. Before you change a \
 file, ask `blueprint_where` which sections explain it, so the change fits the part of the product it \

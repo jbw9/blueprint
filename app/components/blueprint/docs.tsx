@@ -17,6 +17,7 @@ import { STATIC_BLUEPRINT, readSource } from "@/lib/blueprint/source";
 import type { Doc } from "@/lib/server/docs";
 import { cn } from "@/lib/client/utils";
 import { PLUGINS, REHYPE } from "@/lib/client/markdown";
+import { Mermaid, mermaidOf } from "@/components/ui/markdown/mermaid";
 
 /**
  * The docs reader: a project's Markdown (README, design notes, decision logs)
@@ -177,6 +178,8 @@ const lined = (Tag: "p" | "li" | "pre" | "blockquote" | "table") =>
     );
   };
 
+const LinedPre = lined("pre");
+
 const COMPONENTS: Components = {
   h1: heading("h1"),
   h2: heading("h2"),
@@ -186,7 +189,15 @@ const COMPONENTS: Components = {
   h6: heading("h6"),
   p: lined("p"),
   li: lined("li"),
-  pre: lined("pre"),
+  pre(props) {
+    const mermaid = mermaidOf(props.children);
+    if (mermaid === null) return <LinedPre {...props} />;
+    return (
+      <div data-line={props.node?.position?.start.line}>
+        <Mermaid source={mermaid} />
+      </div>
+    );
+  },
   blockquote: lined("blockquote"),
   table: lined("table"),
   a({ href = "", children }) {

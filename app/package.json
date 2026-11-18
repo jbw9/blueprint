@@ -36,6 +36,7 @@
     "hast-util-sanitize": "^5.0.2",
     "motion": "^13.2.0",
     "next": "16.3.5",
+    "pele": "1.13.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",

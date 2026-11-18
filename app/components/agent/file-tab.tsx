@@ -7,6 +7,7 @@ import { CodeEditor } from "@/components/ui/editor";
 import { FileFrame, TextStatus, ViewSwitch, crumbsOf, useMarkdownView } from "@/components/ui/file-frame";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { PLUGINS, REHYPE } from "@/lib/client/markdown";
+import { Mermaid, mermaidOf } from "@/components/ui/markdown/mermaid";
 import { cn } from "@/lib/client/utils";
 
 /**
@@ -208,6 +209,10 @@ const LOCAL: Components = {
     </a>
   ),
   img: ({ src, alt, title }) => <LocalImg src={typeof src === "string" ? src : undefined} alt={alt} title={title} />,
+  pre: ({ children }) => {
+    const mermaid = mermaidOf(children);
+    return mermaid === null ? <pre>{children}</pre> : <Mermaid source={mermaid} />;
+  },
 };
 
 /** The page a Markdown file on disk draws, for the split view. */

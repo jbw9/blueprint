@@ -407,6 +407,35 @@
     padding: 12px 16px;
     overflow-x: auto;
   }
+  /* A ```mermaid fence, drawn by pele (components/ui/markdown/mermaid.tsx) in
+     the colours a blueprint diagram uses (components/blueprint/blocks.tsx):
+     card boxes on a strong grey edge, wire-grey lines, ink text. Every value
+     is a token, so the picture follows the theme without being drawn again. */
+  .pele-frame {
+    --pele-bg: transparent;
+    --pele-fg: var(--color-ink);
+    --pele-fg-on-light: var(--color-ink);
+    --pele-muted: var(--color-muted-slate);
+    --pele-line: var(--color-wire);
+    --pele-surface: var(--color-card);
+    --pele-surface-alt: var(--color-surface-container-low);
+    --pele-border: var(--color-border-strong);
+    --pele-accent: var(--color-accent);
+    --pele-critical: var(--color-amber-ink);
+    --pele-font: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    --pele-font-mono: var(--font-mono), ui-monospace, monospace;
+    --pele-radius: 3px;
+    --pele-series-1: var(--color-sec-1-ink);
+    --pele-series-2: var(--color-sec-2-ink);
+    --pele-series-3: var(--color-sec-3-ink);
+    --pele-series-4: var(--color-sec-4-ink);
+    --pele-series-5: var(--color-sec-5-ink);
+    --pele-series-6: var(--color-sec-6-ink);
+    --pele-series-7: var(--color-sec-7-ink);
+    --pele-series-8: var(--color-actor-1);
+    overflow-x: auto;
+    font-size: 13px;
+  }
   .doc-prose table {
     display: block;
     overflow-x: auto;
