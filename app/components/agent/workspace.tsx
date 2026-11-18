@@ -1211,7 +1211,7 @@ export function Workspace() {
       onPointerDown={grab(t)}
       title="Drag onto the blueprint to open it in the main view, or back onto the window"
       className={cn(
-        "group flex min-w-[76px] flex-[0_1_160px] cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
+        "group flex w-40 min-w-[76px] shrink cursor-default items-center gap-2 border-r border-border-gray pl-3 pr-2 text-[12px]",
         selected ? "bg-surface-container-low text-ink" : "border-b text-muted-slate hover:text-ink",
         dragging?.key === t.key && "opacity-40",
       )}
@@ -1233,7 +1233,7 @@ export function Workspace() {
         data-close
         onClick={() => close(t.key)}
         aria-label={`Close ${nameOf(t)}`}
-        className="flex size-[18px] shrink-0 cursor-pointer items-center justify-center text-faint opacity-0 hover:bg-surface-container hover:text-ink group-hover:opacity-100 group-aria-selected:opacity-100"
+        className="ml-auto flex size-[18px] shrink-0 cursor-pointer items-center justify-center text-faint opacity-0 hover:bg-surface-container hover:text-ink group-hover:opacity-100 group-aria-selected:opacity-100"
       >
         ×
       </button>
