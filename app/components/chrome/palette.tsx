@@ -273,7 +273,7 @@ export function Palette() {
       { key: "a:new", label: "New Project…", hint: "Start an empty folder", kind: "action", run: newProject },
       { key: "a:projects", label: "Projects", hint: "Your blueprints: open, regenerate, remove", kind: "action", run: () => openProjects() },
       { key: "a:blueprints", label: "Switch blueprint…", kind: "action", run: () => setTimeout(() => openPalette("blueprints")) },
-      { key: "a:settings", label: "Settings", kind: "action", run: openSettings },
+      { key: "a:settings", label: "Settings", kind: "action", kbd: keys(mac, ","), run: openSettings },
       { key: "a:feedback", label: "Report a bug or send feedback", hint: "Goes to the people who make Blueprint", kind: "action", run: openFeedback },
       // After the palette has closed, so the words go to Claude's prompt rather than the palette's field.
       ...(desktop

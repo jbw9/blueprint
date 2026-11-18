@@ -7,8 +7,8 @@ import { cn } from "@/lib/client/utils";
 import { Button } from "@/components/ui/button";
 import { AgentIcon, CLAUDE, useInstalled } from "@/components/agent/agents";
 import { PanelClose, PanelHead } from "@/components/ui/panel";
-import { followTheme, onOpenSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type ThemeChoice } from "@/lib/client/settings";
-import { useDesktop } from "@/lib/client/platform";
+import { followTheme, onOpenSettings, openSettings, readSettings, saveSettings, useSettings, type Ground, type Settings, type ThemeChoice } from "@/lib/client/settings";
+import { isMac, useDesktop } from "@/lib/client/platform";
 import { FeedbackForm } from "@/components/chrome/feedback";
 import { onCreditChanged, percent, pollSignIn, readCredit, resetsAt, setCredit, setFallback, signOut, startSignIn, type Credit } from "@/lib/client/credit";
 
@@ -186,6 +186,18 @@ export function SettingsDialog() {
       }),
     [detect, desktop],
   );
+
+  // Cmd+, on a Mac, Ctrl+, elsewhere. Capture, so a focused terminal does not swallow it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = isMac() ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+      if ((e.code !== "Comma" && e.key !== ",") || !mod || e.altKey || e.shiftKey) return;
+      e.preventDefault();
+      openSettings();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
 
   // Mounted for the app's whole life, so this keeps the page on the saved theme.
   useEffect(followTheme, []);
